@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# pi runtime state that shouldn't be committed
+.pi/git/
+.pi/npm/
+.pi/sessions/

@@ -99,6 +99,12 @@ twice. See the [Extensions docs](https://pi.dev/docs/latest/extensions) and
 |---|---|
 | _(none yet — see `extensions/_template`)_ | |
 
+## Skills in this repo
+
+| Skill | Description |
+|---|---|
+| [grill-me](skills/grill-me/SKILL.md) | Adversarially stress-tests a plan, design doc, PR, or code by interrogating it with tough questions before it ships. |
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

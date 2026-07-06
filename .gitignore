@@ -7,3 +7,5 @@ dist/
 .pi/git/
 .pi/npm/
 .pi/sessions/
+.pi/teams
+.pi/flow.json

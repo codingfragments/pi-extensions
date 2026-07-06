@@ -217,6 +217,18 @@ changes without restarting.
   exfiltrate data, never log secrets, and call out any destructive
   capability (e.g. running shell commands, writing files) clearly in the
   extension's own README.
+- Tool/skill/command names should be collision-resistant once this repo is
+  shared as a package: avoid bare, generic names (`ask_user`, `search`,
+  `format`) that are likely to collide with tools from other packages a
+  consumer might have installed. Prefer a distinctive name or short prefix
+  tied to this repo (e.g. `ask-user` as shipped here, not `ask` or `query`).
+  Cheap to get right up front, painful to rename once consumers depend on it.
+- Local static-path config (`extensions`/`skills`/`prompts`/`themes` in
+  `~/.pi/agent/settings.json`) and a `packages` git/npm entry for this same
+  repo are **not** deduplicated against each other and must never both be
+  active on the same machine — see the README's
+  ["Don't run the static path and the git package at the same time"](README.md#dont-run-the-static-path-and-the-git-package-at-the-same-time)
+  section before wiring up a new machine or publishing a release.
 
 ## Reference docs
 

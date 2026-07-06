@@ -160,3 +160,15 @@ git:github.com/codingfragments/pi-extensions@<ref>`.
   "other" text) — defer to implementation, informed by decisions 4–6 above.
 - Left/right vs. up/down navigation for the `ask-user` form component —
   explicitly deferred to implementation time (decision 7).
+- **Sharing this repo as a package (deferred until something is actually
+  ready to ship):** local static-path config and a `packages` git/npm entry
+  for this same repo are not deduplicated against each other — running both
+  on one machine double-registers every tool/skill/command (see README's
+  "Don't run the static path and the git package at the same time"). Before
+  the first tagged release: (1) audit tool/skill/command names for
+  collision-resistance against other consumers' installed packages (see
+  `AGENTS.md` conventions), (2) decide whether to keep this as one monorepo
+  package or split into per-extension packages given the filtering support
+  already documented in `README.md`, (3) confirm the static-path entries in
+  `~/.pi/agent/settings.json` stay as the only active mechanism on this dev
+  machine even after a `packages` entry exists for others to consume.

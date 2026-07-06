@@ -93,6 +93,31 @@ which one is active with `pi config` to avoid loading the same extension
 twice. See the [Extensions docs](https://pi.dev/docs/latest/extensions) and
 [Packages docs](https://pi.dev/docs/latest/packages) for details.
 
+### Don't run the static path and the git package at the same time
+
+`packages` entries are deduplicated against each other by identity (npm name,
+git repo URL without ref, or resolved local absolute path — see
+[Packages: Scope and Deduplication](https://pi.dev/docs/latest/packages#scope-and-deduplication)).
+That dedup logic does **not** reach across mechanisms: a raw local-path entry
+in `extensions`/`skills`/`prompts`/`themes` and a `packages` git entry that
+happens to clone the same repo are two independent loads. Pi has no way to
+know they're "the same content" — you'll get every tool, skill, and command
+registered twice (duplicate `/commands`, duplicate skills in pickers, and
+undefined behavior if two tools share an exact name).
+
+Rule of thumb:
+
+- **On the machine where you actively edit this repo** (e.g. via a dotfiles
+  symlink into `~/.pi/agent/settings.json`): use the static local-path
+  arrays only. You are the live source; there's never a reason to *also*
+  add a `packages: ["git:...pi-extensions..."]` entry on that same machine.
+- **On any other machine, or for anyone else installing this**: use the
+  pinned `packages` git entry, and don't set local static paths pointing at
+  the same content.
+- If you want to sanity-check the consumer experience from your dev machine,
+  temporarily disable the static-path entries first (comment them out or use
+  `pi config`) — never run both at once, even briefly.
+
 ## Extensions in this repo
 
 | Extension | Description |

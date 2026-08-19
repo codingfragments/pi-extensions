@@ -122,7 +122,7 @@ Rule of thumb:
 
 | Extension | Description |
 |---|---|
-| _(none yet — see `extensions/_template`)_ | |
+| [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
 
 ## Skills in this repo
 

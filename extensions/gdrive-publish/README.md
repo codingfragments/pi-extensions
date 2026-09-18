@@ -9,9 +9,38 @@ URLs**. A `toc.md` linking to `./details.md` becomes a Doc whose link opens the
 Re-publishing updates the same Drive files in place, so **URLs you shared stay
 valid**.
 
-> Status: PR 2 of 3 — core library + CLI. The pi extension (typed tool,
-> confirm prompts, progress widget) lands in PR 3. All behaviour below is
-> verified by `npm test` (offline) and was smoke-tested against a real Drive.
+> Status: complete — core library, CLI, and pi extension. All behaviour below
+> is verified by `npm test` (offline) and was smoke-tested against a real
+> Drive.
+
+## Using it from pi
+
+The `gdrive_publish` tool is **inert unless this project is set up for
+publishing**: it is registered only when the working directory (or an ancestor,
+up to the repo root) has a `.gdrive-manifest.json` *and* a cached OAuth token
+exists. Sessions in unrelated repositories never see a tool that can write to
+Drive.
+
+| Situation | What is registered |
+|---|---|
+| unrelated directory | `/gdrive-publish-init`, `/gdrive-publish-status` only |
+| manifest present, not authenticated | the same two commands only |
+| manifest + token present | additionally the `gdrive_publish` tool |
+
+```text
+/gdrive-publish-status                 # what is missing, and why
+/gdrive-publish-init Project X Docs    # create the Drive folder + manifest
+/reload                                # picks up the now-registered tool
+
+gdrive_publish { mode: "plan" }        # read-only, never prompts
+gdrive_publish { mode: "publish" }     # asks for confirmation first
+```
+
+Writes are confirm-gated: in an interactive session `publish` shows the
+create/update/orphan counts via `ctx.ui.confirm`, and in a non-interactive
+session it **refuses** unless `assumeYes: true` is passed explicitly. The
+accompanying [skill](../../skills/gdrive-publish/SKILL.md) tells the agent to
+plan first, to never prune unasked, and how to explain each warning.
 
 ## How it works
 
@@ -148,5 +177,6 @@ core/       pure logic, zero pi imports, injectable DriveClient
   manifest.ts   atomic, sorted, checkpointed manifest IO
   report.ts     text and JSON rendering
 cli.ts      non-interactive CLI
+index.ts    pi extension: readiness gating, typed tool, confirm prompts
 test/       offline suite + fake Drive client
 ```

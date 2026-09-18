@@ -33,10 +33,11 @@ test("the committed CLI reference is current", () => {
       i++;
     }
     assert.fail(
-      `extensions/gdrive-publish/MANUAL.md cli-reference is stale (first difference at line ${i + 1}:\n` +
-        `  committed: ${JSON.stringify(committedLines[i])}\n` +
-        `  expected:  ${JSON.stringify(expectedLines[i])})\n` +
-        "run: npm run docs:cli",
+      `extensions/gdrive-publish/MANUAL.md cli-reference is stale (first difference at line ${
+        i + 1
+      }:\n  committed: ${JSON.stringify(committedLines[i])}\n  expected:  ${JSON.stringify(
+        expectedLines[i],
+      )})\nrun: npm run docs:cli`,
     );
   }
 });

@@ -2,23 +2,30 @@
 /**
  * gdrive-publish CLI.
  *
- * Fully non-interactive except for `login` (decision 6): every other command
- * works headless with flags, `--json`, and meaningful exit codes, so the same
- * binary is usable from CI, git hooks, and the pi extension.
+ * Fully non-interactive except for `login`: every other command works headless
+ * with flags, `--json`, and meaningful exit codes, so the same binary is usable
+ * from CI, git hooks, and the pi extension.
  *
- *   gdrive-publish login
- *   gdrive-publish init <dir> --name "Project X Docs"
- *   gdrive-publish plan <dir> [--json]
- *   gdrive-publish publish <dir> [--dry-run] [--json] [--prune] [--yes]
- *   gdrive-publish status <dir> [--json]
- *
- * Exit codes: 0 success, 1 runtime failure, 2 usage error, 3 published with
- * errors in the diagnostics.
+ * Command surface, flags and help text are defined once in ./commands.ts and
+ * derived everywhere else (overview, `help <command>`, `<command> --help`,
+ * flag validation, and the generated CLI reference in MANUAL.md), so the help
+ * cannot drift from the behaviour.
  */
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  BIN,
+  VERSION,
+  findCommand,
+  parseArgv,
+  renderCommand,
+  renderOverview,
+  suggestCommand,
+  validate,
+} from "./commands.ts";
+import type { CommandSpec, ParsedArgv } from "./commands.ts";
 import {
   AuthError,
   CachedTokenProvider,
@@ -33,69 +40,17 @@ import { buildPlan, publish } from "./core/publish.ts";
 import { planJson, renderPlan, renderSummary, summaryJson } from "./core/report.ts";
 import { folderUrl } from "./core/types.ts";
 
+/** Arguments as validated against the command table. */
 interface Args {
-  command: string;
   target?: string;
   flags: Set<string>;
   options: Map<string, string>;
-}
-
-function parseArgs(argv: string[]): Args {
-  const flags = new Set<string>();
-  const options = new Map<string, string>();
-  const positional: string[] = [];
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] as string;
-    if (arg.startsWith("--")) {
-      const eq = arg.indexOf("=");
-      if (eq > 0) {
-        options.set(arg.slice(2, eq), arg.slice(eq + 1));
-      } else if (arg === "--name" || arg === "--remote") {
-        const next = argv[i + 1];
-        if (next === undefined) fail(2, `${arg} requires a value`);
-        options.set(arg.slice(2), next as string);
-        i++;
-      } else {
-        flags.add(arg.slice(2));
-      }
-      continue;
-    }
-    positional.push(arg);
-  }
-  return {
-    command: positional[0] ?? "help",
-    ...(positional[1] !== undefined ? { target: positional[1] } : {}),
-    flags,
-    options,
-  };
 }
 
 function fail(code: number, message: string): never {
   process.stderr.write(`gdrive-publish: ${message}\n`);
   process.exit(code);
 }
-
-const USAGE = `gdrive-publish - publish markdown/CSV/XLSX to native Google Drive types
-
-  login                          authorise (opens a browser once)
-  init <dir> --name "Docs"       create the Drive folder and the manifest
-  plan <dir> [--json]            show what publishing would do (no writes)
-  publish <dir> [options]        publish; local content wins
-  status <dir> [--json]          show manifest state and credentials
-
-Options
-  --dry-run     plan only (publish is a no-op)
-  --json        machine-readable output
-  --prune       move orphaned Drive files to trash (never deletes)
-  --yes         skip confirmation when there are warnings (non-interactive)
-  --name        folder name for init
-  --remote      rclone remote to take client credentials from
-
-Environment
-  GDRIVE_PUBLISH_CLIENT_ID / _CLIENT_SECRET   OAuth client (highest priority)
-  GDRIVE_PUBLISH_CLIENT_SECRET_FILE           path to client_secret.json
-  GDRIVE_PUBLISH_RCLONE_REMOTE                rclone remote name
-`;
 
 function resolveRoot(target: string | undefined): string {
   if (!target) fail(2, "a directory argument is required");
@@ -248,9 +203,72 @@ function cmdStatus(args: Args): void {
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const parsed = parseArgv(process.argv.slice(2));
+
   try {
-    switch (args.command) {
+    // `--version` wins anywhere and never touches Drive.
+    if (parsed.wantsVersion) {
+      process.stdout.write(`${BIN} ${VERSION}\n`);
+      return;
+    }
+
+    if (parsed.command === undefined || parsed.command === "help") {
+      if (parsed.wantsHelp && parsed.command !== undefined) {
+        process.stdout.write(renderOverview());
+        return;
+      }
+      if (parsed.target !== undefined) {
+        const spec = findCommand(parsed.target);
+        if (!spec) {
+          const suggestion = suggestCommand(parsed.target);
+          fail(
+            2,
+            `unknown command: ${parsed.target}${
+              suggestion ? ` (did you mean "${suggestion}"?)` : ""
+            }\ntry: ${BIN} help`,
+          );
+        }
+        process.stdout.write(renderCommand(spec));
+        return;
+      }
+      process.stdout.write(renderOverview());
+      return;
+    }
+
+    const spec = findCommand(parsed.command);
+    if (!spec) {
+      const suggestion = suggestCommand(parsed.command);
+      process.stderr.write(renderOverview());
+      fail(
+        2,
+        `unknown command: ${parsed.command}${
+          suggestion ? ` (did you mean "${suggestion}"?)` : ""
+        }\ntry: ${BIN} help`,
+      );
+    }
+    const commandSpec = spec as CommandSpec;
+
+    // `--help` wins over execution - critically on destructive commands:
+    // `publish <dir> --help` must print help, never publish.
+    if (parsed.wantsHelp) {
+      process.stdout.write(renderCommand(commandSpec));
+      return;
+    }
+
+    const errors = validate(commandSpec, parsed);
+    if (errors.length > 0) {
+      for (const error of errors) process.stderr.write(`${BIN}: ${error}\n`);
+      process.stderr.write(`\ntry: ${BIN} help ${commandSpec.name}\n`);
+      process.exit(2);
+    }
+
+    const args: Args = {
+      ...(parsed.target !== undefined ? { target: parsed.target } : {}),
+      flags: parsed.flags,
+      options: parsed.options,
+    };
+
+    switch (commandSpec.name) {
       case "login":
         await cmdLogin(args);
         break;
@@ -266,13 +284,8 @@ async function main(): Promise<void> {
       case "status":
         cmdStatus(args);
         break;
-      case "help":
-      case "--help":
-        process.stdout.write(USAGE);
-        break;
       default:
-        process.stderr.write(USAGE);
-        fail(2, `unknown command: ${args.command}`);
+        fail(2, `unhandled command: ${commandSpec.name}`);
     }
   } catch (e) {
     if (e instanceof AuthError) fail(1, e.message);

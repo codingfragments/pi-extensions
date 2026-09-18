@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "lint": "biome check .",
-    "test": "node --test extensions/**/test/*.test.ts"
+    "test": "node --test extensions/**/test/*.test.ts",
+    "docs:cli": "node extensions/gdrive-publish/generate-docs.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

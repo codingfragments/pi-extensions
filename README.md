@@ -123,7 +123,7 @@ Rule of thumb:
 | Extension | Description |
 |---|---|
 | [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
-| [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. Ships a CLI plus a `gdrive_publish` tool that only registers in configured projects. |
+| [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. Ships a CLI plus a `gdrive_publish` tool that only registers in configured projects. Manual: [MANUAL.md](extensions/gdrive-publish/MANUAL.md). |
 
 ## Sandbox
 
@@ -137,7 +137,7 @@ CSV, an xlsx, and an obvious test image). It is not loaded by pi.
 | Skill | Description |
 |---|---|
 | [grill-me](skills/grill-me/SKILL.md) | Adversarially stress-tests a plan, design doc, PR, or code by interrogating it with tough questions before it ships. |
-| [gdrive-publish](skills/gdrive-publish/SKILL.md) | Guides publishing a docs folder to Google Drive as native Docs/Sheets: plan first, read the warning taxonomy, commit the manifest, never prune or auto-approve without being asked. |
+| [gdrive-publish](skills/gdrive-publish/SKILL.md) | Guides publishing a docs folder to Google Drive as native Docs/Sheets: plan first, read the warning taxonomy, commit the manifest, never prune or auto-approve without being asked. Human manual: [MANUAL.md](skills/gdrive-publish/MANUAL.md). |
 
 ## License
 

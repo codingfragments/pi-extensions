@@ -91,13 +91,13 @@ export default function (pi: ExtensionAPI) {
       if (!name) {
         ctx.ui.notify(
           "usage: /gdrive-publish-init <folder name>  e.g. /gdrive-publish-init Project X Docs",
-          "warn",
+          "warning",
         );
         return;
       }
       const root = ctx.cwd;
       if (manifestIo.load(root)) {
-        ctx.ui.notify(`${root} already has a ${MANIFEST_FILENAME}`, "warn");
+        ctx.ui.notify(`${root} already has a ${MANIFEST_FILENAME}`, "warning");
         return;
       }
       try {
@@ -213,15 +213,13 @@ export default function (pi: ExtensionAPI) {
         );
       }
 
-      const summaryLine =
-        `${creates} to create, ${updates} to update, ${plan.orphans.length} orphan(s)` +
-        (params.prune ? " (will be trashed)" : " (kept)");
+      const orphanNote = params.prune ? " (will be trashed)" : " (kept)";
+      const summaryLine = `${creates} to create, ${updates} to update, ${plan.orphans.length} orphan(s)${orphanNote}`;
 
       if (!params.assumeYes) {
         if (!ctx.hasUI) {
           return textResult(
-            `refusing to publish without confirmation in a non-interactive session. ${summaryLine}. ` +
-              "Ask the user to approve, then call again with assumeYes: true.",
+            `refusing to publish without confirmation in a non-interactive session. ${summaryLine}. Ask the user to approve, then call again with assumeYes: true.`,
             { plan: planJson(plan) },
           );
         }
@@ -244,7 +242,7 @@ export default function (pi: ExtensionAPI) {
           onProgress: (message) => {
             done.push(message);
             ctx.ui.setStatus("gdrive-publish", `publishing: ${message}`);
-            onUpdate?.({ content: [{ type: "text", text: message }] });
+            onUpdate?.({ content: [{ type: "text", text: message }], details: {} });
           },
         });
         ctx.ui.setStatus("gdrive-publish", "");
@@ -253,8 +251,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.setStatus("gdrive-publish", "");
         const detail = e instanceof AuthError ? e.message : String(e).slice(0, 400);
         return textResult(
-          `publish failed after ${done.length} step(s): ${detail}\n` +
-            "The manifest was checkpointed, so re-running fills the same Drive files instead of creating duplicates.",
+          `publish failed after ${done.length} step(s): ${detail}\nThe manifest was checkpointed, so re-running fills the same Drive files instead of creating duplicates.`,
           { steps: done },
         );
       }

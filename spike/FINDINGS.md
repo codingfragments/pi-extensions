@@ -372,3 +372,28 @@ copies, so re-publishing re-uploads them.
 
 This also *simplifies* the design — the image-permission code path and the
 `uc?` URL rewriting rule both disappear.
+
+### Canonical image verification (supersedes the checks above)
+
+Human review rejected the embed twice before the real state was established.
+Final resolution: **export the Doc as PDF, rasterise page 1, and look at the
+pixels** (`files.export?mimeType=application/pdf` + `pdftoppm -png`). Verified
+this way:
+
+| Doc | Strategy | Rendered result |
+|---|---|---|
+| `1qbqXc93...` ("Image Embed Test") | markdown + `uc?` URL | blank page \u2014 text only |
+| `1C4xB9YW...` (A) | markdown + `uc?` URL | blank |
+| `19SLUxzW...` (B) | markdown + `data:` URI | **image renders correctly** |
+| `1AUX59LZ...` (C) | html + `data:` URI | image renders |
+
+Note on the earlier confusion: the "Image Embed Test" Doc is a `uc?`-URL
+document whose own body text promises a checkerboard, so it is the obvious
+one to open and it can never render. The byte-size check (70 B 1x1 placeholder
+vs 3319 B original) was correct, but only the PDF render is both decisive and
+unambiguous to a human.
+
+PR 2 consequence: the `GDRIVE_PUBLISH_E2E=1` suite asserts image embedding by
+exporting PDF and checking for non-blank image content \u2014 never by the presence
+of an `<img>` tag, an `![]()` construct, or a `word/media/*` part, all three of
+which produce false positives.

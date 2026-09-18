@@ -1,6 +1,6 @@
 # Spike findings — gdrive-publish import behaviour
 
-- date: 2026-09-18T09:53:06.792Z
+- date: 2026-09-18T10:18:52.038Z
 - credential source: rclone remote "gdriveDD" (client_id hash `d57c1eab`)
 - scope granted: `https://www.googleapis.com/auth/drive.file`
 - probe: `spike/probe.ts` on branch `spike/gdrive-import-probe`
@@ -12,6 +12,7 @@
 | U4: uc?export=view&id= images embed in Docs | **PARTIAL** |
 | U5: CSV/XLSX convert to Sheets; Sheet re-publish keeps id | **PASS** |
 | U6: two-phase publish rewrites relative links to sibling Doc URLs | **PASS** |
+| U7: which image strategy actually embeds (docx media-part count) | **PASS** |
 | U1: drive.file folders nest + access survives move/rename | **PASS** |
 
 ## U2: empty Doc → files.update media keeps fileId and replaces body — PASS
@@ -21,7 +22,7 @@
 
 Evidence:
 
-- doc: https://docs.google.com/document/d/1iggbtqDXou_k89sfO-E1aeYpl2cwGb1P_Q7VuhIoKJY/edit
+- doc: https://docs.google.com/document/d/1TF5uSlg0CMfCJRqRBj5g9hk_UHNJlfUo0QelaqWuVYw/edit
 - export before update (0 chars) vs after (49 chars) — see appendix
 
 ## U3: importer keeps absolute links, tables, code blocks, lists, front matter — PASS
@@ -31,20 +32,20 @@ Evidence:
 
 Evidence:
 
-- doc: https://docs.google.com/document/d/15FPxCEuzUki72aK1VdjpWLaEUgJOWfhxwkvaa3li8Z0/edit
+- doc: https://docs.google.com/document/d/1kZNexH7XiUOX1p58aj3BEbQzThICRl9wpGE78p8vNeY/edit
 
 ## U4: uc?export=view&id= images embed in Docs — PARTIAL
 
 - NO permission variant worked under drive.file:
-- variant {anyone, reader}: Error: POST https://www.googleapis.com/drive/v3/files/1BbP4jpTDe0BNGShJOV2eHofGaCRIUn6U/permissions -> 400: {
+- variant {anyone, reader}: Error: POST https://www.googleapis.com/drive/v3/files/1cp1BHtGZwRqaEYpJzXH7nY9eGh6kHRio/permissions -> 400: {
   "error": {
     "code": 400,
     "message": "Bad 
-- variant {anyone, reader, allowFileDiscovery:false}: Error: POST https://www.googleapis.com/drive/v3/files/1BbP4jpTDe0BNGShJOV2eHofGaCRIUn6U/permissions -> 400: {
+- variant {anyone, reader, allowFileDiscovery:false}: Error: POST https://www.googleapis.com/drive/v3/files/1cp1BHtGZwRqaEYpJzXH7nY9eGh6kHRio/permissions -> 400: {
   "error": {
     "code": 400,
     "message": "Bad 
-- variant {anyone, reader} + supportsAllDrives=true: Error: POST https://www.googleapis.com/drive/v3/files/1BbP4jpTDe0BNGShJOV2eHofGaCRIUn6U/permissions?supportsAllDrives=true -> 400: {
+- variant {anyone, reader} + supportsAllDrives=true: Error: POST https://www.googleapis.com/drive/v3/files/1cp1BHtGZwRqaEYpJzXH7nY9eGh6kHRio/permissions?supportsAllDrives=true -> 400: {
   "error": {
     "code": 40
 - export shows googleusercontent.com image reference — image appears embedded
@@ -52,8 +53,9 @@ Evidence:
 
 Evidence:
 
-- image file: https://drive.google.com/file/d/1BbP4jpTDe0BNGShJOV2eHofGaCRIUn6U/view
-- doc for manual check: https://docs.google.com/document/d/1jOlp2gO9B-EZ3AA2Ohsawm6Txx8KHAlAyMIsgEMi9X4/edit
+- image file: https://drive.google.com/file/d/1cp1BHtGZwRqaEYpJzXH7nY9eGh6kHRio/view
+- local copy of the same PNG for comparison: /var/folders/s4/l3lqm1pn66s137jygzdr657c0000gp/T/gdrive-spike-test-image.png
+- doc for manual check: https://docs.google.com/document/d/19WRZifJbNYbDEBH83rLak2F_6Ka_8phvBIfvslqwYsM/edit
 
 ## U5: CSV/XLSX convert to Sheets; Sheet re-publish keeps id — PASS
 
@@ -66,9 +68,9 @@ Evidence:
 
 Evidence:
 
-- clean sheet: https://docs.google.com/spreadsheets/d/1TpwYvqHn7l1Qbg-oUaSwVfiEwTH6Xa8y8NNdDzO8Aqw/edit
-- messy sheet: https://docs.google.com/spreadsheets/d/15SnnPqvehuyn_zGzWjnl6zOKQn6zvcXVo79pl21yeow/edit
-- xlsx sheet: https://docs.google.com/spreadsheets/d/1qMBoWp5yjpXvUY4XGIwH6dIkh9ZL6NNJD3UMF_J2tTM/edit
+- clean sheet: https://docs.google.com/spreadsheets/d/17qar8jUnP5HtdJPyt4uQ6I8BnQBObBt3teFUA0P6Nno/edit
+- messy sheet: https://docs.google.com/spreadsheets/d/1Lt5E8uyHKlS0ZaTs1MbIW54sqc3LwBy1P5Gc8xduu_o/edit
+- xlsx sheet: https://docs.google.com/spreadsheets/d/1hgkqykPCcl6TRsBbF44FgOWDz0pPwpeLkpx7UDMaoUk/edit
 
 ## U6: two-phase publish rewrites relative links to sibling Doc URLs — PASS
 
@@ -78,18 +80,49 @@ Evidence:
 
 Evidence:
 
-- toc Doc (click the links): https://docs.google.com/document/d/10pj0x9a31ggfgqkys2H5G-Fm1X1ypD3aA7UhyhU71yc/edit
-- details Doc: https://docs.google.com/document/d/1XUZ9naXWpeTS-eSvVzCyeb_vhk02rExrzsMcCcqAdCM/edit
+- toc Doc (click the links): https://docs.google.com/document/d/1-hNPT4neBBskRJSiT5tN7An_wqI2_joWViOnNOJf9dQ/edit
+- details Doc: https://docs.google.com/document/d/1AqoQPMhbHpT-td6sf22VqoPy1upya28-Y9RukG_dCZg/edit
+
+## U7: which image strategy actually embeds (docx media-part count) — PASS
+
+- account domain detected: datadoghq.com
+- permission type=anyone FULL ERROR: Error: POST https://www.googleapis.com/drive/v3/files/1wozFJY4PBg7y-VbI33f2XMsrEMakEPAx/permissions -> 400: {
+  "error": {
+    "code": 400,
+    "message": "Bad Request. User message: \"\"",
+    "errors": [
+      {
+        "message": "Bad Request. User message: \"\"",
+        "domain": "global",
+        "reason": "publishOutNotPermitted"
+      }
+    ]
+  }
+}
+
+- permission type=domain (datadoghq.com): OK
+- A markdown + uc? URL: 1 embedded image(s)
+- B markdown + data: URI: 1 embedded image(s)
+- C html + data: URI: 1 embedded image(s)
+- D html + uc? URL: 1 embedded image(s)
+- at least one strategy embeds a real image (see counts above)
+
+Evidence:
+
+- A markdown + uc? URL: https://docs.google.com/document/d/1C4xB9YWe0_0myy_GR9ftKr5dpxzcHphm3pRS03STios/edit
+- B markdown + data: URI: https://docs.google.com/document/d/19SLUxzWFW_-iOsVywtIBvXuFTzm6QqRxXMokvsembLM/edit
+- C html + data: URI: https://docs.google.com/document/d/1AUX59LZ5cMD7e68266g9ekLKjnyzMZt5SvMH8sS9Sh8/edit
+- D html + uc? URL: https://docs.google.com/document/d/17uFkB4OGXg-zanXVVbpYTAejWbaUiSVogKbH13ejM-Y/edit
 
 ## U1: drive.file folders nest + access survives move/rename — PASS
 
-- created root folder + 2 nested levels under My Drive root (ids …sM8XLu, …h4_L0H, …-czFAB)
+- created root folder + 2 nested levels under My Drive root (ids …p6SRf_, …iHSx_Y, …e5-ale)
 - after parent move + rename, get and files.update inside the tree still work
 
 Evidence:
 
-- root: https://drive.google.com/drive/folders/11O-U4dLzxKy_swN4SUMYHCiw7EsM8XLu
-- root folder after move+rename: https://drive.google.com/drive/folders/11O-U4dLzxKy_swN4SUMYHCiw7EsM8XLu
+- root: https://drive.google.com/drive/folders/1CSTBmXu-39SPWdjHRSgTKKy9rqp6SRf_
+- root folder after move+rename: https://drive.google.com/drive/folders/1CSTBmXu-39SPWdjHRSgTKKy9rqp6SRf_
 
 ## Appendix — raw exports
 
@@ -117,7 +150,7 @@ This doc exists to be linked at.
 
 # Fidelity Fixture
 
-See the [target doc](https://docs.google.com/document/d/1iggbtqDXou_k89sfO-E1aeYpl2cwGb1P_Q7VuhIoKJY/edit) for the linked object. An external link to [Google](https://www.google.com) should also survive.
+See the [target doc](https://docs.google.com/document/d/1TF5uSlg0CMfCJRqRBj5g9hk_UHNJlfUo0QelaqWuVYw/edit) for the linked object. An external link to [Google](https://www.google.com) should also survive.
 
 ## Table
 
@@ -145,16 +178,18 @@ Anchor link: [section](#table)
 ````text
 # Image Embed Test
 
-Embedded below:
+Below this line there should be a **large 480x320 image**: a red/yellow checkerboard with a black border and a white diagonal stripe.
 
-![pixel]()  
+![test image]()
+
+If you see the checkerboard, remote images are embedded by the importer. If you see a broken image or nothing, the fallback design applies.  
 
 ````
 
 ### U4: exported image doc (html)
 
 ````text
-<html><head><meta content="text/html; charset=UTF-8" http-equiv="content-type"></head><body class="doc-content" style="background-color:#ffffff;max-width:468pt;padding:72pt 72pt 72pt 72pt"><h1 id="h.36qe3yj7rmab" style="padding-top:20pt;margin:0;color:#000000;padding-left:0;font-size:20pt;padding-bottom:6pt;line-height:1.15;page-break-after:avoid;font-family:&quot;Arial&quot;;orphans:2;widows:2;text-align:left;padding-right:0"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:20pt;font-family:&quot;Arial&quot;;font-style:normal">Image Embed Test</span></h1><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal">Embedded below:</span></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;height:11pt;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal"></span></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;text-align:left"><img></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;height:11pt;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal"></span></p></body></html>
+<html><head><meta content="text/html; charset=UTF-8" http-equiv="content-type"></head><body class="doc-content" style="background-color:#ffffff;max-width:468pt;padding:72pt 72pt 72pt 72pt"><h1 id="h.66ud7z1h29eu" style="padding-top:20pt;margin:0;color:#000000;padding-left:0;font-size:20pt;padding-bottom:6pt;line-height:1.15;page-break-after:avoid;font-family:&quot;Arial&quot;;orphans:2;widows:2;text-align:left;padding-right:0"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:20pt;font-family:&quot;Arial&quot;;font-style:normal">Image Embed Test</span></h1><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;text-align:left"><span>Below this line there should be a </span><span style="font-weight:700">large 480x320 image</span><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal">: a red/yellow checkerboard with a black border and a white diagonal stripe.</span></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;height:11pt;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal"></span></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;text-align:left"><img></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;height:11pt;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal"></span></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal">If you see the checkerboard, remote images are embedded by the importer. If you see a broken image or nothing, the fallback design applies.</span></p><p style="padding:0;margin:0;color:#000000;font-size:11pt;font-family:&quot;Arial&quot;;line-height:1.15;orphans:2;widows:2;height:11pt;text-align:left"><span style="color:#000000;font-weight:400;text-decoration:none;vertical-align:baseline;font-size:11pt;font-family:&quot;Arial&quot;;font-style:normal"></span></p></body></html>
 ````
 
 ### U5: clean csv export
@@ -190,7 +225,7 @@ col1,col2,col3
 ````text
 # Table of contents
 
-See [the details](https://docs.google.com/document/d/1XUZ9naXWpeTS-eSvVzCyeb_vhk02rExrzsMcCcqAdCM/edit) for specifics. And [details again](https://docs.google.com/document/d/1XUZ9naXWpeTS-eSvVzCyeb_vhk02rExrzsMcCcqAdCM/edit) written without the ./ prefix.  
+See [the details](https://docs.google.com/document/d/1AqoQPMhbHpT-td6sf22VqoPy1upya28-Y9RukG_dCZg/edit) for specifics. And [details again](https://docs.google.com/document/d/1AqoQPMhbHpT-td6sf22VqoPy1upya28-Y9RukG_dCZg/edit) written without the ./ prefix.  
 
 ````
 
@@ -199,7 +234,7 @@ See [the details](https://docs.google.com/document/d/1XUZ9naXWpeTS-eSvVzCyeb_vhk
 ````text
 # Details
 
-Back to [the toc](https://docs.google.com/document/d/10pj0x9a31ggfgqkys2H5G-Fm1X1ypD3aA7UhyhU71yc/edit).  
+Back to [the toc](https://docs.google.com/document/d/1-hNPT4neBBskRJSiT5tN7An_wqI2_joWViOnNOJf9dQ/edit).  
 
 ````
 
@@ -290,3 +325,50 @@ including ones inside code fences, and resolves targets by simple string key
 rather than by path. PR 2 must do proper path resolution relative to each
 file's directory and must skip fenced/inline code — both already in the agreed
 test-bed fixture list.
+
+## CORRECTION — image handling (decision 9 overturned by U7)
+
+The first run's U4 verdict ("images embed, no permission needed") was **wrong**,
+and so were two successive verification methods. Recorded here because the
+failure mode is instructive:
+
+| Check | Result | Why it lied |
+|---|---|---|
+| markdown export contains `googleusercontent` / html export contains `<img>` | "embedded" | Drive emits an `<img>` tag and `![]()` even for an image it could not resolve |
+| docx export contains a `word/media/*` part | "embedded" (all 4 strategies) | A failed fetch still produces a media part — a placeholder |
+| **docx media part byte size + dimensions** | **decisive** | Placeholder is `1x1 RGBA, 70 bytes`; a real embed is byte-identical to the source |
+
+Human eyeball ("no image embed") caught what all three automated checks missed.
+PR 2's e2e assertion must therefore compare **image bytes/dimensions**, never
+the mere presence of a tag or media part.
+
+### Root cause
+
+`POST /files/{id}/permissions {type:"anyone"}` fails with HTTP 400 and
+`reason: "publishOutNotPermitted"` — a Google **Workspace admin policy** on
+`datadoghq.com` that forbids anyone-with-link sharing. It is *not* a
+`drive.file` scope limitation. `{type:"domain", domain:"datadoghq.com"}`
+succeeds. But the markdown/html importer fetches image URLs **anonymously**,
+so domain-shared images are still unfetchable and render as the 1x1
+placeholder. No Drive-hosted URL can ever work on this account.
+
+### Measured strategy comparison (same 480x320, 3319-byte source PNG)
+
+| Strategy | Embedded media | Verdict |
+|---|---|---|
+| A: markdown + `uc?export=view&id=` | `1x1 RGBA, 70 B` | broken placeholder |
+| B: markdown + `data:image/png;base64,...` | `480x320 RGB, 3319 B` | **works, byte-identical** |
+| C: html + `data:` URI | `480x320 RGB, 3319 B` | works (markdown is preferred; no md->html step needed) |
+| D: html + `uc?` URL | `1x1 RGBA, 70 B` | broken placeholder |
+
+### Replacement for decision 9
+
+Images are **base64-inlined as `data:` URIs** into the markdown before upload:
+no image files in Drive, no permissions API call, no dependence on admin
+sharing policy, and the published Doc is self-contained when shared. Guardrails
+(new): warn above ~2 MB per image, hard-fail above ~10 MB of total document
+payload, and account for base64's ~33% inflation. Consequence: images are
+copies, so re-publishing re-uploads them.
+
+This also *simplifies* the design — the image-permission code path and the
+`uc?` URL rewriting rule both disappear.

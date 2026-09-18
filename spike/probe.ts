@@ -38,6 +38,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 const CFG_DIR = path.join(os.homedir(), ".config", "gdrive-publish");
@@ -46,12 +47,72 @@ const GOOGLE_DOC = "application/vnd.google-apps.document";
 const GOOGLE_SHEET = "application/vnd.google-apps.spreadsheet";
 const GOOGLE_FOLDER = "application/vnd.google-apps.folder";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-// 1x1 PNG (67 bytes) — smallest valid image fixture.
-const PIXEL_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
+// Visible test image fixture, generated so the embed can be judged by eye.
+// Dependency-free PNG encoder: raw RGB scanlines -> zlib -> IHDR/IDAT/IEND.
+const PNG_W = 480;
+const PNG_H = 320;
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const t = Buffer.from(type, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(zlib.crc32(Buffer.concat([t, data])) >>> 0, 0);
+  return Buffer.concat([len, t, data, crc]);
+}
+
+/** Build an obvious checkerboard PNG with a black border and a diagonal stripe. */
+function makeTestPng(width: number, height: number): Buffer {
+  const raw = Buffer.alloc((width * 3 + 1) * height);
+  let o = 0;
+  for (let y = 0; y < height; y++) {
+    raw[o++] = 0; // filter type: none
+    for (let x = 0; x < width; x++) {
+      const border = x < 8 || y < 8 || x >= width - 8 || y >= height - 8;
+      const diagonal = Math.abs(x - y * (width / height)) < 14;
+      const checker = (Math.floor(x / 40) + Math.floor(y / 40)) % 2 === 0;
+      let r: number;
+      let g: number;
+      let b: number;
+      if (border) {
+        r = 20;
+        g = 20;
+        b = 20;
+      } else if (diagonal) {
+        r = 255;
+        g = 255;
+        b = 255;
+      } else if (checker) {
+        r = 220;
+        g = 30;
+        b = 60;
+      } else {
+        r = 250;
+        g = 210;
+        b = 40;
+      }
+      raw[o++] = r;
+      raw[o++] = g;
+      raw[o++] = b;
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // color type: truecolor RGB
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", zlib.deflateSync(raw, { level: 9 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 
 function log(msg: string): void {
   console.log(`\n=== ${msg} ${"=".repeat(Math.max(0, 70 - msg.length))}`);
@@ -485,6 +546,34 @@ async function trashFile(token: string, id: string): Promise<DriveFile> {
   return patchMeta(token, id, { trashed: true }, "fields=trashed,id");
 }
 
+/** Export a Doc as binary (used for docx round-trip inspection). */
+async function exportBinary(token: string, id: string, mime: string): Promise<Buffer> {
+  const res = await fetch(
+    `${API}/drive/v3/files/${id}/export?mimeType=${encodeURIComponent(mime)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok)
+    throw new Error(`export ${mime} -> ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/**
+ * Count REAL embedded images in a Doc by exporting it as .docx and counting
+ * `word/media/*` parts. This is unambiguous — unlike the html/markdown export,
+ * which emits a bare <img> / empty ![]() even for an unresolved reference.
+ */
+async function embeddedImageCount(token: string, id: string): Promise<number> {
+  const docx = await exportBinary(token, id, DOCX_MIME);
+  const tmp = path.join(os.tmpdir(), `gdrive-spike-${id}.docx`);
+  fs.writeFileSync(tmp, docx);
+  try {
+    const listing = execSync(`unzip -Z1 ${JSON.stringify(tmp)}`, { encoding: "utf8" });
+    return listing.split("\n").filter((l) => l.trim().startsWith("word/media/")).length;
+  } finally {
+    fs.rmSync(tmp, { force: true });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Minimal xlsx fixture (hand-crafted OOXML, zipped with /usr/bin/zip)
 // ---------------------------------------------------------------------------
@@ -805,12 +894,16 @@ async function main(): Promise<void> {
   const u4evidence: string[] = [];
   if (rootId) {
     try {
+      const testPng = makeTestPng(PNG_W, PNG_H);
+      const localCopy = path.join(os.tmpdir(), "gdrive-spike-test-image.png");
+      fs.writeFileSync(localCopy, testPng);
+      step(`test image: ${PNG_W}x${PNG_H} PNG, ${testPng.length} bytes, local copy ${localCopy}`);
       const img = await convertUpload(
         token,
-        "pixel.png",
+        "test-image.png",
         "image/png",
         "image/png",
-        PIXEL_PNG,
+        testPng,
         rootId,
       );
       // Try several permission payloads — the plain one failed with a 400 in
@@ -847,7 +940,18 @@ async function main(): Promise<void> {
         u4notes.push("NO permission variant worked under drive.file:", ...permNotes);
       }
       const imgUc = `https://drive.google.com/uc?export=view&id=${img.id}`;
-      const md = `# Image Embed Test\n\nEmbedded below:\n\n![pixel](${imgUc})\n`;
+      const md = [
+        "# Image Embed Test",
+        "",
+        `Below this line there should be a **large ${PNG_W}x${PNG_H} image**: a red/yellow`,
+        "checkerboard with a black border and a white diagonal stripe.",
+        "",
+        `![test image](${imgUc})`,
+        "",
+        "If you see the checkerboard, remote images are embedded by the importer.",
+        "If you see a broken image or nothing, the fallback design applies.",
+        "",
+      ].join("\n");
       const idoc = await convertUpload(
         token,
         "u4-image-embed",
@@ -877,6 +981,7 @@ async function main(): Promise<void> {
         "NOTE: programmatic check is via export text; final judgement needs a manual look at the Doc",
       );
       u4evidence.push(`image file: https://drive.google.com/file/d/${img.id}/view`);
+      u4evidence.push(`local copy of the same PNG for comparison: ${localCopy}`);
       u4evidence.push(`doc for manual check: https://docs.google.com/document/d/${idoc.id}/edit`);
     } catch (e) {
       u4verdict = "FAIL";
@@ -1063,6 +1168,125 @@ async function main(): Promise<void> {
     u6verdict,
     u6notes,
     u6evidence,
+  );
+
+  // ---- U7: image embedding strategies, verified via docx media parts -------
+  log("U7: image embed strategies (definitive check: word/media parts in docx export)");
+  let u7verdict: Finding["verdict"] = "UNVERIFIED";
+  const u7notes: string[] = [];
+  const u7evidence: string[] = [];
+  if (rootId) {
+    try {
+      const testPng = makeTestPng(PNG_W, PNG_H);
+      const b64 = testPng.toString("base64");
+      const dataUri = `data:image/png;base64,${b64}`;
+      const imgFile = await convertUpload(
+        token,
+        "u7-image.png",
+        "image/png",
+        "image/png",
+        testPng,
+        rootId,
+      );
+      const ucUrl = `https://drive.google.com/uc?export=view&id=${imgFile.id}`;
+
+      // Find out WHY the anyone-permission fails: capture the full error and
+      // try a domain-scoped permission (Workspace policy often blocks "anyone").
+      let ownerDomain = "";
+      try {
+        const about = (await drive(token, "GET", `${API}/drive/v3/about?fields=user`)) as {
+          user?: { emailAddress?: string };
+        };
+        const email = about.user?.emailAddress ?? "";
+        ownerDomain = email.includes("@") ? (email.split("@")[1] ?? "") : "";
+        u7notes.push(`account domain detected: ${ownerDomain || "(unknown)"}`);
+      } catch (e) {
+        u7notes.push(`about.get failed under drive.file: ${String(e).slice(0, 120)}`);
+      }
+      for (const variant of [
+        { label: "type=anyone", json: { role: "reader", type: "anyone" } },
+        ...(ownerDomain
+          ? [
+              {
+                label: `type=domain (${ownerDomain})`,
+                json: { role: "reader", type: "domain", domain: ownerDomain },
+              },
+            ]
+          : []),
+      ]) {
+        try {
+          await drive(token, "POST", `${API}/drive/v3/files/${imgFile.id}/permissions`, {
+            json: variant.json,
+          });
+          u7notes.push(`permission ${variant.label}: OK`);
+        } catch (e) {
+          u7notes.push(`permission ${variant.label} FULL ERROR: ${String(e).slice(0, 700)}`);
+        }
+      }
+
+      // Four candidate strategies for getting a real image into a Doc.
+      const strategies: { label: string; mediaMime: string; content: string }[] = [
+        {
+          label: "A markdown + uc? URL",
+          mediaMime: "text/markdown",
+          content: `# A\n\n![test](${ucUrl})\n`,
+        },
+        {
+          label: "B markdown + data: URI",
+          mediaMime: "text/markdown",
+          content: `# B\n\n![test](${dataUri})\n`,
+        },
+        {
+          label: "C html + data: URI",
+          mediaMime: "text/html",
+          content: `<h1>C</h1><p>below:</p><img src="${dataUri}" alt="test">`,
+        },
+        {
+          label: "D html + uc? URL",
+          mediaMime: "text/html",
+          content: `<h1>D</h1><p>below:</p><img src="${ucUrl}" alt="test">`,
+        },
+      ];
+      const results: string[] = [];
+      for (const s of strategies) {
+        try {
+          const doc = await convertUpload(
+            token,
+            `u7-${s.label.slice(0, 1)}`,
+            GOOGLE_DOC,
+            s.mediaMime,
+            s.content,
+            rootId,
+          );
+          const count = await embeddedImageCount(token, doc.id);
+          results.push(`${s.label}: ${count} embedded image(s)`);
+          step(`${s.label} -> ${count} embedded image(s)`);
+          u7evidence.push(`${s.label}: https://docs.google.com/document/d/${doc.id}/edit`);
+        } catch (e) {
+          results.push(`${s.label}: FAILED ${String(e).slice(0, 200)}`);
+          step(`${s.label} -> failed`);
+        }
+      }
+      u7notes.push(...results);
+      const anyWorked = results.some((r) => /: [1-9]\d* embedded/.test(r));
+      u7verdict = anyWorked ? "PASS" : "FAIL";
+      u7notes.push(
+        anyWorked
+          ? "at least one strategy embeds a real image (see counts above)"
+          : "NO strategy embeds a real image — images must degrade to links in v1",
+      );
+    } catch (e) {
+      u7verdict = "FAIL";
+      u7notes.push(`failed: ${String(e).slice(0, 300)}`);
+    }
+  } else {
+    u7notes.push("skipped: no root folder");
+  }
+  findings.add(
+    "U7: which image strategy actually embeds (docx media-part count)",
+    u7verdict,
+    u7notes,
+    u7evidence,
   );
 
   // ---- U1 (part 2): manual move + rename, then verify access ----------------

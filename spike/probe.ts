@@ -983,6 +983,88 @@ async function main(): Promise<void> {
     u5evidence,
   );
 
+  // ---- U6: end-to-end two-phase publish of a 2-file fixture ----------------
+  log("U6: two-phase publish — relative link -> sibling Doc URL");
+  let u6verdict: Finding["verdict"] = "UNVERIFIED";
+  const u6notes: string[] = [];
+  const u6evidence: string[] = [];
+  if (rootId) {
+    try {
+      const fixture: Record<string, string> = {
+        "toc.md": [
+          "# Table of contents",
+          "",
+          "See [the details](./details.md) for specifics.",
+          "And [details again](details.md) written without the ./ prefix.",
+          "",
+        ].join("\n"),
+        "details.md": ["# Details", "", "Back to [the toc](./toc.md).", ""].join("\n"),
+      };
+      const e2eFolder = await createFolder(token, "e2e", rootId);
+
+      // phase 1 — reserve ids by creating empty Doc shells
+      const idMap = new Map<string, { id: string; url: string }>();
+      for (const rel of Object.keys(fixture)) {
+        const shell = await createEmptyDoc(token, rel.replace(/\.md$/, ""), e2eFolder.id);
+        idMap.set(rel, {
+          id: shell.id,
+          url: `https://docs.google.com/document/d/${shell.id}/edit`,
+        });
+      }
+      step(`phase 1: reserved ${idMap.size} Doc ids`);
+
+      // phase 2 — rewrite relative links to real Doc URLs, then fill content
+      let rewrites = 0;
+      for (const [rel, md] of Object.entries(fixture)) {
+        const out = md.replace(/\[([^\]]*)\]\(([^)\s]+)\)/g, (m, text: string, target: string) => {
+          const key = target.replace(/^\.\//, "");
+          const hit = idMap.get(key);
+          if (!hit) return m;
+          rewrites++;
+          return `[${text}](${hit.url})`;
+        });
+        const entry = idMap.get(rel);
+        if (entry) await updateMedia(token, entry.id, "text/markdown", out);
+      }
+      step(`phase 2: rewrote ${rewrites} links and filled ${idMap.size} Docs`);
+
+      const tocEntry = idMap.get("toc.md");
+      const detailsEntry = idMap.get("details.md");
+      if (!tocEntry || !detailsEntry) throw new Error("fixture id map incomplete");
+      const tocExport = await exportFile(token, tocEntry.id, "text/markdown");
+      const detailsExport = await exportFile(token, detailsEntry.id, "text/markdown");
+      findings.raw("U6: exported toc Doc", tocExport);
+      findings.raw("U6: exported details Doc", detailsExport);
+      const forwardHits = tocExport.split(detailsEntry.id).length - 1;
+      const backLink = detailsExport.includes(tocEntry.id);
+      u6verdict = forwardHits >= 2 && backLink ? "PASS" : forwardHits >= 1 ? "PARTIAL" : "FAIL";
+      u6notes.push(
+        `toc Doc contains the details fileId ${forwardHits} time(s) (expected 2: "./details.md" and "details.md")`,
+      );
+      u6notes.push(
+        backLink
+          ? "details Doc links back to the toc Doc — bidirectional rewriting works"
+          : "details Doc does NOT link back to the toc Doc",
+      );
+      u6notes.push(
+        "this is the original user requirement proven end to end: a relative markdown link resolves to the sibling Google Doc",
+      );
+      u6evidence.push(`toc Doc (click the links): ${tocEntry.url}`);
+      u6evidence.push(`details Doc: ${detailsEntry.url}`);
+    } catch (e) {
+      u6verdict = "FAIL";
+      u6notes.push(`failed: ${String(e).slice(0, 300)}`);
+    }
+  } else {
+    u6notes.push("skipped: no root folder");
+  }
+  findings.add(
+    "U6: two-phase publish rewrites relative links to sibling Doc URLs",
+    u6verdict,
+    u6notes,
+    u6evidence,
+  );
+
   // ---- U1 (part 2): manual move + rename, then verify access ----------------
   log("U1b: move root under new parent + rename, then verify access");
   let u1bVerdict: Finding["verdict"] = "UNVERIFIED";

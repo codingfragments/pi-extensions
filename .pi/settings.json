@@ -1,14 +1,6 @@
 {
-  "extensions": [
-    "../extensions"
-  ],
-  "skills": [
-    "../skills"
-  ],
-  "prompts": [
-    "../prompts"
-  ],
-  "themes": [
-    "../themes"
-  ]
+  "extensions": ["../extensions"],
+  "skills": ["../skills"],
+  "prompts": ["../prompts"],
+  "themes": ["../themes"]
 }

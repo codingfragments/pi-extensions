@@ -13,3 +13,6 @@ dist/
 # gdrive-publish: never commit credentials or cached tokens
 client_secret*.json
 token-*.json
+
+# the sandbox manifest is machine-specific (pins one person's Drive folder)
+sandbox/**/.gdrive-manifest.json

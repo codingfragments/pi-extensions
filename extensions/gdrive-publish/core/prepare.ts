@@ -36,13 +36,27 @@ export interface PrepareInput {
   root: string;
   /** Known source files (for distinguishing "missing" from "not published"). */
   known: Set<string>;
+  /**
+   * Analysis-only mode, used by `plan`: produce identical diagnostics without
+   * building the upload payload. Images are measured (`ceil(n/3)*4`) instead
+   * of being base64-encoded, so planning an image-heavy tree stays cheap and
+   * the returned `content` must not be uploaded.
+   */
+  analyzeOnly?: boolean;
 }
 
 export interface PrepareResult {
-  /** Content to upload as `text/markdown`. */
+  /** Content to upload as `text/markdown`. Not usable when `analyzeOnly`. */
   content: string;
   diagnostics: Diagnostic[];
   inlinedImages: number;
+  /** Size the uploaded payload will have, in bytes. */
+  payloadBytes: number;
+}
+
+/** base64 length of `n` raw bytes, without building the string. */
+function base64Size(n: number): number {
+  return Math.ceil(n / 3) * 4;
 }
 
 /** Normalise a relative link target against the linking file's directory. */
@@ -81,6 +95,7 @@ export function prepareMarkdown(input: PrepareInput): PrepareResult {
   }
 
   let inlinedImages = 0;
+  let imageBytes = 0;
   const content = rewriteLinks(fm.body, (link) => {
     const kind = classifyTarget(link.target);
     if (kind === "external" || kind === "anchor-only") return null; // untouched
@@ -133,11 +148,17 @@ export function prepareMarkdown(input: PrepareInput): PrepareResult {
           severity: "warn",
           relPath: input.relPath,
           message: `${resolvedPath} is ${fmtBytes(buf.length)}; inlined as base64 (~${fmtBytes(
-            Math.round(buf.length * 1.34),
+            base64Size(buf.length),
           )} in the upload)`,
         });
       }
       inlinedImages++;
+      imageBytes += base64Size(buf.length);
+      if (input.analyzeOnly) {
+        // Keep the link shape so the rewritten document is still parseable,
+        // but do not pay for encoding a payload nobody will upload.
+        return `data:${mime};base64,<${buf.length} bytes>`;
+      }
       return `data:${mime};base64,${buf.toString("base64")}`;
     }
 
@@ -166,19 +187,22 @@ export function prepareMarkdown(input: PrepareInput): PrepareResult {
     return target.url;
   });
 
-  const bytes = Buffer.byteLength(content, "utf8");
-  if (bytes > DOC_MAX_BYTES) {
+  // In analyzeOnly mode the image payloads were replaced by placeholders, so
+  // the real upload size is the text plus the base64 size of each image.
+  const textBytes = Buffer.byteLength(content, "utf8");
+  const payloadBytes = input.analyzeOnly ? textBytes + imageBytes : textBytes;
+  if (payloadBytes > DOC_MAX_BYTES) {
     diagnostics.push({
       code: "DOC_PAYLOAD_TOO_LARGE",
       severity: "error",
       relPath: input.relPath,
-      message: `prepared payload is ${fmtBytes(bytes)}, over the ${fmtBytes(
+      message: `prepared payload is ${fmtBytes(payloadBytes)}, over the ${fmtBytes(
         DOC_MAX_BYTES,
       )} limit (reduce or shrink inlined images)`,
     });
   }
 
-  return { content, diagnostics, inlinedImages };
+  return { content, diagnostics, inlinedImages, payloadBytes };
 }
 
 export function fmtBytes(n: number): string {

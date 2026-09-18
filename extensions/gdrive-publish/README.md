@@ -47,7 +47,8 @@ plan first, to never prune unasked, and how to explain each warning.
 Publishing is two-phase, which is what makes link rewriting possible at all:
 
 ```
-phase 0  scan the tree, build the link graph            (no network)
+phase 0  scan the tree, build the link graph, run the full offline
+         link/image analysis                            (no network)
 phase 1  create folders; create EMPTY Doc shells for each .md;
          convert-upload CSV/XLSX  -> every fileId is now known
          -> manifest checkpointed with `pending` markers
@@ -55,6 +56,9 @@ phase 2  rewrite relative links to real Doc/Sheet URLs, inline images,
          fill content via files.update  -> fileIds (and URLs) unchanged
 phase 3  final manifest write + report
 ```
+
+`plan` and `publish --dry-run` run phase 0 only and report exactly the
+diagnostics a real publish would, so the preview never understates the outcome.
 
 Drive cannot pre-allocate ids for Workspace types (`files.generateIds` does not
 support convert-on-upload), so a single-pass "rewrite then upload" is
@@ -150,7 +154,7 @@ Nothing is ever hard-deleted; `--prune` uses trash.
 ## Tests
 
 ```bash
-npm test          # 112 tests, offline, no credentials, ~2s
+npm test          # 118 tests, offline, no credentials, ~2s
 npm run typecheck # 0 errors
 npm run lint      # biome
 ```
@@ -163,11 +167,11 @@ executed through Node's native type stripping - there is no build step.
 |---|---|---|
 | `links.test.ts` | 10 | link/image parsing; never rewriting inside fenced blocks or inline code spans |
 | `csv-naming.test.ts` | 12 | encoding/delimiter sniffing, quoting, front matter, Doc naming |
-| `scan-prepare.test.ts` | 18 | file classification, ignore rules, path-escape refusal, image inlining, size caps |
+| `scan-prepare.test.ts` | 20 | file classification, ignore rules, path-escape refusal, image inlining, size caps, plan-time analysis mode |
 | `auth.test.ts` | 13 | credential-chain precedence, the `GOCSPX-`/`rclone reveal` rule, per-client token keying |
 | `drive-manifest-report.test.ts` | 18 | exact REST request shapes, error-reason parsing, atomic/sorted manifest IO, report rendering |
-| `publish.test.ts` | 15 | two-phase ordering, update-in-place, crash recovery, orphan safety, trash-not-delete |
-| `cli.test.ts` | 16 | exit-code contract (0/1/2/3), `--json` shape, dry-run writing nothing, secrets never printed |
+| `publish.test.ts` | 17 | two-phase ordering, update-in-place, crash recovery, orphan safety, trash-not-delete, diagnostic dedupe |
+| `cli.test.ts` | 18 | exit-code contract (0/1/2/3), `--json` shape, dry-run purity, plan/publish diagnostic parity, secrets never printed |
 | `extension.test.ts` | 10 | the tool is registered only in configured projects; writes are confirm-gated |
 
 The Drive REST layer is tested by swapping `globalThis.fetch`, so request
@@ -175,20 +179,28 @@ shapes are asserted without network access; `auth.ts` is tested with a stub
 `rclone` on `PATH`; the CLI is tested as a real subprocess because exit codes
 are the contract for CI and git hooks.
 
+### Manual sandbox
+
+[`sandbox/docs`](../../sandbox/README.md) is a committed, deliberately awkward
+doc tree (cross-type links, anchors, escapes, code-fenced links, a latin-1
+semicolon CSV, an xlsx, an obvious test image) for publishing to a real Drive
+and inspecting by hand. Its README documents the exact plan output to expect,
+so a missing warning is visibly a regression.
+
 ### Deliberate gaps
 
-- **No live Drive tier.** Nothing automatically verifies Google's actual
-  behaviour, so the fake `DriveClient` can drift. Re-run the manual checks in
-  `spike/probe.ts` before releasing anything that touches upload or conversion.
-- **`plan` does not surface link/image diagnostics** (pinned by a test named
-  `KNOWN GAP:` in `cli.test.ts`). `buildPlan` only scans and diffs the
-  manifest, so `ANCHOR_DROPPED`, `LINK_TARGET_MISSING`, `IMAGE_LARGE` and
-  `DOC_PAYLOAD_TOO_LARGE` appear only during `publish`, even though all of it
-  is computable offline.
+- **No live Drive tier in CI.** Nothing automatically verifies Google's actual
+  behaviour, so the fake `DriveClient` can drift. Publish `sandbox/docs` and
+  look at the result before releasing anything that touches upload or
+  conversion.
 - **Image embedding must be verified by rendering** (export PDF -> rasterise ->
   inspect pixels). An `<img>` tag, an `![]()` construct, or a `word/media/*`
   part in a docx export all report success on a document that is visibly
   blank - three false positives that a human eye caught during the spike.
+- **Heading anchors** are dropped rather than resolved to Google Docs heading
+  ids.
+- **`--repair`** is not implemented: an inaccessible or trashed Drive file
+  produces a `DRIVE_FILE_GONE` error instead of being recreated.
 
 ## Layout
 

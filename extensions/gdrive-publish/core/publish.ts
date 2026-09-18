@@ -107,14 +107,62 @@ export function buildPlan(opts: PlanOptions): Plan {
     });
   }
 
+  // Offline link/image analysis so `plan` and `--dry-run` report what publish
+  // would report. The diagnostics depend only on whether a target *resolves*,
+  // never on the Drive URL's value, so placeholder ids are sufficient and the
+  // analysis can run before any id has been reserved.
+  const placeholder = new Map<string, ResolvedTarget>();
+  for (const item of items) {
+    const id = item.fileId ?? `PLANNED-${item.relPath}`;
+    placeholder.set(item.relPath, { fileId: id, url: driveUrl(item.kind, id), kind: item.kind });
+  }
+  // "known" means "exists on disk", which must include unsupported files:
+  // otherwise a link to notes.txt is misreported as a broken link instead of
+  // a link to something we do not publish.
+  const known = new Set<string>([...files.map((f) => f.relPath), ...skipped]);
+  for (const item of items) {
+    if (item.kind !== "markdown") continue;
+    try {
+      const analysis = prepareMarkdown({
+        relPath: item.relPath,
+        markdown: fs.readFileSync(`${opts.root}/${item.relPath}`, "utf8"),
+        resolved: placeholder,
+        root: opts.root,
+        known,
+        analyzeOnly: true,
+      });
+      diagnostics.push(...analysis.diagnostics);
+    } catch (e) {
+      diagnostics.push({
+        code: "UNSUPPORTED_FILE",
+        severity: "error",
+        relPath: item.relPath,
+        message: `could not analyse: ${String(e).slice(0, 160)}`,
+      });
+    }
+  }
+
   return {
     root: opts.root,
     ...(manifest ? { rootFolderId: manifest.rootFolderId } : {}),
     folders: folderPaths(files.filter((f) => f.kind !== "image")),
     items,
     orphans,
-    diagnostics,
+    diagnostics: dedupeDiagnostics(diagnostics),
   };
+}
+
+/** Drop duplicate diagnostics (same code, path and message). */
+export function dedupeDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
+  const seen = new Set<string>();
+  const out: Diagnostic[] = [];
+  for (const d of diagnostics) {
+    const key = `${d.code}|${d.relPath ?? ""}|${d.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(d);
+  }
+  return out;
 }
 
 export interface PublishOptions {
@@ -232,7 +280,8 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   manifestIo.save(root, manifest);
 
   // ---- phase 2: rewrite links and fill content ---------------------------
-  const known = new Set(scan(root).files.map((f) => f.relPath));
+  const scanned = scan(root);
+  const known = new Set<string>([...scanned.files.map((f) => f.relPath), ...scanned.skipped]);
   for (const { item, fileId } of toFill) {
     const markdown = fs.readFileSync(`${root}/${item.relPath}`, "utf8");
     const prepared = prepareMarkdown({
@@ -289,7 +338,9 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     unchanged: plan.items.filter((i) => i.action === "unchanged").length,
     pruned,
     orphans: plan.orphans.length - pruned,
-    diagnostics,
+    // The plan already carries the offline analysis, and phase 2 re-derives it
+    // from the real content; dedupe so each finding is reported once.
+    diagnostics: dedupeDiagnostics(diagnostics),
     manifestPath: manifestFile,
     rootFolderUrl: folderUrl(manifest.rootFolderId),
   };

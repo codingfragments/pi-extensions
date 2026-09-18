@@ -125,6 +125,13 @@ Rule of thumb:
 | [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
 | [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. Ships a CLI plus a `gdrive_publish` tool that only registers in configured projects. |
 
+## Sandbox
+
+[`sandbox/docs`](sandbox/README.md) is a deliberately awkward documentation
+tree for exercising `gdrive-publish` against a real Google Drive by hand
+(cross-type links, anchors, escapes, code-fenced links, a latin-1 semicolon
+CSV, an xlsx, and an obvious test image). It is not loaded by pi.
+
 ## Skills in this repo
 
 | Skill | Description |

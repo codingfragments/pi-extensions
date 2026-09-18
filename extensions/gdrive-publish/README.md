@@ -87,18 +87,19 @@ switching credential sources costs one extra consent instead of an opaque
 
 ## Usage
 
+The command surface is defined once in `commands.ts` and rendered everywhere
+(`gdrive-publish help`, `help <command>`, `<command> --help`, strict flag
+validation, and the generated reference in the manual), so help cannot drift
+from behaviour:
+
 ```bash
-gdrive-publish init docs/ --name "Project X Docs"   # creates the Drive folder
-gdrive-publish plan docs/                           # what would happen (no writes)
-gdrive-publish publish docs/                        # do it
-gdrive-publish publish docs/ --dry-run              # plan, write nothing
-gdrive-publish publish docs/ --prune                # trash orphaned Drive files
-gdrive-publish status docs/ --json                  # manifest + credential state
+gdrive-publish help              # overview
+gdrive-publish help publish      # flags, examples, exit codes for one command
 ```
 
-Every command except `login` is fully non-interactive: flags, `--json`, and
-exit codes (`0` ok, `1` failure, `2` usage, `3` completed with errors), so it
-works from CI and git hooks.
+Every command except `login` is fully non-interactive and scriptable from CI
+and git hooks. The task-oriented guide (first publish, day-two workflows,
+troubleshooting) is the [manual](MANUAL.md).
 
 ## The manifest
 

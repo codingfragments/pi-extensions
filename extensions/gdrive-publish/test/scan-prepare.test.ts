@@ -264,3 +264,55 @@ test("fmtBytes renders human units", () => {
   assert.equal(fmtBytes(2048), "2.0 KB");
   assert.equal(fmtBytes(5 * 1024 * 1024), "5.0 MB");
 });
+
+// ---------------------------------------------------------------------------
+// analyzeOnly mode (used by `plan`)
+// ---------------------------------------------------------------------------
+
+test("analyzeOnly produces the same diagnostics without encoding the payload", () => {
+  write("img/p.png", Buffer.alloc(3000, 9));
+  const input = {
+    relPath: "a.md",
+    markdown: "![p](./img/p.png)\n[missing](./nope.md)\n",
+    resolved: resolvedMap({}),
+    root,
+    known: new Set(["a.md", "img/p.png"]),
+  };
+  const real = prepareMarkdown(input);
+  const analyzed = prepareMarkdown({ ...input, analyzeOnly: true });
+
+  assert.deepEqual(
+    analyzed.diagnostics.map((d) => d.code),
+    real.diagnostics.map((d) => d.code),
+    "analysis must not change which diagnostics are produced",
+  );
+  assert.equal(analyzed.inlinedImages, real.inlinedImages);
+  // The real payload embeds base64; the analysis only records its size.
+  assert.match(real.content, /base64,[A-Za-z0-9+/]{40}/);
+  assert.doesNotMatch(analyzed.content, /base64,[A-Za-z0-9+/]{40}/);
+  assert.match(analyzed.content, /<3000 bytes>/);
+});
+
+test("analyzeOnly still measures the payload accurately enough to trip the cap", () => {
+  const size = Math.ceil((DOC_MAX_BYTES * 3) / 4) + 4096;
+  write("huge.png", Buffer.alloc(size, 1));
+  const input = {
+    relPath: "a.md",
+    markdown: "![huge](./huge.png)",
+    resolved: resolvedMap({}),
+    root,
+    known: new Set(["a.md", "huge.png"]),
+  };
+  const analyzed = prepareMarkdown({ ...input, analyzeOnly: true });
+  const real = prepareMarkdown(input);
+  for (const result of [analyzed, real]) {
+    assert.ok(
+      result.diagnostics.some((d) => d.code === "DOC_PAYLOAD_TOO_LARGE" && d.severity === "error"),
+    );
+  }
+  // Estimated size must be within a few bytes of the real payload.
+  assert.ok(
+    Math.abs(analyzed.payloadBytes - real.payloadBytes) < 64,
+    `estimate ${analyzed.payloadBytes} vs real ${real.payloadBytes}`,
+  );
+});

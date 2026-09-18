@@ -227,6 +227,41 @@ test("CSV is normalised and uploaded as a Sheet; xlsx is passed through", async 
   );
 });
 
+test("an existing-but-unpublished target is distinguished from a broken link", async () => {
+  // Regression: `known` was built from scan *results*, which exclude skipped
+  // files, so a link to notes.txt was misreported as LINK_TARGET_MISSING.
+  const root = fixture({
+    "a.md": "[unsupported](./notes.txt)\n[broken](./nope.md)\n",
+    "notes.txt": "exists but is not published",
+  });
+  const manifest = freshManifest();
+  const { summary } = await run(root, manifest);
+  const byCode = new Map(summary.diagnostics.map((d) => [d.code, d.message]));
+  assert.ok(byCode.has("LINK_TO_UNSUPPORTED"), "notes.txt exists, so it is not 'missing'");
+  assert.match(byCode.get("LINK_TO_UNSUPPORTED") ?? "", /notes\.txt/);
+  assert.ok(byCode.has("LINK_TARGET_MISSING"), "nope.md really is missing");
+  assert.match(byCode.get("LINK_TARGET_MISSING") ?? "", /nope\.md/);
+});
+
+test("diagnostics are not duplicated between plan and publish", async () => {
+  // publish() seeds its list from the plan and re-derives the analysis from
+  // real content; without dedupe every finding would be reported twice.
+  const root = fixture({
+    "a.md": ["---", "title: T", "---", "[x](./b.md#sec)"].join("\n"),
+    "b.md": "# B\n",
+  });
+  const manifest = freshManifest();
+  const { summary } = await run(root, manifest);
+  const counts = new Map<string, number>();
+  for (const d of summary.diagnostics) {
+    const key = `${d.code}|${d.relPath ?? ""}|${d.message}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const duplicated = [...counts.entries()].filter(([, n]) => n > 1);
+  assert.deepEqual(duplicated, [], "each diagnostic must appear exactly once");
+  assert.ok(summary.diagnostics.some((d) => d.code === "ANCHOR_DROPPED"));
+});
+
 test("orphans are reported but never removed without --prune", async () => {
   const root = fixture({ "a.md": "# A\n" });
   const manifest = freshManifest();

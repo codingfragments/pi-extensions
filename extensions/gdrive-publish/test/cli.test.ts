@@ -113,21 +113,51 @@ test("plan --json emits valid, machine-readable output", () => {
   assert.ok(parsed.diagnostics.some((d) => d.code === "UNSUPPORTED_FILE"));
 });
 
-test("KNOWN GAP: plan does not surface link/image diagnostics", () => {
-  // buildPlan() does scan + manifest diffing only; it never calls
-  // prepareMarkdown(), so ANCHOR_DROPPED / LINK_TARGET_MISSING /
-  // IMAGE_LARGE / DOC_PAYLOAD_TOO_LARGE are invisible until `publish`
-  // runs phase 2 - even though all of it is computable offline.
-  // This test pins the CURRENT behaviour so that fixing it is a visible,
-  // deliberate change rather than a silent one.
-  write("a.md", "![huge](./huge.png)\n[missing](./nope.md)\n");
+test("plan surfaces link and image diagnostics offline", () => {
+  // Regression guard for the gap where buildPlan() skipped prepareMarkdown(),
+  // so `plan`/`--dry-run` silently understated what publish would report.
+  write("a.md", "![huge](./huge.png)\n[missing](./nope.md)\n[anchor](./b.md#sec)\n");
+  write("b.md", "# B\n");
   fs.writeFileSync(path.join(tmp, "huge.png"), Buffer.alloc(8 * 1024 * 1024, 3));
   const { status, stdout } = run(["plan", tmp, "--json"]);
-  assert.equal(status, 0);
-  const parsed = JSON.parse(stdout) as { diagnostics: { code: string }[] };
+  const parsed = JSON.parse(stdout) as { diagnostics: { code: string; severity: string }[] };
   const codes = parsed.diagnostics.map((d) => d.code);
-  assert.ok(!codes.includes("DOC_PAYLOAD_TOO_LARGE"), "gap: payload cap not checked at plan time");
-  assert.ok(!codes.includes("LINK_TARGET_MISSING"), "gap: broken links not reported at plan time");
+  assert.ok(codes.includes("DOC_PAYLOAD_TOO_LARGE"), "payload cap checked at plan time");
+  assert.ok(codes.includes("LINK_TARGET_MISSING"), "broken links reported at plan time");
+  assert.ok(codes.includes("ANCHOR_DROPPED"), "dropped anchors reported at plan time");
+  assert.equal(status, 3, "an error-severity plan must exit 3");
+});
+
+test("plan reports nothing alarming for a clean tree and exits 0", () => {
+  write("a.md", "# A\n[b](./b.md)\n");
+  write("b.md", "# B\n[a](./a.md)\n");
+  const { status, stdout } = run(["plan", tmp, "--json"]);
+  assert.equal(status, 0);
+  const parsed = JSON.parse(stdout) as { diagnostics: unknown[] };
+  assert.deepEqual(parsed.diagnostics, []);
+});
+
+test("plan and publish agree on the diagnostics they report", () => {
+  // The dry run is the review surface: it must not understate the outcome.
+  write("a.md", ["---", "title: T", "---", "[x](./b.md#sec)", "[y](../out.md)"].join("\n"));
+  write("b.md", "# B\n");
+  seedManifest();
+  const planCodes = (
+    JSON.parse(run(["plan", tmp, "--json"]).stdout) as { diagnostics: { code: string }[] }
+  ).diagnostics
+    .map((d) => d.code)
+    .sort();
+  const dryRunCodes = (
+    JSON.parse(run(["publish", tmp, "--dry-run", "--json"]).stdout) as {
+      diagnostics: { code: string }[];
+    }
+  ).diagnostics
+    .map((d) => d.code)
+    .sort();
+  assert.deepEqual(dryRunCodes, planCodes);
+  assert.ok(planCodes.includes("ANCHOR_DROPPED"));
+  assert.ok(planCodes.includes("LINK_OUTSIDE_ROOT"));
+  assert.ok(planCodes.includes("FRONTMATTER_STRIPPED"));
 });
 
 test("publish without a manifest fails with guidance (exit 1)", () => {

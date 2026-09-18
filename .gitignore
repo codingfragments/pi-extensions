@@ -9,3 +9,7 @@ dist/
 .pi/sessions/
 .pi/teams
 .pi/flow.json
+
+# gdrive-publish: never commit credentials or cached tokens
+client_secret*.json
+token-*.json

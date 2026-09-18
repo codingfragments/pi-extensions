@@ -123,6 +123,7 @@ Rule of thumb:
 | Extension | Description |
 |---|---|
 | [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
+| [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. CLI today; pi tool lands in a follow-up. |
 
 ## Skills in this repo
 

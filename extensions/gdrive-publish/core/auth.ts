@@ -21,7 +21,15 @@ import os from "node:os";
 import path from "node:path";
 
 export const SCOPE = "https://www.googleapis.com/auth/drive.file";
-export const CONFIG_DIR = path.join(os.homedir(), ".config", "gdrive-publish");
+/**
+ * Config directory, resolved per call rather than cached at module load.
+ *
+ * A module-level constant would freeze `$HOME` at first import, which makes
+ * the credential/token logic untestable and wrong if HOME changes at runtime.
+ */
+export function configDir(): string {
+  return path.join(os.homedir(), ".config", "gdrive-publish");
+}
 
 export interface Credentials {
   /** Human-readable source, e.g. `rclone remote "gdriveDD"`. Safe to print. */
@@ -44,7 +52,7 @@ export function clientHash(clientId: string): string {
 }
 
 export function tokenPath(clientId: string): string {
-  return path.join(CONFIG_DIR, `token-${clientHash(clientId)}.json`);
+  return path.join(configDir(), `token-${clientHash(clientId)}.json`);
 }
 
 function fromSecretFile(p: string): Credentials | null {
@@ -75,7 +83,7 @@ function fromRclone(wanted?: string): Credentials {
     dump = JSON.parse(out) as Record<string, Record<string, unknown>>;
   } catch (e) {
     throw new AuthError(
-      `no credentials found and rclone is unavailable (${String(e).slice(0, 120)}). Set GDRIVE_PUBLISH_CLIENT_ID/GDRIVE_PUBLISH_CLIENT_SECRET, or place a client_secret.json at ${path.join(CONFIG_DIR, "client_secret.json")}.`,
+      `no credentials found and rclone is unavailable (${String(e).slice(0, 120)}). Set GDRIVE_PUBLISH_CLIENT_ID/GDRIVE_PUBLISH_CLIENT_SECRET, or place a client_secret.json at ${path.join(configDir(), "client_secret.json")}.`,
     );
   }
   const candidates = Object.entries(dump).filter(
@@ -92,7 +100,7 @@ function fromRclone(wanted?: string): Credentials {
     }
   } else if (candidates.length === 0) {
     throw new AuthError(
-      `no credential source found. Provide GDRIVE_PUBLISH_CLIENT_ID + GDRIVE_PUBLISH_CLIENT_SECRET, GDRIVE_PUBLISH_CLIENT_SECRET_FILE, ${path.join(CONFIG_DIR, "client_secret.json")}, or an rclone drive remote.`,
+      `no credential source found. Provide GDRIVE_PUBLISH_CLIENT_ID + GDRIVE_PUBLISH_CLIENT_SECRET, GDRIVE_PUBLISH_CLIENT_SECRET_FILE, ${path.join(configDir(), "client_secret.json")}, or an rclone drive remote.`,
     );
   } else if (candidates.length > 1) {
     throw new AuthError(
@@ -128,7 +136,7 @@ export function resolveCredentials(env: NodeJS.ProcessEnv = process.env): Creden
   if (id && secret) return { source: "env pair", clientId: id, clientSecret: secret };
   const candidates: string[] = [];
   if (env.GDRIVE_PUBLISH_CLIENT_SECRET_FILE) candidates.push(env.GDRIVE_PUBLISH_CLIENT_SECRET_FILE);
-  candidates.push(path.join(CONFIG_DIR, "client_secret.json"));
+  candidates.push(path.join(configDir(), "client_secret.json"));
   for (const p of candidates) {
     if (fs.existsSync(p)) {
       const creds = fromSecretFile(p);
@@ -164,8 +172,9 @@ export function readToken(clientId: string): StoredToken | null {
 }
 
 export function writeToken(token: StoredToken): string {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
-  const p = path.join(CONFIG_DIR, `token-${token.clientHash}.json`);
+  const dir = configDir();
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const p = path.join(dir, `token-${token.clientHash}.json`);
   fs.writeFileSync(p, JSON.stringify(token, null, 2), { mode: 0o600 });
   fs.chmodSync(p, 0o600);
   return p;

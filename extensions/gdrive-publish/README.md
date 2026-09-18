@@ -150,18 +150,45 @@ Nothing is ever hard-deleted; `--prune` uses trash.
 ## Tests
 
 ```bash
-npm test          # offline: fixtures + fake Drive client, no credentials needed
+npm test          # 112 tests, offline, no credentials, ~2s
+npm run typecheck # 0 errors
+npm run lint      # biome
 ```
 
-The offline suite asserts the properties that actually matter: phase-1-before-
-phase-2 ordering, update-in-place (never recreate), id stability across
-re-runs, crash recovery from `pending` entries, code-fence immunity, CSV
-dialect handling, orphan safety, and trash-not-delete.
+CI (`.github/workflows/ci.yml`) runs all three on Node 24 for every push and
+pull request. Node 24 is required because everything here is plain TypeScript
+executed through Node's native type stripping - there is no build step.
 
-One verification rule learned the hard way: **image embedding must be checked
-by rendering** (export PDF → rasterise → look at pixels). The presence of an
-`<img>` tag, an `![]()` construct, or a `word/media/*` part in a docx export
-all report success on a document that is visibly blank.
+| Suite | Tests | What it guards |
+|---|---|---|
+| `links.test.ts` | 10 | link/image parsing; never rewriting inside fenced blocks or inline code spans |
+| `csv-naming.test.ts` | 12 | encoding/delimiter sniffing, quoting, front matter, Doc naming |
+| `scan-prepare.test.ts` | 18 | file classification, ignore rules, path-escape refusal, image inlining, size caps |
+| `auth.test.ts` | 13 | credential-chain precedence, the `GOCSPX-`/`rclone reveal` rule, per-client token keying |
+| `drive-manifest-report.test.ts` | 18 | exact REST request shapes, error-reason parsing, atomic/sorted manifest IO, report rendering |
+| `publish.test.ts` | 15 | two-phase ordering, update-in-place, crash recovery, orphan safety, trash-not-delete |
+| `cli.test.ts` | 16 | exit-code contract (0/1/2/3), `--json` shape, dry-run writing nothing, secrets never printed |
+| `extension.test.ts` | 10 | the tool is registered only in configured projects; writes are confirm-gated |
+
+The Drive REST layer is tested by swapping `globalThis.fetch`, so request
+shapes are asserted without network access; `auth.ts` is tested with a stub
+`rclone` on `PATH`; the CLI is tested as a real subprocess because exit codes
+are the contract for CI and git hooks.
+
+### Deliberate gaps
+
+- **No live Drive tier.** Nothing automatically verifies Google's actual
+  behaviour, so the fake `DriveClient` can drift. Re-run the manual checks in
+  `spike/probe.ts` before releasing anything that touches upload or conversion.
+- **`plan` does not surface link/image diagnostics** (pinned by a test named
+  `KNOWN GAP:` in `cli.test.ts`). `buildPlan` only scans and diffs the
+  manifest, so `ANCHOR_DROPPED`, `LINK_TARGET_MISSING`, `IMAGE_LARGE` and
+  `DOC_PAYLOAD_TOO_LARGE` appear only during `publish`, even though all of it
+  is computable offline.
+- **Image embedding must be verified by rendering** (export PDF -> rasterise ->
+  inspect pixels). An `<img>` tag, an `![]()` construct, or a `word/media/*`
+  part in a docx export all report success on a document that is visibly
+  blank - three false positives that a human eye caught during the spike.
 
 ## Layout
 

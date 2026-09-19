@@ -21,15 +21,23 @@ import { afterEach, beforeEach, test } from "node:test";
 import { AuthError, clientHash, resolveCredentials, tokenPath } from "../core/auth.ts";
 
 let tmp: string;
+let home: string;
 const ORIGINAL_PATH = process.env.PATH ?? "";
+const ORIGINAL_HOME = process.env.HOME ?? "";
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gdp-auth-"));
+  home = fs.mkdtempSync(path.join(os.tmpdir(), "gdp-authhome-"));
+  // Isolate HOME: a real ~/.config/gdrive-publish/client_secret.json on the
+  // developer's machine would otherwise win over the sources under test.
+  process.env.HOME = home;
 });
 
 afterEach(() => {
   process.env.PATH = ORIGINAL_PATH;
+  process.env.HOME = ORIGINAL_HOME;
   fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
 });
 
 /** Put a fake `rclone` on PATH that prints the given config dump. */

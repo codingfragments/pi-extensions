@@ -66,11 +66,23 @@ impossible. Phase 1 exists purely to learn the ids.
 
 ## Install / auth
 
-Requires Node 24+ (TypeScript runs directly, no build step).
+Distributed as the zero-dependency npm package `gdrive-publish` (Node >= 22.6,
+24 recommended; published from this folder, see `package.json`):
 
 ```bash
-gdrive-publish login          # one-time browser consent, scope: drive.file
+npx gdrive-publish login      # zero-install, one-time browser consent
+npm i -g gdrive-publish       # or install once; scope: drive.file
 ```
+
+Run straight from the monorepo without any install:
+
+```bash
+node extensions/gdrive-publish/cli.ts login
+```
+
+Installing it as a pi package (`pi install npm:gdrive-publish`) registers the
+extension; never do that on a machine that also loads this monorepo via static
+paths - see the repo README's double-load warning.
 
 Credentials are resolved in this order, and the chosen source is reported by
 **name** — never by value:

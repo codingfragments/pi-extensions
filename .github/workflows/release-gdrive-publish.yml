@@ -1,0 +1,40 @@
+name: release gdrive-publish
+
+# Publishes the npm package from the extensions/gdrive-publish subdirectory.
+# Tag convention: gdrive-publish-v<version> (the monorepo hosts multiple tools,
+# so each carries its own tag prefix). The version in extensions/gdrive-publish/
+# package.json and commands.ts VERSION must match the tag - a test enforces
+# the first half; check the other before tagging.
+#
+# Requires a repository secret NPM_TOKEN (an npm automation/granular token
+# with publish rights for the gdrive-publish package).
+
+on:
+  push:
+    tags:
+      - "gdrive-publish-v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install --ignore-scripts
+      # Full offline suite must pass before anything is published.
+      - run: npm test
+      - name: Check tag matches package version
+        run: |
+          PKG_VERSION="$(node -p "require('./extensions/gdrive-publish/package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#gdrive-publish-v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION" >&2
+            exit 1
+          fi
+      - run: npm publish
+        working-directory: extensions/gdrive-publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

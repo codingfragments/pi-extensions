@@ -13,7 +13,31 @@ valid.
 
 ## Requirements
 
-- Node 24+ (the CLI is plain TypeScript run directly, no build step)
+- Node >= 22.6 (Node 24+ recommended). The CLI is plain TypeScript executed
+  through Node's native type stripping - no build step. The `gdrive-publish`
+  launcher handles the version differences; below 22.6 it exits with
+  instructions instead of a syntax error.
+- A Google account with Drive. On a Workspace domain, folder creation and
+  per-file access work as shown here; only public anyone-with-link sharing is
+  ever needed — and it is never used (see [images](#troubleshooting)).
+
+## Installation
+
+Zero-install via npx (recommended for trying it out):
+
+```bash
+npx gdrive-publish plan docs/
+```
+
+Or install it once:
+
+```bash
+npm install -g gdrive-publish      # npm
+brew install <tap>/gdrive-publish  # Homebrew (if tapped)
+```
+
+Inside the [development monorepo](https://github.com/codingfragments/pi-extensions)
+the same CLI also runs as `gdrive-publish`.
 - A Google account with Drive. On a Workspace domain, folder creation and
   per-file access work as shown here; only public anyone-with-link sharing is
   ever needed — and it is never used (see [images](#troubleshooting)).
@@ -23,7 +47,7 @@ valid.
 ### 1. Log in (once per machine)
 
 ```bash
-node extensions/gdrive-publish/cli.ts login
+gdrive-publish login
 ```
 
 Opens a browser for Google consent, scope

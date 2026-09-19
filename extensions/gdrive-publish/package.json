@@ -1,6 +1,6 @@
 {
   "name": "gdrive-publish",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Publish markdown, CSV and Excel files to Google Drive as native Google Docs and Sheets, rewriting relative links to real Doc URLs with stable sharing links",
   "type": "module",
   "license": "MIT",
@@ -10,7 +10,15 @@
   "engines": {
     "node": ">=22.6.0"
   },
-  "files": ["bin/", "core/", "cli.ts", "commands.ts", "generate-docs.ts", "README.md", "MANUAL.md"],
+  "files": [
+    "bin/",
+    "core/",
+    "cli.ts",
+    "commands.ts",
+    "generate-docs.ts",
+    "README.md",
+    "MANUAL.md"
+  ],
   "keywords": [
     "google-drive",
     "google-docs",
@@ -28,7 +36,9 @@
   "homepage": "https://github.com/codingfragments/pi-extensions/tree/main/extensions/gdrive-publish",
   "bugs": "https://github.com/codingfragments/pi-extensions/issues",
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

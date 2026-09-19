@@ -20,6 +20,7 @@ import {
   VERSION,
   findCommand,
   parseArgv,
+  parseFolderRef,
   renderCommand,
   renderOverview,
   suggestCommand,
@@ -34,11 +35,12 @@ import {
   resolveCredentials,
   writeToken,
 } from "./core/auth.ts";
-import { RestDriveClient } from "./core/drive.ts";
+import { DriveError, RestDriveClient } from "./core/drive.ts";
+import type { DriveFile } from "./core/drive.ts";
 import * as manifestIo from "./core/manifest.ts";
 import { buildPlan, publish } from "./core/publish.ts";
 import { planJson, renderPlan, renderSummary, summaryJson } from "./core/report.ts";
-import { folderUrl } from "./core/types.ts";
+import { GOOGLE_FOLDER, folderUrl } from "./core/types.ts";
 
 /** Arguments as validated against the command table. */
 interface Args {
@@ -91,16 +93,70 @@ async function cmdLogin(args: Args): Promise<void> {
 async function cmdInit(args: Args): Promise<void> {
   const root = resolveRoot(args.target);
   const name = args.options.get("name");
-  if (!name) fail(2, 'init requires --name "Folder Name"');
+  const into = args.options.get("into");
+
+  // Validate the folder reference before touching credentials so a typo is a
+  // cheap usage error, not a network round trip.
+  let folderId: string | null = null;
+  if (into) {
+    folderId = parseFolderRef(into);
+    if (!folderId) {
+      fail(
+        2,
+        `--into expects a Drive folder URL or id (got: ${into.slice(0, 60)})\n  e.g. https://drive.google.com/drive/folders/<id>`,
+      );
+    }
+  }
+  if (!name && !folderId) fail(2, 'init requires --name "Folder Name" (or --into <folder url/id>)');
   if (manifestIo.load(root)) fail(1, `${root} already has a manifest`);
+
   const creds = credentialsOrFail(args);
   const drive = new RestDriveClient(new CachedTokenProvider(creds));
-  const folder = await drive.createFolder(name as string);
-  const manifest = manifestIo.emptyManifest(folder.id, folder.name);
+
+  let folderIdFinal: string;
+  let folderName: string;
+  if (folderId) {
+    let meta: DriveFile;
+    try {
+      meta = await drive.get(folderId);
+    } catch (e) {
+      const status = e instanceof DriveError ? e.status : 0;
+      if (status === 404 || status === 403) {
+        fail(
+          1,
+          `folder not visible: ${folderId}
+  Under the drive.file scope this tool only sees folders created by
+  the same OAuth project. Folders from the Drive web UI are not adoptable.
+  Instead: init a new folder and move it into place in Drive - publishing
+  keeps working after the move.`,
+        );
+      }
+      throw e;
+    }
+    if (meta.mimeType !== GOOGLE_FOLDER) {
+      fail(1, `${folderId} is a ${meta.mimeType}, not a Drive folder`);
+    }
+    if (meta.trashed) fail(1, `${folderId} is in the trash - restore it first`);
+    folderIdFinal = meta.id;
+    folderName = meta.name;
+    if (name && name !== folderName) {
+      process.stdout.write(
+        `note: --into keeps the existing folder name "${folderName}" (--name ignored)\n`,
+      );
+    }
+  } else {
+    const folder = await drive.createFolder(name as string);
+    folderIdFinal = folder.id;
+    folderName = folder.name;
+  }
+
+  const manifest = manifestIo.emptyManifest(folderIdFinal, folderName);
   manifest.credentialSource = creds.source;
   manifest.clientIdHash = clientHash(creds.clientId);
   const p = manifestIo.save(root, manifest);
-  process.stdout.write(`created Drive folder "${folder.name}"\n  ${folderUrl(folder.id)}\n`);
+  const url = folderUrl(folderIdFinal);
+  const how = folderId ? "using existing Drive folder" : "created Drive folder";
+  process.stdout.write(`${how} "${folderName}"\n  ${url}\n`);
   process.stdout.write(
     `manifest: ${p}\n  -> commit it; move/share the folder in Drive as you like\n`,
   );

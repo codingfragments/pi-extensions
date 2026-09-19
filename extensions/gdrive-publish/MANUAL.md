@@ -72,6 +72,16 @@ gdrive-publish init docs/ --name "Project X Docs"   # creates the Drive folder
 gdrive-publish publish docs/
 ```
 
+To publish into a Drive folder that already exists (and was created by the same
+OAuth project - rclone-created folders count), adopt it instead of creating one:
+
+```bash
+gdrive-publish init docs/ --into https://drive.google.com/drive/folders/<id>
+```
+
+Folders made in the Drive web UI are not visible under the tool's scope; init a
+new folder and move it into place in Drive instead (moves are always supported).
+
 Then **commit `.gdrive-manifest.json`** (it sits next to your docs). It maps
 source files to Drive fileIds; it is the reason the next person — or the next
 machine — updates the same Docs instead of creating duplicates. Publishing
@@ -158,11 +168,16 @@ create the Drive folder and the manifest for a directory
 
 | Option | Description |
 |---|---|
-| `--name <name>` (required) | name of the Drive folder to create |
+| `--name <name>` | name of the Drive folder to create (not needed with --into) |
+| `--into <url|id>` | adopt an existing Drive folder as the publish root instead of creating one |
 | `--remote <name>` | rclone remote to take client credentials from |
 
 ```
 gdrive-publish init docs/ --name "Project X Docs"
+```
+
+```
+gdrive-publish init docs/ --into https://drive.google.com/drive/folders/<id>
 ```
 
 ### `plan`
@@ -272,7 +287,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.2.1.
+Tool version at generation time: 0.3.0.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

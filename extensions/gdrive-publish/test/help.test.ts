@@ -14,7 +14,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { COMMANDS, VERSION, flagsFor, renderCommand, renderOverview } from "../commands.ts";
+import {
+  COMMANDS,
+  VERSION,
+  flagsFor,
+  parseFolderRef,
+  renderCommand,
+  renderOverview,
+} from "../commands.ts";
 import * as manifestIo from "../core/manifest.ts";
 
 const CLI = path.join(import.meta.dirname, "..", "cli.ts");
@@ -159,6 +166,26 @@ test("extra positional arguments are rejected", () => {
   const { status, stderr } = run(["plan", os.tmpdir(), "extra"]);
   assert.equal(status, 2);
   assert.match(stderr, /unexpected argument/);
+});
+
+test("parseFolderRef accepts folder URLs and bare ids, rejects garbage", () => {
+  assert.equal(
+    parseFolderRef("https://drive.google.com/drive/folders/1AbCdEfGhIjK"),
+    "1AbCdEfGhIjK",
+  );
+  assert.equal(
+    parseFolderRef("https://drive.google.com/drive/u/0/folders/1AbCdEfGhIjK/"),
+    "1AbCdEfGhIjK",
+  );
+  assert.equal(
+    parseFolderRef("https://drive.google.com/drive/u/2/folders/xyz_-12345678"),
+    "xyz_-12345678",
+  );
+  assert.equal(parseFolderRef("1AbCdEfGhIjK"), "1AbCdEfGhIjK");
+  assert.equal(parseFolderRef("  1AbCdEfGhIjK  "), "1AbCdEfGhIjK");
+  assert.equal(parseFolderRef("not a ref"), null);
+  assert.equal(parseFolderRef("https://docs.google.com/document/d/1AbCdEfGhIjK/edit"), null);
+  assert.equal(parseFolderRef("short"), null);
 });
 
 test("the overview documents every environment variable and exit code", () => {

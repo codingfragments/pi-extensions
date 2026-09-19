@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.2.1";
+export const VERSION = "0.3.0";
 
 export const BIN = "gdrive-publish";
 
@@ -81,18 +81,31 @@ export const COMMANDS: CommandSpec[] = [
       "into <dir>. Commit that manifest: it maps source files to Drive fileIds and\n" +
       "is the reason shared URLs stay stable for everyone.\n\n" +
       "You can move and share the created folder freely in Drive afterwards;\n" +
-      "access survives the move.",
+      "access survives the move.\n\n" +
+      "With --into, an existing folder becomes the publish root instead: publishing\n" +
+      "creates its subfolders inside it. The folder must be visible under the\n" +
+      "drive.file scope - i.e. created by the same OAuth project. Folders made\n" +
+      "in the Drive web UI are NOT visible to this tool; init your own folder and\n" +
+      "move it into place instead (moves are always supported).",
     flags: [
       {
         name: "name",
-        summary: "name of the Drive folder to create",
+        summary: "name of the Drive folder to create (not needed with --into)",
         takesValue: true,
         valueLabel: "<name>",
-        required: true,
+      },
+      {
+        name: "into",
+        summary: "adopt an existing Drive folder as the publish root instead of creating one",
+        takesValue: true,
+        valueLabel: "<url|id>",
       },
       REMOTE_FLAG,
     ],
-    examples: [`${BIN} init docs/ --name "Project X Docs"`],
+    examples: [
+      `${BIN} init docs/ --name "Project X Docs"`,
+      `${BIN} init docs/ --into https://drive.google.com/drive/folders/<id>`,
+    ],
   },
   {
     name: "plan",
@@ -174,6 +187,20 @@ export const ENVIRONMENT: [string, string][] = [
   ["GDRIVE_PUBLISH_CLIENT_SECRET_FILE", "path to a Google client_secret.json"],
   ["GDRIVE_PUBLISH_RCLONE_REMOTE", "rclone remote to borrow client credentials from"],
 ];
+
+/**
+ * Accept a Drive folder URL (any /folders/<id> form) or a bare file id.
+ * Returns the id, or null when the input is neither.
+ */
+export function parseFolderRef(input: string): string | null {
+  const trimmed = input.trim();
+  const url = trimmed.match(
+    /^https:\/\/drive\.google\.com\/(?:drive\/(?:u\/\d+\/)?)?folders\/([A-Za-z0-9_-]+)/,
+  );
+  if (url?.[1]) return url[1];
+  if (/^[A-Za-z0-9_-]{10,}$/.test(trimmed)) return trimmed;
+  return null;
+}
 
 export function findCommand(name: string): CommandSpec | undefined {
   return COMMANDS.find((c) => c.name === name);

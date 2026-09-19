@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
 export const BIN = "gdrive-publish";
 
@@ -130,18 +130,21 @@ export const COMMANDS: CommandSpec[] = [
       "fileIds - and any URL you shared - stay the same.\n\n" +
       "Drive-side edits are reported loudly but overwritten; the previous version\n" +
       "remains in Drive's revision history. Files whose local source disappeared are\n" +
-      "reported as orphans and never removed unless --prune is given.",
+      "reported as orphans and never removed unless --prune is given.\n\n" +
+      "A file that is trashed or inaccessible in Drive is skipped with an error\n" +
+      "unless --repair is given, which recreates it under a new id - any URL\n" +
+      "previously shared for that file stops working.",
     flags: [
       { name: "dry-run", summary: "plan only; write nothing (same as `plan`)" },
       {
         name: "prune",
         summary: "move orphaned Drive files to trash (never hard-deleted)",
       },
-      JSON_FLAG,
       {
-        name: "yes",
-        summary: "assume yes for confirmations (reserved for non-interactive use)",
+        name: "repair",
+        summary: "recreate Drive files that are trashed or inaccessible; their old URLs die",
       },
+      JSON_FLAG,
       REMOTE_FLAG,
     ],
     examples: [

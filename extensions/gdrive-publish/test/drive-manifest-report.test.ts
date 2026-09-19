@@ -296,6 +296,7 @@ test("renderSummary always reminds the user to commit the manifest", () => {
   const summary: PublishSummary = {
     created: 1,
     updated: 2,
+    repaired: 1,
     unchanged: 3,
     pruned: 0,
     orphans: 1,
@@ -304,7 +305,7 @@ test("renderSummary always reminds the user to commit the manifest", () => {
     rootFolderUrl: folderUrl("fld1"),
   };
   const out = renderSummary(summary);
-  assert.match(out, /1 created, 2 updated, 3 unchanged, 0 pruned, 1 orphan/);
+  assert.match(out, /1 created, 2 updated, 1 repaired, 3 unchanged, 0 pruned, 1 orphan/);
   assert.match(out, /commit the manifest/);
   assert.match(out, /drive\.google\.com\/drive\/folders\/fld1/);
 });

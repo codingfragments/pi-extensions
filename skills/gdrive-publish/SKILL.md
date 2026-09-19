@@ -53,6 +53,8 @@ Warnings are normal, not failures. The ones that matter to a user:
 | `CSV_NORMALISED` | The CSV was not UTF-8 comma-delimited (typically a German Excel export); it was normalised so Drive parses the columns correctly. |
 | `XLSX_LOSSY` | The workbook became a Sheet; macros and some formatting are lost. |
 | `DRIVE_MODIFIED` | Someone edited the Doc in Drive. Local content overwrote it; their version is still in Drive's revision history. Mention who and when. |
+| `DRIVE_FILE_GONE` | The Drive copy of a file was trashed or became inaccessible. Nothing was written for it; the user decides: restore it in Drive, or re-run with repair approved (old shared URLs die). |
+| `DRIVE_REPAIRED` | The file was recreated under a new Drive id. Any previously shared URL for it no longer works - tell the user which files were affected. |
 | `ORPHAN` | A local file was deleted but its Doc still exists. Nothing was removed. Only run with `prune: true` if the user explicitly wants it trashed. |
 | `PENDING_RESUMED` | A previous run died midway; this run filled the reserved Doc. No action needed. |
 
@@ -60,6 +62,9 @@ Warnings are normal, not failures. The ones that matter to a user:
 
 - **Never** pass `prune: true` unless the user asked to remove deleted files.
   It moves Drive files to trash (recoverable, but it is still deletion).
+- **Never** pass `repair: true` unless the user explicitly asked to repair.
+  Repairing recreates a trashed/inaccessible file under a new id - any URL that
+  was previously shared for it stops working. Ask first, always.
 - **Never** pass `assumeYes: true` to bypass a prompt the user has not seen.
 - Do not try to run the OAuth login flow yourself; it needs a browser and the
   token must be written by the user's own terminal session.

@@ -33,7 +33,7 @@ function freshManifest(): Manifest {
 async function run(
   root: string,
   manifest: Manifest,
-  opts: { prune?: boolean; drive?: FakeDrive } = {},
+  opts: { prune?: boolean; repair?: boolean; drive?: FakeDrive } = {},
 ) {
   const drive = opts.drive ?? new FakeDrive();
   drive.files.set("fldROOT", { id: "fldROOT", name: "Test Docs", mimeType: "folder" });
@@ -44,6 +44,7 @@ async function run(
     manifest,
     plan,
     prune: opts.prune ?? false,
+    repair: opts.repair ?? false,
     now: () => new Date("2024-01-01T00:00:00.000Z"),
   });
   return { drive, plan, summary };
@@ -241,6 +242,106 @@ test("an existing-but-unpublished target is distinguished from a broken link", a
   assert.match(byCode.get("LINK_TO_UNSUPPORTED") ?? "", /notes\.txt/);
   assert.ok(byCode.has("LINK_TARGET_MISSING"), "nope.md really is missing");
   assert.match(byCode.get("LINK_TARGET_MISSING") ?? "", /nope\.md/);
+});
+
+test("a gone Drive file without repair is skipped, reported, and never crashes", async () => {
+  const root = fixture({ "a.md": "# A\nv1\n" });
+  const manifest = freshManifest();
+  const first = await run(root, manifest);
+  const id = manifest.entries["a.md"]?.fileId as string;
+  first.drive.missing.add(id); // simulate trashed/inaccessible
+  const callsBefore = first.drive.calls.length;
+
+  fs.writeFileSync(path.join(root, "a.md"), "# A\nv2\n");
+  const second = await run(root, manifest, { drive: first.drive });
+
+  const gone = second.summary.diagnostics.find((d) => d.code === "DRIVE_FILE_GONE");
+  assert.ok(gone, "DRIVE_FILE_GONE reported");
+  assert.equal(gone?.severity, "error");
+  assert.equal(second.summary.updated, 0, "nothing was updated");
+  assert.equal(second.summary.repaired, 0);
+  assert.ok(
+    !first.drive.calls.slice(callsBefore).some((c) => c.startsWith(`updateMedia(${id}`)),
+    "no update attempt on the dead id",
+  );
+  assert.equal(manifest.entries["a.md"]?.fileId, id, "manifest keeps the old id");
+});
+
+test("with repair the gone file is recreated under a new id, loudly", async () => {
+  const root = fixture({ "a.md": "# A\nv1\n" });
+  const manifest = freshManifest();
+  const first = await run(root, manifest);
+  const oldId = manifest.entries["a.md"]?.fileId as string;
+  first.drive.missing.add(oldId);
+  const callsBefore = first.drive.calls.length;
+
+  fs.writeFileSync(path.join(root, "a.md"), "# A\nv2\n");
+  const second = await run(root, manifest, { drive: first.drive, repair: true });
+
+  assert.equal(second.summary.repaired, 1);
+  const newId = manifest.entries["a.md"]?.fileId as string;
+  assert.notEqual(newId, oldId, "a fresh Drive id was recorded");
+  assert.match(first.drive.contentOf(newId), /v2/, "the recreated Doc has the new content");
+  assert.ok(
+    !first.drive.calls.slice(callsBefore).some((c) => c.startsWith(`updateMedia(${oldId}`)),
+    "the dead id is never written to",
+  );
+  const repaired = second.summary.diagnostics.find((d) => d.code === "DRIVE_REPAIRED");
+  assert.ok(repaired, "DRIVE_REPAIRED warning present");
+  assert.match(repaired?.message ?? "", /no longer work/, "warns that shared URLs die");
+  assert.equal(manifest.entries["a.md"]?.pending, undefined, "recreated Doc was filled");
+  assert.equal(second.summary.updated, 0, "repair is its own category, not 'updated'");
+});
+
+test("an unchanged file whose Drive copy is gone is caught without a local edit", async () => {
+  // Regression for the gap found live: divergence was only checked for
+  // update items, so a trashed Doc with an unchanged local source sailed
+  // through as "unchanged" while its shared URL was already dead.
+  const root = fixture({ "a.md": "# A\nv1\n" });
+  const manifest = freshManifest();
+  const first = await run(root, manifest);
+  const id = manifest.entries["a.md"]?.fileId as string;
+  first.drive.missing.add(id);
+  const callsBefore = first.drive.calls.length;
+
+  const second = await run(root, manifest, { drive: first.drive });
+  const gone = second.summary.diagnostics.find((d) => d.code === "DRIVE_FILE_GONE");
+  assert.ok(gone, "a gone file must be reported even when the local source is unchanged");
+  assert.equal(gone?.severity, "error");
+  assert.ok(
+    !first.drive.calls.slice(callsBefore).some((c) => c.startsWith(`updateMedia(${id}`)),
+    "nothing written to the dead id",
+  );
+  assert.equal(manifest.entries["a.md"]?.fileId, id, "manifest keeps the id without repair");
+});
+
+test("repair recreates an unchanged file whose Drive copy is gone", async () => {
+  const root = fixture({ "a.md": "# A\nv1\n" });
+  const manifest = freshManifest();
+  const first = await run(root, manifest);
+  const oldId = manifest.entries["a.md"]?.fileId as string;
+  first.drive.missing.add(oldId);
+
+  const second = await run(root, manifest, { drive: first.drive, repair: true });
+  assert.equal(second.summary.repaired, 1);
+  const newId = manifest.entries["a.md"]?.fileId as string;
+  assert.notEqual(newId, oldId);
+  assert.match(first.drive.contentOf(newId), /# A/, "recreated from the unchanged source");
+});
+
+test("repair also recreates gone sheets", async () => {
+  const root = fixture({ "data.csv": "a,b\n1,2\n" });
+  const manifest = freshManifest();
+  const first = await run(root, manifest);
+  const oldId = manifest.entries["data.csv"]?.fileId as string;
+  first.drive.missing.add(oldId);
+
+  fs.writeFileSync(path.join(root, "data.csv"), "a,b\n9,9\n");
+  const second = await run(root, manifest, { drive: first.drive, repair: true });
+  assert.equal(second.summary.repaired, 1);
+  const newId = manifest.entries["data.csv"]?.fileId as string;
+  assert.notEqual(newId, oldId);
+  assert.match(first.drive.contentOf(newId), /9,9/, "new sheet has the new content");
 });
 
 test("diagnostics are not duplicated between plan and publish", async () => {

@@ -171,6 +171,8 @@ export interface PublishOptions {
   manifest: Manifest;
   plan: Plan;
   prune: boolean;
+  /** Recreate files whose Drive copy is gone (old shared URLs die). */
+  repair?: boolean;
   /** Called with progress messages (CLI prints them; the extension shows a widget). */
   onProgress?: (message: string) => void;
   /** Wall-clock source, injectable for tests. */
@@ -188,6 +190,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   const diagnostics: Diagnostic[] = [...plan.diagnostics];
   let created = 0;
   let updated = 0;
+  let repaired = 0;
   let pruned = 0;
 
   // ---- phase 1: folders + id reservation ---------------------------------
@@ -255,9 +258,73 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     // update / unchanged: the id is already known
     const fileId = item.fileId as string;
     resolved.set(item.relPath, { fileId, url: driveUrl(item.kind, fileId), kind: item.kind });
-    if (item.action === "update") {
+    // Unchanged items are checked too: a trashed or inaccessible Drive file is
+    // a hard error regardless of whether the local source changed - the agreed
+    // contract is "dead id => error (or --repair)", not "error only if you
+    // also edited the file".
+    if (item.action === "update" || item.action === "unchanged") {
       const divergence = await checkDivergence(drive, fileId, manifest, item.relPath);
       if (divergence) diagnostics.push(divergence);
+      if (divergence?.code === "DRIVE_FILE_GONE") {
+        if (opts.repair) {
+          diagnostics.push({
+            code: "DRIVE_REPAIRED",
+            severity: "warn",
+            relPath: item.relPath,
+            message: `recreated ${item.relPath} - the old file (${fileId}) was gone, so previously shared URLs no longer work`,
+          });
+          if (item.kind === "markdown") {
+            const shell = await drive.createEmptyDoc(item.name, parentId);
+            manifest.entries[item.relPath] = {
+              fileId: shell.id,
+              kind: item.kind,
+              name: item.name,
+              url: driveUrl(item.kind, shell.id),
+              contentHash: "",
+              publishedAt: now().toISOString(),
+              pending: true,
+            };
+            toFill.push({ item: { ...item, action: "create" }, fileId: shell.id });
+            resolved.set(item.relPath, {
+              fileId: shell.id,
+              url: driveUrl(item.kind, shell.id),
+              kind: item.kind,
+            });
+          } else {
+            const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
+            if (note) diagnostics.push(note);
+            const file = await drive.convertUpload(
+              item.name,
+              GOOGLE_SHEET,
+              mediaMime,
+              media,
+              parentId,
+            );
+            manifest.entries[item.relPath] = {
+              fileId: file.id,
+              kind: item.kind,
+              name: item.name,
+              url: driveUrl(item.kind, file.id),
+              contentHash: manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`)),
+              publishedAt: now().toISOString(),
+            };
+            resolved.set(item.relPath, {
+              fileId: file.id,
+              url: driveUrl(item.kind, file.id),
+              kind: item.kind,
+            });
+          }
+          repaired++;
+          progress(`repaired ${item.relPath}`);
+        } else {
+          // Leave the entry alone: the error diagnostic carries the guidance.
+          // Skipping instead of crashing on updateMedia lets the run finish
+          // and the CLI exit 3 with a complete report.
+          progress(`SKIPPED ${item.relPath} - Drive file gone; re-run with --repair`);
+        }
+        continue;
+      }
+      if (item.action === "unchanged") continue;
       if (item.kind === "markdown") {
         toFill.push({ item, fileId });
       } else {
@@ -335,6 +402,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   return {
     created,
     updated,
+    repaired,
     unchanged: plan.items.filter((i) => i.action === "unchanged").length,
     pruned,
     orphans: plan.orphans.length - pruned,

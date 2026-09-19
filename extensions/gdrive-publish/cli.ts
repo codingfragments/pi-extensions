@@ -211,6 +211,7 @@ async function cmdPublish(args: Args): Promise<void> {
     manifest,
     plan,
     prune: args.flags.has("prune"),
+    repair: args.flags.has("repair"),
     onProgress: json ? undefined : (m) => process.stdout.write(`  ${m}\n`),
   });
   if (json) {

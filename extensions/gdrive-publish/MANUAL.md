@@ -39,10 +39,6 @@ brew install <tap>/gdrive-publish  # Homebrew (if tapped)
 Inside the [development monorepo](https://github.com/codingfragments/pi-extensions)
 the same CLI also runs as `gdrive-publish`.
 
-- A Google account with Drive. On a Workspace domain, folder creation and
-  per-file access work as shown here; only public anyone-with-link sharing is
-  ever needed — and it is never used (see [images](#troubleshooting)).
-
 ## First publish
 
 ### 1. Log in (once per machine)
@@ -161,7 +157,7 @@ gdrive-publish init <dir>
 create the Drive folder and the manifest for a directory
 
 | Option | Description |
-| --- | --- |
+|---|---|
 | `--name <name>` (required) | name of the Drive folder to create |
 | `--remote <name>` | rclone remote to take client credentials from |
 
@@ -198,7 +194,7 @@ gdrive-publish publish <dir>
 publish to Drive; local content always wins
 
 | Option | Description |
-| --- | --- |
+|---|---|
 | `--dry-run` | plan only; write nothing (same as `plan`) |
 | `--prune` | move orphaned Drive files to trash (never hard-deleted) |
 | `--json` | machine-readable output on stdout |
@@ -230,7 +226,7 @@ gdrive-publish status <dir>
 show manifest state and which credentials are in use
 
 | Option | Description |
-| --- | --- |
+|---|---|
 | `--json` | machine-readable output on stdout |
 | `--remote <name>` | rclone remote to take client credentials from |
 
@@ -261,7 +257,7 @@ gdrive-publish help publish
 ### Environment variables
 
 | Variable | Purpose |
-| --- | --- |
+|---|---|
 | `GDRIVE_PUBLISH_CLIENT_ID` | OAuth client id (with _CLIENT_SECRET, highest priority) |
 | `GDRIVE_PUBLISH_CLIENT_SECRET` | OAuth client secret |
 | `GDRIVE_PUBLISH_CLIENT_SECRET_FILE` | path to a Google client_secret.json |
@@ -270,7 +266,7 @@ gdrive-publish help publish
 ### Exit codes
 
 | Code | Meaning |
-| --- | --- |
+|---|---|
 | 0 | success |
 | 1 | runtime failure (auth, network, Drive error) |
 | 2 | usage error (bad command, missing argument, unknown flag) |

@@ -10,15 +10,7 @@
   "engines": {
     "node": ">=22.6.0"
   },
-  "files": [
-    "bin/",
-    "core/",
-    "cli.ts",
-    "commands.ts",
-    "generate-docs.ts",
-    "README.md",
-    "MANUAL.md"
-  ],
+  "files": ["bin/", "core/", "cli.ts", "commands.ts", "generate-docs.ts", "README.md", "MANUAL.md"],
   "keywords": [
     "google-drive",
     "google-docs",
@@ -36,9 +28,7 @@
   "homepage": "https://github.com/codingfragments/pi-extensions/tree/main/extensions/gdrive-publish",
   "bugs": "https://github.com/codingfragments/pi-extensions/issues",
   "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
+    "extensions": ["./index.ts"]
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

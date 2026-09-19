@@ -13,10 +13,10 @@ valid.
 
 ## Requirements
 
-- Node >= 22.6 (Node 24+ recommended). The CLI is plain TypeScript executed
-  through Node's native type stripping - no build step. The `gdrive-publish`
-  launcher handles the version differences; below 22.6 it exits with
-  instructions instead of a syntax error.
+- Node >= 20. The npm package ships compiled JavaScript (`dist/`), so any
+  current Node runs it. The TypeScript sources travel along for the pi
+  extension and monorepo use, but the `gdrive-publish` bin always executes
+  the compiled build.
 - A Google account with Drive. On a Workspace domain, folder creation and
   per-file access work as shown here; only public anyone-with-link sharing is
   ever needed — and it is never used (see [images](#troubleshooting)).
@@ -272,7 +272,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.2.0.
+Tool version at generation time: 0.2.1.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

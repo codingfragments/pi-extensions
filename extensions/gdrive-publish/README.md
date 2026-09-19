@@ -66,8 +66,9 @@ impossible. Phase 1 exists purely to learn the ids.
 
 ## Install / auth
 
-Distributed as the zero-dependency npm package `gdrive-publish` (Node >= 22.6,
-24 recommended; published from this folder, see `package.json`):
+Distributed as the zero-dependency npm package `gdrive-publish` (Node >= 20;
+ships compiled JS in `dist/` while the TypeScript sources stay for pi and
+monorepo use):
 
 ```bash
 npx gdrive-publish login      # zero-install, one-time browser consent

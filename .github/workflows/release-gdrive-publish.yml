@@ -40,6 +40,8 @@ jobs:
       - run: npm install --ignore-scripts
       # Full offline suite must pass before anything is published.
       - run: npm test
+      # Compile the dist/ artifact that the published tarball ships.
+      - run: npm run build:gdrive-publish
       - name: Check tag matches package version
         run: |
           PKG_VERSION="$(node -p "require('./extensions/gdrive-publish/package.json').version")"

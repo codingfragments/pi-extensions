@@ -212,8 +212,8 @@ publish to Drive; local content always wins
 |---|---|
 | `--dry-run` | plan only; write nothing (same as `plan`) |
 | `--prune` | move orphaned Drive files to trash (never hard-deleted) |
+| `--repair` | recreate Drive files that are trashed or inaccessible; their old URLs die |
 | `--json` | machine-readable output on stdout |
-| `--yes` | assume yes for confirmations (reserved for non-interactive use) |
 | `--remote <name>` | rclone remote to take client credentials from |
 
 ```
@@ -287,7 +287,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.3.0.
+Tool version at generation time: 0.4.0.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting
@@ -299,7 +299,7 @@ Tool version at generation time: 0.3.0.
 | `invalid_client` during login | Usually a stale or wrong client secret. If you maintain your own OAuth client, re-download `client_secret.json`. |
 | Links to images do not render | Drive fetches image URLs anonymously, so only images embedded as data URIs render. This tool always inlines images; if you pasted a `drive.google.com/uc?...` link by hand, expect a blank placeholder on Workspaces that block anyone-with-link sharing. |
 | `DOC_PAYLOAD_TOO_LARGE` | The prepared document exceeds 10 MB after inlining images as base64. Shrink or remove images. |
-| `DRIVE_FILE_GONE` | A manifest entry points at a file that was trashed or became inaccessible. Restore it from trash in Drive, or delete the manifest entry to re-create the Doc. |
+| `DRIVE_FILE_GONE` | A manifest entry points at a file that was trashed or became inaccessible; that file is skipped and the run reports an error. Restore it in Drive, or re-run with `--repair` to recreate it (under a new id - previously shared URLs for it stop working). |
 | A Doc shows the old content after publish | Check for `DRIVE_MODIFIED` in the report — a Drive-side edit was overwritten by your local version on purpose. |
 | Orphan warnings you did not expect | A local file was renamed or deleted. Rename it back, or accept the orphan, or `--prune` to trash the Drive file. |
 

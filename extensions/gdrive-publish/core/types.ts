@@ -28,6 +28,7 @@ export type DiagnosticCode =
   | "XLSX_LOSSY"
   | "DRIVE_MODIFIED"
   | "DRIVE_FILE_GONE"
+  | "DRIVE_REPAIRED"
   | "ORPHAN"
   | "UNSUPPORTED_FILE"
   | "PENDING_RESUMED";
@@ -111,6 +112,8 @@ export interface Manifest {
 export interface PublishSummary {
   created: number;
   updated: number;
+  /** Files recreated because their Drive file was gone (old URLs die). */
+  repaired: number;
   unchanged: number;
   pruned: number;
   orphans: number;

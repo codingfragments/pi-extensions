@@ -6,6 +6,7 @@
  * where the real risk lives.
  */
 
+import { DriveError } from "../core/drive.ts";
 import type { DriveClient, DriveFile } from "../core/drive.ts";
 import { GOOGLE_DOC, GOOGLE_FOLDER } from "../core/types.ts";
 
@@ -90,9 +91,9 @@ export class FakeDrive implements DriveClient {
   async get(fileId: string): Promise<DriveFile> {
     this.calls.push(`get(${fileId})`);
     if (this.missing.has(fileId)) {
-      const err = new Error("not found") as Error & { status: number };
-      err.status = 404;
-      throw err;
+      // Match the real client's error contract so the 404 path under test
+      // behaves exactly as it does against Drive.
+      throw new DriveError("not found", 404);
     }
     const file = this.files.get(fileId);
     if (!file) throw new Error(`fake drive: no such file ${fileId}`);

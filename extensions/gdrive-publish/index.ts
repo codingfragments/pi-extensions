@@ -185,6 +185,12 @@ export default function (pi: ExtensionAPI) {
             "When publishing, move Drive files whose local source was deleted to Drive trash (never hard-deleted). Defaults to false.",
         }),
       ),
+      repair: Type.Optional(
+        Type.Boolean({
+          description:
+            "Recreate Drive files that are trashed or inaccessible, under new ids - previously shared URLs for them stop working. Only use when the user explicitly approved repairing.",
+        }),
+      ),
       assumeYes: Type.Optional(
         Type.Boolean({
           description:
@@ -239,6 +245,7 @@ export default function (pi: ExtensionAPI) {
           manifest,
           plan,
           prune: params.prune ?? false,
+          repair: params.repair ?? false,
           onProgress: (message) => {
             done.push(message);
             ctx.ui.setStatus("gdrive-publish", `publishing: ${message}`);

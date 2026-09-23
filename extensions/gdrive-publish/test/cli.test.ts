@@ -228,6 +228,99 @@ test("publish fails cleanly when not authenticated (no token for this client)", 
   assert.match(stderr, /not authenticated|gdrive-publish login/);
 });
 
+test("plan suggests --suggest-config when unsupported files exist", () => {
+  write("a.md", "# A\n");
+  write("notes.txt", "text");
+  const { status, stdout } = run(["plan", tmp]);
+  assert.equal(status, 0);
+  assert.match(stdout, /UNSUPPORTED_FILE notes\.txt/);
+  assert.match(stdout, /TIP\s+1 unsupported file\(s\) could be published as raw uploads/);
+  assert.match(stdout, /--suggest-config/);
+});
+
+test("plan --json carries rawSuggestion", () => {
+  write("a.md", "# A\n");
+  write("notes.txt", "text");
+  const { stdout } = run(["plan", tmp, "--json"]);
+  const parsed = JSON.parse(stdout) as { rawSuggestion: { patterns: string[] } | null };
+  assert.deepEqual(parsed.rawSuggestion?.patterns, ["*.txt"]);
+});
+
+test("plan --suggest-config creates the config and previews the raw files", () => {
+  write("a.md", "# A\n");
+  write("notes.txt", "text");
+  write("cfg.yaml", "k: v");
+  const { status, stdout } = run(["plan", tmp, "--suggest-config"]);
+  assert.equal(status, 0);
+  // the config file was created and shown
+  const configPath = path.join(tmp, ".gdrive-publish.json");
+  assert.ok(fs.existsSync(configPath), "config file created");
+  const created = JSON.parse(fs.readFileSync(configPath, "utf8")) as { rawPatterns: string[] };
+  assert.deepEqual(created.rawPatterns, ["*.txt", "*.yaml"]);
+  assert.match(stdout, /created .*\.gdrive-publish\.json/);
+  assert.match(stdout, /"rawPatterns"/);
+  assert.match(stdout, /verify the patterns before running plan or publish/);
+  // the re-scanned plan now shows the files as raw uploads
+  assert.match(stdout, /\+ notes\.txt.*File "notes\.txt" \(raw upload\)/);
+  assert.match(stdout, /\+ cfg\.yaml.*File "cfg\.yaml" \(raw upload\)/);
+  assert.doesNotMatch(stdout, /UNSUPPORTED_FILE/);
+});
+
+test("plan --suggest-config merges, never overwrites, existing patterns", () => {
+  write("a.md", "# A\n");
+  write("notes.txt", "text");
+  write("bundle.zip", "PK");
+  fs.writeFileSync(
+    path.join(tmp, ".gdrive-publish.json"),
+    JSON.stringify({ rawPatterns: ["archives/**"] }),
+  );
+  const { stdout } = run(["plan", tmp, "--suggest-config"]);
+  const created = JSON.parse(fs.readFileSync(path.join(tmp, ".gdrive-publish.json"), "utf8")) as {
+    rawPatterns: string[];
+  };
+  assert.ok(created.rawPatterns.includes("archives/**"), "existing pattern preserved");
+  assert.ok(created.rawPatterns.includes("*.txt"));
+  assert.ok(created.rawPatterns.includes("*.zip"));
+});
+
+test("plan --suggest-config is a no-op when nothing is uncovered", () => {
+  write("a.md", "# A\n");
+  fs.writeFileSync(
+    path.join(tmp, ".gdrive-publish.json"),
+    JSON.stringify({ rawPatterns: ["*.txt"] }),
+  );
+  const { stdout } = run(["plan", tmp, "--suggest-config"]);
+  assert.match(stdout, /no unsupported files found - nothing to suggest/);
+});
+
+test("plan --suggest-config lists extensionless files for manual patterns", () => {
+  write("a.md", "# A\n");
+  write("notes.txt", "x");
+  write("Makefile", "all:");
+  const { stdout } = run(["plan", tmp, "--suggest-config"]);
+  assert.match(stdout, /no automatic pattern can cover/);
+  assert.match(stdout, /Makefile/);
+  const created = JSON.parse(fs.readFileSync(path.join(tmp, ".gdrive-publish.json"), "utf8")) as {
+    rawPatterns: string[];
+  };
+  assert.deepEqual(created.rawPatterns, ["*.txt"], "no bogus pattern for extensionless files");
+});
+
+test("plan --suggest-config --json reports the created config", () => {
+  write("a.md", "# A\n");
+  write("notes.txt", "text");
+  const { stdout } = run(["plan", tmp, "--suggest-config", "--json"]);
+  const parsed = JSON.parse(stdout) as {
+    configCreated: string;
+    patternsAdded: string[];
+    items: { relPath: string; kind: string }[];
+    rawSuggestion: { patterns: string[] } | null;
+  };
+  assert.ok(parsed.configCreated.endsWith(".gdrive-publish.json"));
+  assert.deepEqual(parsed.patternsAdded, ["*.txt"]);
+  assert.ok(parsed.items.some((i) => i.relPath === "notes.txt" && i.kind === "file"));
+});
+
 test("secrets never appear in output", () => {
   seedManifest();
   const { stdout, stderr } = run(["status", tmp, "--json"]);

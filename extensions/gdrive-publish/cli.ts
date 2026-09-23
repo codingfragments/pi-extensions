@@ -35,6 +35,13 @@ import {
   resolveCredentials,
   writeToken,
 } from "./core/auth.ts";
+import {
+  CONFIG_FILENAME,
+  cautionPatterns,
+  loadConfig,
+  mergePatterns,
+  saveConfig,
+} from "./core/config.ts";
 import { DriveError, RestDriveClient } from "./core/drive.ts";
 import type { DriveFile } from "./core/drive.ts";
 import * as manifestIo from "./core/manifest.ts";
@@ -166,10 +173,64 @@ async function cmdInit(args: Args): Promise<void> {
 
 function cmdPlan(args: Args): void {
   const root = resolveRoot(args.target);
-  const manifest = manifestIo.load(root);
-  const plan = buildPlan({ root, manifest });
+  let manifest = manifestIo.load(root);
+  let plan = buildPlan({ root, manifest });
+  let configCreated: string | null = null;
+  let patternsAdded: string[] = [];
+
+  // --suggest-config: create or extend .gdrive-publish.json so the
+  // unsupported files publish as raw uploads. Merges, never removes.
+  if (args.flags.has("suggest-config")) {
+    if (!plan.rawSuggestion || plan.rawSuggestion.coverable.length === 0) {
+      const manual = plan.rawSuggestion?.extensionless ?? [];
+      process.stdout.write(
+        manual.length > 0
+          ? `nothing to cover automatically; no extension pattern can match:\n  ${manual.join("\n  ")}\n  add rawPatterns entries manually in ${CONFIG_FILENAME}\n`
+          : "no unsupported files found - nothing to suggest\n",
+      );
+    } else {
+      const current = loadConfig(root)?.rawPatterns ?? [];
+      const merged = mergePatterns(current, plan.rawSuggestion.patterns);
+      const added = merged.filter((p) => !current.includes(p));
+      if (added.length === 0) {
+        process.stdout.write("config already covers all unsupported files - nothing added\n");
+      } else {
+        configCreated = saveConfig(root, { rawPatterns: merged });
+        patternsAdded = added;
+        manifest = manifestIo.load(root);
+        plan = buildPlan({ root, manifest });
+        if (!args.flags.has("json")) {
+          const body = JSON.stringify({ rawPatterns: merged }, null, 2);
+          process.stdout.write(
+            `created ${configCreated}:\n${body
+              .split("\n")
+              .map((l) => `  ${l}`)
+              .join("\n")}\n`,
+          );
+          const risky = cautionPatterns(added);
+          if (risky.length > 0) {
+            process.stdout.write(
+              `  CAUTION: ${risky.join(", ")} look(s) credential-adjacent - double-check before publishing\n`,
+            );
+          }
+          const still = plan.rawSuggestion?.extensionless ?? [];
+          if (still.length > 0) {
+            process.stdout.write(
+              `  note: no automatic pattern can cover (add manually):\n    ${still.join("\n    ")}\n`,
+            );
+          }
+          process.stdout.write("  -> verify the patterns before running plan or publish\n");
+        }
+      }
+    }
+  }
+
   if (args.flags.has("json")) {
-    process.stdout.write(`${JSON.stringify(planJson(plan), null, 2)}\n`);
+    const payload: Record<string, unknown> = {
+      ...(planJson(plan) as Record<string, unknown>),
+      ...(configCreated ? { configCreated, patternsAdded } : {}),
+    };
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   } else {
     process.stdout.write(`${renderPlan(plan, root)}\n`);
   }

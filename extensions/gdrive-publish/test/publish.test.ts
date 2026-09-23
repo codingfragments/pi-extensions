@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import * as manifestIo from "../core/manifest.ts";
+import type { ProgressEvent } from "../core/progress.ts";
 import { buildPlan, publish } from "../core/publish.ts";
 import type { Manifest } from "../core/types.ts";
 import { FakeDrive } from "./fake-drive.ts";
@@ -33,7 +34,7 @@ function freshManifest(): Manifest {
 async function run(
   root: string,
   manifest: Manifest,
-  opts: { prune?: boolean; repair?: boolean; drive?: FakeDrive } = {},
+  opts: { prune?: boolean; repair?: boolean; drive?: FakeDrive; events?: ProgressEvent[] } = {},
 ) {
   const drive = opts.drive ?? new FakeDrive();
   drive.files.set("fldROOT", { id: "fldROOT", name: "Test Docs", mimeType: "folder" });
@@ -46,6 +47,7 @@ async function run(
     prune: opts.prune ?? false,
     repair: opts.repair ?? false,
     now: () => new Date("2024-01-01T00:00:00.000Z"),
+    ...(opts.events ? { onProgress: (e: ProgressEvent) => opts.events?.push(e) } : {}),
   });
   return { drive, plan, summary };
 }
@@ -342,6 +344,31 @@ test("repair also recreates gone sheets", async () => {
   const newId = manifest.entries["data.csv"]?.fileId as string;
   assert.notEqual(newId, oldId);
   assert.match(first.drive.contentOf(newId), /9,9/, "new sheet has the new content");
+});
+
+test("progress events are monotonic and reach the exact total", async () => {
+  const root = fixture({
+    "toc.md": "# TOC\n[d](./details.md)\n",
+    "details.md": "# Details\n",
+    "data.csv": "a,b\n1,2\n",
+    "guide/nested.md": "# Nested\n",
+  });
+  const manifest = freshManifest();
+  const events: ProgressEvent[] = [];
+  await run(root, manifest, { events });
+
+  assert.ok(events.length > 0, "events were emitted");
+  // folders(1: guide) + items(4) + fills(3 markdown) + prunes(0) = 8 steps
+  assert.equal(events[0]?.total, 8, `expected total 8, got ${events[0]?.total}`);
+  const last = events[events.length - 1] as ProgressEvent;
+  assert.equal(last.completed, events[0]?.total, "the run finishes at exactly the total");
+  for (let i = 1; i < events.length; i++) {
+    const prev = events[i - 1] as ProgressEvent;
+    const cur = events[i] as ProgressEvent;
+    assert.ok(cur.completed > prev.completed, "completed must strictly increase");
+    assert.ok(cur.bytes >= prev.bytes, "bytes never decrease");
+  }
+  assert.ok(last.bytes > 0, "payload bytes were counted (markdown fills ship content)");
 });
 
 test("diagnostics are not duplicated between plan and publish", async () => {

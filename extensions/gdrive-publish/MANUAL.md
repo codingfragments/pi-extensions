@@ -287,7 +287,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.4.0.
+Tool version at generation time: 0.5.0.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

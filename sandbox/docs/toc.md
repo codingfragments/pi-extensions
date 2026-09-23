@@ -47,3 +47,6 @@ And inline code too: `[not a link](./details.md)`.
 A reference-style link works as well: [reference][ref].
 
 [ref]: ./details.md
+
+small edit for the progress demo
+tweak again

@@ -18,6 +18,7 @@ import * as manifestIo from "./manifest.ts";
 import { documentName, tabularName } from "./naming.ts";
 import { prepareMarkdown } from "./prepare.ts";
 import type { ResolvedTarget } from "./prepare.ts";
+import type { ProgressEvent } from "./progress.ts";
 import { folderPaths, scan } from "./scan.ts";
 import { GOOGLE_DOC, GOOGLE_SHEET, driveUrl, folderUrl } from "./types.ts";
 import type { Diagnostic, Manifest, Plan, PlanItem, PublishSummary, SourceFile } from "./types.ts";
@@ -173,8 +174,11 @@ export interface PublishOptions {
   prune: boolean;
   /** Recreate files whose Drive copy is gone (old shared URLs die). */
   repair?: boolean;
-  /** Called with progress messages (CLI prints them; the extension shows a widget). */
-  onProgress?: (message: string) => void;
+  /**
+   * Progress events, one per completed step. The CLI renders a bar (TTY) or
+   * `[n/m]`-prefixed lines (piped); the extension shows status text.
+   */
+  onProgress?: (event: ProgressEvent) => void;
   /** Wall-clock source, injectable for tests. */
   now?: () => Date;
 }
@@ -186,7 +190,25 @@ export interface PublishOptions {
 export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   const { root, drive, manifest, plan } = opts;
   const now = opts.now ?? (() => new Date());
-  const progress = opts.onProgress ?? (() => {});
+  // Step accounting: every meaningful operation increments once; payload
+  // bytes are counted at each upload site. Totals are known upfront from the
+  // plan, so the bar is determinate.
+  const steps = {
+    folders: plan.folders.filter((f) => !manifest.folders[f]).length,
+    items: plan.items.length,
+    fills: plan.items.filter((i) => i.action !== "unchanged" && i.kind === "markdown").length,
+    prunes: opts.prune ? plan.orphans.length : 0,
+  };
+  const total = steps.folders + steps.items + steps.fills + steps.prunes;
+  let completed = 0;
+  let bytesSent = 0;
+  const payloadBytes = (data: Buffer | string): number =>
+    Buffer.isBuffer(data) ? data.length : Buffer.byteLength(data);
+  const step = (label: string, byteDelta = 0): void => {
+    completed++;
+    bytesSent += byteDelta;
+    opts.onProgress?.({ label, completed, total, bytes: bytesSent });
+  };
   const diagnostics: Diagnostic[] = [...plan.diagnostics];
   let created = 0;
   let updated = 0;
@@ -202,7 +224,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     const name = folder.split("/").pop() as string;
     const made = await drive.createFolder(name, parentId);
     manifest.folders[folder] = made.id;
-    progress(`created folder ${folder}`);
+    step(`created folder ${folder}`);
   }
 
   const resolved = new Map<string, ResolvedTarget>();
@@ -231,7 +253,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
           kind: item.kind,
         });
         created++;
-        progress(`reserved Doc for ${item.relPath}`);
+        step(`reserved Doc for ${item.relPath}`);
       } else {
         const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
         if (note) diagnostics.push(note);
@@ -250,7 +272,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
           kind: item.kind,
         });
         created++;
-        progress(`created sheet ${item.relPath}`);
+        step(`created sheet ${item.relPath}`, payloadBytes(media));
       }
       continue;
     }
@@ -300,6 +322,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
               media,
               parentId,
             );
+            bytesSent += payloadBytes(media);
             manifest.entries[item.relPath] = {
               fileId: file.id,
               kind: item.kind,
@@ -315,17 +338,21 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
             });
           }
           repaired++;
-          progress(`repaired ${item.relPath}`);
+          step(`repaired ${item.relPath}`);
         } else {
           // Leave the entry alone: the error diagnostic carries the guidance.
           // Skipping instead of crashing on updateMedia lets the run finish
           // and the CLI exit 3 with a complete report.
-          progress(`SKIPPED ${item.relPath} - Drive file gone; re-run with --repair`);
+          step(`SKIPPED ${item.relPath} - Drive file gone; re-run with --repair`);
         }
         continue;
       }
-      if (item.action === "unchanged") continue;
+      if (item.action === "unchanged") {
+        step(`checked ${item.relPath}`);
+        continue;
+      }
       if (item.kind === "markdown") {
+        step(`updating ${item.relPath}`);
         toFill.push({ item, fileId });
       } else {
         const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
@@ -338,7 +365,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
           entry.publishedAt = now().toISOString();
         }
         updated++;
-        progress(`updated sheet ${item.relPath}`);
+        step(`updated sheet ${item.relPath}`, payloadBytes(media));
       }
     }
   }
@@ -360,7 +387,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     });
     diagnostics.push(...prepared.diagnostics);
     if (prepared.diagnostics.some((d) => d.severity === "error")) {
-      progress(`SKIPPED ${item.relPath} (see errors)`);
+      step(`SKIPPED ${item.relPath} (see errors)`);
       continue;
     }
     await drive.updateMedia(fileId, "text/markdown", prepared.content);
@@ -375,7 +402,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
       delete entry.pending;
     }
     if (item.action === "update") updated++;
-    progress(`published ${item.relPath}`);
+    step(`published ${item.relPath}`, Buffer.byteLength(prepared.content, "utf8"));
   }
 
   // ---- prune (opt-in, trash only) ----------------------------------------
@@ -386,7 +413,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
         // A pruned entry must not survive as an undefined-valued key.
         delete manifest.entries[orphan.relPath];
         pruned++;
-        progress(`trashed ${orphan.relPath}`);
+        step(`trashed ${orphan.relPath}`);
       } catch (e) {
         diagnostics.push({
           code: "DRIVE_FILE_GONE",

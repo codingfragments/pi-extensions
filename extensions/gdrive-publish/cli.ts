@@ -38,6 +38,8 @@ import {
 import { DriveError, RestDriveClient } from "./core/drive.ts";
 import type { DriveFile } from "./core/drive.ts";
 import * as manifestIo from "./core/manifest.ts";
+import { fmtDuration, renderBarLine } from "./core/progress.ts";
+import type { ProgressEvent } from "./core/progress.ts";
 import { buildPlan, publish } from "./core/publish.ts";
 import { planJson, renderPlan, renderSummary, summaryJson } from "./core/report.ts";
 import { GOOGLE_FOLDER, folderUrl } from "./core/types.ts";
@@ -205,6 +207,22 @@ async function cmdPublish(args: Args): Promise<void> {
   }
 
   const drive = new RestDriveClient(new CachedTokenProvider(creds));
+
+  // Progress rendering: a live bar when stdout is a terminal (position,
+  // elapsed, ETA, bytes - operation-based, since request latency dominates),
+  // `[n/m]`-prefixed lines when piped, nothing in --json.
+  const interactive = process.stdout.isTTY === true;
+  const startedAt = Date.now();
+  const printer = (event: ProgressEvent): void => {
+    if (interactive) {
+      // Some ptys report 0 columns; floor the width so the bar still renders.
+      const width = Math.min(Math.max(process.stdout.columns ?? 80, 40), 120);
+      process.stdout.write(`\r\x1b[2K${renderBarLine(event, Date.now() - startedAt, width)}`);
+    } else {
+      process.stdout.write(`  [${event.completed}/${event.total}] ${event.label}\n`);
+    }
+  };
+
   const summary = await publish({
     root,
     drive,
@@ -212,12 +230,18 @@ async function cmdPublish(args: Args): Promise<void> {
     plan,
     prune: args.flags.has("prune"),
     repair: args.flags.has("repair"),
-    onProgress: json ? undefined : (m) => process.stdout.write(`  ${m}\n`),
+    onProgress: json ? undefined : printer,
   });
+  const elapsedMs = Date.now() - startedAt;
+  if (interactive) process.stdout.write("\r\x1b[2K\n");
   if (json) {
-    process.stdout.write(`${JSON.stringify(summaryJson(summary), null, 2)}\n`);
+    const payload: Record<string, unknown> = {
+      ...(summaryJson(summary) as Record<string, unknown>),
+      elapsedMs,
+    };
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   } else {
-    process.stdout.write(`${renderSummary(summary)}\n`);
+    process.stdout.write(`${renderSummary(summary)}\n  ✻ finished in ${fmtDuration(elapsedMs)}\n`);
   }
   if (summary.diagnostics.some((d) => d.severity === "error")) process.exit(3);
 }

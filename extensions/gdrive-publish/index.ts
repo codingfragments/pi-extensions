@@ -246,10 +246,13 @@ export default function (pi: ExtensionAPI) {
           plan,
           prune: params.prune ?? false,
           repair: params.repair ?? false,
-          onProgress: (message) => {
-            done.push(message);
-            ctx.ui.setStatus("gdrive-publish", `publishing: ${message}`);
-            onUpdate?.({ content: [{ type: "text", text: message }], details: {} });
+          onProgress: (event) => {
+            done.push(event.label);
+            ctx.ui.setStatus(
+              "gdrive-publish",
+              `publishing ${event.completed}/${event.total}: ${event.label}`,
+            );
+            onUpdate?.({ content: [{ type: "text", text: event.label }], details: {} });
           },
         });
         ctx.ui.setStatus("gdrive-publish", "");

@@ -50,6 +50,7 @@ Warnings are normal, not failures. The ones that matter to a user:
 | `FRONTMATTER_STRIPPED` | Expected. Drive mangles YAML front matter, so it is removed; `title:` became the Doc name. |
 | `IMAGE_LARGE` | Images are embedded as base64, which inflates the upload by ~33%. Consider shrinking it. |
 | `DOC_PAYLOAD_TOO_LARGE` | An **error**, not a warning: the document will be skipped until images shrink. |
+| `UNSUPPORTED_FILE` | The type has no native Drive conversion and no `rawPatterns` entry covers it; skipped. If the user wants these files published, a pattern in `.gdrive-publish.json` makes them raw uploads - `gdrive-publish plan <dir> --suggest-config` creates/extends that config. Never run it without the user approving; always make them verify the patterns. |
 | `CSV_NORMALISED` | The CSV was not UTF-8 comma-delimited (typically a German Excel export); it was normalised so Drive parses the columns correctly. |
 | `XLSX_LOSSY` | The workbook became a Sheet; macros and some formatting are lost. |
 | `DRIVE_MODIFIED` | Someone edited the Doc in Drive. Local content overwrote it; their version is still in Drive's revision history. Mention who and when. |

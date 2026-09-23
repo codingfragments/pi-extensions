@@ -11,6 +11,7 @@
  */
 
 import fs from "node:fs";
+import { derivePatterns } from "./config.ts";
 import { describeDialect, normaliseCsv } from "./csv.ts";
 import type { DriveClient } from "./drive.ts";
 import { DriveError } from "./drive.ts";
@@ -19,7 +20,7 @@ import { documentName, tabularName } from "./naming.ts";
 import { prepareMarkdown } from "./prepare.ts";
 import type { ResolvedTarget } from "./prepare.ts";
 import type { ProgressEvent } from "./progress.ts";
-import { folderPaths, scan } from "./scan.ts";
+import { folderPaths, rawMimeType, scan } from "./scan.ts";
 import { GOOGLE_DOC, GOOGLE_SHEET, driveUrl, folderUrl } from "./types.ts";
 import type { Diagnostic, Manifest, Plan, PlanItem, PublishSummary, SourceFile } from "./types.ts";
 
@@ -34,6 +35,10 @@ function nameFor(file: SourceFile): string {
   if (file.kind === "markdown") {
     return documentName(file.relPath, fs.readFileSync(file.absPath, "utf8"));
   }
+  if (file.kind === "file") {
+    // Raw uploads keep the full filename - the extension carries meaning.
+    return file.relPath.split("/").pop() as string;
+  }
   return tabularName(file.relPath);
 }
 
@@ -44,6 +49,18 @@ function hashFor(file: SourceFile): string {
 /** Build an offline plan: what would be created, updated, left alone, orphaned. */
 export function buildPlan(opts: PlanOptions): Plan {
   const { files, skipped } = scan(opts.root);
+  // What a `plan --suggest-config` run could automate: patterns derived
+  // from the extensions of the files that remain unsupported.
+  let rawSuggestion: Plan["rawSuggestion"] = null;
+  if (skipped.length > 0) {
+    const derived = derivePatterns(skipped);
+    rawSuggestion = {
+      coverable: skipped.filter((rel) => !derived.extensionless.includes(rel)),
+      patterns: derived.patterns,
+      extensionless: derived.extensionless,
+    };
+  }
+
   const diagnostics: Diagnostic[] = [];
   for (const relPath of skipped) {
     diagnostics.push({
@@ -150,6 +167,7 @@ export function buildPlan(opts: PlanOptions): Plan {
     items,
     orphans,
     diagnostics: dedupeDiagnostics(diagnostics),
+    rawSuggestion,
   };
 }
 
@@ -235,6 +253,27 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     if (!parentId) throw new Error(`internal: folder "${item.folder}" missing after phase 1`);
 
     if (item.action === "create") {
+      if (item.kind === "file") {
+        const buf = fs.readFileSync(`${root}/${item.relPath}`);
+        const mime = rawMimeType(item.relPath);
+        const file = await drive.convertUpload(item.name, mime, mime, buf, parentId);
+        manifest.entries[item.relPath] = {
+          fileId: file.id,
+          kind: item.kind,
+          name: item.name,
+          url: driveUrl(item.kind, file.id),
+          contentHash: manifestIo.contentHash(buf),
+          publishedAt: now().toISOString(),
+        };
+        resolved.set(item.relPath, {
+          fileId: file.id,
+          url: driveUrl(item.kind, file.id),
+          kind: item.kind,
+        });
+        created++;
+        step(`uploaded ${item.relPath}`, buf.length);
+        continue;
+      }
       if (item.kind === "markdown") {
         const shell = await drive.createEmptyDoc(item.name, parentId);
         manifest.entries[item.relPath] = {
@@ -312,6 +351,24 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
               url: driveUrl(item.kind, shell.id),
               kind: item.kind,
             });
+          } else if (item.kind === "file") {
+            const buf = fs.readFileSync(`${root}/${item.relPath}`);
+            const mime = rawMimeType(item.relPath);
+            const file = await drive.convertUpload(item.name, mime, mime, buf, parentId);
+            manifest.entries[item.relPath] = {
+              fileId: file.id,
+              kind: item.kind,
+              name: item.name,
+              url: driveUrl(item.kind, file.id),
+              contentHash: manifestIo.contentHash(buf),
+              publishedAt: now().toISOString(),
+            };
+            resolved.set(item.relPath, {
+              fileId: file.id,
+              url: driveUrl(item.kind, file.id),
+              kind: item.kind,
+            });
+            bytesSent += buf.length;
           } else {
             const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
             if (note) diagnostics.push(note);
@@ -349,6 +406,20 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
       }
       if (item.action === "unchanged") {
         step(`checked ${item.relPath}`);
+        continue;
+      }
+      if (item.kind === "file") {
+        const buf = fs.readFileSync(`${root}/${item.relPath}`);
+        const mime = rawMimeType(item.relPath);
+        await drive.updateMedia(fileId, mime, buf);
+        const entry = manifest.entries[item.relPath];
+        if (entry) {
+          entry.name = item.name;
+          entry.contentHash = manifestIo.contentHash(buf);
+          entry.publishedAt = now().toISOString();
+        }
+        updated++;
+        step(`updated ${item.relPath}`, buf.length);
         continue;
       }
       if (item.kind === "markdown") {

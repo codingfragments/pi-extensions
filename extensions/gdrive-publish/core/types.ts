@@ -43,7 +43,7 @@ export interface Diagnostic {
   message: string;
 }
 
-export type FileKind = "markdown" | "csv" | "xlsx" | "image";
+export type FileKind = "markdown" | "csv" | "xlsx" | "image" | "file";
 
 export interface SourceFile {
   /** Path relative to the publish root, forward slashes, never starts with "./". */
@@ -73,6 +73,16 @@ export interface OrphanItem {
   name: string;
 }
 
+/** What `plan --suggest-config` could automate for the unsupported files. */
+export interface RawSuggestion {
+  /** Unsupported files that patterns could cover. */
+  coverable: string[];
+  /** Derived `*.ext` patterns, one per distinct extension. */
+  patterns: string[];
+  /** Unsupported files no extension pattern can cover (add manually). */
+  extensionless: string[];
+}
+
 export interface Plan {
   root: string;
   rootFolderId?: string;
@@ -81,6 +91,8 @@ export interface Plan {
   items: PlanItem[];
   orphans: OrphanItem[];
   diagnostics: Diagnostic[];
+  /** Present when unsupported files exist and a config could cover them. */
+  rawSuggestion: RawSuggestion | null;
 }
 
 /** One published file, as recorded in the manifest. */
@@ -125,6 +137,9 @@ export interface PublishSummary {
 export function driveUrl(kind: FileKind, fileId: string): string {
   if (kind === "csv" || kind === "xlsx") {
     return `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
+  }
+  if (kind === "file") {
+    return `https://drive.google.com/file/d/${fileId}/view`;
   }
   return `https://docs.google.com/document/d/${fileId}/edit`;
 }

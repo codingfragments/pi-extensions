@@ -112,6 +112,36 @@ someone bookmarked still opens the right document.
 | YAML front matter | stripped (Drive would mangle it); `title:` becomes the Doc name |
 | files Drive cannot host (`.txt`, …) | skipped, with a warning |
 
+## Raw uploads (opt-in)
+
+File types with no native Drive conversion - `.zip`, `.json`, `.txt`,
+archives, anything - publish as **raw binary uploads** only when a
+`rawPatterns` entry in `.gdrive-publish.json` matches them:
+
+```json
+{ "rawPatterns": ["*.zip", "data/*.json", "archives/**"] }
+```
+
+- glob semantics follow `.gitignore` intuition (`*.zip` matches at any
+  depth, `data/*.json` is root-anchored, `**` spans segments)
+- the full filename is kept (`asset.zip` stays `asset.zip`); updates go in
+  place, so file ids - and links to them - stay stable
+- markdown links to raw files rewrite to their Drive view URL
+- hidden files (dotfiles) are never published, whatever the pattern
+- a pattern can never hijack a native conversion - `*.csv` still becomes a
+  Sheet
+
+No config file, no raw uploads: unsupported files are skipped with a
+warning, exactly as before.
+
+When `plan` finds unsupported files it prints a tip. `plan <dir>
+--suggest-config` then creates or extends the config with `*.ext` patterns
+derived from the extensions actually present (merge-only - existing
+entries are never removed), prints the file contents and the resulting
+plan, and asks you to verify the patterns before the next `plan` or
+`publish`. Files without an extension (e.g. `Makefile`) cannot be covered
+automatically and are listed for manual patterns.
+
 ## The manifest
 
 `.gdrive-manifest.json` is small, sorted and diff-friendly; review it in PRs
@@ -191,6 +221,7 @@ show what publishing would do, without writing anything
 | Option | Description |
 |---|---|
 | `--json` | machine-readable output on stdout |
+| `--suggest-config` | create/extend .gdrive-publish.json covering unsupported files |
 
 ```
 gdrive-publish plan docs/
@@ -198,6 +229,10 @@ gdrive-publish plan docs/
 
 ```
 gdrive-publish plan docs/ --json | jq .diagnostics
+```
+
+```
+gdrive-publish plan docs/ --suggest-config
 ```
 
 ### `publish`
@@ -287,7 +322,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.5.0.
+Tool version at generation time: 0.6.0.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

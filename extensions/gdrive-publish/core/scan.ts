@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { loadConfig, matchesAnyPattern } from "./config.ts";
 import { MANIFEST_FILENAME } from "./types.ts";
 import type { FileKind, SourceFile } from "./types.ts";
 
@@ -37,6 +38,33 @@ export function classify(relPath: string): FileKind | null {
   return null;
 }
 
+/** MIME for raw uploads: informational (Drive icons/preview), octet-stream fallback. */
+export function rawMimeType(relPath: string): string {
+  switch (path.extname(relPath).toLowerCase()) {
+    case ".zip":
+      return "application/zip";
+    case ".json":
+      return "application/json";
+    case ".txt":
+    case ".text":
+      return "text/plain";
+    case ".yaml":
+    case ".yml":
+      return "application/yaml";
+    case ".pdf":
+      return "application/pdf";
+    case ".tar":
+      return "application/tar";
+    case ".gz":
+    case ".tgz":
+      return "application/gzip";
+    case ".7z":
+      return "application/x-7z-compressed";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 export function imageMimeType(relPath: string): string | null {
   switch (path.extname(relPath).toLowerCase()) {
     case ".png":
@@ -59,12 +87,26 @@ export function imageMimeType(relPath: string): string | null {
 
 export interface ScanResult {
   files: SourceFile[];
-  /** Files skipped because their extension is not supported. */
+  /**
+   * Files skipped because their extension is not supported AND no
+   * rawPatterns entry covers them (raw-matched files become `kind: "file"`).
+   */
   skipped: string[];
 }
 
-/** Recursively scan a publish root. Symlinked directories are not followed. */
-export function scan(root: string): ScanResult {
+export interface ScanOptions {
+  /** Overrides the config file (tests / freshly-written config re-scans). */
+  rawPatterns?: string[];
+}
+
+/**
+ * Recursively scan a publish root. Files whose type has no native Drive
+ * conversion publish as raw uploads when (and only when) they match a
+ * rawPatterns entry from .gdrive-publish.json. Symlinked directories are
+ * not followed.
+ */
+export function scan(root: string, opts?: ScanOptions): ScanResult {
+  const rawPatterns = opts?.rawPatterns ?? loadConfig(root)?.rawPatterns ?? [];
   const files: SourceFile[] = [];
   const skipped: string[] = [];
 
@@ -85,11 +127,16 @@ export function scan(root: string): ScanResult {
       if (!entry.isFile()) continue;
       if (entry.name === MANIFEST_FILENAME) continue;
       const kind = classify(relPath);
+      const absPath = path.join(root, relPath);
       if (!kind) {
-        skipped.push(relPath);
+        // No native conversion. Raw upload only when a pattern opts in.
+        if (matchesAnyPattern(rawPatterns, relPath)) {
+          files.push({ relPath, absPath, kind: "file", size: fs.statSync(absPath).size });
+        } else {
+          skipped.push(relPath);
+        }
         continue;
       }
-      const absPath = path.join(root, relPath);
       files.push({ relPath, absPath, kind, size: fs.statSync(absPath).size });
     }
   };

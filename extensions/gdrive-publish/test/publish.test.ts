@@ -346,6 +346,41 @@ test("repair also recreates gone sheets", async () => {
   assert.match(first.drive.contentOf(newId), /9,9/, "new sheet has the new content");
 });
 
+test("raw files upload as-is with their full filename, update in place", async () => {
+  const root = fixture({
+    "toc.md": "# TOC\n[zip](./bundle.zip)\n",
+    "bundle.zip": Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x05]),
+  });
+  fs.writeFileSync(
+    path.join(root, ".gdrive-publish.json"),
+    JSON.stringify({ rawPatterns: ["*.zip"] }),
+  );
+  const manifest = freshManifest();
+  const { drive } = await run(root, manifest);
+
+  const id = manifest.entries["bundle.zip"]?.fileId as string;
+  assert.ok(id, "raw file has a manifest entry");
+  assert.equal(manifest.entries["bundle.zip"]?.name, "bundle.zip", "full filename kept");
+  assert.equal(
+    manifest.entries["bundle.zip"]?.url,
+    `https://drive.google.com/file/d/${id}/view`,
+    "raw files get the file view URL",
+  );
+  const uploadCall = drive.calls.find((c) => c.startsWith("convertUpload(bundle.zip"));
+  assert.ok(uploadCall, "raw upload happened");
+  assert.match(uploadCall as string, /application\/zip,application\/zip/, "no conversion");
+
+  const tocBody = drive.contentOf(manifest.entries["toc.md"]?.fileId as string);
+  assert.match(tocBody, new RegExp(`file/d/${id}/view`), "md link rewritten to view url");
+
+  fs.writeFileSync(path.join(root, "bundle.zip"), Buffer.from([0x50, 0x4b, 0x09]));
+  const second = await run(root, manifest, { drive });
+  assert.equal(second.summary.updated, 1);
+  assert.equal(manifest.entries["bundle.zip"]?.fileId, id, "id stable across raw updates");
+  const updateCall = drive.calls.find((c) => c.startsWith(`updateMedia(${id},application/zip)`));
+  assert.ok(updateCall, "raw update shipped the new bytes");
+});
+
 test("progress events are monotonic and reach the exact total", async () => {
   const root = fixture({
     "toc.md": "# TOC\n[d](./details.md)\n",

@@ -20,7 +20,7 @@ import {
   resolveRelative,
 } from "../core/prepare.ts";
 import type { ResolvedTarget } from "../core/prepare.ts";
-import { classify, folderPaths, imageMimeType, scan } from "../core/scan.ts";
+import { classify, folderPaths, imageMimeType, rawMimeType, scan } from "../core/scan.ts";
 
 let root: string;
 
@@ -91,6 +91,44 @@ test("scan never includes the manifest itself", () => {
     ["a.md"],
   );
   assert.deepEqual(result.skipped, []);
+});
+
+test("rawPatterns turn matched unsupported files into raw uploads", () => {
+  write("a.md", "# A");
+  write("data.zip", "PK\u0003\u0004fake");
+  write("spec.json", "{}");
+  write("Makefile", "all:");
+  const result = scan(root, { rawPatterns: ["*.zip"] });
+  const kinds = new Map(result.files.map((f) => [f.relPath, f.kind]));
+  assert.equal(kinds.get("a.md"), "markdown", "native types untouched");
+  assert.equal(kinds.get("data.zip"), "file", "pattern-matched file goes raw");
+  assert.ok(!result.files.some((f) => f.relPath === "spec.json"), "unmatched stays skipped");
+  assert.ok(result.skipped.includes("spec.json"));
+  assert.ok(result.skipped.includes("Makefile"));
+});
+
+test("a pattern can never hijack a native type", () => {
+  write("data.csv", "a,b");
+  const result = scan(root, { rawPatterns: ["*.csv"] });
+  assert.equal(
+    result.files.find((f) => f.relPath === "data.csv")?.kind,
+    "csv",
+    "csv converts to a Sheet even when a raw pattern matches",
+  );
+});
+
+test("hidden files never become raw uploads, whatever the pattern", () => {
+  write(".env", "SECRET=1");
+  const result = scan(root, { rawPatterns: ["*.env", "**"] });
+  assert.ok(!result.files.some((f) => f.relPath === ".env"));
+  assert.ok(!result.skipped.includes(".env"), "hidden files are not even scanned");
+});
+
+test("rawMimeType maps common types and falls back to octet-stream", () => {
+  assert.equal(rawMimeType("a.zip"), "application/zip");
+  assert.equal(rawMimeType("a.json"), "application/json");
+  assert.equal(rawMimeType("x/y.yaml"), "application/yaml");
+  assert.equal(rawMimeType("weird.foo"), "application/octet-stream");
 });
 
 test("scan records sizes and is deterministically ordered", () => {

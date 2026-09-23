@@ -114,6 +114,34 @@ Every command except `login` is fully non-interactive and scriptable from CI
 and git hooks. The task-oriented guide (first publish, day-two workflows,
 troubleshooting) is the [manual](MANUAL.md).
 
+## Raw uploads (opt-in)
+
+Files whose type has no native Drive conversion (no `markdown`→Doc, no
+`csv`/`xlsx`→Sheet) can still be published **as raw binary uploads** -
+stored as-is in Drive under their exact filename, updated in place with
+stable ids, and linkable from your markdown (links rewrite to
+`https://drive.google.com/file/d/<id>/view`).
+
+This is strictly opt-in per pattern, via `.gdrive-publish.json` next to
+your docs (committed like the manifest):
+
+```json
+{ "rawPatterns": ["*.zip", "data/*.json", "archives/**"] }
+```
+
+Glob semantics follow `.gitignore` intuition: patterns without `/` match
+the basename at any depth, patterns with `/` are anchored to the root,
+`**` spans segments. A pattern can never hijack a native type - `*.json`
+will not touch a `.csv`. Without a config, nothing new ever leaves the
+machine; the default is still skip-with-warning.
+
+`gdrive-publish plan docs/` prints a tip when unsupported files exist, and
+`plan docs/ --suggest-config` creates or extends the config with patterns
+derived from the extensions actually found (merging, never removing), then
+shows the file and the resulting plan - verify the patterns before the
+next run. The suggestion also cautions when a derived pattern looks
+credential-adjacent (`.env`, `.pem`, `id_rsa`, …).
+
 ## The manifest
 
 `.gdrive-manifest.json` sits next to your docs and **should be committed** — it
@@ -141,7 +169,7 @@ them, the next run fills those exact Docs instead of creating duplicates.
 | Doc name | front-matter `title` → first H1 → filename stem |
 | `.csv` | dialect + encoding sniffed, normalised to UTF-8 comma CSV, then converted |
 | `.xlsx` / `.xls` | uploaded as-is and converted (macros/formatting lost, warned) |
-| unsupported files | skipped with a warning |
+| unsupported files (`.txt`, `.zip`, `.json`, …) | skipped with a warning, **or** uploaded as raw files when matched by a `rawPatterns` entry in `.gdrive-publish.json` |
 | local file deleted | reported as an orphan; only `--prune` removes it, and only to **trash** |
 | file changed in Drive | local content wins, loud warning naming the editor (Drive keeps revision history) |
 

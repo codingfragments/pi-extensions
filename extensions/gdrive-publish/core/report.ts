@@ -16,7 +16,9 @@ export function renderPlan(plan: Plan, root: string): string {
 
   for (const item of plan.items) {
     const marker = item.action === "create" ? "+" : item.action === "update" ? "~" : "=";
-    let detail = `-> ${item.kind === "markdown" ? "Doc" : "Sheet"} "${item.name}"`;
+    let detail = `-> ${
+      item.kind === "markdown" ? "Doc" : item.kind === "file" ? "File" : "Sheet"
+    } "${item.name}"${item.kind === "file" ? " (raw upload)" : ""}`;
     if (item.kind === "csv") {
       try {
         const sniffed = normaliseCsv(fs.readFileSync(`${root}/${item.relPath}`));
@@ -29,6 +31,12 @@ export function renderPlan(plan: Plan, root: string): string {
   }
   for (const orphan of plan.orphans) {
     lines.push(`  ! ${orphan.relPath.padEnd(40)} -> orphan "${orphan.name}" (not pruned)`);
+  }
+  if (plan.rawSuggestion && plan.rawSuggestion.coverable.length > 0) {
+    lines.push(
+      `  TIP   ${plan.rawSuggestion.coverable.length} unsupported file(s) could be published as raw uploads.`,
+    );
+    lines.push(`        Run: gdrive-publish plan ${plan.root} --suggest-config`);
   }
   lines.push("");
   lines.push(
@@ -75,6 +83,7 @@ export function planJson(plan: Plan): unknown {
     items: plan.items,
     orphans: plan.orphans,
     diagnostics: plan.diagnostics,
+    rawSuggestion: plan.rawSuggestion,
   };
 }
 

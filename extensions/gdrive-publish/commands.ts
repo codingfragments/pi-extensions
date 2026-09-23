@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.5.0";
+export const VERSION = "0.6.0";
 
 export const BIN = "gdrive-publish";
 
@@ -116,8 +116,18 @@ export const COMMANDS: CommandSpec[] = [
       "Fully offline: no network, no writes. Reports every diagnostic a real publish\n" +
       "would report, including broken links, dropped anchors, oversized documents\n" +
       "and CSV dialect normalisation, so the preview never understates the outcome.",
-    flags: [JSON_FLAG],
-    examples: [`${BIN} plan docs/`, `${BIN} plan docs/ --json | jq .diagnostics`],
+    flags: [
+      JSON_FLAG,
+      {
+        name: "suggest-config",
+        summary: "create/extend .gdrive-publish.json covering unsupported files",
+      },
+    ],
+    examples: [
+      `${BIN} plan docs/`,
+      `${BIN} plan docs/ --json | jq .diagnostics`,
+      `${BIN} plan docs/ --suggest-config`,
+    ],
   },
   {
     name: "publish",

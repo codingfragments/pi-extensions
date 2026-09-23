@@ -268,6 +268,7 @@ function samplePlan(): Plan {
       },
     ],
     orphans: [{ relPath: "gone.md", fileId: "d4", name: "Gone" }],
+    rawSuggestion: null,
     diagnostics: [
       { code: "ANCHOR_DROPPED", severity: "warn", relPath: "upd.md", message: "anchor dropped" },
       { code: "DOC_PAYLOAD_TOO_LARGE", severity: "error", relPath: "new.md", message: "too big" },

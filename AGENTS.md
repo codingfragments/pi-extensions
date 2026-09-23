@@ -24,6 +24,29 @@ package under the consuming extension's own folder, not a cross-extension
 import — pi loads each extension with a separate module root, so cross-folder
 imports between `extensions/*` are fragile and should be avoided.
 
+## Git workflow — mandatory for agents
+
+These rules bind every agent session in this repository. They override session
+momentum, prior approvals, and implied consent. If in doubt: stop and ask.
+
+1. **Plan before implementing.** Present the plan and stop. A plan, a design
+   choice, or a selected option is NOT permission to code. Wait for an
+   explicit "go ahead" / "implement" / "do it" for the task at hand.
+2. **Every change goes on a branch** off `main` (`feat/…`, `fix/…`, `chore/…`,
+   `docs/…`). Never commit directly to `main`.
+3. **No push of any ref without explicit consent in that turn** — branches,
+   PRs, tags, deletions. Creating a PR is a push. Announcing a push is not
+   consent; consent is asking first and receiving a yes.
+4. **Merges happen only on explicit instruction.** Green CI never implies
+   merge permission.
+5. **Releases are doubly gated:** consent to merge, then a separate consent to
+   push the release tag — a tag push publishes to npm.
+6. **Local commits on a work branch are fine.** That is where work lives;
+   consent gates pushes, merges, and tags.
+7. **Standing approvals must be explicit and scoped** ("push, PR, merge, and
+   tag this release"). Absent that, pause at every gate — even mid-flow, even
+   if it feels redundant.
+
 ## Extension anatomy
 
 An extension is a TypeScript (or JS) module with a default export: a factory

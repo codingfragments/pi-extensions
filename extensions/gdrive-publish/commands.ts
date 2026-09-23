@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.6.0";
+export const VERSION = "0.7.0";
 
 export const BIN = "gdrive-publish";
 

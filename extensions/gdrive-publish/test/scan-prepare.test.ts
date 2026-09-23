@@ -156,6 +156,29 @@ test("folderPaths lists parents before children, without duplicates", () => {
 // resolveRelative
 // ---------------------------------------------------------------------------
 
+test("an image pattern claims images as raw files; native types stay native", () => {
+  write("a.md", "# A");
+  write("pic.png", "PNG");
+  write("data.csv", "a,b");
+  const claimed = scan(root, { rawPatterns: ["*.png"] });
+  assert.equal(
+    claimed.files.find((f) => f.relPath === "pic.png")?.kind,
+    "file",
+    "image claimed as raw",
+  );
+  assert.equal(
+    claimed.files.find((f) => f.relPath === "data.csv")?.kind,
+    "csv",
+    "csv still native",
+  );
+  const unclaimed = scan(root, { rawPatterns: [] });
+  assert.equal(
+    unclaimed.files.find((f) => f.relPath === "pic.png")?.kind,
+    "image",
+    "unclaimed image stays embed material",
+  );
+});
+
 test("resolveRelative normalises against the linking file's directory", () => {
   assert.equal(resolveRelative("toc.md", "./details.md"), "details.md");
   assert.equal(resolveRelative("toc.md", "details.md"), "details.md");

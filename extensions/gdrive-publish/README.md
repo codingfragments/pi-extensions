@@ -135,6 +135,12 @@ the basename at any depth, patterns with `/` are anchored to the root,
 will not touch a `.csv`. Without a config, nothing new ever leaves the
 machine; the default is still skip-with-warning.
 
+Images are claimable too - a `*.png` pattern uploads them as raw files
+**in addition to** their embedding into Docs (embeds always inline from
+disk, because Drive URLs do not render in converted Docs). Unreferenced,
+unclaimed images produce an `IMAGE_UNREFERENCED` warning instead of being
+silently dropped.
+
 `gdrive-publish plan docs/` prints a tip when unsupported files exist, and
 `plan docs/ --suggest-config` creates or extends the config with patterns
 derived from the extensions actually found (merging, never removing), then

@@ -108,7 +108,7 @@ someone bookmarked still opens the right document.
 | `report.csv` | a native Google Sheet; the toc link opens the Sheet |
 | German Excel CSV (semicolon, latin-1) | normalised to UTF-8 comma CSV first, so columns split correctly |
 | `book.xlsx` | a native Sheet (macros and some formatting are lost — warned) |
-| `![diagram](./img/diagram.png)` | the image embedded inside the Doc |
+| `![diagram](./img/diagram.png)` | the image embedded inside the Doc; an image no markdown references warns `IMAGE_UNREFERENCED` (claim it via `rawPatterns` to upload it as a raw file, reference it, or delete it) |
 | YAML front matter | stripped (Drive would mangle it); `title:` becomes the Doc name |
 | files Drive cannot host (`.txt`, …) | skipped, with a warning |
 
@@ -130,6 +130,10 @@ archives, anything - publish as **raw binary uploads** only when a
 - hidden files (dotfiles) are never published, whatever the pattern
 - a pattern can never hijack a native conversion - `*.csv` still becomes a
   Sheet
+- images are claimable: a `*.png` pattern uploads them as raw files in
+  addition to their embedding into Docs (embeds always inline from disk -
+  Drive URLs do not render in converted Docs); unreferenced, unclaimed
+  images produce an IMAGE_UNREFERENCED warning
 
 No config file, no raw uploads: unsupported files are skipped with a
 warning, exactly as before.
@@ -322,7 +326,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.6.0.
+Tool version at generation time: 0.7.0.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

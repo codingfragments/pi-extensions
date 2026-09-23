@@ -381,6 +381,61 @@ test("raw files upload as-is with their full filename, update in place", async (
   assert.ok(updateCall, "raw update shipped the new bytes");
 });
 
+test("unreferenced unclaimed images warn; referenced ones stay silent", async () => {
+  const root = fixture({
+    "doc.md": "# Doc\n\n![used](./used.png)\n",
+    "used.png": "PNG",
+    "orphan.png": "PNG",
+  });
+  const manifest = freshManifest();
+  const { summary } = await run(root, manifest);
+  const warn = summary.diagnostics.find((d) => d.code === "IMAGE_UNREFERENCED");
+  assert.ok(warn, "unreferenced image warns");
+  assert.equal(warn?.relPath, "orphan.png");
+  assert.ok(!summary.diagnostics.some((d) => d.relPath === "used.png"));
+});
+test("a claimed image uploads as a raw file AND still embeds in markdown", async () => {
+  const root = fixture({
+    "doc.md": "# Doc\n\n![pic](./pic.png)\n",
+    "pic.png": Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+  });
+  fs.writeFileSync(
+    path.join(root, ".gdrive-publish.json"),
+    JSON.stringify({ rawPatterns: ["*.png"] }),
+  );
+  const manifest = freshManifest();
+  const { drive } = await run(root, manifest);
+
+  // standalone raw file with the full filename
+  const id = manifest.entries["pic.png"]?.fileId as string;
+  assert.ok(id, "claimed image has a manifest entry");
+  assert.equal(manifest.entries["pic.png"]?.name, "pic.png");
+  assert.match(manifest.entries["pic.png"]?.url ?? "", /file\/d\/.+\/view/);
+  const uploadCall = drive.calls.find((c) => c.startsWith("convertUpload(pic.png"));
+  assert.ok(uploadCall, "raw upload happened");
+  assert.match(uploadCall as string, /image\/png,image\/png/, "stored as-is");
+
+  // AND the doc still embeds it from disk as a data URI
+  const docBody = drive.contentOf(manifest.entries["doc.md"]?.fileId as string);
+  assert.match(docBody, /data:image\/png;base64/, "still embedded");
+
+  // no unreferenced warning for the claimed image even though it IS referenced
+  const second = await run(root, manifest, { drive });
+  assert.ok(!second.summary.diagnostics.some((d) => d.code === "IMAGE_UNREFERENCED"));
+});
+
+test("an image referenced only inside a code fence counts as unreferenced", () => {
+  const root = fixture({
+    "doc.md": "```md\n![fenced](./ghost.png)\n```\n",
+    "ghost.png": "PNG",
+  });
+  const plan = buildPlan({ root, manifest: null });
+  const warn = plan.diagnostics.find(
+    (d) => d.code === "IMAGE_UNREFERENCED" && d.relPath === "ghost.png",
+  );
+  assert.ok(warn, "fence-referenced image is unreferenced for publishing");
+});
+
 test("progress events are monotonic and reach the exact total", async () => {
   const root = fixture({
     "toc.md": "# TOC\n[d](./details.md)\n",

@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.4.0";
+export const VERSION = "0.5.0";
 
 export const BIN = "gdrive-publish";
 
@@ -133,7 +133,9 @@ export const COMMANDS: CommandSpec[] = [
       "reported as orphans and never removed unless --prune is given.\n\n" +
       "A file that is trashed or inaccessible in Drive is skipped with an error\n" +
       "unless --repair is given, which recreates it under a new id - any URL\n" +
-      "previously shared for that file stops working.",
+      "previously shared for that file stops working.\n\n" +
+      "Progress: a live bar (position, elapsed, ETA, bytes sent) when stdout is\n" +
+      "a terminal; [n/m]-prefixed lines when piped; nothing in --json.",
     flags: [
       { name: "dry-run", summary: "plan only; write nothing (same as `plan`)" },
       {

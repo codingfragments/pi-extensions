@@ -100,6 +100,15 @@ gdrive-publish publish docs/     # update in place, URLs stable
 Edit markdown locally, re-publish. Files are updated in place, and any link
 someone bookmarked still opens the right document.
 
+Need the real Drive link for a specific file or folder? `browse` resolves it
+from the manifest (offline, no login) and opens it in the browser:
+
+```bash
+gdrive-publish browse docs/                    # the Drive folder
+gdrive-publish browse docs/someDocument.md    # that Doc's stable URL
+gdrive-publish browse docs/report.csv --json  # { url, fileId, kind, relPath }
+```
+
 ## What happens to your files
 
 | Input | In Drive |
@@ -292,6 +301,35 @@ gdrive-publish status docs/
 gdrive-publish status docs/ --json
 ```
 
+### `browse`
+
+```
+gdrive-publish browse <path>
+```
+
+print (and open) the real Drive URL of a published file or folder
+
+| Option | Description |
+|---|---|
+| `--no-open` | print the URL without opening a browser |
+| `--json` | machine-readable output on stdout |
+
+```
+gdrive-publish browse docs/
+```
+
+```
+gdrive-publish browse docs/someDocument.md
+```
+
+```
+gdrive-publish browse docs/report.csv --no-open
+```
+
+```
+gdrive-publish browse docs/report.csv --json | jq -r .url
+```
+
 ### `help`
 
 ```
@@ -326,7 +364,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.7.0.
+Tool version at generation time: 0.8.0.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

@@ -212,7 +212,8 @@ test("every command is fully documented (meta)", () => {
     assert.ok(command.summary.length > 0, `${command.name}: summary`);
     assert.ok(!command.summary.endsWith("."), `${command.name}: summaries are not sentences`);
     if (command.needsTarget) {
-      assert.ok(command.args.includes("<dir>"), `${command.name}: args mention <dir>`);
+      // any documented placeholder (browse takes a dir-or-file path)
+      assert.ok(command.args.includes("<"), `${command.name}: args document a placeholder`);
     }
     for (const flag of command.flags) {
       assert.ok(flag.summary.length > 0, `${command.name} --${flag.name}: summary`);

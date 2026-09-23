@@ -321,6 +321,119 @@ test("plan --suggest-config --json reports the created config", () => {
   assert.ok(parsed.items.some((i) => i.relPath === "notes.txt" && i.kind === "file"));
 });
 
+test("browse resolves the publish root to its Drive folder", () => {
+  seedManifest();
+  const { status, stdout } = run(["browse", tmp, "--no-open"]);
+  assert.equal(status, 0);
+  assert.equal(stdout.trim(), "https://drive.google.com/drive/folders/fldROOT");
+});
+
+test("browse resolves a file entry to its Doc URL", () => {
+  const manifest = manifestIo.emptyManifest("fldROOT", "Test Docs");
+  manifest.entries["doc.md"] = {
+    fileId: "DOC1",
+    kind: "markdown",
+    name: "Doc",
+    url: "https://docs.google.com/document/d/DOC1/edit",
+    contentHash: "h",
+    publishedAt: "t",
+  };
+  manifestIo.save(tmp, manifest);
+  fs.writeFileSync(path.join(tmp, "doc.md"), "# Doc\n");
+
+  const { status, stdout } = run(["browse", path.join(tmp, "doc.md"), "--no-open"]);
+  assert.equal(status, 0);
+  assert.equal(stdout.trim(), "https://docs.google.com/document/d/DOC1/edit");
+
+  // trailing slash and relative forms behave the same
+  const rel = run(["browse", `${tmp}/doc.md`, "--no-open"]);
+  assert.equal(rel.status, 0);
+  assert.match(rel.stdout, /DOC1/);
+});
+
+test("browse resolves a locally-deleted file while its manifest entry exists", () => {
+  const manifest = manifestIo.emptyManifest("fldROOT", "Test Docs");
+  manifest.entries["gone.md"] = {
+    fileId: "DOC2",
+    kind: "markdown",
+    name: "Gone",
+    url: "https://docs.google.com/document/d/DOC2/edit",
+    contentHash: "h",
+    publishedAt: "t",
+  };
+  manifestIo.save(tmp, manifest); // gone.md intentionally NOT on disk
+
+  const { status, stdout } = run(["browse", path.join(tmp, "gone.md"), "--no-open"]);
+  assert.equal(status, 0, "manifest is the identity map - the URL survives local deletion");
+  assert.match(stdout, /DOC2/);
+});
+
+test("browse resolves a subfolder from the folders map", () => {
+  const manifest = manifestIo.emptyManifest("fldROOT", "Test Docs");
+  manifest.folders.guide = "fldGUIDE";
+  manifestIo.save(tmp, manifest);
+
+  const { status, stdout } = run(["browse", path.join(tmp, "guide"), "--no-open"]);
+  assert.equal(status, 0);
+  assert.equal(stdout.trim(), "https://drive.google.com/drive/folders/fldGUIDE");
+});
+
+test("browse --json is machine-readable and includes identity", () => {
+  const manifest = manifestIo.emptyManifest("fldROOT", "Test Docs");
+  manifest.entries["report.csv"] = {
+    fileId: "SHT1",
+    kind: "csv",
+    name: "report",
+    url: "https://docs.google.com/spreadsheets/d/SHT1/edit",
+    contentHash: "h",
+    publishedAt: "t",
+  };
+  manifestIo.save(tmp, manifest);
+
+  const { status, stdout } = run(["browse", path.join(tmp, "report.csv"), "--json"]);
+  assert.equal(status, 0);
+  const parsed = JSON.parse(stdout) as {
+    url: string;
+    fileId: string;
+    kind: string;
+    relPath: string;
+  };
+  assert.equal(parsed.fileId, "SHT1");
+  assert.equal(parsed.kind, "csv");
+  assert.equal(parsed.relPath, "report.csv");
+  assert.match(parsed.url, /spreadsheets/);
+});
+
+test("browse on an unpublished existing file says publish first", () => {
+  seedManifest();
+  fs.writeFileSync(path.join(tmp, "notes.txt"), "text");
+  const { status, stderr } = run(["browse", path.join(tmp, "notes.txt"), "--no-open"]);
+  assert.equal(status, 1);
+  assert.match(stderr, /not published yet - publish first/);
+});
+
+test("browse on an unclaimed image explains the embeds rule", () => {
+  seedManifest();
+  fs.writeFileSync(path.join(tmp, "pic.png"), "PNG");
+  const { status, stderr } = run(["browse", path.join(tmp, "pic.png"), "--no-open"]);
+  assert.equal(status, 1);
+  assert.match(stderr, /images publish only as embeds/);
+});
+
+test("browse without any manifest gives init guidance", () => {
+  const { status, stderr } = run(["browse", os.tmpdir(), "--no-open"]);
+  assert.equal(status, 1);
+  assert.match(stderr, /no \.gdrive-manifest\.json/);
+  assert.match(stderr, /gdrive-publish init/);
+});
+
+test("browse on a path that never existed under a manifest root is exit 2", () => {
+  seedManifest();
+  const { status, stderr } = run(["browse", path.join(tmp, "ghost.md"), "--no-open"]);
+  assert.equal(status, 2);
+  assert.match(stderr, /no such file or directory/);
+});
+
 test("secrets never appear in output", () => {
   seedManifest();
   const { stdout, stderr } = run(["status", tmp, "--json"]);

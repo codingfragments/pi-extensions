@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.7.0";
+export const VERSION = "0.8.0";
 
 export const BIN = "gdrive-publish";
 
@@ -177,6 +177,26 @@ export const COMMANDS: CommandSpec[] = [
       "and any entries left pending by an interrupted run.",
     flags: [JSON_FLAG, REMOTE_FLAG],
     examples: [`${BIN} status docs/`, `${BIN} status docs/ --json`],
+  },
+  {
+    name: "browse",
+    summary: "print (and open) the real Drive URL of a published file or folder",
+    args: "<path>",
+    needsTarget: true,
+    details:
+      "Resolves a local file or folder to its stable Drive URL via the manifest\n" +
+      "and opens it in the browser. Walks up from the path to find the\n" +
+      "manifest; the path may be the root, a file in it, or a subfolder.\n\n" +
+      "Fully offline: no login, no Drive round trip - the manifest already\n" +
+      "knows every URL. Files deleted locally still resolve while their\n" +
+      "manifest entry exists.",
+    flags: [{ name: "no-open", summary: "print the URL without opening a browser" }, JSON_FLAG],
+    examples: [
+      `${BIN} browse docs/`,
+      `${BIN} browse docs/someDocument.md`,
+      `${BIN} browse docs/report.csv --no-open`,
+      `${BIN} browse docs/report.csv --json | jq -r .url`,
+    ],
   },
   {
     name: "help",

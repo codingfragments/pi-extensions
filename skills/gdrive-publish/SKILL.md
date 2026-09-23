@@ -77,6 +77,12 @@ Warnings are normal, not failures. The ones that matter to a user:
   in Drive after `init`; access survives the move, and the manifest keeps
   working.
 
+## Getting a file's stable URL
+
+`gdrive-publish browse <path> [--no-open]` prints (and by default opens) the
+real Drive URL for any published file or folder - resolved offline from the
+manifest, no login needed. Use it when the user asks "what's the link to X?".
+
 ## Verifying the result
 
 If the user doubts the output, the trustworthy check is to open the Doc. For

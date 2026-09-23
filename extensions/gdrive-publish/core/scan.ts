@@ -40,6 +40,10 @@ export function classify(relPath: string): FileKind | null {
 
 /** MIME for raw uploads: informational (Drive icons/preview), octet-stream fallback. */
 export function rawMimeType(relPath: string): string {
+  // Claimed images keep their real image mime (claimed images are raw files
+  // now, and the image mime is what Drive uses for previews and thumbnails).
+  const image = imageMimeType(relPath);
+  if (image) return image;
   switch (path.extname(relPath).toLowerCase()) {
     case ".zip":
       return "application/zip";
@@ -128,13 +132,17 @@ export function scan(root: string, opts?: ScanOptions): ScanResult {
       if (entry.name === MANIFEST_FILENAME) continue;
       const kind = classify(relPath);
       const absPath = path.join(root, relPath);
+      // Raw upload is opt-in per pattern, for files WITHOUT a native
+      // conversion: unclassified types (no conversion at all) and images
+      // (embedded into Docs, never converted). markdown/csv/xlsx always
+      // keep their native conversion - a pattern cannot hijack them.
+      const claimable = kind === null || kind === "image";
+      if (claimable && matchesAnyPattern(rawPatterns, relPath)) {
+        files.push({ relPath, absPath, kind: "file", size: fs.statSync(absPath).size });
+        continue;
+      }
       if (!kind) {
-        // No native conversion. Raw upload only when a pattern opts in.
-        if (matchesAnyPattern(rawPatterns, relPath)) {
-          files.push({ relPath, absPath, kind: "file", size: fs.statSync(absPath).size });
-        } else {
-          skipped.push(relPath);
-        }
+        skipped.push(relPath);
         continue;
       }
       files.push({ relPath, absPath, kind, size: fs.statSync(absPath).size });

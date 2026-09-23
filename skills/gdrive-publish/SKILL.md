@@ -48,6 +48,7 @@ Warnings are normal, not failures. The ones that matter to a user:
 | `LINK_OUTSIDE_ROOT` | The link points outside the published folder, so it was left as-is and will be broken in Drive. Either move the file into the folder or change the link. |
 | `LINK_TARGET_MISSING` | Broken link in the source, left verbatim. Worth fixing locally. |
 | `FRONTMATTER_STRIPPED` | Expected. Drive mangles YAML front matter, so it is removed; `title:` became the Doc name. |
+| `IMAGE_UNREFERENCED` | The image is not referenced by any markdown, so it publishes nowhere. Tell the user their options: reference it, claim it via rawPatterns (uploads it as a raw file), or delete it. |
 | `IMAGE_LARGE` | Images are embedded as base64, which inflates the upload by ~33%. Consider shrinking it. |
 | `DOC_PAYLOAD_TOO_LARGE` | An **error**, not a warning: the document will be skipped until images shrink. |
 | `UNSUPPORTED_FILE` | The type has no native Drive conversion and no `rawPatterns` entry covers it; skipped. If the user wants these files published, a pattern in `.gdrive-publish.json` makes them raw uploads - `gdrive-publish plan <dir> --suggest-config` creates/extends that config. Never run it without the user approving; always make them verify the patterns. |

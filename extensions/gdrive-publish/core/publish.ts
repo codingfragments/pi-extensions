@@ -15,9 +15,11 @@ import { derivePatterns } from "./config.ts";
 import { describeDialect, normaliseCsv } from "./csv.ts";
 import type { DriveClient } from "./drive.ts";
 import { DriveError } from "./drive.ts";
+import { classifyTarget, collectLinks } from "./links.ts";
 import * as manifestIo from "./manifest.ts";
 import { documentName, tabularName } from "./naming.ts";
 import { prepareMarkdown } from "./prepare.ts";
+import { resolveRelative } from "./prepare.ts";
 import type { ResolvedTarget } from "./prepare.ts";
 import type { ProgressEvent } from "./progress.ts";
 import { folderPaths, rawMimeType, scan } from "./scan.ts";
@@ -25,6 +27,27 @@ import { GOOGLE_DOC, GOOGLE_SHEET, driveUrl, folderUrl } from "./types.ts";
 import type { Diagnostic, Manifest, Plan, PlanItem, PublishSummary, SourceFile } from "./types.ts";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * Images referenced by any markdown file (resolved to publish-root-relative
+ * paths). Code-fence links are not references - they are not rewritten into
+ * Docs, so an image "used" only inside a fence is unreferenced for
+ * publishing purposes.
+ */
+function referencedImages(root: string, files: SourceFile[]): Set<string> {
+  const referenced = new Set<string>();
+  for (const file of files) {
+    if (file.kind !== "markdown") continue;
+    const markdown = fs.readFileSync(file.absPath, "utf8");
+    for (const link of collectLinks(markdown)) {
+      if (!link.isImage) continue;
+      if (classifyTarget(link.target) !== "relative") continue;
+      const resolved = resolveRelative(file.relPath, link.target);
+      if (resolved) referenced.add(resolved);
+    }
+  }
+  return referenced;
+}
 
 export interface PlanOptions {
   root: string;
@@ -49,6 +72,8 @@ function hashFor(file: SourceFile): string {
 /** Build an offline plan: what would be created, updated, left alone, orphaned. */
 export function buildPlan(opts: PlanOptions): Plan {
   const { files, skipped } = scan(opts.root);
+  const referenced = referencedImages(opts.root, files);
+
   // What a `plan --suggest-config` run could automate: patterns derived
   // from the extensions of the files that remain unsupported.
   let rawSuggestion: Plan["rawSuggestion"] = null;
@@ -74,7 +99,21 @@ export function buildPlan(opts: PlanOptions): Plan {
   const manifest = opts.manifest;
   const items: PlanItem[] = [];
   for (const file of files) {
-    if (file.kind === "image") continue; // images are inlined, never published standalone
+    if (file.kind === "image") {
+      // Images publish only as embeds into Docs (or as raw files when a
+      // pattern claims them - those arrive as kind "file"). An image no
+      // markdown references is silently dropped otherwise; warn instead.
+      if (!referenced.has(file.relPath)) {
+        diagnostics.push({
+          code: "IMAGE_UNREFERENCED",
+          severity: "warn",
+          relPath: file.relPath,
+          message:
+            "not published: reference it in markdown, claim it via rawPatterns, or delete it",
+        });
+      }
+      continue;
+    }
     const existing = manifest?.entries[file.relPath];
     const folder = file.relPath.includes("/")
       ? file.relPath.slice(0, file.relPath.lastIndexOf("/"))

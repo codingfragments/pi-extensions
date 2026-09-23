@@ -49,7 +49,8 @@ import { fmtDuration, renderBarLine } from "./core/progress.ts";
 import type { ProgressEvent } from "./core/progress.ts";
 import { buildPlan, publish } from "./core/publish.ts";
 import { planJson, renderPlan, renderSummary, summaryJson } from "./core/report.ts";
-import { GOOGLE_FOLDER, folderUrl } from "./core/types.ts";
+import { classify } from "./core/scan.ts";
+import { GOOGLE_FOLDER, MANIFEST_FILENAME, folderUrl } from "./core/types.ts";
 
 /** Arguments as validated against the command table. */
 interface Args {
@@ -307,6 +308,105 @@ async function cmdPublish(args: Args): Promise<void> {
   if (summary.diagnostics.some((d) => d.severity === "error")) process.exit(3);
 }
 
+/**
+ * Walk up from a path to the nearest .gdrive-manifest.json (bounded, stops at
+ * the filesystem root).
+ */
+function findManifestDir(start: string): string | null {
+  let dir = fs.existsSync(start) && fs.statSync(start).isDirectory() ? start : path.dirname(start);
+  for (let i = 0; i < 12; i++) {
+    if (fs.existsSync(path.join(dir, MANIFEST_FILENAME))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+
+/** Best-effort browser open; degrades to printing the URL if no opener exists. */
+function openInBrowser(url: string): void {
+  try {
+    if (process.platform === "darwin") {
+      execFileSync("open", [url], { stdio: "ignore" });
+    } else if (process.platform === "win32") {
+      execFileSync("cmd", ["/c", "start", "", url], { stdio: "ignore" });
+    } else {
+      execFileSync("xdg-open", [url], { stdio: "ignore" });
+    }
+  } catch {
+    process.stdout.write(`(no browser opener found - open manually: ${url})\n`);
+  }
+}
+
+/**
+ * Print (and open) the real Drive URL for a published file or folder.
+ * Manifest-first: locally-deleted files still resolve while their entry
+ * exists, because the manifest is the identity map.
+ */
+function cmdBrowse(args: Args): void {
+  const target = args.target as string;
+  const resolved = path.resolve(target);
+
+  const manifestDir = findManifestDir(resolved);
+  if (!manifestDir) {
+    fail(
+      1,
+      `no ${MANIFEST_FILENAME} in or above ${target} - run: gdrive-publish init <dir> --name "Docs"`,
+    );
+  }
+  const manifest = manifestIo.load(manifestDir);
+  if (!manifest) fail(1, `unreadable ${MANIFEST_FILENAME} in ${manifestDir}`);
+
+  const relPath = path
+    .relative(manifestDir, resolved)
+    .split(path.sep)
+    .join("/")
+    .replace(/\/+$/, "");
+  if (relPath.startsWith("..")) {
+    fail(1, `${target} is outside the publish root ${manifestDir}`);
+  }
+
+  let url: string;
+  let fileId: string;
+  let kind: string;
+  if (relPath === "") {
+    url = folderUrl(manifest.rootFolderId);
+    fileId = manifest.rootFolderId;
+    kind = "folder";
+  } else {
+    const entry = manifest.entries[relPath];
+    const folderId = manifest.folders[relPath];
+    if (entry) {
+      url = entry.url;
+      fileId = entry.fileId;
+      kind = entry.kind;
+    } else if (folderId) {
+      url = folderUrl(folderId);
+      fileId = folderId;
+      kind = "folder";
+    } else if (fs.existsSync(resolved) && classify(relPath) === "image") {
+      fail(
+        1,
+        `${relPath} is not published as a standalone file - images publish only as embeds unless claimed via rawPatterns`,
+      );
+    } else if (fs.existsSync(resolved)) {
+      fail(1, `${relPath} exists but is not published yet - publish first`);
+    } else {
+      fail(2, `no such file or directory: ${target}`);
+    }
+  }
+
+  const json = args.flags.has("json");
+  if (json) {
+    process.stdout.write(`${JSON.stringify({ url, fileId, kind, relPath }, null, 2)}\n`);
+  } else {
+    process.stdout.write(`${url}\n`);
+  }
+  if (!json && !args.flags.has("no-open")) {
+    openInBrowser(url);
+  }
+}
+
 function cmdStatus(args: Args): void {
   const root = resolveRoot(args.target);
   const manifest = manifestIo.load(root);
@@ -425,6 +525,9 @@ async function main(): Promise<void> {
         break;
       case "status":
         cmdStatus(args);
+        break;
+      case "browse":
+        cmdBrowse(args);
         break;
       default:
         fail(2, `unhandled command: ${commandSpec.name}`);

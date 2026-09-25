@@ -100,6 +100,12 @@ gdrive-publish publish docs/     # update in place, URLs stable
 Edit markdown locally, re-publish. Files are updated in place, and any link
 someone bookmarked still opens the right document.
 
+Like git, every command works from **anywhere inside the tree** - run
+`publish`, `plan` or `status` from a subfolder and the tool finds the
+manifest by walking up, publishing the whole root (it says so when it does).
+New subfolders are picked up automatically; `init` inside an already
+manifested tree is refused unless you really want a nested root (`--force`).
+
 Need the real Drive link for a specific file or folder? `browse` resolves it
 from the manifest (offline, no login) and opens it in the browser:
 
@@ -213,6 +219,7 @@ create the Drive folder and the manifest for a directory
 |---|---|
 | `--name <name>` | name of the Drive folder to create (not needed with --into) |
 | `--into <url|id>` | adopt an existing Drive folder as the publish root instead of creating one |
+| `--force` | allow init inside a tree that already has a publish root (nested roots) |
 | `--remote <name>` | rclone remote to take client credentials from |
 
 ```
@@ -364,7 +371,7 @@ gdrive-publish help publish
 | 2 | usage error (bad command, missing argument, unknown flag) |
 | 3 | completed, but the report contains errors |
 
-Tool version at generation time: 0.8.0.
+Tool version at generation time: 0.8.1.
 <!-- END generated: cli-reference -->
 
 ## Troubleshooting

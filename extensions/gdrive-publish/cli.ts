@@ -51,6 +51,7 @@ import { buildPlan, publish } from "./core/publish.ts";
 import { planJson, renderPlan, renderSummary, summaryJson } from "./core/report.ts";
 import { classify } from "./core/scan.ts";
 import { GOOGLE_FOLDER, MANIFEST_FILENAME, folderUrl } from "./core/types.ts";
+import type { Manifest } from "./core/types.ts";
 
 /** Arguments as validated against the command table. */
 interface Args {
@@ -102,6 +103,18 @@ async function cmdLogin(args: Args): Promise<void> {
 
 async function cmdInit(args: Args): Promise<void> {
   const root = resolveRoot(args.target);
+  // Guard before touching credentials: a nested manifest is almost never
+  // intended (it splits the tree's identity map into a second Drive root)
+  // and usually results from following an old error message.
+  const ancestor = findManifestDir(path.dirname(root));
+  if (ancestor && ancestor !== root && !args.flags.has("force")) {
+    fail(
+      1,
+      `${ancestor} already has a ${MANIFEST_FILENAME} - creating one here would nest publish roots.
+  to publish this tree under the existing root instead: gdrive-publish publish ${args.target}
+  to create a separate nested root anyway: add --force`,
+    );
+  }
   const name = args.options.get("name");
   const into = args.options.get("into");
 
@@ -173,8 +186,13 @@ async function cmdInit(args: Args): Promise<void> {
 }
 
 function cmdPlan(args: Args): void {
-  const root = resolveRoot(args.target);
-  let manifest = manifestIo.load(root);
+  const requestedRoot = resolveRoot(args.target);
+  const discovery = discoverManifestRoot(requestedRoot);
+  const root = discovery.root;
+  let manifest = discovery.manifest;
+  if (discovery.discoveredAbove && !args.flags.has("json")) {
+    process.stdout.write(discoveryNote(root));
+  }
   let plan = buildPlan({ root, manifest });
   let configCreated: string | null = null;
   let patternsAdded: string[] = [];
@@ -239,10 +257,20 @@ function cmdPlan(args: Args): void {
 }
 
 async function cmdPublish(args: Args): Promise<void> {
-  const root = resolveRoot(args.target);
-  const manifest = manifestIo.load(root);
+  const requestedRoot = resolveRoot(args.target);
+  const discovery = discoverManifestRoot(requestedRoot);
+  const root = discovery.root;
+  const manifest = discovery.manifest;
   if (!manifest) {
-    fail(1, `no manifest in ${root} - run: gdrive-publish init ${args.target} --name "Docs"`);
+    fail(
+      1,
+      `no ${MANIFEST_FILENAME} in or above ${requestedRoot}
+  - new tree: gdrive-publish init <dir> --name "Docs"
+  - existing tree: run from, or point at, the directory holding the manifest`,
+    );
+  }
+  if (discovery.discoveredAbove && !args.flags.has("json")) {
+    process.stdout.write(discoveryNote(root));
   }
   const plan = buildPlan({ root, manifest });
   const json = args.flags.has("json");
@@ -321,6 +349,33 @@ function findManifestDir(start: string): string | null {
     dir = parent;
   }
   return null;
+}
+
+/**
+ * Manifest discovery for dir-taking commands: the manifest in the exact
+ * directory if present, else the nearest one above it (the git model - run
+ * from anywhere inside the tree). `discoveredAbove` is true when the caller
+ * pointed at a subdirectory and the root was found by walking up.
+ */
+function discoverManifestRoot(dir: string): {
+  manifest: Manifest | null;
+  root: string;
+  discoveredAbove: boolean;
+} {
+  const direct = manifestIo.load(dir);
+  if (direct) return { manifest: direct, root: dir, discoveredAbove: false };
+  const found = findManifestDir(dir);
+  if (found && found !== dir) {
+    return { manifest: manifestIo.load(found), root: found, discoveredAbove: true };
+  }
+  return { manifest: null, root: dir, discoveredAbove: false };
+}
+
+/** Human note when the caller pointed at a subdirectory of the publish root. */
+function discoveryNote(dir: string): string {
+  const shown = path.relative(process.cwd(), dir) || dir;
+  return `manifest found at ${shown} - operating on that publish root
+`;
 }
 
 /** Best-effort browser open; degrades to printing the URL if no opener exists. */
@@ -408,8 +463,13 @@ function cmdBrowse(args: Args): void {
 }
 
 function cmdStatus(args: Args): void {
-  const root = resolveRoot(args.target);
-  const manifest = manifestIo.load(root);
+  const requestedRoot = resolveRoot(args.target);
+  const discovery = discoverManifestRoot(requestedRoot);
+  const root = discovery.root;
+  const manifest = discovery.manifest;
+  if (discovery.discoveredAbove && !args.flags.has("json")) {
+    process.stdout.write(discoveryNote(root));
+  }
   const creds = credentialsOrFail(args);
   const info = {
     root,

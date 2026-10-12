@@ -160,12 +160,66 @@ test("plan and publish agree on the diagnostics they report", () => {
   assert.ok(planCodes.includes("FRONTMATTER_STRIPPED"));
 });
 
-test("publish without a manifest fails with guidance (exit 1)", () => {
-  write("a.md", "# A\n");
-  const { status, stderr } = run(["publish", tmp]);
+test("plan from a subfolder discovers the root manifest and plans the whole tree", () => {
+  const manifest = manifestIo.emptyManifest("fldROOT", "Test Docs");
+  manifest.entries["toc.md"] = {
+    fileId: "DOC1",
+    kind: "markdown",
+    name: "Toc",
+    url: "https://docs.google.com/document/d/DOC1/edit",
+    contentHash: "h",
+    publishedAt: "t",
+  };
+  manifestIo.save(tmp, manifest);
+  fs.mkdirSync(path.join(tmp, "guide"));
+  fs.writeFileSync(path.join(tmp, "toc.md"), "# Toc\n");
+  fs.writeFileSync(path.join(tmp, "guide", "new.md"), "# New\n");
+
+  const { status, stdout } = run(["plan", path.join(tmp, "guide")]);
+  assert.equal(status, 0);
+  assert.match(stdout, /manifest found at .* - operating on that publish root/);
+  assert.match(stdout, /[~=] toc\.md/, "root's files appear with root-relative paths");
+  assert.match(stdout, /\+ guide\/new\.md/, "the new subfolder file plans as a create");
+  // json mode carries no discovery note noise
+  const jsonRun = run(["plan", path.join(tmp, "guide"), "--json"]);
+  const parsed = JSON.parse(jsonRun.stdout) as { items: { relPath: string }[] };
+  assert.ok(parsed.items.some((i) => i.relPath === "guide/new.md"));
+  assert.doesNotMatch(jsonRun.stdout, /manifest found at/, "json stays machine-clean");
+});
+
+test("status from a subfolder reports the root manifest", () => {
+  const manifest = manifestIo.emptyManifest("fldROOT", "Test Docs");
+  manifest.entries["toc.md"] = {
+    fileId: "DOC1",
+    kind: "markdown",
+    name: "Toc",
+    url: "https://docs.google.com/document/d/DOC1/edit",
+    contentHash: "h",
+    publishedAt: "t",
+  };
+  manifestIo.save(tmp, manifest);
+  fs.mkdirSync(path.join(tmp, "guide"));
+
+  const { status, stdout } = run(["status", path.join(tmp, "guide")]);
+  assert.equal(status, 0);
+  assert.match(stdout, /manifest found at .* - operating on that publish root/);
+  assert.match(stdout, /manifest: 1 entr/);
+});
+
+test("init inside an existing tree is refused without --force (nested roots)", () => {
+  manifestIo.save(tmp, manifestIo.emptyManifest("fldROOT", "Test Docs"));
+  fs.mkdirSync(path.join(tmp, "guide"));
+
+  const { status, stderr } = run(["init", path.join(tmp, "guide"), "--name", "Oops"]);
   assert.equal(status, 1);
-  assert.match(stderr, /no manifest/);
-  assert.match(stderr, /gdrive-publish init/);
+  assert.match(stderr, /nest publish roots/);
+  assert.match(stderr, /publish .* instead/);
+  assert.match(stderr, /--force/);
+
+  const forced = run(["init", path.join(tmp, "guide"), "--name", "Deliberate", "--force"]);
+  assert.doesNotMatch(forced.stderr, /nest publish roots/, "--force overrides the guard");
+  // proceeding past the guard reaches the auth stage (offline: no token in HOME)
+  assert.match(forced.stderr, /not authenticated|gdrive-publish login/);
 });
 
 test("publish --dry-run writes nothing and never contacts Drive", () => {

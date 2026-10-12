@@ -12,7 +12,7 @@
  */
 
 /** Tool version, independent of the monorepo's package version. */
-export const VERSION = "0.8.0";
+export const VERSION = "0.8.1";
 
 export const BIN = "gdrive-publish";
 
@@ -99,6 +99,10 @@ export const COMMANDS: CommandSpec[] = [
         summary: "adopt an existing Drive folder as the publish root instead of creating one",
         takesValue: true,
         valueLabel: "<url|id>",
+      },
+      {
+        name: "force",
+        summary: "allow init inside a tree that already has a publish root (nested roots)",
       },
       REMOTE_FLAG,
     ],

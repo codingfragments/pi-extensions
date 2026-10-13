@@ -299,7 +299,18 @@ the configured root. The panel shows live bus events. Doctor reports a clear PAS
 
 ---
 
-### S1 — Thin end-to-end: hard-coded storyboard → narrated MP4 *(the walking skeleton)*
+### S1 — Thin end-to-end: hard-coded storyboard → narrated MP4 *(the walking skeleton)* ✅ done
+
+> Done: `cli.ts run-s1 --fixture` → approved storyboard version → headless take
+> with visible virtual cursor (arrow/hand/I-beam, click ripple) → CDP
+> screencast → exact CFR master (3200×1800) → `say` → 1080p30 MP4.
+> Spike: [spikes/S1-capture.md](spikes/S1-capture.md) — **Q1 resolved: 3200×1800
+> default** (57 fps during animation); fallback via `capture.maxWidth/maxHeight`.
+> Findings that changed the design: headless needs `--force-device-scale-factor`
+> for device-pixel frames; CFR mapping is now exact by construction (output
+> frame k = latest source frame ≤ t0 + k/fps) after the concat demuxer added
+> +0.43 s drift. Tests: units always; browser/ffmpeg integration when present;
+> E2E with `DEMO_REC_E2E=1` (anchor check inside the event box: ±150 ms).
 
 **Purpose.** Prove the whole pipeline exists before any part of it is good:
 browser → capture → event log → TTS → naive mux → `out/full.mp4`. It also runs
@@ -504,7 +515,7 @@ real GPU rendering, behind a flag, reusing everything else.
 
 | # | Question | Resolved in |
 |---|---|---|
-| Q1 | Capture resolution default (3200×1800 vs 2560×1440) | S1 spike |
+| Q1 | ~~Capture resolution default (3200×1800 vs 2560×1440)~~ → **3200×1800**, see spikes/S1-capture.md | S1 spike ✅ |
 | Q2 | Kokoro via Python (uv) vs `kokoro-js` in Node | S4 spike |
 | Q3 | Zoom rendering: ffmpeg expressions vs Node frame compositing | S5 spike |
 | Q4 | Default whisper model size (speed vs alignment accuracy) | S4 |

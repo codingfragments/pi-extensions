@@ -1,0 +1,19 @@
+# MANUAL TEST FIXTURE — must be REJECTED by the validator.
+# Run against the VALID template storyboard:
+#   node scripts/validate-storyboard.mjs templates/storyboard.template.yaml test/fixtures/invalid-vo-mismatch.vo.yaml
+# Error classes: vo scene id with no storyboard match, invalid status, invalid pace.
+# Expect: "✖ … 'ghost-scene' has no matching storyboard scene",
+#         "✖ … status 'shipped' invalid", "✖ … pace_words_per_sec must be a number in (0, 10]"
+
+meta:
+  voice: { name: "Stefan" }
+  model: eleven_v4
+  pace_words_per_sec: 99
+
+scenes:
+  - id: ghost-scene
+    text: "I do not exist in the storyboard"
+    status: approved
+  - id: intro-dashboard
+    text: "valid scene, invalid status"
+    status: shipped

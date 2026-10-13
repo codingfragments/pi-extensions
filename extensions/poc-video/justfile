@@ -1,0 +1,56 @@
+# poc-video manual tests — run from extensions/poc-video/
+# (from repo root: just --justfile extensions/poc-video/justfile -d extensions/poc-video <recipe>)
+#
+# The unit tests (test/validate.test.ts) prove the validator logic; these
+# recipes are for eyeballing real validator output against real files —
+# the happy path (templates) and the error classes (fixtures).
+
+# list recipes
+default:
+    @just --list
+
+# one-time setup: npm deps + the Chromium binary (user cache, never committed)
+install:
+    npm install
+    npx playwright install chromium
+
+# happy path: validate the template pair — expect ✔ and no warnings
+validate:
+    node scripts/validate-storyboard.mjs templates/storyboard.template.yaml templates/vo.template.yaml
+
+# validate any storyboard (+ optional vo.yaml):
+#   just check path/to/storyboard.yaml [path/to/vo.yaml]
+check *args:
+    node scripts/validate-storyboard.mjs {{args}}
+
+# validator + contract unit tests
+test:
+    node --test test/validate.test.ts
+
+# error-class demos: every fixture in test/fixtures/ must be REJECTED —
+# eyeball what the validator actually says for each class, and get a
+# non-zero exit if any fixture wrongly passes
+demo-errors:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    total=0
+    rejected=0
+    for f in test/fixtures/invalid-*.storyboard.yaml; do
+      total=$((total+1))
+      echo; echo "── ${f}"
+      if ! node scripts/validate-storyboard.mjs "$f"; then rejected=$((rejected+1)); fi
+    done
+    total=$((total+1))
+    echo; echo "── vo fixture vs valid template storyboard"
+    if ! node scripts/validate-storyboard.mjs templates/storyboard.template.yaml test/fixtures/invalid-vo-mismatch.vo.yaml; then rejected=$((rejected+1)); fi
+    echo
+    if [ "$rejected" -eq "$total" ]; then
+      echo "✔ all $total fixtures correctly rejected"
+    else
+      echo "✖ $((total-rejected)) fixture(s) passed validation — they must not"
+      exit 1
+    fi
+
+# full gate set: typecheck + lint + tests (what CI enforces on the repo)
+gates:
+    cd ../.. && npm run typecheck && npx biome check extensions/poc-video && npm test

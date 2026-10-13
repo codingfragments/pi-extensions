@@ -1,0 +1,14 @@
+# MANUAL TEST FIXTURE — must be REJECTED by the validator.
+# Error class: missing required scene fields (intent) + non-kebab-case id.
+# Expect: "✖ … missing intent" and "✖ … must be kebab-case"
+
+meta:
+  target: fixture
+  title: "missing required fields"
+  voice: { name: "Stefan" }
+  target_duration_s: 30
+
+scenes:
+  - id: Not Kebab
+    title: "broken scene"
+    steps: [{ type: navigate, url: "https://example.com" }]

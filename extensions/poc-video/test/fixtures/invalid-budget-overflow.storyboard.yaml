@@ -1,0 +1,21 @@
+# MANUAL TEST FIXTURE — must be REJECTED by the validator.
+# Error class: per-scene budgets exceed the whole-video target.
+# Expect: "✖ … sum of budget_s (80s) exceeds target_duration_s (30s)"
+
+meta:
+  target: fixture
+  title: "budget overflow"
+  voice: { name: "Stefan" }
+  target_duration_s: 30
+
+scenes:
+  - id: too-long-scene
+    title: "a"
+    intent: "scenes overbook the video"
+    budget_s: 60
+    steps: [{ type: navigate, url: "https://example.com" }]
+  - id: also-too-long
+    title: "b"
+    intent: "scenes overbook the video"
+    budget_s: 20
+    steps: [{ type: navigate, url: "https://example.com/2" }]

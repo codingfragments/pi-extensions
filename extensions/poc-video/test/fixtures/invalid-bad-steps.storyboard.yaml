@@ -1,0 +1,18 @@
+# MANUAL TEST FIXTURE — must be REJECTED by the validator.
+# Error class: malformed steps — unknown type, missing required fields.
+# Expect: "✖ … unknown step type 'teleport'" and "✖ … type 'click' requires 'selector'"
+
+meta:
+  target: fixture
+  title: "bad steps"
+  voice: { name: "Stefan" }
+  target_duration_s: 30
+
+scenes:
+  - id: broken-steps
+    title: "steps a runner cannot replay"
+    intent: "exercise step validation"
+    steps:
+      - { type: teleport, to: "moon" }
+      - { type: click }
+      - { type: type, selector: "role=textbox[name='Name']", text: "" }  # empty text is missing

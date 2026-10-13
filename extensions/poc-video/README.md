@@ -28,9 +28,26 @@ extensions/poc-video/
 ## Setup
 
 ```bash
-cd extensions/poc-video && npm install
-npx playwright install chromium     # browser binary → user cache, not committed
+cd extensions/poc-video && just install   # npm deps + Chromium binary (user cache)
 ```
+
+Or manually: `npm install` + `npx playwright install chromium`.
+
+## Manual tests
+
+From `extensions/poc-video/` (see `justfile`):
+
+```bash
+just validate      # happy path: the template pair must validate ✔
+just demo-errors   # error-class demos: every fixture in test/fixtures/ must be REJECTED,
+                  #   with readable output per class — exits non-zero if one passes
+just check f.yaml [vo.yaml]  # validate any storyboard / vo pair
+just test         # validator + contract unit tests
+just gates        # typecheck + lint + full test suite (what CI enforces)
+```
+
+Each fixture in `test/fixtures/` carries a header comment naming the error
+class it demonstrates and what the validator is expected to say.
 
 All environment-specific values (target URL, voice name, pacing,
 output dir) live in a run-level `run.yaml` next to the storyboard — the

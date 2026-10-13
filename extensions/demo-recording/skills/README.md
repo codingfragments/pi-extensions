@@ -6,9 +6,6 @@ in `../index.ts`. They are added slice by slice (see
 
 | Skill | Purpose | Slice |
 |---|---|---|
-| `demo-brief/` | Draft `brief.md` from free-form input, ask for gaps, web search only on request | S2 |
-| `demo-recording/` | Phase playbook: discovery, demo-worthiness, human-like flow, storyboard rules | S2 |
+| [`demo-brief/`](demo-brief/SKILL.md) | Draft `brief.md` from free-form input, ask for gaps, web search only on request | S2 ✅ |
+| [`demo-recording/`](demo-recording/SKILL.md) | Director's playbook: discovery, demo-worthiness, human-like flow, storyboard format, review loop, recording | S2 ✅ |
 | `demo-voiceover/` | VO stance/density/style rules, anchors, value bindings, full-video bridges | S4 |
-
-No `SKILL.md` files exist yet on purpose: a half-written skill would be
-auto-triggered by the model.

@@ -27,7 +27,7 @@ function str(o: Obj, key: string, path: string, required = true): string | undef
   return v;
 }
 
-function parseTarget(v: unknown, path: string): Target {
+export function parseTarget(v: unknown, path: string): Target {
   if (!isObj(v))
     return fail(path, "target must be an object like {role, name} | {text} | {label} | {css}");
   const exact = v.exact === undefined ? undefined : Boolean(v.exact);
@@ -47,7 +47,18 @@ function parseWaitFor(v: unknown, path: string): WaitFor {
   return parseTarget(v, path);
 }
 
-const STEP_KINDS = ["goto", "move", "hover", "click", "type", "press", "wait", "pause"] as const;
+const STEP_KINDS = [
+  "goto",
+  "move",
+  "hover",
+  "click",
+  "type",
+  "press",
+  "wait",
+  "pause",
+  "scroll",
+  "improvise",
+] as const;
 
 function parseStep(v: unknown, path: string): Step {
   if (!isObj(v)) return fail(path, "step must be an object");
@@ -58,7 +69,7 @@ function parseStep(v: unknown, path: string): Step {
       `must be one of ${STEP_KINDS.join(", ")} (got ${JSON.stringify(kind)})`,
     );
   }
-  const base: { mark?: string; dwell?: number } = {};
+  const base: { mark?: string; dwell?: number; zoom?: boolean; callout?: string } = {};
   const mark = str(v, "mark", path, false);
   if (mark) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(mark))
@@ -66,6 +77,19 @@ function parseStep(v: unknown, path: string): Step {
     base.mark = mark;
   }
   if (v.dwell !== undefined) base.dwell = parseDuration(v.dwell, `${path}.dwell`);
+  if (v.zoom !== undefined) {
+    if (typeof v.zoom !== "boolean") fail(`${path}.zoom`, "must be true or false");
+    if (v.zoom) base.zoom = true;
+  }
+  const callout = str(v, "callout", path, false);
+  if (callout) {
+    if (callout.length > 60)
+      fail(
+        `${path}.callout`,
+        "keep callouts short (≤ 60 chars) — they mark steps, they don't narrate",
+      );
+    base.callout = callout;
+  }
 
   switch (kind) {
     case "goto":
@@ -94,6 +118,38 @@ function parseStep(v: unknown, path: string): Step {
         for: parseWaitFor(v.for, `${path}.for`),
         timeout: v.timeout === undefined ? 15000 : parseDuration(v.timeout, `${path}.timeout`),
       };
+    case "scroll": {
+      if (v.target === undefined && v.dy === undefined)
+        return fail(path, "scroll needs a target (scroll into view) or dy (pixels)");
+      if (v.dy !== undefined && (typeof v.dy !== "number" || !Number.isFinite(v.dy)))
+        return fail(`${path}.dy`, "must be a number of pixels");
+      return {
+        ...base,
+        do: "scroll",
+        ...(v.target !== undefined ? { target: parseTarget(v.target, `${path}.target`) } : {}),
+        ...(typeof v.dy === "number" ? { dy: v.dy } : {}),
+      };
+    }
+    case "improvise": {
+      if (v.kind !== "type")
+        return fail(
+          `${path}.kind`,
+          'only "type" is supported (invent an input from the live screen)',
+        );
+      const prompt = str(v, "prompt", path) as string;
+      const max = v.max_chars === undefined ? 80 : v.max_chars;
+      if (typeof max !== "number" || !Number.isInteger(max) || max < 5 || max > 400)
+        return fail(`${path}.max_chars`, "must be an integer 5..400");
+      return {
+        ...base,
+        do: "improvise",
+        kind: "type",
+        target: parseTarget(v.target, `${path}.target`),
+        prompt,
+        max_chars: max,
+        submit: v.submit === undefined ? true : Boolean(v.submit),
+      };
+    }
     default:
       return { ...base, do: "pause", ms: parseDuration(v.ms, `${path}.ms`) };
   }
@@ -114,10 +170,29 @@ function parseScene(v: unknown, path: string): Scene {
     const value = str(v, key, path, false);
     if (value) scene[key] = value;
   }
+  const screen = str(v, "screen", path, false);
+  if (screen) {
+    if (!/^\d{8}-\d{6}\/s\d{3,}$/.test(screen))
+      fail(`${path}.screen`, 'must be a discovery screen id like "20260612-101233/s007"');
+    scene.screen = screen;
+  }
+  if (v.narration_outline !== undefined) {
+    if (
+      !Array.isArray(v.narration_outline) ||
+      v.narration_outline.some((x) => typeof x !== "string" || !x.trim())
+    ) {
+      fail(`${path}.narration_outline`, "must be a list of non-empty strings");
+    }
+    scene.narration_outline = v.narration_outline as string[];
+  }
   return scene;
 }
 
-export function parseStoryboard(text: string): Storyboard {
+/**
+ * Parse storyboard YAML. `version` may be omitted when the engine assigns it
+ * (`demo_rec_storyboard write` stores the next version and injects it).
+ */
+export function parseStoryboard(text: string, opts: { version?: number } = {}): Storyboard {
   let raw: unknown;
   try {
     raw = parseYaml(text);
@@ -125,7 +200,7 @@ export function parseStoryboard(text: string): Storyboard {
     throw new StoryboardError(`storyboard: invalid YAML (${(err as Error).message})`);
   }
   if (!isObj(raw)) return fail("(root)", "must be a mapping");
-  const version = raw.version;
+  const version = opts.version ?? raw.version;
   if (typeof version !== "number" || !Number.isInteger(version) || version < 1)
     fail("version", "must be a positive integer");
   if (!Array.isArray(raw.scenes) || raw.scenes.length === 0)
@@ -149,9 +224,11 @@ export function parseStoryboard(text: string): Storyboard {
   });
 
   const app = str(raw, "app", "(root)", false);
+  const summary = str(raw, "summary", "(root)", false);
   return {
     version: version as number,
     ...(app ? { app } : {}),
+    ...(summary ? { summary } : {}),
     start_url: str(raw, "start_url", "(root)") as string,
     scenes,
   };

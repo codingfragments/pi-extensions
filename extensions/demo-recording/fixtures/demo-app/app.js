@@ -181,7 +181,7 @@ function chat() {
     list.innerHTML = chatLog
       .map(
         (m) =>
-          `<li class="msg ${m.role}"><div class="bubble">${esc(m.text)}${m.streaming ? '<span class="caret"></span>' : ""}</div></li>`,
+          `<li class="msg ${m.role}"><div class="bubble"${m.streaming ? ' aria-busy="true"' : ""}>${esc(m.text)}${m.streaming ? '<span class="caret"></span>' : ""}</div></li>`,
       )
       .join("");
     list.scrollTop = list.scrollHeight;

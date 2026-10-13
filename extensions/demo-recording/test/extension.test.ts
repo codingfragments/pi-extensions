@@ -41,26 +41,44 @@ afterEach(() => {
   }
 });
 
-async function load() {
+interface Tool {
+  name: string;
+  parameters: { properties: Record<string, { enum?: string[]; anyOf?: unknown[] }> };
+  execute: (
+    id: string,
+    params: Record<string, unknown>,
+    signal?: unknown,
+    onUpdate?: unknown,
+  ) => Promise<{
+    content: { type: string; text?: string }[];
+    details: Record<string, unknown>;
+  }>;
+}
+
+async function load(opts: { hasUI?: boolean } = {}) {
   const events = new Map<string, Handler>();
   const commands = new Map<string, Command>();
+  const tools = new Map<string, Tool>();
+  const sent: { text: string; options?: Record<string, unknown> }[] = [];
   const entries: { type: string; customType: string; data: unknown }[] = [];
   const pi = {
     on: (name: string, h: Handler) => events.set(name, h),
     registerCommand: (name: string, c: Command) => commands.set(name, c),
-    registerTool: () => {},
+    registerTool: (t: Tool) => tools.set(t.name, t),
     appendEntry: (customType: string, data: unknown) =>
       entries.push({ type: "custom", customType, data }),
+    sendUserMessage: (text: string, options?: Record<string, unknown>) =>
+      sent.push({ text, ...(options ? { options } : {}) }),
   };
   const mod = await import(`../index.ts?${Date.now()}`);
   mod.default(pi);
   const notes: { msg: string; level?: string }[] = [];
   const ctx = {
-    hasUI: false,
+    hasUI: opts.hasUI ?? false,
     ui: { notify: (msg: string, level?: string) => notes.push({ msg, level }) },
     sessionManager: { getEntries: () => entries },
   };
-  return { events, commands, entries, notes, ctx };
+  return { events, commands, tools, sent, entries, notes, ctx };
 }
 
 test("registers /demo, skills discovery and lifecycle hooks; no side effects at load", async () => {
@@ -122,4 +140,85 @@ test("errors surface as notifications, not exceptions", async () => {
   await commands.get("demo")?.handler("open does-not-exist", ctx);
   assert.equal(notes.at(-1)?.level, "error");
   assert.match(notes.at(-1)?.msg ?? "", /no demo project/);
+});
+
+const textOf = (r: { content: { text?: string }[] }) =>
+  r.content.map((c) => c.text ?? "").join("\n");
+
+test("S2 tools: registered; storyboard tool cannot approve; record refuses without approval", async () => {
+  const { tools, events, ctx } = await load();
+  assert.deepEqual([...tools.keys()].sort(), [
+    "demo_rec_browser",
+    "demo_rec_project",
+    "demo_rec_record",
+    "demo_rec_storyboard",
+  ]);
+  const sbTool = tools.get("demo_rec_storyboard");
+  assert.ok(sbTool);
+  const actionSchema = JSON.stringify(sbTool.parameters.properties.action);
+  assert.match(actionSchema, /"write"/);
+  assert.doesNotMatch(actionSchema, /approve/i, "approval is a panel-only human gate");
+
+  const project = tools.get("demo_rec_project");
+  assert.ok(project);
+  await assert.rejects(project.execute("1", { action: "status" }), /no active demo project/);
+  const created = await project.execute("2", {
+    action: "create",
+    project: "tool-proj",
+    app_name: "Acme Pulse",
+    app_url: "http://127.0.0.1:9/",
+  });
+  assert.match(textOf(created), /Created project "tool-proj"/);
+  await project.execute("3", {
+    action: "write_brief",
+    content: "# Demo brief: tool-proj\n\n- **Audience:** CFOs\n",
+  });
+  assert.match(textOf(await project.execute("4", { action: "read_brief" })), /CFOs/);
+  assert.ok(fs.existsSync(path.join(root, "projects", "tool-proj", "brief", "v1.md")));
+
+  await assert.rejects(
+    sbTool.execute("5", { action: "write", yaml: "start_url: /\nscenes: []\n" }),
+    /scenes: must be a non-empty list/,
+  );
+  const written = await sbTool.execute("6", {
+    action: "write",
+    yaml: "start_url: /\nscenes:\n  - id: 01-a\n    title: A\n    steps: [{ do: hover, target: { role: link, name: Search } }]\n",
+  });
+  assert.match(textOf(written), /Stored storyboard v1/);
+  assert.match(textOf(written), /01-a: no screen thumbnail/);
+  assert.match(
+    textOf(await sbTool.execute("7", { action: "get" })),
+    /storyboard v1 .*approved: none/,
+  );
+  const status = textOf(await project.execute("8", { action: "status" }));
+  assert.match(status, /phase: {3}storyboard-review/);
+
+  const record = tools.get("demo_rec_record");
+  assert.ok(record);
+  await assert.rejects(
+    record.execute("9", {}),
+    /storyboard is not approved yet.*approve it in the demo panel/,
+  );
+  await events.get("session_shutdown")?.({}, ctx);
+});
+
+test("/demo new hands off to the demo-brief skill; /demo discover to demo-recording", async () => {
+  const { commands, sent, events, ctx } = await load({ hasUI: true });
+  const demo = commands.get("demo");
+  assert.ok(demo);
+  await demo.handler("new brief-proj http://127.0.0.1:9/ Acme Pulse", ctx);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0]?.text ?? "", /^\/skill:demo-brief Demo project "brief-proj"/);
+  assert.deepEqual(sent[0]?.options, { expandPromptTemplates: true });
+
+  await demo.handler("discover focus on the assistant", ctx);
+  assert.match(
+    sent[1]?.text ?? "",
+    /^\/skill:demo-recording Discover Acme Pulse .*Extra notes from me: focus on the assistant/,
+  );
+
+  // Re-opening an existing project does not re-trigger the brief.
+  await demo.handler("new brief-proj http://127.0.0.1:9/ Acme Pulse", ctx);
+  assert.equal(sent.length, 2);
+  await events.get("session_shutdown")?.({}, ctx);
 });

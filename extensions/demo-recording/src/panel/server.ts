@@ -29,8 +29,17 @@ const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".mp4": "video/mp4",
+  ".wav": "audio/wav",
   ".json": "application/json; charset=utf-8",
 };
+const MEDIA_EXT = new Set([".jpg", ".jpeg", ".png", ".mp4", ".wav"]);
+const MAX_BODY = 64 * 1024;
+
+export type GetRoute = (query: URLSearchParams) => unknown | Promise<unknown>;
+export type PostRoute = (body: Record<string, unknown>) => unknown | Promise<unknown>;
 
 export interface PanelOptions {
   bus: EventBus;
@@ -38,6 +47,12 @@ export interface PanelOptions {
   port: number;
   /** Supplies the payload for GET /api/state (active project, config summary…). */
   getState: () => unknown;
+  /** Extra GET /api/<name> routes. */
+  get?: Record<string, GetRoute>;
+  /** POST /api/<name> routes (JSON body, Bearer token header required). */
+  post?: Record<string, PostRoute>;
+  /** Media roots: GET /media/<root>/<path> serves files below that directory. */
+  media?: () => Record<string, string | undefined>;
   /** Override the token (tests). Defaults to 32 random bytes, hex. */
   token?: string;
 }
@@ -92,6 +107,65 @@ function serveStatic(res: http.ServerResponse, pathname: string): void {
   fs.createReadStream(file).pipe(res);
 }
 
+function bearer(req: http.IncomingMessage): string | undefined {
+  const header = req.headers.authorization;
+  return header?.startsWith("Bearer ") ? header.slice(7) : undefined;
+}
+
+function readJson(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > MAX_BODY) {
+        reject(new Error("body too large"));
+        req.destroy();
+      } else chunks.push(c);
+    });
+    req.on("end", () => {
+      try {
+        const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+          throw new Error("body must be a JSON object");
+        resolve(parsed as Record<string, unknown>);
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function serveMedia(
+  res: http.ServerResponse,
+  roots: Record<string, string | undefined>,
+  pathname: string,
+): void {
+  const [, , rootName, ...rest] = pathname.split("/");
+  const base = rootName ? roots[rootName] : undefined;
+  const rel = decodeURIComponent(rest.join("/"));
+  if (!base || !rel) {
+    sendJson(res, 404, { error: "not found" });
+    return;
+  }
+  const root = path.resolve(base);
+  const file = path.resolve(root, rel);
+  if (
+    !file.startsWith(root + path.sep) ||
+    !MEDIA_EXT.has(path.extname(file).toLowerCase()) ||
+    !fs.existsSync(file)
+  ) {
+    sendJson(res, 404, { error: "not found" });
+    return;
+  }
+  res.writeHead(200, {
+    "content-type": MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream",
+    "cache-control": "private, max-age=3600",
+  });
+  fs.createReadStream(file).pipe(res);
+}
+
 function listen(server: http.Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const onError = (err: Error) => {
@@ -119,16 +193,47 @@ export async function startPanel(opts: PanelOptions): Promise<PanelHandle> {
     }
     const url = new URL(req.url ?? "/", `http://${HOST}`);
     if (url.pathname === "/api/health") return sendJson(res, 200, { ok: true });
+    if (url.pathname.startsWith("/media/")) {
+      if (!safeEqual(tokenFrom(req, url), token))
+        return sendJson(res, 401, { error: "unauthorized" });
+      return serveMedia(res, opts.media?.() ?? {}, url.pathname);
+    }
     if (url.pathname.startsWith("/api/")) {
+      const name = url.pathname.slice(5);
+      if (req.method === "POST") {
+        // State-changing requests: Bearer header only (never a query token) and JSON only.
+        // Cross-origin pages cannot set Authorization without a CORS preflight we never grant.
+        if (!safeEqual(bearer(req), token)) return sendJson(res, 401, { error: "unauthorized" });
+        if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) {
+          return sendJson(res, 415, { error: "content-type must be application/json" });
+        }
+        const route = opts.post?.[name];
+        if (!route) return sendJson(res, 404, { error: "not found" });
+        readJson(req)
+          .then((body) => route(body))
+          .then(
+            (result) => sendJson(res, 200, result ?? { ok: true }),
+            (err: Error) => sendJson(res, 400, { error: err.message }),
+          );
+        return;
+      }
       if (!safeEqual(tokenFrom(req, url), token))
         return sendJson(res, 401, { error: "unauthorized" });
       if (req.method !== "GET") return sendJson(res, 405, { error: "method not allowed" });
-      if (url.pathname === "/api/events") {
+      if (name === "events") {
         const after = Number(url.searchParams.get("after") ?? 0) || 0;
         return sendJson(res, 200, opts.bus.recent(after));
       }
-      if (url.pathname === "/api/state") return sendJson(res, 200, opts.getState());
-      return sendJson(res, 404, { error: "not found" });
+      if (name === "state") return sendJson(res, 200, opts.getState());
+      const route = opts.get?.[name];
+      if (!route) return sendJson(res, 404, { error: "not found" });
+      Promise.resolve()
+        .then(() => route(url.searchParams))
+        .then(
+          (result) => sendJson(res, 200, result),
+          (err: Error) => sendJson(res, 400, { error: err.message }),
+        );
+      return;
     }
     if (req.method !== "GET") {
       res.writeHead(405);

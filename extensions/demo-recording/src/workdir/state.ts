@@ -29,6 +29,22 @@ export interface HistoryEntry {
   detail?: Record<string, unknown>;
 }
 
+export type SceneReviewStatus = "approved" | "changes" | "rerun";
+
+export interface SceneReview {
+  status: SceneReviewStatus;
+  note?: string;
+  at: string;
+}
+
+/** Panel review of one storyboard version (D10). Drafts until submitted. */
+export interface StoryboardReview {
+  scenes: Record<string, SceneReview>;
+  /** Free-text note for the whole storyboard (ordering, tone, …). */
+  note?: string;
+  submittedAt?: string;
+}
+
 export interface ProjectState {
   schema: 1;
   project: string;
@@ -38,6 +54,8 @@ export interface ProjectState {
   updatedAt: string;
   /** Latest approved version per gated artifact. */
   approved: Partial<Record<GatedArtifact, number>>;
+  /** Storyboard reviews keyed by version number (as string). */
+  reviews?: Record<string, StoryboardReview>;
   history: HistoryEntry[];
 }
 
@@ -125,4 +143,76 @@ export function requireApproved(state: ProjectState, artifact: GatedArtifact): n
     );
   }
   return version;
+}
+
+function ensureReview(s: ProjectState, version: number): StoryboardReview {
+  s.reviews ??= {};
+  const key = String(version);
+  const existing = s.reviews[key];
+  if (existing) return existing;
+  const created: StoryboardReview = { scenes: {} };
+  s.reviews[key] = created;
+  return created;
+}
+
+export function getReview(state: ProjectState, version: number): StoryboardReview {
+  return state.reviews?.[String(version)] ?? { scenes: {} };
+}
+
+/** Record (or clear, with status null) a draft review for one scene. */
+export function setSceneReview(
+  projectDir: string,
+  version: number,
+  scene: string,
+  status: SceneReviewStatus | null,
+  note?: string,
+): ProjectState {
+  return updateState(
+    projectDir,
+    "scene-reviewed",
+    (s) => {
+      const review = ensureReview(s, version);
+      if (status === null) delete review.scenes[scene];
+      else
+        review.scenes[scene] = {
+          status,
+          ...(note?.trim() ? { note: note.trim() } : {}),
+          at: new Date().toISOString(),
+        };
+    },
+    { version, scene, status },
+  );
+}
+
+export function setReviewNote(projectDir: string, version: number, note: string): ProjectState {
+  return updateState(
+    projectDir,
+    "review-noted",
+    (s) => {
+      const review = ensureReview(s, version);
+      if (note.trim()) review.note = note.trim();
+      else review.note = undefined;
+    },
+    { version },
+  );
+}
+
+export function submitReview(
+  projectDir: string,
+  version: number,
+): { state: ProjectState; review: StoryboardReview } {
+  let submitted: StoryboardReview = { scenes: {} };
+  const state = updateState(
+    projectDir,
+    "review-submitted",
+    (s) => {
+      const review = ensureReview(s, version);
+      if (!Object.keys(review.scenes).length && !review.note)
+        throw new Error("nothing to submit — mark at least one scene or add a note");
+      review.submittedAt = new Date().toISOString();
+      submitted = review;
+    },
+    { version },
+  );
+  return { state, review: submitted };
 }

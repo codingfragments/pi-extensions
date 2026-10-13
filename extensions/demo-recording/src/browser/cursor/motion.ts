@@ -66,6 +66,25 @@ export class Cursor {
     this.pos = to;
   }
 
+  /** Eased wheel scroll by `dy` CSS px (positive = down), ~human speed. */
+  async scrollBy(dy: number): Promise<void> {
+    if (Math.abs(dy) < 2) return;
+    const duration = Math.min(1600, 300 + Math.abs(dy) * 0.6) * this.rng.range(0.9, 1.1);
+    const start = Date.now();
+    let done = 0;
+    for (;;) {
+      const t = Math.min(1, (Date.now() - start) / duration);
+      const target = dy * easeInOutCubic(t);
+      const step = target - done;
+      if (Math.abs(step) >= 1 || t >= 1) {
+        await this.page.mouse.wheel(0, step);
+        done += step;
+      }
+      if (t >= 1) break;
+      await sleep(16);
+    }
+  }
+
   async click(): Promise<void> {
     await this.page.mouse.down();
     await sleep(this.rng.range(60, 120));

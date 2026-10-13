@@ -11,12 +11,13 @@ import type { Runtime } from "../runtime.ts";
 import { ensureProject, listProjects, openProject } from "../workdir/layout.ts";
 
 export const ACTIVE_ENTRY = "demo-recording.active";
-const SUBCOMMANDS = ["new", "open", "status", "panel", "doctor"] as const;
+const SUBCOMMANDS = ["new", "open", "status", "discover", "panel", "doctor"] as const;
 
 const USAGE = [
   "/demo new [<project> <app-url> [app name…]]   create a demo project",
   "/demo open [<project>]                          set the active project",
   "/demo status                                    phase, approvals, panel",
+  "/demo discover [notes…]                         explore the app and draft a storyboard",
   "/demo panel                                     start/show the side panel URL",
   "/demo doctor                                    check prerequisites",
 ].join("\n");
@@ -58,7 +59,28 @@ async function cmdNew(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   report(
     ctx,
     `${handle.created ? "Created" : "Opened existing"} demo project "${handle.slug}"\n` +
-      `folder: ${handle.dir}\nbrief:  ${handle.dir}/brief.md (stub — guided brief arrives in S2)\npanel:  ${panel.url}`,
+      `folder: ${handle.dir}\nbrief:  ${handle.dir}/brief.md\npanel:  ${panel.url}`,
+  );
+  if (ctx.hasUI && handle.created) {
+    // Hand over to the director: draft the brief with the user (demo-brief skill).
+    pi.sendUserMessage(
+      `/skill:demo-brief Demo project "${handle.slug}" was just created for ${handle.app.name} (${handle.app.baseUrl}). Draft the brief with me: ask for what's missing, then save it with demo_rec_project write_brief.`,
+      { expandPromptTemplates: true },
+    );
+  }
+}
+
+function cmdDiscover(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: ExtensionCommandContext) {
+  const p = rt.requireProject();
+  const notes = rest.join(" ").trim();
+  pi.sendUserMessage(
+    `/skill:demo-recording Discover ${p.app.name} (${p.app.baseUrl}) for demo project "${p.slug}" and propose a storyboard ` +
+      `based on brief.md.${notes ? ` Extra notes from me: ${notes}` : ""}`,
+    { expandPromptTemplates: true },
+  );
+  report(
+    ctx,
+    `discovery started for "${p.slug}" — follow along in the panel${rt.panelUrl ? `: ${rt.panelUrl}` : " (/demo panel)"}`,
   );
 }
 
@@ -136,6 +158,9 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return await cmdOpen(pi, rt, rest, ctx);
           case "status":
             return cmdStatus(rt, ctx);
+          case "discover":
+            await rt.ensurePanel();
+            return cmdDiscover(pi, rt, rest, ctx);
           case "panel": {
             const panel = await rt.ensurePanel();
             return report(ctx, `demo panel: ${panel.url}`);

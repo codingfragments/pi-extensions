@@ -334,7 +334,25 @@ The capture default is decided with data.
 
 ---
 
-### S2 — Brief, discovery, storyboard, panel review loop *(Phase 0–1)*
+### S2 — Brief, discovery, storyboard, panel review loop *(Phase 0–1)* ✅ done
+
+> Done: skills `demo-brief` + `demo-recording` (shipped in the extension);
+> tools `demo_rec_project`, `demo_rec_browser` (open/look/act/close; look =
+> screenshot + aria digest), `demo_rec_storyboard` (write/get — **no approve**),
+> `demo_rec_record` (gate-enforced); `/demo new` → brief skill, `/demo discover`
+> → director skill; safety net (denylist / audited state changes / policy.json,
+> blocked *before* the click); per-app discovery artifacts; budgets; target lint;
+> panel LIVE (current screen, budget, safety feed) and REVIEW (scene cards, per-
+> scene approve/changes/re-run + notes, version diff, one consolidated message
+> to the agent, approve); POST = Bearer + JSON only; token-scoped media.
+> **Deviations:** the storyboard validator stays hand-written (path-precise
+> errors the model can self-correct from) instead of typebox; `demo_rec_record`
+> pulled forward from S3 (foreground, no narration) to close the loop in pi;
+> discovery settle = DOM-quiet + busy-indicator detection (fixed screenshots
+> taken before results/streamed answers landed). **Finding:** passing a string
+> to `locator.evaluate` never receives the element — it silently produced empty
+> names and let "Delete workspace" pass; caught by the discovery test, fixed by
+> passing a real function and never failing open.
 
 **Purpose.** Make the first human-facing loop real: brief → agent explores →
 storyboard builds up live in the panel → user approves / requests changes /

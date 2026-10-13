@@ -19,7 +19,7 @@ body {
   background: var(--bg);
   color: var(--text);
 }
-header {
+header.top {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -151,4 +151,243 @@ code,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---------- S2: live discovery + review ---------- */
+header.top {
+  z-index: 2;
+}
+main.review {
+  height: auto;
+  min-height: calc(100vh - 49px);
+}
+.small-text {
+  font-size: 12px;
+}
+.warn {
+  color: var(--warn);
+}
+.grow {
+  flex: 1;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.muted-pill {
+  background: #2a2f3a;
+  color: var(--muted);
+}
+.discovery {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 16px;
+}
+.discovery .shot img {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.discovery h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.safety {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.safety li {
+  border-left: 3px solid var(--warn);
+  padding: 2px 8px;
+}
+.safety li.blocked {
+  border-color: var(--err);
+}
+.log li.safety-blocked .type {
+  color: var(--err);
+}
+.log li.safety-mutation .type {
+  color: var(--warn);
+}
+.review-head h2 {
+  margin: 0;
+}
+.review-head select,
+.review-foot textarea,
+.scene textarea {
+  background: #10131a;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+.review-head select {
+  padding: 3px 6px;
+  margin-left: auto;
+}
+.badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: #2a2f3a;
+  color: var(--muted);
+}
+.badge.approved {
+  background: #143323;
+  color: var(--ok);
+}
+.badge.new {
+  background: #1d2d4f;
+  color: var(--accent);
+}
+.badge.changed {
+  background: #3a2e12;
+  color: var(--warn);
+}
+.badge.old {
+  background: #3a1b1b;
+  color: var(--err);
+}
+.scenes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.scene {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  border-left: 3px solid var(--line);
+}
+.scene.st-approved {
+  border-left-color: var(--ok);
+}
+.scene.st-changes {
+  border-left-color: var(--warn);
+}
+.scene.st-rerun {
+  border-left-color: var(--accent);
+}
+.scene .thumb img {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.scene header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.scene .idx {
+  color: var(--muted);
+  font-weight: 600;
+}
+.scene .title {
+  margin: 0;
+  font-size: 16px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+}
+.takeaway {
+  margin: 6px 0;
+  font-style: italic;
+}
+.outline {
+  margin: 6px 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+.steps {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.steps li {
+  margin: 2px 0;
+}
+.mark {
+  color: var(--accent);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+}
+.flag {
+  font-size: 11px;
+  background: #2a2f3a;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--muted);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.actions textarea {
+  flex-basis: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+}
+button.st,
+.review-foot button {
+  background: #20242e;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+button.st.on.approved {
+  background: #143323;
+  border-color: var(--ok);
+  color: var(--ok);
+}
+button.st.on.changes {
+  background: #3a2e12;
+  border-color: var(--warn);
+  color: var(--warn);
+}
+button.st.on.rerun {
+  background: #1d2d4f;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.review-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+}
+.review-foot textarea {
+  min-height: 50px;
+  padding: 6px 8px;
+}
+.review-foot button.primary {
+  background: var(--accent);
+  color: #0b1020;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.review-foot button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.flash {
+  color: var(--accent);
+  font-size: 13px;
 }

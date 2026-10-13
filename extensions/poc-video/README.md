@@ -4,11 +4,13 @@ Two-pass POC demo video pipeline: an agent explores a target web app,
 records a deterministic human-like walkthrough, narrates it with a cloned
 voice, and assembles a polished `final.mp4`.
 
-**Status: pass 1 + replay engine implemented.** Pass-1 exploration tools, run-dir
-scaffolding, storyboard/vo contracts + validator, and the pass-2 replay engine
-(`scripts/record.ts` — watch/step/dry-run, `scenes.json` emission) are live.
-Pending: human-like input (ghost-cursor/jitter), control bus + panel, VO/TTS,
-assembly. Workflow: [`skills/poc-video/SKILL.md`](../../skills/poc-video/SKILL.md).
+**Status: pass 1 + replay engine + human input implemented.** Pass-1
+exploration tools, run-dir scaffolding, storyboard/vo contracts + validator, the
+pass-2 replay engine (`scripts/record.ts` — watch/step/dry-run, `scenes.json`),
+and the human-like input layer (`human.ts` — ghost-cursor Bézier paths,
+DOM cursor overlay, jittered typing; `--raw-input` to drop it) are live.
+Pending: control bus + panel, VO/TTS, assembly.
+Workflow: [`skills/poc-video/SKILL.md`](../../skills/poc-video/SKILL.md).
 
 ## Layout
 
@@ -16,6 +18,8 @@ assembly. Workflow: [`skills/poc-video/SKILL.md`](../../skills/poc-video/SKILL.m
 extensions/poc-video/
 ├── index.ts                        # pi extension entry — wires tools + command + cleanup
 ├── browser.ts                      # single Chromium owner (persistent profile; MCP-replaceable boundary)
+├── human.ts                        # human input: ghost-cursor + DOM cursor overlay + jittered typing
+├── ghost-cursor.d.ts               # ambient types (the package's exports map is broken — see file)
 ├── exploration.ts                  # poc_video_* pass-1 exploration tools
 ├── references/storyboard-schema.md # the contract — scene format, vo.yaml, invariants
 ├── templates/                      # storyboard.template.yaml + vo.template.yaml

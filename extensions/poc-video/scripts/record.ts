@@ -28,13 +28,15 @@ import type { Page } from "playwright";
  *   dry-run     a failed scene is recorded and the walk continues — you see
  *               every broken selector in one pass; exit code 1 if any failed
  *
- * Human-like input (ghost-cursor, jittered typing, cursor overlay) is the
- * next milestone — this engine replays with raw Playwright input on purpose,
- * so the human layer lands as a drop-in inside execStep/scroll/click only.
+ * Human-like input (ghost-cursor Bézier paths + jittered typing + DOM cursor
+ * overlay via human.ts) is ON by default — `--raw-input` drops back to instant
+ * Playwright input for debugging and fast selector validation.
  *
- * Usage: node scripts/record.ts <run-dir> [--mode watch|step|dry-run] [--headless] [--auto-start]
+ * Usage: node scripts/record.ts <run-dir> [--mode watch|step|dry-run] [--headless] [--auto-start] [--raw-input]
  */
 import { parse } from "yaml";
+import { createHumanInput } from "../human.ts";
+import type { HumanInput } from "../human.ts";
 import { Report, validateStoryboard } from "./validate-storyboard.mjs";
 
 export interface Step {
@@ -77,6 +79,8 @@ export interface RecordOptions {
   headless?: boolean;
   /** skip the manual-auth handshake (smoke tests only) */
   autoStart?: boolean;
+  /** drop the human-like input layer (instant Playwright input — debugging/fast validation) */
+  rawInput?: boolean;
   /** control-bus seam (next milestone): called before each scene */
   onSceneStart?: (scene: Scene, index: number) => Promise<void> | void;
   /** control-bus seam: called after each scene with its record */
@@ -131,19 +135,30 @@ async function pressEnter(prompt: string): Promise<void> {
   await rl.question(prompt);
 }
 
-async function execStep(page: Page, step: Step): Promise<void> {
+async function execStep(page: Page, step: Step, human: HumanInput | null): Promise<void> {
   switch (step.type) {
     case "navigate":
       await page.goto(step.url ?? "", { waitUntil: "domcontentloaded" });
+      if (human) {
+        // the new document's cursor overlay starts idle — pick the pointer back up
+        await human.recall();
+      }
       break;
     case "click":
-      await page.click(step.selector ?? "", { timeout: DEFAULT_TIMEOUT });
+      if (human) {
+        await human.click(step.selector ?? "");
+      } else {
+        await page.click(step.selector ?? "", { timeout: DEFAULT_TIMEOUT });
+      }
       break;
     case "type":
-      // pressSequentially keeps keystroke semantics — the human layer swaps in jitter here
-      await page.locator(step.selector ?? "").pressSequentially(step.text ?? "", {
-        timeout: DEFAULT_TIMEOUT,
-      });
+      if (human) {
+        await human.type(step.selector ?? "", step.text ?? "");
+      } else {
+        await page.locator(step.selector ?? "").pressSequentially(step.text ?? "", {
+          timeout: DEFAULT_TIMEOUT,
+        });
+      }
       break;
     case "press":
       await page.keyboard.press(step.key ?? "Enter");
@@ -152,7 +167,11 @@ async function execStep(page: Page, step: Step): Promise<void> {
       await page.mouse.wheel(0, step.dy ?? 300);
       break;
     case "hover":
-      await page.hover(step.selector ?? "", { timeout: DEFAULT_TIMEOUT });
+      if (human) {
+        await human.hover(step.selector ?? "");
+      } else {
+        await page.hover(step.selector ?? "", { timeout: DEFAULT_TIMEOUT });
+      }
       break;
     case "assert":
       await page.waitForSelector(step.selector ?? "", {
@@ -198,6 +217,7 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
     recordVideo: dryRun ? undefined : { dir: path.join(runDir, "recordings") },
   });
   const page = context.pages()[0] ?? (await context.newPage());
+  const human = opts.rawInput ? null : await createHumanInput(page);
   const t0 = Date.now();
   const now = () => (Date.now() - t0) / 1000;
 
@@ -254,7 +274,7 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
       if (!step) continue;
       const stepRec: StepRecord = { i: j, type: step.type, ok: true, start_s: now(), end_s: 0 };
       try {
-        await execStep(page, step);
+        await execStep(page, step, human);
         if (SETTLED.has(step.type)) await sleep(scene.settle_ms ?? settleDefault);
       } catch (e) {
         stepRec.ok = false;
@@ -324,6 +344,7 @@ async function main(): Promise<number> {
     mode,
     headless: has("headless"),
     autoStart: has("auto-start"),
+    rawInput: has("raw-input"),
   });
 
   console.log(`\n=== ${out.meta.mode} summary ===`);

@@ -269,7 +269,13 @@ Every slice lists **Purpose**, **Deliverables**, **How to test**, and **Exit cri
 A slice is done only when its exit criteria pass on the fixture app. From S6 on,
 they must also pass on one real app.
 
-### S0 — Skeleton, workdir, fixture, panel "hello"
+### S0 — Skeleton, workdir, fixture, panel "hello" ✅ done
+
+> Done: config (defaults < file < env), workdir layout + immutable versioning +
+> state/gates, event bus, token-protected panel (LIVE view) on 127.0.0.1, Acme
+> Pulse fixture SPA, doctor, `/demo new|open|status|panel|doctor`, engine CLI.
+> 28 tests (incl. real-browser fixture tests). Deviation: `/demo new` takes
+> project + URL + app name (stub brief); the guided brief stays in S2.
 
 **Purpose.** Establish the shape everything hangs on: extension loading, config,
 the workdir contract, the event bus, the panel server, and a deterministic

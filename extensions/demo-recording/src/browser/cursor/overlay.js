@@ -107,16 +107,47 @@
     setTimeout(() => r.remove(), 520);
   }
 
+  // Planned moves are animated HERE, on requestAnimationFrame — the same clock
+  // the compositor (and therefore the screencast) paints on. Following CDP
+  // mousemove deliveries instead makes the cursor judder: their arrival jitters
+  // by several ms, which shows up as uneven per-frame steps in the video.
+  let anim = null; // { start, samples: [[t, x, y], ...] }
+  const step = (ts) => {
+    if (!anim) return;
+    const s = anim.samples;
+    const t = ts - anim.start;
+    const last = s[s.length - 1];
+    if (t >= last[0]) {
+      pos = { x: last[1], y: last[2] };
+      anim = null;
+      paintPos();
+      save();
+      return;
+    }
+    let i = anim.i || 0;
+    while (i + 1 < s.length && s[i + 1][0] <= t) i++;
+    anim.i = i;
+    const a = s[i];
+    const b = s[Math.min(i + 1, s.length - 1)];
+    const f = b[0] > a[0] ? (t - a[0]) / (b[0] - a[0]) : 0;
+    pos = { x: a[1] + (b[1] - a[1]) * f, y: a[2] + (b[2] - a[2]) * f };
+    paintPos();
+    requestAnimationFrame(step);
+  };
+
   document.addEventListener(
     "mousemove",
     (e) => {
-      pos = { x: e.clientX, y: e.clientY };
       if (!ensure()) return;
+      // Shape always follows the real pointer target; position only when no
+      // planned animation owns it.
       const next = shapeFor(e.target);
       if (next !== shape) {
         shape = next;
         paintShape();
       }
+      if (anim) return;
+      pos = { x: e.clientX, y: e.clientY };
       paintPos();
       save();
     },
@@ -154,6 +185,14 @@
     show() {
       hidden = false;
       paintPos();
+    },
+    /** Play a planned trajectory: samples = [[ms, x, y], ...] starting now. */
+    animate(samples) {
+      if (!Array.isArray(samples) || samples.length < 2) return false;
+      ensure();
+      anim = { start: performance.now(), samples, i: 0 };
+      requestAnimationFrame(step);
+      return true;
     },
   };
 })();

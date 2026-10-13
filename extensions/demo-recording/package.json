@@ -18,7 +18,6 @@
     "extensions": ["./index.ts"]
   },
   "dependencies": {
-    "@playwright-labs/ghost-cursor": "^1.0.0",
     "playwright": "^1.57.0",
     "ws": "^8.18.2",
     "yaml": "^2.8.0"

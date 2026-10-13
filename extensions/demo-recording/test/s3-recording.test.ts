@@ -336,3 +336,75 @@ test("retries are bounded; cancellation stops the take", { skip, timeout: 180_00
   );
   assert.equal(meta.status, "cancelled");
 });
+
+test(
+  "cursor smoothness: painted overlay moves without kinks or stalls at 30 fps (regression for S3 review)",
+  { skip, timeout: 120_000 },
+  async () => {
+    const { openSession } = await import("../src/browser/session.ts");
+    const { Cursor } = await import("../src/browser/cursor/motion.ts");
+    const { createRng } = await import("../src/util/rng.ts");
+    const session = await openSession({ viewport: { width: 1600, height: 900, dpr: 1 } });
+    try {
+      const page = session.page;
+      await page.goto(`${fixture.url}settings`);
+      // What gets PAINTED: the overlay position on every animation frame.
+      await page.evaluate(
+        "window.__ev=[];(function f(ts){const c=window.__demoRecCursor;if(c)__ev.push([ts,c.pos.x,c.pos.y]);requestAnimationFrame(f)})(performance.now())",
+      );
+      const moves: [number, number, number, number][] = [
+        [1100, 520, 130, 140],
+        [130, 140, 700, 110],
+        [700, 110, 480, 460],
+        [480, 460, 1350, 760],
+      ];
+      const kinks: number[] = [];
+      for (const [fx, fy, tx, ty] of moves) {
+        const c = new Cursor(page, createRng(fx + ty), { x: fx, y: fy });
+        await c.place(c.pos);
+        await page.waitForTimeout(100);
+        await page.evaluate("__ev.length=0");
+        await c.moveTo({ x: tx, y: ty }, 60);
+        await page.waitForTimeout(100);
+        const ev = (await page.evaluate("__ev")) as [number, number, number][];
+        const first = ev[0] as [number, number, number];
+        const moving = ev.filter((e) => e[1] !== first[1] || e[2] !== first[2]);
+        const start = (moving[0] as [number, number, number])[0];
+        const end = (moving.at(-1) as [number, number, number])[0];
+        const frames: [number, number][] = [];
+        for (let t = start, i = 0; t <= end; t += 1000 / 30) {
+          while (i + 1 < ev.length && (ev[i + 1] as [number, number, number])[0] <= t) i++;
+          const e = ev[i] as [number, number, number];
+          frames.push([e[1], e[2]]);
+        }
+        const d = frames
+          .slice(1)
+          .map((f, i) => [
+            f[0] - (frames[i] as [number, number])[0],
+            f[1] - (frames[i] as [number, number])[1],
+          ]);
+        for (let i = 1; i < d.length; i++) {
+          const a = d[i - 1] as number[];
+          const b = d[i] as number[];
+          const sa = Math.hypot(a[0] as number, a[1] as number);
+          const sb = Math.hypot(b[0] as number, b[1] as number);
+          if (sa > 3 && sb > 3) {
+            const cos =
+              ((a[0] as number) * (b[0] as number) + (a[1] as number) * (b[1] as number)) /
+              (sa * sb);
+            kinks.push((Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI);
+          }
+          assert.ok(!(sa > 4 && sb < 0.5 && i < d.length - 2), "no mid-move stall");
+        }
+        const last = frames.at(-1) as [number, number];
+        assert.ok(Math.hypot(last[0] - tx, last[1] - ty) < 1.5, "lands on target");
+      }
+      kinks.sort((a, b) => a - b);
+      const p90 = kinks[Math.floor(kinks.length * 0.9)] as number;
+      // Before the fix (sparse polyline + mousemove-driven overlay): median 19°, p90 53°.
+      assert.ok(p90 < 20, `direction change between video frames p90 ${p90.toFixed(1)}° (< 20°)`);
+    } finally {
+      await session.close();
+    }
+  },
+);

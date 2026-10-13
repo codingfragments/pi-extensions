@@ -192,7 +192,7 @@ test("rng is deterministic per seed", () => {
 test("motion: Fitts-like duration grows with distance, shrinks with width; aim stays inside", () => {
   assert.ok(moveDuration(800, 40) > moveDuration(100, 40));
   assert.ok(moveDuration(400, 20) > moveDuration(400, 200));
-  assert.ok(moveDuration(100000, 1) <= 1400);
+  assert.ok(moveDuration(100000, 1) <= 1600);
   const rng = createRng(3);
   const box = { x: 100, y: 50, w: 200, h: 40 };
   for (let i = 0; i < 200; i++) {

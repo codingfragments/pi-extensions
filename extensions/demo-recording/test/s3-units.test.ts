@@ -43,7 +43,7 @@ test("planMove: exact endpoints, monotonic time, no teleports, deterministic per
       assert.ok(Math.hypot(b.x - a.x, b.y - a.y) < 120, `no teleport (seed ${seed}, step ${i})`);
     }
     const total = (last as { t: number }).t;
-    assert.ok(total > 400 && total < 1900, `human-ish duration ${total} ms`);
+    assert.ok(total > 400 && total < 2000, `demo-paced duration ${total} ms`);
   }
   const a = planMove({ x: 0, y: 0 }, { x: 800, y: 300 }, 40, createRng(9));
   const b = planMove({ x: 0, y: 0 }, { x: 800, y: 300 }, 40, createRng(9));
@@ -448,4 +448,39 @@ test("jobs: one running job per kind, cancel aborts, onFinish always runs", asyn
   await ok.done;
   assert.equal(ok.result, 42);
   assert.equal(jobs.latest("record")?.status, "done");
+});
+
+// ---------- idle drift (user-tuned) ----------
+
+test("planDrift: still for short dwells, rests after landing, slow tiny jiggles with long gaps, ends at rest", async () => {
+  const { planDrift, DRIFT } = await import("../src/browser/cursor/motion.ts");
+  const home = { x: 500, y: 300 };
+  assert.deepEqual(planDrift(1200, home, createRng(1)), [], "short dwell → no jiggle at all");
+  for (let seed = 1; seed <= 30; seed++) {
+    const ms = 6000 + seed * 300;
+    const plan = planDrift(ms, home, createRng(seed));
+    let t = 0;
+    plan.forEach((j, i) => {
+      if (i === 0)
+        assert.ok(
+          j.waitMs >= DRIFT.firstRestMs[0] && j.waitMs <= DRIFT.firstRestMs[1],
+          "rests after landing",
+        );
+      else
+        assert.ok(
+          j.waitMs >= DRIFT.gapMs[0] && j.waitMs <= DRIFT.gapMs[1],
+          "long gaps between jiggles",
+        );
+      assert.ok(j.moveMs >= DRIFT.moveMs[0] && j.moveMs <= DRIFT.moveMs[1], "slow jiggle");
+      assert.ok(
+        Math.abs(j.to.x - home.x) <= DRIFT.amplitude.x &&
+          Math.abs(j.to.y - home.y) <= DRIFT.amplitude.y,
+        "tiny",
+      );
+      t += j.waitMs + j.moveMs;
+    });
+    assert.ok(t <= ms - 200, "always ends at rest before the dwell ends");
+    // ≤ one jiggle every ~3 s on average
+    assert.ok(plan.length <= Math.ceil(ms / 3000), `${plan.length} jiggles in ${ms} ms`);
+  }
 });

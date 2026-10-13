@@ -19,7 +19,7 @@ if (urlToken) history.replaceState(null, "", location.pathname);
 const TABS = [
   { id: "live", label: "Live", ready: true },
   { id: "review", label: "Review", ready: true },
-  { id: "voice", label: "Voice", ready: false, slice: "S4" },
+  { id: "voice", label: "Voice", ready: true },
   { id: "export", label: "Export", ready: false, slice: "S5" },
 ];
 
@@ -495,6 +495,183 @@ function Review({ events }) {
     }`;
 }
 
+// ---------------- VOICE ----------------
+
+const KIND_LABEL = {
+  intro: "intro · full video",
+  outro: "outro · full video",
+  bridge: "bridge · full video",
+  scene: "scene",
+};
+
+function TimingBar({ timing }) {
+  if (!timing) return null;
+  const pct = Math.min(100, Math.round((timing.speechSec / Math.max(0.1, timing.usableSec)) * 100));
+  const cls = timing.ratio > 1.35 ? "over" : timing.ratio < 0.35 ? "under" : "ok";
+  return html`<div class="timing" title="speech vs usable footage (dead time removed)">
+    <div class=${`bar ${cls}`}><div style=${`width:${pct}%`}></div></div>
+    <span class="small-text">${timing.speechSec}s speech / ${timing.usableSec}s footage${timing.ratio > 1.35 ? " — frames will be frozen" : ""}</span>
+  </div>`;
+}
+
+const ANCHOR_SPLIT = /(\[@[a-z0-9-]+\])/g;
+function Spoken({ text }) {
+  return html`<p class="spoken">${text.split(ANCHOR_SPLIT).map((part) => (ANCHOR_SPLIT.test(part) ? html`<span class="mark">${part.slice(1, -1)}</span>` : part))}</p>`;
+}
+
+function VoSection({ section, timing, issues, review, readOnly, onReview, onEdit, audio }) {
+  const r = review?.scenes?.[section.key];
+  const [draft, setDraft] = useState(section.written);
+  const [note, setNote] = useState(r?.note ?? "");
+  const [editing, setEditing] = useState(false);
+  useEffect(() => setDraft(section.written), [section.written]);
+  useEffect(() => setNote(r?.note ?? ""), [r?.note]);
+  const set = (status) => onReview(section.key, r?.status === status ? null : status, note);
+  const spokenWithAnchors = section.segments
+    .map((seg) => `${seg.anchor ? `[@${seg.anchor}] ` : ""}${seg.text}`)
+    .join(" ");
+  return html`<article class=${`scene card vo ${r ? `st-${r.status}` : ""}`}>
+    <div class="body">
+      <header>
+        <h3 class="title">${section.key}</h3>
+        <span class="badge">${KIND_LABEL[section.kind]}</span>
+      </header>
+      ${section.kind === "scene" ? html`<${TimingBar} timing=${timing} />` : null}
+      ${
+        editing
+          ? html`<textarea class="vo-edit" value=${draft} onInput=${(e) => setDraft(e.target.value)}></textarea>
+            <div class="actions">
+              <button class="st" onClick=${() => onEdit(section.key, draft).then((ok) => ok && setEditing(false))}>Save as new version</button>
+              <button class="st" onClick=${() => {
+                setDraft(section.written);
+                setEditing(false);
+              }}>Cancel</button>
+            </div>`
+          : html`<${Spoken} text=${spokenWithAnchors} />`
+      }
+      ${issues.map((i) => html`<p class=${`issue ${i.level}`}>${i.level === "error" ? "✖" : "⚠"} ${i.message}</p>`)}
+      ${audio ? html`<audio controls preload="none" src=${audio}></audio>` : null}
+      ${
+        readOnly
+          ? null
+          : html`<div class="actions">
+            ${Object.entries(STATUS_LABEL).map(
+              ([st, label]) =>
+                html`<button class=${`st ${st} ${r?.status === st ? "on" : ""}`} onClick=${() => set(st)}>${label}</button>`,
+            )}
+            ${editing ? null : html`<button class="st" onClick=${() => setEditing(true)}>Edit text</button>`}
+            <textarea placeholder="Notes for this section…" value=${note} onInput=${(e) => setNote(e.target.value)}
+              onBlur=${() => r && note !== (r.note ?? "") && onReview(section.key, r.status, note)}></textarea>
+          </div>`
+      }
+    </div>
+  </article>`;
+}
+
+function Voice({ events }) {
+  const [version, setVersion] = useState(null);
+  const path = version ? `/api/vo?version=${version}` : "/api/vo";
+  const { data, error, reload } = useApi(path, events, /^(vo\.|review\.|project\.|take\.|tts\.)/);
+  const [overall, setOverall] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(null);
+  useEffect(() => setOverall(data?.review?.note ?? ""), [data?.version, data?.review?.note]);
+  if (error) return html`<section class="card error">${error}</section>`;
+  if (!data) return html`<section class="card muted">loading…</section>`;
+  if (!data.project) return html`<section class="card muted">No active project.</section>`;
+  if (data.error) return html`<section class="card error">${data.error}</section>`;
+  if (!data.sections) {
+    return html`<section class="card muted">No voice-over yet. After a take is recorded, ask the agent to write the voice-over; it appears here.</section>`;
+  }
+  const latest = data.versions.at(-1);
+  const readOnly = data.version !== latest;
+  const isApproved = data.approved === data.version;
+  const hasErrors = data.issues.some((i) => i.level === "error");
+  const run = async (fn, ok) => {
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (ok) setFlash(ok);
+      reload();
+      return r ?? true;
+    } catch (e) {
+      setFlash(`⚠ ${e.message}`);
+      return false;
+    } finally {
+      setBusy(false);
+      setTimeout(() => setFlash(null), 5000);
+    }
+  };
+  const onReview = (scene, status, note) =>
+    run(() => post("/api/review", { artifact: "vo", version: data.version, scene, status, note }));
+  const onEdit = (section, text) =>
+    run(async () => {
+      const r = await post("/api/vo-edit", { version: data.version, section, text });
+      setVersion(null);
+      return r;
+    }, "saved as a new version");
+  const totalSpeech = data.timing.reduce((n, t) => n + t.speechSec, 0);
+  const totalFootage = data.timing.reduce((n, t) => n + t.usableSec, 0);
+  return html`
+    <section class="card review-head">
+      <div class="row">
+        <h2>Voice-over v${data.version}</h2>
+        <span class="muted small-text">for ${data.take} · ${totalSpeech.toFixed(0)}s speech / ${totalFootage.toFixed(0)}s footage</span>
+        ${isApproved ? html`<span class="badge approved">approved</span>` : null}
+        ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
+        <select value=${data.version} onChange=${(e) => setVersion(Number(e.target.value))}>
+          ${data.versions.map((v) => html`<option value=${v}>v${v}${v === data.approved ? " ✓" : ""}</option>`)}
+        </select>
+      </div>
+    </section>
+    <div class="scenes">
+      ${data.sections.map(
+        (s) => html`<${VoSection}
+          key=${`${data.version}-${s.key}`}
+          section=${s}
+          timing=${data.timing.find((t) => t.section === s.key)}
+          issues=${data.issues.filter((i) => i.section === s.key)}
+          review=${data.review}
+          readOnly=${readOnly}
+          onReview=${onReview}
+          onEdit=${onEdit}
+          audio=${data.audio?.[s.key] ? media("project", data.audio[s.key]) : null}
+        />`,
+      )}
+    </div>
+    ${
+      readOnly
+        ? null
+        : html`<section class="card review-foot">
+          <textarea placeholder="Overall notes (tone, density, stance)…" value=${overall} onInput=${(e) => setOverall(e.target.value)}
+            onBlur=${() => overall !== (data.review?.note ?? "") && run(() => post("/api/review-note", { artifact: "vo", version: data.version, note: overall }))}></textarea>
+          <div class="row">
+            <span class="muted small-text">${Object.keys(data.review?.scenes ?? {}).length}/${data.sections.length} sections marked · approving unlocks voice synthesis (uses TTS credits)</span>
+            <span class="grow"></span>
+            ${flash ? html`<span class="flash">${flash}</span>` : null}
+            <button disabled=${busy} onClick=${() =>
+              run(async () => {
+                if (overall !== (data.review?.note ?? ""))
+                  await post("/api/review-note", {
+                    artifact: "vo",
+                    version: data.version,
+                    note: overall,
+                  });
+                await post("/api/review-submit", { artifact: "vo", version: data.version });
+              }, "review sent to the agent")}>Send review to agent</button>
+            <button class="primary" disabled=${busy || isApproved || hasErrors} title=${hasErrors ? "fix errors first" : ""} onClick=${() =>
+              confirm(`Approve voice-over v${data.version}? Voice synthesis will be unlocked.`) &&
+              run(
+                () => post("/api/approve", { artifact: "vo", version: data.version }),
+                `v${data.version} approved`,
+              )}>
+              ${isApproved ? "Approved" : `Approve v${data.version}`}
+            </button>
+          </div>
+        </section>`
+    }`;
+}
+
 // ---------------- APP ----------------
 
 const THEME_KEY = "demo-rec-theme";
@@ -521,6 +698,11 @@ function App() {
   useEffect(() => {
     if (lastWrite) setTab("review");
   }, [lastWrite]);
+  // Jump to Voice when the agent writes a voice-over (not on the user's own inline edits).
+  const lastVo = events.filter((e) => e.type === "vo.written" && e.data?.by !== "user").at(-1)?.seq;
+  useEffect(() => {
+    if (lastVo) setTab("voice");
+  }, [lastVo]);
   return html`
     <header class="top">
       <strong>demo-recording</strong>
@@ -538,7 +720,7 @@ function App() {
       <span class=${`conn ${status}`}>${status}</span>
     </header>
     <main class=${tab}>
-      ${tab === "live" ? html`<${Live} events=${events} state=${state} stateError=${stateError} />` : html`<${Review} events=${events} />`}
+      ${tab === "live" ? html`<${Live} events=${events} state=${state} stateError=${stateError} />` : tab === "voice" ? html`<${Voice} events=${events} />` : html`<${Review} events=${events} />`}
     </main>`;
 }
 

@@ -56,6 +56,8 @@ export interface ProjectState {
   approved: Partial<Record<GatedArtifact, number>>;
   /** The take the voice-over is written for (S4). */
   acceptedTake?: string;
+  /** Voice-over reviews keyed by version number (as string). */
+  voReviews?: Record<string, StoryboardReview>;
   /** Storyboard reviews keyed by version number (as string). */
   reviews?: Record<string, StoryboardReview>;
   history: HistoryEntry[];
@@ -147,33 +149,48 @@ export function requireApproved(state: ProjectState, artifact: GatedArtifact): n
   return version;
 }
 
-function ensureReview(s: ProjectState, version: number): StoryboardReview {
+function reviewsOf(s: ProjectState, artifact: GatedArtifact): Record<string, StoryboardReview> {
+  if (artifact === "vo") {
+    s.voReviews ??= {};
+    return s.voReviews;
+  }
   s.reviews ??= {};
+  return s.reviews;
+}
+
+function ensureReview(s: ProjectState, version: number, artifact: GatedArtifact): StoryboardReview {
+  const all = reviewsOf(s, artifact);
   const key = String(version);
-  const existing = s.reviews[key];
+  const existing = all[key];
   if (existing) return existing;
   const created: StoryboardReview = { scenes: {} };
-  s.reviews[key] = created;
+  all[key] = created;
   return created;
 }
 
-export function getReview(state: ProjectState, version: number): StoryboardReview {
-  return state.reviews?.[String(version)] ?? { scenes: {} };
+export function getReview(
+  state: ProjectState,
+  version: number,
+  artifact: GatedArtifact = "storyboard",
+): StoryboardReview {
+  const all = artifact === "vo" ? state.voReviews : state.reviews;
+  return all?.[String(version)] ?? { scenes: {} };
 }
 
-/** Record (or clear, with status null) a draft review for one scene. */
+/** Record (or clear, with status null) a draft review for one scene/section. */
 export function setSceneReview(
   projectDir: string,
   version: number,
   scene: string,
   status: SceneReviewStatus | null,
   note?: string,
+  artifact: GatedArtifact = "storyboard",
 ): ProjectState {
   return updateState(
     projectDir,
     "scene-reviewed",
     (s) => {
-      const review = ensureReview(s, version);
+      const review = ensureReview(s, version, artifact);
       if (status === null) delete review.scenes[scene];
       else
         review.scenes[scene] = {
@@ -182,39 +199,45 @@ export function setSceneReview(
           at: new Date().toISOString(),
         };
     },
-    { version, scene, status },
+    { artifact, version, scene, status },
   );
 }
 
-export function setReviewNote(projectDir: string, version: number, note: string): ProjectState {
+export function setReviewNote(
+  projectDir: string,
+  version: number,
+  note: string,
+  artifact: GatedArtifact = "storyboard",
+): ProjectState {
   return updateState(
     projectDir,
     "review-noted",
     (s) => {
-      const review = ensureReview(s, version);
+      const review = ensureReview(s, version, artifact);
       if (note.trim()) review.note = note.trim();
       else review.note = undefined;
     },
-    { version },
+    { artifact, version },
   );
 }
 
 export function submitReview(
   projectDir: string,
   version: number,
+  artifact: GatedArtifact = "storyboard",
 ): { state: ProjectState; review: StoryboardReview } {
   let submitted: StoryboardReview = { scenes: {} };
   const state = updateState(
     projectDir,
     "review-submitted",
     (s) => {
-      const review = ensureReview(s, version);
+      const review = ensureReview(s, version, artifact);
       if (!Object.keys(review.scenes).length && !review.note)
         throw new Error("nothing to submit — mark at least one scene or add a note");
       review.submittedAt = new Date().toISOString();
       submitted = review;
     },
-    { version },
+    { artifact, version },
   );
   return { state, review: submitted };
 }

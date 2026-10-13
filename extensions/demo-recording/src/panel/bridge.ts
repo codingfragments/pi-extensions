@@ -51,3 +51,30 @@ export function approvalMessage(
     ? `${PANEL_PREFIX} Storyboard v${version} for project "${project}" is APPROVED by the user. Recording is unlocked (demo_rec_record).`
     : `${PANEL_PREFIX} Voice-over script v${version} for project "${project}" is APPROVED by the user. Voice synthesis is unlocked.`;
 }
+
+export function voReviewMessage(
+  project: string,
+  version: number,
+  sections: string[],
+  review: StoryboardReview,
+): string {
+  const lines = [`${PANEL_PREFIX} Voice-over v${version} review for project "${project}":`];
+  for (const key of sections) {
+    const r = review.scenes[key];
+    if (r) lines.push(`- ${key}: ${LABEL[r.status]}${r.note ? ` — "${r.note}"` : ""}`);
+  }
+  const unreviewed = sections.filter((k) => !review.scenes[k]);
+  if (unreviewed.length)
+    lines.push(
+      `- not reviewed: ${unreviewed.join(", ")} (keep as is unless the notes imply otherwise)`,
+    );
+  if (review.note) lines.push(`Overall note: "${review.note}"`);
+  const needsWork =
+    Object.values(review.scenes).some((r) => r.status !== "approved") || !!review.note;
+  lines.push(
+    needsWork
+      ? `Rewrite the CHANGES sections (keep approved ones verbatim); for RE-RUN sections re-read that scene in demo_rec_take analyze first. Then write v${version + 1} with demo_rec_vo and summarize what changed.`
+      : "All reviewed sections are approved. The user still has to approve the voice-over as a whole in the panel before voice synthesis.",
+  );
+  return lines.join("\n");
+}

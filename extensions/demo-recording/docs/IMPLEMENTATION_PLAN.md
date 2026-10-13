@@ -396,6 +396,7 @@ logging, scene splitting, and resume-from-boundary.
 - `recorder/split.ts` → `scenes.json` (boundaries on scene start events). `recorder/resume.ts`: on failure, keep the good prefix and restart from the failing scene via `deep_link` or a fast off-camera replay. A **take is stitched** from segments, and stitch points are recorded.
 - Session expiry detection (app login probe) → abort, prompt `/demo login`, resume.
 - `demo_rec_record` as a background job with progress → panel LIVE (frame preview at ~2 fps).
+- **Recording progress bar** (user request): overall bar plus per-scene segments in the panel LIVE view and a footer status in pi (`ctx.ui.setStatus`). Shows current scene/step ("scene 2/4 · step 3/6 · typing 'churn by region'"), elapsed time and ETA. Progress is computed from completed steps, weighted by expected step durations (dwell + Fitts move time + typing length), with waits counted as open-ended until satisfied. Retries and resume show as restarted segments.
 
 **How to test**
 - Unit: typing delay distribution (mean and variance within bounds), path generation (no teleports, monotonic time), resume planner (which prefix is kept).

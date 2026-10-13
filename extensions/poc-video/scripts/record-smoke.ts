@@ -41,7 +41,15 @@ const brokenStoryboard = goodStoryboard.replace(
 );
 
 async function main(): Promise<number> {
-  const tmp = process.argv[2] ?? fs.mkdtempSync(path.join("/tmp", "poc-video-record-smoke-"));
+  const argv = process.argv.slice(2);
+  const tmp =
+    argv.find((a) => !a.startsWith("--")) ??
+    fs.mkdtempSync(path.join("/tmp", "poc-video-record-smoke-"));
+  // --mode watch: headed + real recording (the visual smoke — you watch it run);
+  // default dry-run: headless, no recording (the fast CI-style check)
+  const modeIdx = argv.indexOf("--mode");
+  const mode: "dry-run" | "watch" =
+    modeIdx >= 0 && argv[modeIdx + 1] === "watch" ? "watch" : "dry-run";
 
   // 1. clean pass
   const goodDir = path.join(tmp, "good-run");
@@ -49,9 +57,9 @@ async function main(): Promise<number> {
   fs.writeFileSync(path.join(goodDir, "storyboard.yaml"), goodStoryboard);
   const good = await runRecording({
     runDir: goodDir,
-    mode: "dry-run",
-    headless: true,
-    autoStart: true,
+    mode,
+    headless: mode === "dry-run",
+    autoStart: true, // example.com needs no login — skip the handshake even in watch mode
   });
   const [s1, s2] = good.scenes;
   if (!s1 || !s2) throw new Error(`expected 2 scenes, got ${good.scenes.length}`);
@@ -66,11 +74,22 @@ async function main(): Promise<number> {
     );
   }
   if (!fs.existsSync(path.join(goodDir, "scenes.json"))) throw new Error("scenes.json not written");
+  if (!fs.existsSync(path.join(goodDir, "storyboard.yaml"))) throw new Error("storyboard vanished");
+  const videoNote = mode === "watch" && good.meta.video ? ` video: ${good.meta.video}` : "";
   console.log(
-    `✔ clean dry-run: 2 scenes recorded (${s2.end_s.toFixed(1)}s total), scenes.json written`,
+    `✔ clean ${mode}: 2 scenes recorded (${s2.end_s.toFixed(1)}s total), scenes.json written${videoNote}`,
   );
 
-  // 2. broken selector — scene fails, dry run continues, non-zero exit expected
+  // 2. broken selector — failure semantics. Dry-run only: watch/step abort the
+  // run on failure by design (abort path is engine behavior, covered by the
+  // dry-run continue-path check below).
+  if (mode !== "dry-run") {
+    console.log(
+      "ℹ broken-selector phase skipped (watch aborts on failure — covered by dry-run smoke)",
+    );
+    console.log(`✔ smoke passed (${mode}) — artifacts under ${tmp}`);
+    return 0;
+  }
   const badDir = path.join(tmp, "broken-run");
   fs.mkdirSync(badDir, { recursive: true });
   fs.writeFileSync(path.join(badDir, "storyboard.yaml"), brokenStoryboard);

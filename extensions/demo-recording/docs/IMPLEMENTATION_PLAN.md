@@ -595,6 +595,17 @@ real GPU rendering, behind a flag, reusing everything else.
 - **Observability.** Every engine job writes `jobs/<id>.log`. The bus mirrors key events. `report.md` summarizes takes, retries, QA and spend.
 - **Determinism.** The fixture is seeded. The engine never uses `Math.random` without a seeded RNG stored in the take (`take.json`), so a take's motion/typing can be replayed exactly.
 - **Security.** The panel binds only to 127.0.0.1 and requires a per-session token (protects against CSRF from other local sites). API keys come from env/keychain only. The README calls out the destructive/egress capabilities: browser actions on real apps, external TTS/LLM calls with screen content.
+- **Config skill** (user request, lands in S5): a `demo-config` skill plus a `demo_rec_config` tool and `/demo config` command to view, explain, change and validate settings conversationally.
+  - **Show:** the effective value per setting and where it comes from (default / `~/.config/demo-recording/config.json` / env / the project brief).
+  - **Change:** writes to the config file and preserves the `_comment` block and formatting. Every write is validated with the same resolver, and invalid values are rejected with the exact field. Optionally scoped to the active project via the brief or `projects/<p>/config.json`.
+  - **Select:** guided choices for the common decisions:
+    - **voice:** `demo_rec_tts voices` lists every ElevenLabs voice with name, id and category; pick one, then a free `check`;
+    - TTS chain order;
+    - improvise models (from pi's available models);
+    - capture resolution (3200×1800 vs 2560×1440);
+    - Whisper model;
+    - discovery budgets.
+  - **Never** reads, writes or prints API keys (environment only). It can tell the user which env var to export, and that pi must be restarted for it to take effect.
 - **Panel theme** (user request): [Catppuccin](https://catppuccin.com/palette) **Macchiato** (dark, default) and **Latte** (light), switchable from a toggle in the panel header. The choice is stored in `localStorage` and defaults to Macchiato regardless of the OS setting. The panel CSS already uses custom properties (`--bg`, `--card`, `--text`, `--accent`, `--ok`, `--warn`, `--err`, …), so this means two `[data-theme]` variable sets mapped to Catppuccin colors (base/mantle/surface0/text/subtext0/blue/green/yellow/red), plus status colors checked for contrast in both flavors. Scope: panel only; the fixture app and rendered videos are unaffected. Lands with the next panel-heavy slice (S3 progress bars).
 - **Packaging.** Runtime deps (`playwright`, `ws`, `yaml`) go in `dependencies`. Pi core packages + `typebox` go in `peerDependencies: "*"`. The Chromium download is a doctor-guided step. ffmpeg and uv are documented system prerequisites.
 

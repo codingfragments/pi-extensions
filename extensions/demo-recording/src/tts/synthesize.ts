@@ -39,6 +39,8 @@ export interface SectionAudio {
   chars: number;
   cached: boolean;
   alignment: SectionAlignment;
+  /** Provider model used for this section (e.g. eleven_v4). */
+  model?: string;
 }
 
 export interface VoiceManifest {
@@ -47,6 +49,10 @@ export interface VoiceManifest {
   take: string;
   engine: string;
   voice: { id: string; name: string };
+  /** Provider model(s) used across sections (one expected). */
+  models: string[];
+  /** Model fallbacks that happened during this render. */
+  modelFallbacks: { section: string; from: string; to: string; reason: string }[];
   createdAt: string;
   skipped: { engine: string; reason: string }[];
   sections: Record<string, SectionAudio>;
@@ -82,6 +88,14 @@ export const manifestFile = (projectDir: string, voVersion: number) =>
 export function readManifest(projectDir: string, voVersion: number): VoiceManifest | undefined {
   const f = manifestFile(projectDir, voVersion);
   return fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as VoiceManifest) : undefined;
+}
+
+/** The model segment of an engine identity ("elevenlabs:<voice>:<model>:…", "openai:<model>:…", "kokoro:<model>:…"). */
+export function modelFromIdentity(identity: string): string | undefined {
+  const [engine, a, b] = identity.split(":");
+  if (engine === "elevenlabs") return b;
+  if (engine === "openai" || engine === "kokoro") return a;
+  return undefined;
 }
 
 export function cacheKey(identity: string, text: string): string {
@@ -144,6 +158,7 @@ async function renderWith(
   fs.mkdirSync(cache, { recursive: true });
   const spoken = o.sections.filter((s) => s.body.trim());
   const sections: Record<string, SectionAudio> = {};
+  const fallbacks: VoiceManifest["modelFallbacks"] = [];
   let billedChars = 0;
   for (const [i, section] of spoken.entries()) {
     if (o.signal?.aborted) throw new Error("voice synthesis cancelled");
@@ -151,17 +166,22 @@ async function renderWith(
       .map((s) => s.text)
       .join(" ")
       .trim();
-    const key = cacheKey(engine.identity(voice.id), text);
-    const wav = path.join(cache, `${key}.wav`);
-    const meta = path.join(cache, `${key}.json`);
+    const identity = engine.identity(voice.id);
+    const key = cacheKey(identity, text);
+    let wav = path.join(cache, `${key}.wav`);
+    let meta = path.join(cache, `${key}.json`);
+    let model: string | undefined;
     let cached = fs.existsSync(wav) && fs.existsSync(meta);
     let alignment: SectionAlignment | undefined;
     let durationSec = 0;
     if (cached) {
-      ({ alignment, durationSec } = JSON.parse(fs.readFileSync(meta, "utf8")) as {
+      const m = JSON.parse(fs.readFileSync(meta, "utf8")) as {
         alignment: SectionAlignment;
         durationSec: number;
-      });
+        model?: string;
+      };
+      ({ alignment, durationSec } = m);
+      model = m.model ?? modelFromIdentity(identity);
       // Anchors are re-derived from the current segments (cache key is text-only).
       if (Object.keys(alignment.anchors).length !== section.segments.filter((s) => s.anchor).length)
         cached = false;
@@ -170,6 +190,14 @@ async function renderWith(
       const tmp = `${wav}.${process.pid}.tmp.wav`;
       const res = await engine.synthesize(text, tmp, voice.id, o.signal);
       durationSec = res.durationSec;
+      model = res.model ?? modelFromIdentity(identity);
+      if (res.fallback) fallbacks.push({ section: section.key, ...res.fallback });
+      // A model fallback changes the engine identity: store under the identity actually used.
+      const usedKey = cacheKey(engine.identity(voice.id), text);
+      if (usedKey !== key) {
+        wav = path.join(cache, `${usedKey}.wav`);
+        meta = path.join(cache, `${usedKey}.json`);
+      }
       billedChars += text.length;
       if (res.chars) {
         alignment = fromCharAlignment(
@@ -194,7 +222,15 @@ async function renderWith(
       fs.renameSync(tmp, wav);
       fs.writeFileSync(
         meta,
-        JSON.stringify({ alignment, durationSec, text, engine: engine.id, voice }),
+        JSON.stringify({
+          alignment,
+          durationSec,
+          text,
+          engine: engine.id,
+          voice,
+          model,
+          identity: engine.identity(voice.id),
+        }),
       );
     }
     sections[section.key] = {
@@ -204,6 +240,7 @@ async function renderWith(
       chars: text.length,
       cached,
       alignment: alignment as SectionAlignment,
+      ...(model ? { model } : {}),
     };
     o.onProgress?.({
       done: i + 1,
@@ -222,6 +259,14 @@ async function renderWith(
     take: o.take,
     engine: engine.id,
     voice,
+    models: [
+      ...new Set(
+        Object.values(sections)
+          .map((x) => x.model)
+          .filter((x): x is string => !!x),
+      ),
+    ],
+    modelFallbacks: fallbacks,
     createdAt: new Date().toISOString(),
     sections,
     totalSec,

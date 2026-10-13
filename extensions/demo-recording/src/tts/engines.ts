@@ -25,6 +25,10 @@ export interface EngineHealth {
 
 export interface SynthResult {
   durationSec: number;
+  /** Model actually used (provider engines), e.g. eleven_v4. */
+  model?: string;
+  /** Set when the engine had to fall back from the configured model. */
+  fallback?: { from: string; to: string; reason: string };
   /** Provider character timings over the given text (ElevenLabs). */
   chars?: { chars: string[]; starts: number[]; ends: number[] };
 }
@@ -247,10 +251,12 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
             ...(signal ? { signal } : {}),
           },
         );
+      let fallback: SynthResult["fallback"];
       let res = await call(model);
       if (res.status === 400 || res.status === 422) {
         const detail = await res.text();
         if (/model/i.test(detail) && model !== o.fallbackModel) {
+          fallback = { from: model, to: o.fallbackModel, reason: detail.slice(0, 160) };
           model = o.fallbackModel; // account/model mismatch: same voice, older model
           res = await call(model);
         } else
@@ -281,6 +287,8 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
       const a = body.alignment;
       return {
         durationSec,
+        model,
+        ...(fallback ? { fallback } : {}),
         ...(a
           ? {
               chars: {
@@ -342,7 +350,7 @@ export function openAi(o: OpenAiOptions): TtsEngine {
       fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
       const durationSec = await toWav(raw, outWav);
       fs.rmSync(raw, { force: true });
-      return { durationSec };
+      return { durationSec, model: o.model };
     },
   };
 }

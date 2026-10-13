@@ -19,9 +19,15 @@ import { result } from "./common.ts";
 
 export function voiceSummary(m: VoiceManifest): string {
   const lines = [
-    `Voice-over v${m.voVersion} synthesized with ${m.engine} (voice "${m.voice.name}"): ${m.totalSec.toFixed(1)} s total, ` +
+    `Voice-over v${m.voVersion} synthesized with ${m.engine}${m.models?.length ? ` / ${m.models.join(", ")}` : ""} (voice "${m.voice.name}"): ${m.totalSec.toFixed(1)} s total, ` +
       `${m.billedChars} characters synthesized${m.engine === "elevenlabs" || m.engine === "openai" ? " (billed)" : " (local, no cost)"} (${Object.values(m.sections).filter((s) => s.cached).length}/${Object.keys(m.sections).length} sections from cache).`,
   ];
+  for (const f of m.modelFallbacks ?? [])
+    lines.push(`⚠ ${f.section}: fell back from ${f.from} to ${f.to} (${f.reason})`);
+  if ((m.models?.length ?? 0) > 1)
+    lines.push(
+      `⚠ mixed models in one video: ${m.models.join(", ")} — re-render to make them consistent`,
+    );
   if (m.skipped.length)
     lines.push(`skipped engines: ${m.skipped.map((s) => `${s.engine} (${s.reason})`).join("; ")}`);
   for (const s of Object.values(m.sections)) {

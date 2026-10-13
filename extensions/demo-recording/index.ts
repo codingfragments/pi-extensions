@@ -8,6 +8,7 @@ import { registerProjectTool } from "./src/tools/project.ts";
 import { registerRecordTool } from "./src/tools/record.ts";
 import { registerStoryboardTool } from "./src/tools/storyboard.ts";
 import { registerTakeTool } from "./src/tools/take.ts";
+import { registerTtsTool } from "./src/tools/tts.ts";
 import { registerVoTool } from "./src/tools/vo.ts";
 
 /**
@@ -55,4 +56,5 @@ export default function (pi: ExtensionAPI) {
   registerRecordTool(pi, rt);
   registerTakeTool(pi, rt);
   registerVoTool(pi, rt);
+  registerTtsTool(pi, rt);
 }

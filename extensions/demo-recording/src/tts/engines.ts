@@ -1,0 +1,322 @@
+/**
+ * TTS engines (D12). Each writes a WAV for one section and may return
+ * character timings (ElevenLabs). Keys come from the environment only.
+ *
+ *   elevenlabs  ELEVENLABS_API_KEY, custom voice BY NAME, /with-timestamps
+ *   openai      OPENAI_API_KEY, gpt-4o-mini-tts with tone instructions
+ *   kokoro      local (uv + kokoro-onnx), offline
+ *   say         macOS, dev/CI only
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { ffmpeg, ffprobe, run } from "../media/ffmpeg.ts";
+import { sayAvailable, sayToWav } from "./say.ts";
+
+export type EngineId = "elevenlabs" | "openai" | "kokoro" | "say";
+
+export interface EngineHealth {
+  ok: boolean;
+  reason: string;
+  /** Resolved voice (id + display name). */
+  voice?: { id: string; name: string };
+}
+
+export interface SynthResult {
+  durationSec: number;
+  /** Provider character timings over the given text (ElevenLabs). */
+  chars?: { chars: string[]; starts: number[]; ends: number[] };
+}
+
+export interface TtsEngine {
+  id: EngineId;
+  /** Cheap readiness check: keys present, voice resolvable, binaries present. */
+  health(signal?: AbortSignal): Promise<EngineHealth>;
+  /** Stable identity for caching (engine + voice + model + settings). */
+  identity(voiceId: string): string;
+  synthesize(
+    text: string,
+    outWav: string,
+    voiceId: string,
+    signal?: AbortSignal,
+  ): Promise<SynthResult>;
+}
+
+/** HTTP errors that should make the chain fall back to the next engine. */
+export class EngineUnavailable extends Error {}
+
+const PY_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "py");
+
+/** Normalize any audio to 48 kHz mono PCM WAV (editor input format). */
+async function toWav(input: string, out: string): Promise<number> {
+  await ffmpeg(["-i", input, "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", out]);
+  return (await ffprobe(out)).duration;
+}
+
+export type FetchLike = (
+  url: string,
+  init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal },
+) => Promise<{
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}>;
+
+// ---------------- ElevenLabs ----------------
+
+export interface ElevenLabsOptions {
+  apiKey?: string;
+  voiceName: string;
+  model: string;
+  /** Used when the account rejects `model` on the timestamp endpoint. */
+  fallbackModel: string;
+  stability?: number;
+  similarity?: number;
+  fetch?: FetchLike;
+  baseUrl?: string;
+}
+
+export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
+  const http = o.fetch ?? (globalThis.fetch as unknown as FetchLike);
+  const base = o.baseUrl ?? "https://api.elevenlabs.io";
+  let model = o.model;
+  let voices: { voice_id: string; name: string }[] | undefined;
+  const headers = () => ({ "xi-api-key": o.apiKey ?? "", "content-type": "application/json" });
+
+  const listVoices = async (signal?: AbortSignal) => {
+    if (voices) return voices;
+    const res = await http(`${base}/v1/voices`, {
+      headers: headers(),
+      ...(signal ? { signal } : {}),
+    });
+    if (res.status === 401) throw new EngineUnavailable("ElevenLabs rejected the API key (401)");
+    if (!res.ok) throw new EngineUnavailable(`ElevenLabs /v1/voices failed (${res.status})`);
+    voices = ((await res.json()) as { voices: { voice_id: string; name: string }[] }).voices;
+    return voices;
+  };
+
+  return {
+    id: "elevenlabs",
+    async health(signal) {
+      if (!o.apiKey) return { ok: false, reason: "ELEVENLABS_API_KEY is not set" };
+      if (!o.voiceName)
+        return {
+          ok: false,
+          reason: "no voice name configured (voiceName in config or the brief's Voice field)",
+        };
+      try {
+        const all = await listVoices(signal);
+        const want = o.voiceName.trim().toLowerCase();
+        const voice =
+          all.find((v) => v.name.toLowerCase() === want) ??
+          all.find((v) => v.name.toLowerCase().startsWith(want)) ??
+          all.find((v) => v.voice_id === o.voiceName);
+        if (!voice) {
+          const names = all
+            .map((v) => v.name)
+            .slice(0, 12)
+            .join(", ");
+          return {
+            ok: false,
+            reason: `voice "${o.voiceName}" not found in your ElevenLabs voices (${names}${all.length > 12 ? ", …" : ""})`,
+          };
+        }
+        return {
+          ok: true,
+          reason: `voice "${voice.name}"`,
+          voice: { id: voice.voice_id, name: voice.name },
+        };
+      } catch (err) {
+        return { ok: false, reason: (err as Error).message };
+      }
+    },
+    identity: (voiceId) =>
+      `elevenlabs:${voiceId}:${model}:${o.stability ?? "d"}:${o.similarity ?? "d"}`,
+    async synthesize(text, outWav, voiceId, signal) {
+      const call = async (m: string) =>
+        http(
+          `${base}/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps?output_format=mp3_44100_128`,
+          {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({
+              text,
+              model_id: m,
+              ...(o.stability !== undefined || o.similarity !== undefined
+                ? {
+                    voice_settings: {
+                      ...(o.stability !== undefined ? { stability: o.stability } : {}),
+                      ...(o.similarity !== undefined ? { similarity_boost: o.similarity } : {}),
+                    },
+                  }
+                : {}),
+            }),
+            ...(signal ? { signal } : {}),
+          },
+        );
+      let res = await call(model);
+      if (res.status === 400 || res.status === 422) {
+        const detail = await res.text();
+        if (/model/i.test(detail) && model !== o.fallbackModel) {
+          model = o.fallbackModel; // account/model mismatch: same voice, older model
+          res = await call(model);
+        } else
+          throw new Error(
+            `ElevenLabs TTS rejected the request (${res.status}): ${detail.slice(0, 200)}`,
+          );
+      }
+      if (res.status === 401 || res.status === 402 || res.status === 429 || res.status >= 500) {
+        throw new EngineUnavailable(
+          `ElevenLabs TTS failed (${res.status}${res.status === 429 ? ", rate limit or quota" : res.status === 402 ? ", quota" : ""})`,
+        );
+      }
+      if (!res.ok)
+        throw new Error(
+          `ElevenLabs TTS failed (${res.status}): ${(await res.text()).slice(0, 200)}`,
+        );
+      const body = (await res.json()) as {
+        audio_base64: string;
+        alignment?: {
+          characters: string[];
+          character_start_times_seconds: number[];
+          character_end_times_seconds: number[];
+        };
+      };
+      const mp3 = `${outWav}.mp3`;
+      fs.writeFileSync(mp3, Buffer.from(body.audio_base64, "base64"));
+      const durationSec = await toWav(mp3, outWav);
+      fs.rmSync(mp3, { force: true });
+      const a = body.alignment;
+      return {
+        durationSec,
+        ...(a
+          ? {
+              chars: {
+                chars: a.characters,
+                starts: a.character_start_times_seconds,
+                ends: a.character_end_times_seconds,
+              },
+            }
+          : {}),
+      };
+    },
+  };
+}
+
+// ---------------- OpenAI ----------------
+
+export interface OpenAiOptions {
+  apiKey?: string;
+  model: string;
+  voice: string;
+  /** Tone/delivery instructions (gpt-4o-mini-tts). */
+  instructions?: string;
+  fetch?: FetchLike;
+  baseUrl?: string;
+}
+
+export function openAi(o: OpenAiOptions): TtsEngine {
+  const http = o.fetch ?? (globalThis.fetch as unknown as FetchLike);
+  const base = o.baseUrl ?? "https://api.openai.com";
+  return {
+    id: "openai",
+    async health() {
+      if (!o.apiKey) return { ok: false, reason: "OPENAI_API_KEY is not set" };
+      return {
+        ok: true,
+        reason: `${o.model} voice "${o.voice}"`,
+        voice: { id: o.voice, name: o.voice },
+      };
+    },
+    identity: (voiceId) => `openai:${o.model}:${voiceId}:${o.instructions ?? ""}`,
+    async synthesize(text, outWav, voiceId, signal) {
+      const res = await http(`${base}/v1/audio/speech`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${o.apiKey ?? ""}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: o.model,
+          voice: voiceId,
+          input: text,
+          response_format: "wav",
+          ...(o.instructions ? { instructions: o.instructions } : {}),
+        }),
+        ...(signal ? { signal } : {}),
+      });
+      if (res.status === 401 || res.status === 429 || res.status >= 500)
+        throw new EngineUnavailable(`OpenAI TTS failed (${res.status})`);
+      if (!res.ok)
+        throw new Error(`OpenAI TTS failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+      const raw = `${outWav}.src.wav`;
+      fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
+      const durationSec = await toWav(raw, outWav);
+      fs.rmSync(raw, { force: true });
+      return { durationSec };
+    },
+  };
+}
+
+// ---------------- Kokoro (local) ----------------
+
+export function kokoro(o: { voice: string; uvAvailable: () => boolean }): TtsEngine {
+  return {
+    id: "kokoro",
+    async health() {
+      if (!o.uvAvailable()) return { ok: false, reason: "uv is not installed (brew install uv)" };
+      return {
+        ok: true,
+        reason: `local voice "${o.voice}"`,
+        voice: { id: o.voice, name: o.voice },
+      };
+    },
+    identity: (voiceId) => `kokoro:v1.0-int8:${voiceId}`,
+    async synthesize(text, outWav, voiceId) {
+      const textFile = `${outWav}.txt`;
+      fs.writeFileSync(textFile, text);
+      const raw = `${outWav}.src.wav`;
+      await run("uv", [
+        "run",
+        "--quiet",
+        path.join(PY_DIR, "kokoro_tts.py"),
+        "--text-file",
+        textFile,
+        "--out",
+        raw,
+        "--voice",
+        voiceId,
+      ]);
+      const durationSec = await toWav(raw, outWav);
+      fs.rmSync(raw, { force: true });
+      fs.rmSync(textFile, { force: true });
+      return { durationSec };
+    },
+  };
+}
+
+// ---------------- say (dev) ----------------
+
+export function say(o: { voice?: string }): TtsEngine {
+  return {
+    id: "say",
+    async health() {
+      return sayAvailable()
+        ? {
+            ok: true,
+            reason: "macOS say (dev only)",
+            voice: { id: o.voice ?? "default", name: o.voice ?? "default" },
+          }
+        : { ok: false, reason: "macOS say not available" };
+    },
+    identity: (voiceId) => `say:${voiceId}`,
+    async synthesize(text, outWav, voiceId) {
+      const raw = `${outWav}.src.wav`;
+      await sayToWav(text, raw, voiceId !== "default" ? { voice: voiceId } : {});
+      const durationSec = await toWav(raw, outWav);
+      fs.rmSync(raw, { force: true });
+      fs.rmSync(`${raw}.txt`, { force: true });
+      return { durationSec };
+    },
+  };
+}

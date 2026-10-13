@@ -68,7 +68,12 @@ export async function ffprobe(file: string): Promise<Probe> {
   return { duration: Number(json.format.duration), streams: json.streams };
 }
 
+/** Is `name` on PATH and runnable? (ffmpeg uses -version, most tools --version.) */
 export function hasBinary(name: string): boolean {
-  const r = spawnSync(name, ["-version"], { stdio: "ignore" });
-  return !r.error && r.status === 0;
+  for (const flag of ["--version", "-version"]) {
+    const r = spawnSync(name, [flag], { stdio: "ignore" });
+    if (r.error) return false;
+    if (r.status === 0) return true;
+  }
+  return false;
 }

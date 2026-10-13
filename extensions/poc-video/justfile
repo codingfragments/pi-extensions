@@ -10,9 +10,10 @@ default:
     @just --list
 
 # one-time setup: npm deps + the Chromium binary (user cache, never committed)
+# (uses the extension's own playwright CLI — npx can resolve a different version)
 install:
     npm install
-    npx playwright install chromium
+    node node_modules/playwright/cli.js install chromium
 
 # happy path: validate the template pair — expect ✔ and no warnings
 validate:
@@ -50,6 +51,19 @@ demo-errors:
       echo "✖ $((total-rejected)) fixture(s) passed validation — they must not"
       exit 1
     fi
+
+# scaffold a run dir for a target: just init <target> [pocs-root]
+init target pocs-root="./pocs" *args:
+    node scripts/pass1-init.ts {{target}} --pocs-root {{pocs-root}} {{args}}
+
+# headless smoke test of the browser module (open → navigate → screenshot → close);
+# needs the Chromium binary (`just install`) and network — not run by CI
+smoke-browser *tmpdir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    d="{{tmpdir}}"
+    [ -n "$d" ] || d=$(mktemp -d)
+    node scripts/pass1-smoke.ts "$d"
 
 # full gate set: typecheck + lint + tests (what CI enforces on the repo)
 gates:

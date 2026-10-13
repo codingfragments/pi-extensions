@@ -2,6 +2,7 @@ node_modules/
 dist/
 *.log
 .DS_Store
+poc-video-smoke-*/
 
 # pi runtime state that shouldn't be committed
 .pi/git/

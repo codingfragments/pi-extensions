@@ -16,13 +16,16 @@ import { resolveConfig } from "./src/config.ts";
 import { formatDoctor, runDoctor } from "./src/doctor.ts";
 import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
+import { runFixtureDemo } from "./src/pipeline/fixture-demo.ts";
 import { runS1 } from "./src/pipeline/s1.ts";
 import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
+import { editSummary } from "./src/tools/edit.ts";
 import { takeSummary } from "./src/tools/record.ts";
+import { voiceSummary } from "./src/tools/tts.ts";
 import { ensureProject, listProjects, openProject } from "./src/workdir/layout.ts";
 
 const HELP = `demo-recording engine CLI
@@ -38,6 +41,8 @@ Commands:
                                            S1 walking skeleton: record a take, narrate with
                                            macOS say, naive-mux to out/<take>-naive.mp4
   spike capture [--storyboard F]           S1 capture spike: compare capture configs
+  fixture-demo [--voice NAME] [--project P]  S4: full narrated demo of the fixture with your configured
+                                           voice chain (ELEVENLABS_API_KEY + voice name → your voice)
   record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
@@ -182,6 +187,21 @@ async function main(argv: string[]): Promise<number> {
     } finally {
       await fixture?.close();
     }
+    return 0;
+  }
+
+  if (command === "fixture-demo") {
+    const args = sub ? [sub, ...rest] : rest;
+    const { values } = parseArgs({
+      args,
+      options: { voice: { type: "string" }, project: { type: "string", default: "fixture-demo" } },
+    });
+    const r = await runFixtureDemo(cfg, {
+      project: values.project,
+      ...(values.voice ? { voiceName: values.voice } : {}),
+      log: (m) => console.log(m),
+    });
+    console.log(`\n${voiceSummary(r.voice)}\n\n${editSummary(r.edit)}`);
     return 0;
   }
 

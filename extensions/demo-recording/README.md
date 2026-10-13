@@ -92,6 +92,8 @@ node extensions/demo-recording/cli.ts run-s1 --fixture [--seed 7] [--headed]
 node extensions/demo-recording/cli.ts run-s1 --url https://app.example.com --app Example --storyboard my.yaml
 node extensions/demo-recording/cli.ts spike capture            # capture resolution comparison
 node extensions/demo-recording/cli.ts record --fixture          # S3 take with live progress (uses pi's model auth; --no-model to skip)
+node extensions/demo-recording/cli.ts fixture-demo             # S4: full narrated demo of the fixture with your voice chain
+DEMO_REC_ELEVENLABS_E2E=1 DEMO_REC_VOICE="<your voice>" node --test extensions/demo-recording/test/s4-elevenlabs.test.ts   # live voice check (~200 chars)
 ```
 
 A take lands in `projects/<p>/takes/take-NNN/` and contains:

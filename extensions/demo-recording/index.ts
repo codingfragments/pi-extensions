@@ -3,12 +3,16 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
 import { Runtime } from "./src/runtime.ts";
+import { registerBrowserTool } from "./src/tools/browser.ts";
+import { registerProjectTool } from "./src/tools/project.ts";
+import { registerRecordTool } from "./src/tools/record.ts";
+import { registerStoryboardTool } from "./src/tools/storyboard.ts";
 
 /**
  * demo-recording — automated PoC / demo video recorder for web apps.
  *
  *   docs/VISION.md               agreed decisions (D1–D20)
- *   docs/IMPLEMENTATION_PLAN.md  vertical slices S0–S7 (currently: S0)
+ *   docs/IMPLEMENTATION_PLAN.md  vertical slices S0–S7 (currently: S2)
  *
  * Skills ship inside this extension (./skills) and are contributed through
  * `resources_discover`, so they also load when the extension is installed via
@@ -20,7 +24,8 @@ import { Runtime } from "./src/runtime.ts";
 const here = dirname(fileURLToPath(import.meta.url));
 
 export default function (pi: ExtensionAPI) {
-  const rt = new Runtime();
+  // Panel actions reach the director as user messages through pi.sendUserMessage.
+  const rt = new Runtime(undefined, pi);
 
   pi.on("resources_discover", async () => ({
     skillPaths: [join(here, "skills")],
@@ -42,4 +47,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   registerDemoCommand(pi, rt);
+  registerProjectTool(pi, rt);
+  registerBrowserTool(pi, rt);
+  registerStoryboardTool(pi, rt);
+  registerRecordTool(pi, rt);
 }

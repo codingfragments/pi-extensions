@@ -72,6 +72,8 @@ const DEFAULT_DWELL: Record<Step["do"], number> = {
   press: 250,
   wait: 600,
   pause: 0,
+  scroll: 400,
+  improvise: 400,
 };
 
 const LEAD_IN_MS = 700;
@@ -195,6 +197,24 @@ class StepRunner {
       case "pause":
         await sleep(step.ms);
         break;
+      case "scroll": {
+        let dy = step.dy ?? 0;
+        if (step.target) {
+          const locator = locate(this.page, step.target);
+          await locator.waitFor({ state: "attached", timeout: 10000 });
+          const bb = await locator.boundingBox();
+          const vh = this.page.viewportSize()?.height ?? 900;
+          if (bb) dy = Math.round(bb.y + bb.height / 2 - vh * 0.45);
+        }
+        this.log.log("scroll-start", { ...at, ...mark, data: { dy } });
+        await this.cursor.scrollBy(dy);
+        this.log.log("scroll-end", { ...at });
+        break;
+      }
+      case "improvise":
+        throw new Error(
+          "improvise steps are recorded from slice S3 on (live input generation) — use a fixed `type` step for now",
+        );
     }
     const dwell = step.dwell ?? DEFAULT_DWELL[step.do];
     if (dwell > 0) await sleep(dwell * this.rng.range(0.9, 1.1));

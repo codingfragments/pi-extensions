@@ -334,7 +334,25 @@ The capture default is decided with data.
 
 ---
 
-### S2 — Brief, discovery, storyboard, panel review loop *(Phase 0–1)*
+### S2 — Brief, discovery, storyboard, panel review loop *(Phase 0–1)* ✅ done
+
+> Done: skills `demo-brief` + `demo-recording` (shipped in the extension);
+> tools `demo_rec_project`, `demo_rec_browser` (open/look/act/close; look =
+> screenshot + aria digest), `demo_rec_storyboard` (write/get — **no approve**),
+> `demo_rec_record` (gate-enforced); `/demo new` → brief skill, `/demo discover`
+> → director skill; safety net (denylist / audited state changes / policy.json,
+> blocked *before* the click); per-app discovery artifacts; budgets; target lint;
+> panel LIVE (current screen, budget, safety feed) and REVIEW (scene cards, per-
+> scene approve/changes/re-run + notes, version diff, one consolidated message
+> to the agent, approve); POST = Bearer + JSON only; token-scoped media.
+> **Deviations:** the storyboard validator stays hand-written (path-precise
+> errors the model can self-correct from) instead of typebox; `demo_rec_record`
+> pulled forward from S3 (foreground, no narration) to close the loop in pi;
+> discovery settle = DOM-quiet + busy-indicator detection (fixed screenshots
+> taken before results/streamed answers landed). **Finding:** passing a string
+> to `locator.evaluate` never receives the element — it silently produced empty
+> names and let "Delete workspace" pass; caught by the discovery test, fixed by
+> passing a real function and never failing open.
 
 **Purpose.** Make the first human-facing loop real: brief → agent explores →
 storyboard builds up live in the panel → user approves / requests changes /
@@ -378,6 +396,12 @@ logging, scene splitting, and resume-from-boundary.
 - `recorder/split.ts` → `scenes.json` (boundaries on scene start events). `recorder/resume.ts`: on failure, keep the good prefix and restart from the failing scene via `deep_link` or a fast off-camera replay. A **take is stitched** from segments, and stitch points are recorded.
 - Session expiry detection (app login probe) → abort, prompt `/demo login`, resume.
 - `demo_rec_record` as a background job with progress → panel LIVE (frame preview at ~2 fps).
+- **Recording progress bar** (user request): overall bar plus per-scene segments in the panel LIVE view and a footer status in pi (`ctx.ui.setStatus`). Shows current scene/step ("scene 2/4 · step 3/6 · typing 'churn by region'"), elapsed time and ETA. Progress is computed from completed steps, weighted by expected step durations (dwell + Fitts move time + typing length), with waits counted as open-ended until satisfied. Retries and resume show as restarted segments.
+- **Discovery progress estimate** (user request, applies to S2's discovery): discovery is agent-driven, so there is no fixed step list. The estimate combines two signals:
+  - *Exploration plan:* after the first look, the director declares the areas it intends to explore (e.g. `demo_rec_browser` action `plan` with `areas: ["dashboard", "search", "assistant", "settings"]`), then marks each area done as it moves on. This gives "area 2/4 · search".
+  - *Budget burn:* screens, actions and minutes used against `budgets.discovery*`. The largest fraction is the hard upper bound.
+  - *ETA:* remaining areas × the average time per finished area, capped by the remaining minutes budget. Shown as "~6 min left (budget max 14 min)".
+  - Shown in the panel LIVE view (bar with area segments, then a final "writing storyboard" segment) and in pi's footer status. If the director never declares a plan, only the budget bar is shown, labelled as an upper bound.
 
 **How to test**
 - Unit: typing delay distribution (mean and variance within bounds), path generation (no teleports, monotonic time), resume planner (which prefix is kept).
@@ -509,6 +533,7 @@ real GPU rendering, behind a flag, reusing everything else.
 - **Observability.** Every engine job writes `jobs/<id>.log`. The bus mirrors key events. `report.md` summarizes takes, retries, QA and spend.
 - **Determinism.** The fixture is seeded. The engine never uses `Math.random` without a seeded RNG stored in the take (`take.json`), so a take's motion/typing can be replayed exactly.
 - **Security.** The panel binds only to 127.0.0.1 and requires a per-session token (protects against CSRF from other local sites). API keys come from env/keychain only. The README calls out the destructive/egress capabilities: browser actions on real apps, external TTS/LLM calls with screen content.
+- **Panel theme** (user request): [Catppuccin](https://catppuccin.com/palette) **Macchiato** (dark, default) and **Latte** (light), switchable from a toggle in the panel header. The choice is stored in `localStorage` and defaults to Macchiato regardless of the OS setting. The panel CSS already uses custom properties (`--bg`, `--card`, `--text`, `--accent`, `--ok`, `--warn`, `--err`, …), so this means two `[data-theme]` variable sets mapped to Catppuccin colors (base/mantle/surface0/text/subtext0/blue/green/yellow/red), plus status colors checked for contrast in both flavors. Scope: panel only; the fixture app and rendered videos are unaffected. Lands with the next panel-heavy slice (S3 progress bars).
 - **Packaging.** Runtime deps (`playwright`, `@playwright-labs/ghost-cursor`, `ws`, `yaml`) go in `dependencies`. Pi core packages + `typebox` go in `peerDependencies: "*"`. The Chromium download is a doctor-guided step. ffmpeg and uv are documented system prerequisites.
 
 ## 8. Open questions (to resolve inside the slices)

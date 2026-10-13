@@ -1,0 +1,34 @@
+# vo.yaml — narration contract (keyed by storyboard scene ids)
+# Drafted from storyboard intents + pass-1 findings + the recorded run,
+# length-budgeted per scene against the calibrated voice pace.
+# User approves this text at checkpoint 2 — before batch TTS spend.
+
+meta:
+  voice:
+    name: "Stefan"
+    id: null                      # resolved + cached at runtime
+  model: eleven_v4
+  pace_words_per_sec: null         # filled by the calibration probe (~1¢ per voice/model)
+  calibrated_at: null
+
+scenes:
+  - id: intro-dashboard
+    text: |
+      Welcome to Acme Console. Notice what you don't see:
+      no setup wizard, no config files — you land straight
+      on the dashboard, ready to work.
+    status: draft
+
+  - id: create-project
+    text: |
+      Creating a project is one click and a name. That's the
+      entire ceremony — and you're already inside a working
+      environment.
+    status: draft
+
+  - id: first-insight
+    text: |
+      And here's the payoff: your first real insight, less than
+      a minute after landing. No data to wire up, no charts to
+      configure — it's already there.
+    status: draft

@@ -570,6 +570,13 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 - **Panel:** badges, "N items need your eyes", lowest-first sorting, jump links to the step, anchor or keyframe, and "approve high-confidence" behind a click plus a confirmation listing what's skipped.
 - Review messages and tool results list low-confidence items first.
 
+*5b. Voice direction (D29, user addition)*
+- **Voice tab "Direction" panel:** presets for stance (champion / evaluator / teacher), tone (punchier / calmer / more technical), length (shorter / longer / match footage), a focus field, and free text. Then **"Draft new version"**.
+- **Bridge:** one `[demo-panel] Voice-over direction for vN …` message. The agent (demo-voiceover skill) rewrites the **whole** script as vN+1 from the same take analysis, keeping anchors valid and the timing budget, and summarizes how it applied the direction. Per-section notes still work as before.
+- **Version comparison** in the Voice tab: per-section changed/unchanged badges, a word-level diff against the previous version, timing bars, and confidence (D23). Approve as usual.
+- **"Generate voice & render"** button after approval, an engine job straight from the panel (`POST /api/voice-render`): TTS (cache, so only changed sections are synthesized), then the edit/render with the current brand and overlay options. Before starting it shows an **estimate**: characters to synthesize for the selected engine, and sections reused from the cache. Progress in the panel; the agent gets the result message.
+- **Optional:** "save as default direction" writes a `Narration direction:` line into the brief, so future voice-overs start from it.
+
 *6. Export tab (D27)*
 - **Brand switch** (user addition): a brand dropdown next to the toggles. Changing the brand re-renders the selected outputs from the existing `edit/timeline.vN.json` + `raw.mp4` + voice audio. It's a background engine job started directly from the panel (`POST /api/export-render {brand, callouts, subtitles, logoBug}`), with **no agent turn, no LLM call and no TTS**, progress in the panel, and the agent informed only on failure. Variants land in `out/edit-vN/<variant>/` and are reused when cached. A brand change never invalidates approvals: brands are presentation only.
 - Players (with the transcript track), downloads, toggles (callouts, subtitles, logo bug) → variant renders, the QA report with jump-to-time, "confirm & export anyway" for blocking items, and open folder. No publishing in v1.
@@ -587,6 +594,7 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
   - confidence signals on injected defects (unseen target, wrong value, off-sync, fallback used);
   - the agent's view never raises a level;
   - the config diff/write (keeps `_comment`, precedence, rejects invalid values, never writes keys);
+  - voice direction: the direction message contains every preset + free text; the new version is a full script (all sections present); the cost estimate counts only cache misses; "Generate voice & render" refuses an unapproved version;
   - the variant cache key (brand, callouts, subtitles, logo bug); a brand switch re-renders without touching the VO, voice manifest or approvals and without any model call (asserted with a stub registry that fails on use).
 - **E2E on the fixture:**
   - `?flaky=1` → a blocking alert flag at the right time;

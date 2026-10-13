@@ -4,12 +4,11 @@ Two-pass POC demo video pipeline: an agent explores a target web app,
 records a deterministic human-like walkthrough, narrates it with a cloned
 voice, and assembles a polished `final.mp4`.
 
-**Status: pass 1 implemented** — exploration tools (persistent-profile
-Chromium, per-scene reference screenshots), run-dir scaffolding, and the
-storyboard/vo contracts + validator are live. The recording runner
-(`scripts/record.ts`), the control bus + panel, VO generator (`scripts/vo.py`),
-TTS (`scripts/tts.py`), and assembler (`scripts/assemble.py`) are pending.
-Workflow instructions live in [`skills/poc-video/SKILL.md`](../../skills/poc-video/SKILL.md).
+**Status: pass 1 + replay engine implemented.** Pass-1 exploration tools, run-dir
+scaffolding, storyboard/vo contracts + validator, and the pass-2 replay engine
+(`scripts/record.ts` — watch/step/dry-run, `scenes.json` emission) are live.
+Pending: human-like input (ghost-cursor/jitter), control bus + panel, VO/TTS,
+assembly. Workflow: [`skills/poc-video/SKILL.md`](../../skills/poc-video/SKILL.md).
 
 ## Layout
 
@@ -24,7 +23,8 @@ extensions/poc-video/
 │   ├── validate-storyboard.mjs     # schema validation (usable now)
 │   ├── pass1-init.ts               # scaffold a run dir for a target
 │   ├── pass1-smoke.ts              # headless browser smoke test (just smoke-browser)
-│   ├── record.ts                   # runner (pending)
+│   ├── record.ts                   # pass-2 replay engine (watch/step/dry-run) + scenes.json
+│   ├── record-smoke.ts             # headless dry-run engine smoke (just smoke-record)
 │   ├── vo.py / tts.py / assemble.py  # narration pipeline (pending)
 │   └── panel/                      # localhost review/status/control surface (pending)
 └── test/                           # validator + pass1-init tests + broken fixtures

@@ -65,6 +65,19 @@ smoke-browser *tmpdir="":
     [ -n "$d" ] || d=$(mktemp -d)
     node scripts/pass1-smoke.ts "$d"
 
+# replay a storyboard: just record <run-dir> [watch|step|dry-run]
+record run-dir mode="watch" *args:
+    node scripts/record.ts {{run-dir}} --mode {{mode}} {{args}}
+
+# headless dry-run smoke of the replay engine against public pages
+# (clean pass + broken-selector failure semantics); needs `just install` + network
+smoke-record *tmpdir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    d="{{tmpdir}}"
+    [ -n "$d" ] || d=$(mktemp -d)
+    node scripts/record-smoke.ts "$d"
+
 # full gate set: typecheck + lint + tests (what CI enforces on the repo)
 gates:
     cd ../.. && npm run typecheck && npx biome check extensions/poc-video && npm test

@@ -327,7 +327,7 @@ test(
     );
     assert.equal(
       m.billedChars,
-      m.sections._intro!.chars + m.sections["01-a"]!.chars + m.sections["02-b"]!.chars,
+      m.sections._intro?.chars + m.sections["01-a"]?.chars + m.sections["02-b"]?.chars,
     );
     assert.deepEqual(readManifest(dir, 1)?.engine, "kokoro");
 

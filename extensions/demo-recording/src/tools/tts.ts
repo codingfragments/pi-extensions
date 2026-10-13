@@ -131,8 +131,7 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
       );
       const existing = readManifest(p.dir, version);
       return result(
-        `Voice synthesis started (${job.id}) for voice-over v${version}${existing ? " (re-render: unchanged sections come from the cache)" : ""}. ` +
-          "Progress is in the panel and the footer; you'll get a [demo-recording] message when it's done — don't poll.",
+        `Voice synthesis started (${job.id}) for voice-over v${version}${existing ? " (re-render: unchanged sections come from the cache)" : ""}. Progress is in the panel and the footer; you'll get a [demo-recording] message when it's done — don't poll.`,
         { job: job.id },
       );
     },

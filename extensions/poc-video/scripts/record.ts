@@ -32,9 +32,11 @@ import type { Page } from "playwright";
  * overlay via human.ts) is ON by default — `--raw-input` drops back to instant
  * Playwright input for debugging and fast selector validation.
  *
- * Usage: node scripts/record.ts <run-dir> [--mode watch|step|dry-run] [--headless] [--auto-start] [--raw-input]
+ * Usage: node scripts/record.ts <run-dir> [--mode watch|step|dry-run] [--headless] [--auto-start] [--raw-input] [--bus [--bus-port N]]
  */
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
+import { ControlBus } from "../control-bus.ts";
+import type { BusCommand } from "../control-bus.ts";
 import { createHumanInput } from "../human.ts";
 import type { HumanInput } from "../human.ts";
 import { Report, validateStoryboard } from "./validate-storyboard.mjs";
@@ -57,6 +59,7 @@ export interface Scene {
   settle_ms?: number;
   hold_ms?: number;
   skip?: boolean;
+  retake?: boolean;
   steps: Step[];
 }
 
@@ -81,6 +84,12 @@ export interface RecordOptions {
   autoStart?: boolean;
   /** drop the human-like input layer (instant Playwright input — debugging/fast validation) */
   rawInput?: boolean;
+  /** start the control bus (localhost WebSocket) — events out, commands in */
+  bus?: boolean;
+  /** fixed port for the bus (default: pick a free one) */
+  busPort?: number;
+  /** called with the ws:// URL once the bus is listening */
+  onBusReady?: (url: string) => void;
   /** control-bus seam (next milestone): called before each scene */
   onSceneStart?: (scene: Scene, index: number) => Promise<void> | void;
   /** control-bus seam: called after each scene with its record */
@@ -104,6 +113,8 @@ export interface SceneRecord {
   hold_ms: number;
   steps: StepRecord[];
   error?: string;
+  /** 1 = original take, 2+ = retake attempts (control-bus `retake` command) */
+  attempt?: number;
 }
 
 export interface ScenesJson {
@@ -128,6 +139,18 @@ const errText = (e: unknown): string =>
 
 /** Step types that get a settle beat after them (breathing room). */
 const SETTLED = new Set(["navigate", "click", "type", "press", "scroll", "hover"]);
+
+/** Scene fields a control-bus `set` command may mutate — validated before persist. */
+const EDITABLE_FIELDS = new Set([
+  "settle_ms",
+  "hold_ms",
+  "budget_s",
+  "title",
+  "intent",
+  "narration_gist",
+  "skip",
+  "retake",
+]);
 
 let rl: readline.Interface | null = null;
 async function pressEnter(prompt: string): Promise<void> {
@@ -205,6 +228,135 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
   const mode: RunMode = opts.mode ?? "watch";
   const dryRun = mode === "dry-run";
 
+  // runner-managed flags reset at run start (schema: authored values are dropped)
+  for (const s of sb.scenes) {
+    s.skip = false;
+    s.retake = false;
+  }
+
+  // ---- control bus — the runner is the SINGLE WRITER of storyboard.yaml ----
+  let bus: ControlBus | null = null;
+  const paused = { flag: false };
+  let abortRequested = false;
+  let storyboardDirty = false;
+
+  const waitIfPaused = async (): Promise<void> => {
+    while (paused.flag) await sleep(150);
+  };
+
+  const persistStoryboard = async (): Promise<void> => {
+    // NOTE: the runner is the single writer; its rewrites drop hand-authored
+    // YAML comments (the panel is the surface, the file is the state).
+    await fs.promises.writeFile(sbPath, `${stringify(sb)}\n`);
+    storyboardDirty = false;
+    bus?.broadcast({ type: "storyboard_state_changed", storyboard: sb });
+  };
+
+  const sceneById = (id: string): Scene | undefined => sb.scenes.find((s) => s.id === id);
+
+  const handleCommand = async (cmd: BusCommand): Promise<void> => {
+    if (!bus) return;
+    try {
+      switch (cmd.type) {
+        case "pause":
+          paused.flag = true;
+          bus.broadcast({ type: "run_status", status: "paused" });
+          break;
+        case "resume":
+          paused.flag = false;
+          bus.broadcast({ type: "run_status", status: "recording" });
+          break;
+        case "abort":
+          abortRequested = true;
+          bus.broadcast({ type: "run_status", status: "aborted" });
+          break;
+        case "retake": {
+          const scene = sceneById(cmd.id);
+          if (!scene) {
+            bus.broadcast({
+              type: "error",
+              message: `retake: unknown scene '${cmd.id}'`,
+              command: cmd,
+            });
+            break;
+          }
+          scene.retake = true;
+          await persistStoryboard();
+          break;
+        }
+        case "skip": {
+          const scene = sceneById(cmd.id);
+          if (!scene) {
+            bus.broadcast({
+              type: "error",
+              message: `skip: unknown scene '${cmd.id}'`,
+              command: cmd,
+            });
+            break;
+          }
+          scene.skip = cmd.value ?? true;
+          await persistStoryboard();
+          break;
+        }
+        case "set": {
+          const scene = sceneById(cmd.id);
+          if (!scene) {
+            bus.broadcast({
+              type: "error",
+              message: `set: unknown scene '${cmd.id}'`,
+              command: cmd,
+            });
+            break;
+          }
+          if (!EDITABLE_FIELDS.has(cmd.field)) {
+            bus.broadcast({
+              type: "error",
+              message: `set: field '${cmd.field}' is not editable (known: ${[...EDITABLE_FIELDS].join(", ")})`,
+              command: cmd,
+            });
+            break;
+          }
+          const holder = scene as unknown as Record<string, unknown>;
+          const prev = holder[cmd.field];
+          holder[cmd.field] = cmd.value;
+          const r = new Report();
+          validateStoryboard(sb, r);
+          if (!r.ok) {
+            holder[cmd.field] = prev; // rejected edits never touch disk
+            bus.broadcast({
+              type: "error",
+              message: `edit rejected: ${r.errors.join("; ")}`,
+              command: cmd,
+            });
+            break;
+          }
+          await persistStoryboard();
+          break;
+        }
+        case "get_state":
+          bus.broadcast({ type: "storyboard_state_changed", storyboard: sb });
+          break;
+      }
+    } catch (e) {
+      bus.broadcast({ type: "error", message: `command failed: ${errText(e)}`, command: cmd });
+    }
+  };
+
+  if (opts.bus) {
+    bus = new ControlBus();
+    const port = await bus.start(opts.busPort ?? 0);
+    const url = `ws://localhost:${port}`;
+    console.log(`control bus: ${url} — events out; pause/resume/retake/skip/set in`);
+    opts.onBusReady?.(url);
+    bus.onConnect(() => {
+      bus?.broadcast({ type: "run_status", status: paused.flag ? "paused" : "recording" });
+      bus?.broadcast({ type: "storyboard_state_changed", storyboard: sb });
+    });
+    bus.onCommand((cmd) => {
+      void handleCommand(cmd);
+    });
+  }
+
   const profileDir = path.join(runDir, ".profile");
   fs.mkdirSync(profileDir, { recursive: true });
   if (!dryRun) fs.mkdirSync(path.join(runDir, "recordings"), { recursive: true });
@@ -242,23 +394,26 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
     scenes: [],
   };
 
-  let aborted = false;
-  for (let i = 0; i < sb.scenes.length && !aborted; i++) {
-    const scene = sb.scenes[i];
-    if (!scene) continue;
-    if (scene.skip) {
-      out.scenes.push({
-        id: scene.id,
-        status: "skipped",
-        start_s: now(),
-        end_s: now(),
-        hold_ms: 0,
-        steps: [],
-      });
-      continue;
-    }
-    if (opts.onSceneStart) await opts.onSceneStart(scene, i);
+  // in bus mode, wait for the first client before starting — someone is
+  // watching (panel or scripted client); the URL was printed above
+  if (bus) {
+    while (bus.clientCount === 0) await sleep(150);
+    bus.broadcast({
+      type: "run_started",
+      mode,
+      sceneIds: sb.scenes.map((s) => s.id),
+      storyboard: sb,
+    });
+  }
 
+  const executeScene = async (scene: Scene, index: number, attempt = 1): Promise<SceneRecord> => {
+    bus?.broadcast({
+      type: "scene_started",
+      index,
+      id: scene.id,
+      title: scene.title,
+      intent: scene.intent,
+    });
     const rec: SceneRecord = {
       id: scene.id,
       status: "recorded",
@@ -266,12 +421,20 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
       end_s: 0,
       hold_ms: scene.hold_ms ?? 0,
       steps: [],
+      attempt,
     };
     let sceneError: string | null = null;
 
     for (let j = 0; j < scene.steps.length; j++) {
       const step = scene.steps[j];
       if (!step) continue;
+      bus?.broadcast({
+        type: "action",
+        index,
+        stepIndex: j,
+        stepType: step.type,
+        selector: step.selector,
+      });
       const stepRec: StepRecord = { i: j, type: step.type, ok: true, start_s: now(), end_s: 0 };
       try {
         await execStep(page, step, human);
@@ -290,23 +453,71 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
 
     if (!sceneError && (scene.hold_ms ?? 0) > 0) await sleep(scene.hold_ms ?? 0);
     rec.end_s = now();
+    bus?.broadcast({ type: "scene_finished", record: rec });
+    return rec;
+  };
+
+  let aborted = false;
+  for (let i = 0; i < sb.scenes.length && !aborted; i++) {
+    await waitIfPaused();
+    if (abortRequested) {
+      aborted = true;
+      break;
+    }
+    const scene = sb.scenes[i];
+    if (!scene) continue;
+    if (scene.skip) {
+      out.scenes.push({
+        id: scene.id,
+        status: "skipped",
+        start_s: now(),
+        end_s: now(),
+        hold_ms: 0,
+        steps: [],
+      });
+      continue;
+    }
+    if (opts.onSceneStart) await opts.onSceneStart(scene, i);
+
+    const rec = await executeScene(scene, i);
     out.scenes.push(rec);
     if (opts.onSceneEnd) await opts.onSceneEnd(rec, i);
 
-    if (sceneError && !dryRun) {
-      console.log(`✖ scene '${scene.id}' failed — aborting (${sceneError})`);
+    if (rec.status === "failed" && !dryRun) {
+      console.log(`✖ scene '${scene.id}' failed — aborting (${rec.error})`);
       console.log(
         "partial scenes.json written; fix the storyboard (or the selector), then re-run.",
       );
       aborted = true;
-    } else if (sceneError) {
-      console.log(`✖ scene '${scene.id}' failed (continuing dry run): ${sceneError}`);
+    } else if (rec.status === "failed") {
+      console.log(`✖ scene '${scene.id}' failed (continuing dry run): ${rec.error}`);
     } else if (mode === "step" && i < sb.scenes.length - 1) {
       await pressEnter(
         `✔ scene '${scene.id}' done (${(rec.end_s - rec.start_s).toFixed(1)}s) — ENTER for next, Ctrl+C to stop\n> `,
       );
     }
   }
+
+  // retake pass: scenes marked retake (by command, mid-run or after the fact)
+  // are replayed; their record is replaced by the new attempt
+  for (const scene of sb.scenes) {
+    if (abortRequested) {
+      aborted = true;
+      break;
+    }
+    if (!scene?.retake || scene.skip) continue;
+    await waitIfPaused();
+    console.log(`↺ retaking scene '${scene.id}'`);
+    const rec = await executeScene(scene, sb.scenes.indexOf(scene), 2);
+    const idx = out.scenes.findIndex((r) => r.id === scene.id);
+    if (idx >= 0) out.scenes[idx] = rec;
+    else out.scenes.push(rec);
+    scene.retake = false;
+    storyboardDirty = true;
+  }
+  if (abortRequested) aborted = true;
+
+  if (storyboardDirty) await persistStoryboard();
 
   if (!dryRun) {
     try {
@@ -318,6 +529,11 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
   }
   await context.close();
   rl?.close();
+  if (bus) {
+    bus.broadcast({ type: "run_finished", scenes: out.scenes, video: out.meta.video });
+    bus.broadcast({ type: "run_status", status: aborted ? "aborted" : "finished" });
+    await bus.stop();
+  }
   await fs.promises.writeFile(
     path.join(runDir, "scenes.json"),
     `${JSON.stringify(out, null, 2)}\n`,
@@ -335,6 +551,11 @@ async function main(): Promise<number> {
     return 2;
   }
   const has = (f: string) => args.includes(`--${f}`);
+  const intOpt = (name: string): number | undefined => {
+    const i = args.indexOf(`--${name}`);
+    const v = i >= 0 ? Number(args[i + 1]) : undefined;
+    return Number.isFinite(v) ? v : undefined;
+  };
   const modeArg = args[args.indexOf("--mode") + 1] as RunMode | undefined;
   const mode: RunMode =
     modeArg === "step" || modeArg === "dry-run" || modeArg === "watch" ? modeArg : "watch";
@@ -345,6 +566,8 @@ async function main(): Promise<number> {
     headless: has("headless"),
     autoStart: has("auto-start"),
     rawInput: has("raw-input"),
+    bus: has("bus"),
+    busPort: intOpt("bus-port"),
   });
 
   console.log(`\n=== ${out.meta.mode} summary ===`);

@@ -145,13 +145,34 @@ class StepRunner {
   private readonly opts: RecordOptions;
   /** Improvised inputs by `scene:step`, reused verbatim on replay. */
   readonly improvised = new Map<string, string>();
+  /** Pending page-text snapshots at marks (awaited at take end). */
+  readonly snapshots: Promise<void>[] = [];
+  /** Where mark snapshots go (`<take>/dom/<mark>.yaml`). */
+  domDir?: string;
 
   constructor(opts: RecordOptions) {
     this.opts = opts;
   }
 
   private emit(c: RunCtx, type: string, fields: Omit<TakeEvent, "t" | "type"> = {}): void {
-    if (!c.fast) c.log.log(type, fields);
+    if (c.fast) return;
+    c.log.log(type, fields);
+    // Exact on-screen values for the voice-over (D4: DOM as the precision layer).
+    // Fire-and-forget so the cursor never waits on it.
+    if (fields.mark && this.domDir) {
+      const file = path.join(this.domDir, `${fields.mark}.yaml`);
+      const dir = this.domDir;
+      this.snapshots.push(
+        c.page
+          .locator("body")
+          .ariaSnapshot({ timeout: 3000 })
+          .then((snap) => {
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(file, snap);
+          })
+          .catch(() => {}),
+      );
+    }
   }
 
   private async dwell(c: RunCtx, ms: number): Promise<void> {
@@ -440,6 +461,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   let currentScene: string | undefined;
   const segments: Segment[] = [];
   const runner = new StepRunner(opts);
+  runner.domDir = path.join(takeDir, "dom");
   let cursor!: Cursor;
   const startPos: Point = {
     x: Math.round(opts.viewport.width * 0.62),
@@ -627,6 +649,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     await sleep(TAIL_MS);
     log.log("take-end");
     await endSegment();
+    await Promise.all(runner.snapshots);
   } catch (err) {
     failure = err as Error;
     await endSegment().catch(() => {});

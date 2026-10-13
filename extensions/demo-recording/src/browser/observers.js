@@ -80,11 +80,37 @@
     const cs = getComputedStyle(el);
     return cs.visibility !== "hidden" && cs.display !== "none" && Number(cs.opacity) > 0.05;
   };
+  // A busy region whose text GROWS is content arriving (a streamed chat answer),
+  // not dead time (a spinner). Track text length of busy elements and their
+  // containers while busy; report the growth at idle-end.
+  let textAtStart = 0;
+  let textMax = 0;
+  const busyText = (els) =>
+    els.reduce(
+      (n, el) =>
+        n +
+        ((el.closest("li, article, section, [role=log], [aria-live]") || el).innerText || "")
+          .length,
+      0,
+    );
   const checkBusy = () => {
-    const now = [...document.querySelectorAll(BUSY_SEL)].some(visible);
+    const els = [...document.querySelectorAll(BUSY_SEL)].filter(visible);
+    const now = els.length > 0;
+    if (now) {
+      const len = busyText(els);
+      if (!busy) textAtStart = len;
+      textMax = Math.max(textMax, len);
+    }
     if (now !== busy) {
       busy = now;
-      report(now ? "idle-start" : "idle-end", { reason: "busy-indicator" });
+      if (now) report("idle-start", { reason: "busy-indicator" });
+      else {
+        report("idle-end", {
+          reason: "busy-indicator",
+          textGrowth: Math.max(0, textMax - textAtStart),
+        });
+        textMax = 0;
+      }
     }
   };
 

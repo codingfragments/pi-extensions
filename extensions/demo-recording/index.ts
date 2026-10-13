@@ -7,6 +7,7 @@ import { registerBrowserTool } from "./src/tools/browser.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
 import { registerRecordTool } from "./src/tools/record.ts";
 import { registerStoryboardTool } from "./src/tools/storyboard.ts";
+import { registerTakeTool } from "./src/tools/take.ts";
 
 /**
  * demo-recording — automated PoC / demo video recorder for web apps.
@@ -51,4 +52,5 @@ export default function (pi: ExtensionAPI) {
   registerBrowserTool(pi, rt);
   registerStoryboardTool(pi, rt);
   registerRecordTool(pi, rt);
+  registerTakeTool(pi, rt);
 }

@@ -54,6 +54,8 @@ export interface ProjectState {
   updatedAt: string;
   /** Latest approved version per gated artifact. */
   approved: Partial<Record<GatedArtifact, number>>;
+  /** The take the voice-over is written for (S4). */
+  acceptedTake?: string;
   /** Storyboard reviews keyed by version number (as string). */
   reviews?: Record<string, StoryboardReview>;
   history: HistoryEntry[];
@@ -215,4 +217,17 @@ export function submitReview(
     { version },
   );
   return { state, review: submitted };
+}
+
+export function acceptTake(projectDir: string, take: string): ProjectState {
+  if (!/^take-\d{3,}$/.test(take)) throw new Error(`invalid take id "${take}"`);
+  return updateState(
+    projectDir,
+    "take-accepted",
+    (s) => {
+      s.acceptedTake = take;
+      if (s.phase === "recording") s.phase = "vo-review";
+    },
+    { take },
+  );
 }

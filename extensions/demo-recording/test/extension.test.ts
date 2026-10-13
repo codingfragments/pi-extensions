@@ -160,6 +160,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
     "demo_rec_project",
     "demo_rec_record",
     "demo_rec_storyboard",
+    "demo_rec_take",
   ]);
   const sbTool = tools.get("demo_rec_storyboard");
   assert.ok(sbTool);

@@ -595,6 +595,21 @@ real GPU rendering, behind a flag, reusing everything else.
 - **Observability.** Every engine job writes `jobs/<id>.log`. The bus mirrors key events. `report.md` summarizes takes, retries, QA and spend.
 - **Determinism.** The fixture is seeded. The engine never uses `Math.random` without a seeded RNG stored in the take (`take.json`), so a take's motion/typing can be replayed exactly.
 - **Security.** The panel binds only to 127.0.0.1 and requires a per-session token (protects against CSRF from other local sites). API keys come from env/keychain only. The README calls out the destructive/egress capabilities: browser actions on real apps, external TTS/LLM calls with screen content.
+- **Confidence-guided review** (user request, lands in S5 alongside QA): every storyboard scene and voice-over section carries a **confidence score with reasons**, and the panel steers attention to the weakest items first.
+  - **Two sources, kept separate and labelled:**
+    1. **Measured signals** (deterministic, trusted).
+       - *Storyboard:* targets never seen or verified during discovery; selectors that are css-only; scenes without `deep_link` that are unsafe to resume; dwell or footage versus takeaway length; steps relying on `improvise` without `fallback`.
+       - *Take:* error toasts, resumes or stitches, improvise fallbacks used, missed waits, long dead time.
+       - *Voice-over:* speech/footage ratio, anchors off-sync after the edit (drift, narrator pauses), literal values not found in the page text (QA value check), filler words, unresolved or ambiguous bindings, Whisper/alignment uncertainty (low word coverage, interpolated anchors).
+    2. **Model self-assessment** (advisory). When writing, the director rates each scene or section 1–5 on claim strength, evidence on screen and narrative fit, with a one-line "why". It's stored with the version and never used to auto-approve.
+  - **Panel:**
+    - per-card badge (high / medium / low) with an expandable reason list;
+    - sort/filter "lowest confidence first";
+    - a summary line, e.g. "3 items need your eyes";
+    - jump links to the exact step, anchor or keyframe;
+    - optional "approve all high-confidence" that still requires a click.
+  - **Agent:** the review message and `demo_rec_*` get results list the low-confidence items first, so revisions target them.
+  - **Tests:** each signal is unit-tested on fixtures with injected defects (unseen target, wrong value, off-sync anchor, fallback used); the panel ordering is tested. Self-assessment never changes a gate.
 - **Config skill** (user request, lands in S5): a `demo-config` skill plus a `demo_rec_config` tool and `/demo config` command to view, explain, change and validate settings conversationally.
   - **Show:** the effective value per setting and where it comes from (default / `~/.config/demo-recording/config.json` / env / the project brief).
   - **Change:** writes to the config file and preserves the `_comment` block and formatting. Every write is validated with the same resolver, and invalid values are rejected with the exact field. Optionally scoped to the active project via the brief or `projects/<p>/config.json`.

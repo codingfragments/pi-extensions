@@ -4,25 +4,30 @@ Two-pass POC demo video pipeline: an agent explores a target web app,
 records a deterministic human-like walkthrough, narrates it with a cloned
 voice, and assembles a polished `final.mp4`.
 
-**Status: scaffold — contracts only.** The storyboard/vo schemas and the
-validator are implemented; the recording runner (`scripts/record.ts`), the
-control bus + panel, VO generator (`scripts/vo.py`), TTS
-(`scripts/tts.py`), and assembler (`scripts/assemble.py`) are being built.
+**Status: pass 1 implemented** — exploration tools (persistent-profile
+Chromium, per-scene reference screenshots), run-dir scaffolding, and the
+storyboard/vo contracts + validator are live. The recording runner
+(`scripts/record.ts`), the control bus + panel, VO generator (`scripts/vo.py`),
+TTS (`scripts/tts.py`), and assembler (`scripts/assemble.py`) are pending.
 Workflow instructions live in [`skills/poc-video/SKILL.md`](../../skills/poc-video/SKILL.md).
 
 ## Layout
 
 ```
 extensions/poc-video/
-├── index.ts                        # pi extension entry (loads, points at the skill)
+├── index.ts                        # pi extension entry — wires tools + command + cleanup
+├── browser.ts                      # single Chromium owner (persistent profile; MCP-replaceable boundary)
+├── exploration.ts                  # poc_video_* pass-1 exploration tools
 ├── references/storyboard-schema.md # the contract — scene format, vo.yaml, invariants
 ├── templates/                      # storyboard.template.yaml + vo.template.yaml
 ├── scripts/
 │   ├── validate-storyboard.mjs     # schema validation (usable now)
+│   ├── pass1-init.ts               # scaffold a run dir for a target
+│   ├── pass1-smoke.ts              # headless browser smoke test (just smoke-browser)
 │   ├── record.ts                   # runner (pending)
 │   ├── vo.py / tts.py / assemble.py  # narration pipeline (pending)
 │   └── panel/                      # localhost review/status/control surface (pending)
-└── test/validate.test.ts
+└── test/                           # validator + pass1-init tests + broken fixtures
 ```
 
 ## Setup
@@ -31,7 +36,19 @@ extensions/poc-video/
 cd extensions/poc-video && just install   # npm deps + Chromium binary (user cache)
 ```
 
-Or manually: `npm install` + `npx playwright install chromium`.
+Or manually: `npm install` + `node node_modules/playwright/cli.js install chromium`.
+
+## Pass-1 exploration tools
+
+Registered in any pi session with this repo loaded (auto via `.pi/settings.json`):
+
+`poc_video_open` · `poc_video_navigate` · `poc_video_click` · `poc_video_type` ·
+`poc_video_press` · `poc_video_screenshot` · `poc_video_state` · `poc_video_close`
+
+Every exploration action is a first-class tool call — reasoning streams
+in-session, the session log doubles as the exploration record. The browser
+lives in `browser.ts`, the only code that would change if exploration ever
+moves to Playwright MCP (driver-agnostic elsewhere).
 
 ## Manual tests
 

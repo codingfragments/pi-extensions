@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Pulse</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand"><span class="logo">◆</span> Acme Pulse</div>
+      <nav aria-label="Main">
+        <a href="/" data-link>Dashboard</a>
+        <a href="/search" data-link>Search</a>
+        <a href="/chat" data-link>Assistant</a>
+        <a href="/settings" data-link>Settings</a>
+      </nav>
+      <div class="tenant">Demo tenant · read-only</div>
+    </aside>
+    <main id="view" tabindex="-1"></main>
+    <div id="toasts" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

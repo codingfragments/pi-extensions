@@ -1,0 +1,31 @@
+{
+  "name": "demo-recording",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Automated PoC/demo video recorder for web apps: discovery, storyboard, human-like recording, anchored voice-over, TTS and audio-led editing with a local review panel",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": ["pi-package", "demo", "screen-recording", "playwright", "tts", "video"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codingfragments/pi-extensions.git",
+    "directory": "extensions/demo-recording"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "dependencies": {
+    "@playwright-labs/ghost-cursor": "^1.0.0",
+    "playwright": "^1.57.0",
+    "ws": "^8.18.2",
+    "yaml": "^2.8.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

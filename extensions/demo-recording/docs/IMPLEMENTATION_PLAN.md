@@ -397,6 +397,11 @@ logging, scene splitting, and resume-from-boundary.
 - Session expiry detection (app login probe) → abort, prompt `/demo login`, resume.
 - `demo_rec_record` as a background job with progress → panel LIVE (frame preview at ~2 fps).
 - **Recording progress bar** (user request): overall bar plus per-scene segments in the panel LIVE view and a footer status in pi (`ctx.ui.setStatus`). Shows current scene/step ("scene 2/4 · step 3/6 · typing 'churn by region'"), elapsed time and ETA. Progress is computed from completed steps, weighted by expected step durations (dwell + Fitts move time + typing length), with waits counted as open-ended until satisfied. Retries and resume show as restarted segments.
+- **Discovery progress estimate** (user request, applies to S2's discovery): discovery is agent-driven, so there is no fixed step list. The estimate combines two signals:
+  - *Exploration plan:* after the first look, the director declares the areas it intends to explore (e.g. `demo_rec_browser` action `plan` with `areas: ["dashboard", "search", "assistant", "settings"]`), then marks each area done as it moves on. This gives "area 2/4 · search".
+  - *Budget burn:* screens, actions and minutes used against `budgets.discovery*`. The largest fraction is the hard upper bound.
+  - *ETA:* remaining areas × the average time per finished area, capped by the remaining minutes budget. Shown as "~6 min left (budget max 14 min)".
+  - Shown in the panel LIVE view (bar with area segments, then a final "writing storyboard" segment) and in pi's footer status. If the director never declares a plan, only the budget bar is shown, labelled as an upper bound.
 
 **How to test**
 - Unit: typing delay distribution (mean and variance within bounds), path generation (no teleports, monotonic time), resume planner (which prefix is kept).

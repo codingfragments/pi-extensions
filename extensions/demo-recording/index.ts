@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
 import { Runtime } from "./src/runtime.ts";
 import { registerBrowserTool } from "./src/tools/browser.ts";
+import { registerConfigTool } from "./src/tools/config.ts";
 import { registerEditTool } from "./src/tools/edit.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
 import { registerRecordTool } from "./src/tools/record.ts";
@@ -59,4 +60,5 @@ export default function (pi: ExtensionAPI) {
   registerVoTool(pi, rt);
   registerTtsTool(pi, rt);
   registerEditTool(pi, rt);
+  registerConfigTool(pi, rt);
 }

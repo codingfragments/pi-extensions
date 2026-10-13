@@ -26,6 +26,7 @@ import { parseStoryboard } from "./src/storyboard/parse.ts";
 import { editSummary } from "./src/tools/edit.ts";
 import { takeSummary } from "./src/tools/record.ts";
 import { voiceSummary } from "./src/tools/tts.ts";
+import { listElevenLabsVoices, sortVoices } from "./src/tts/engines.ts";
 import { ensureProject, listProjects, openProject } from "./src/workdir/layout.ts";
 
 const HELP = `demo-recording engine CLI
@@ -41,6 +42,7 @@ Commands:
                                            S1 walking skeleton: record a take, narrate with
                                            macOS say, naive-mux to out/<take>-naive.mp4
   spike capture [--storyboard F]           S1 capture spike: compare capture configs
+  voices                                   list your ElevenLabs voices (needs ELEVENLABS_API_KEY)
   fixture-demo [--voice NAME] [--project P]  S4: full narrated demo of the fixture with your configured
                                            voice chain (ELEVENLABS_API_KEY + voice name → your voice)
   record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
@@ -201,6 +203,24 @@ async function main(argv: string[]): Promise<number> {
     } finally {
       await fixture?.close();
     }
+    return 0;
+  }
+
+  if (command === "voices") {
+    const all = sortVoices(
+      await listElevenLabsVoices({
+        ...(process.env.ELEVENLABS_API_KEY?.trim()
+          ? { apiKey: process.env.ELEVENLABS_API_KEY.trim() }
+          : {}),
+      }),
+    );
+    for (const v of all)
+      console.log(
+        `${v.name === cfg.voiceName ? "▶" : " "} ${v.name}  (${v.category ?? "?"}, id ${v.voice_id})`,
+      );
+    console.log(
+      `\n${all.length} voices · configured voiceName: ${cfg.voiceName ? `"${cfg.voiceName}"` : "(none)"}`,
+    );
     return 0;
   }
 

@@ -232,12 +232,12 @@ export function lineDiff(before: string, after: string): string {
       i++;
       j++;
     } else if (
-      j < b.length &&
-      (i >= a.length ||
-        ((dp[i] as number[])[j + 1] as number) >= ((dp[i + 1] as number[])[j] as number))
+      i < a.length &&
+      (j >= b.length ||
+        ((dp[i + 1] as number[])[j] as number) >= ((dp[i] as number[])[j + 1] as number))
     )
-      out.push(`+ ${b[j++]}`);
-    else out.push(`- ${a[i++]}`);
+      out.push(`- ${a[i++]}`); // deletions before additions
+    else out.push(`+ ${b[j++]}`);
   }
   return out.join("\n") || "(no change)";
 }

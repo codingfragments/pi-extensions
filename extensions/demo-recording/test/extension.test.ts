@@ -157,6 +157,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
   const { tools, events, ctx } = await load();
   assert.deepEqual([...tools.keys()].sort(), [
     "demo_rec_browser",
+    "demo_rec_config",
     "demo_rec_edit",
     "demo_rec_project",
     "demo_rec_record",
@@ -302,3 +303,76 @@ test(
     }
   },
 );
+
+test("S5 config tool: two-phase write (diff first), project scope; /demo voiceover|render kick off the skill", async () => {
+  const { tools, commands, sent, events, ctx } = await load({ hasUI: true });
+  const cfgTool = tools.get("demo_rec_config");
+  assert.ok(cfgTool);
+  const shown = textOf(await cfgTool.execute("1", { action: "show", key: "improvise" }));
+  assert.match(
+    shown,
+    /improvise\.models = \["anthropic\/claude-haiku-4-5","openai\/gpt-5\.4-mini"\] {3}\[default\]/,
+  );
+
+  const planned = await cfgTool.execute("2", {
+    action: "set",
+    key: "improvise.hesitateMs",
+    value: "4500",
+  });
+  assert.match(textOf(planned), /NOT written yet[\s\S]*improvise\.hesitateMs: \(not set\) → 4500/);
+  assert.ok(!fs.existsSync(path.join(root, "no-config.json")), "planning writes nothing");
+  await cfgTool.execute("3", {
+    action: "set",
+    key: "improvise.hesitateMs",
+    value: "4500",
+    confirm: true,
+  });
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "no-config.json"), "utf8")).improvise.hesitateMs,
+    4500,
+  );
+  await assert.rejects(
+    cfgTool.execute("4", { action: "set", key: "fps", value: "0", confirm: true }),
+    /"fps" must be a positive integer/,
+  );
+  await assert.rejects(
+    cfgTool.execute("5", { action: "set", key: "voiceName", value: "x", scope: "project" }),
+    /no active project/,
+  );
+
+  const demo = commands.get("demo");
+  assert.ok(demo);
+  await demo.handler("new cfgproj http://127.0.0.1:9/ Acme Pulse", ctx);
+  await cfgTool.execute("6", {
+    action: "set",
+    key: "voiceName",
+    value: "Project Voice",
+    scope: "project",
+    confirm: true,
+  });
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "projects", "cfgproj", "config.json"), "utf8"))
+      .voiceName,
+    "Project Voice",
+  );
+  assert.match(
+    textOf(await cfgTool.execute("7", { action: "show", key: "voiceName" })),
+    /voiceName = "Project Voice" {3}\[project\]/,
+  );
+  await assert.rejects(
+    cfgTool.execute("8", { action: "set", key: "root", value: "/tmp/x", scope: "project" }),
+    /only be set globally/,
+  );
+
+  await demo.handler("voiceover keep it punchy", ctx);
+  assert.match(
+    sent.at(-1)?.text ?? "",
+    /^\/skill:demo-voiceover Analyze the latest complete take of "cfgproj".*Notes from me: keep it punchy/,
+  );
+  await demo.handler("render", ctx);
+  assert.match(
+    sent.at(-1)?.text ?? "",
+    /^\/skill:demo-voiceover .*demo_rec_tts check.*demo_rec_edit start/,
+  );
+  await events.get("session_shutdown")?.({}, ctx);
+});

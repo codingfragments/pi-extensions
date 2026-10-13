@@ -554,7 +554,7 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 - **Callouts:** a fixed bottom-left branded pill over the footage. It fades in 150 ms before the step event and stays ~2.5 s or until the next callout. The director writes them (`callout:` ≤ 60 chars) and they're **editable inline in the Review tab**, with overlay-only changes (re-render, no re-take, no re-approval). Plus a `full.callouts.srt` sidecar.
 - **Highlight** (user addition, D26): an opt-in `highlight: true` per step (also allowed without a callout). It draws a subtle rounded outline (brand accent, 2 px, ~70 % opacity, faint soft glow, padding ~6 px) around the step's logged target box. It fades in and out with the callout (or ~2 s), follows zoom and scroll offset (box from the event log, mapped through the zoom transform), and is skipped for boxes larger than ~60 % of the frame. No fills, arrows or animation beyond the fade. The storyboard parser accepts the flag, the Review tab shows it, and the skill says to use it sparingly, when a callout refers to a specific region.
 - **Subtitles:** transcript VTT sidecars **always** (full and per scene, from the word timings). An optional **burned-in** variant; when enabled, **every video exists in two versions** (clean + subtitled).
-- **Variant cache:** renders are keyed by timeline + overlay options. The **Export tab toggles** callouts, subtitles and the logo bug, and only missing variants are re-rendered.
+- **Variant cache:** renders are keyed by timeline + **brand** + overlay options. The **Export tab toggles** callouts, subtitles and the logo bug, and only missing variants are re-rendered.
 
 *4. Deterministic QA (D13, D21) and mechanical auto-fix (D22)*
 - `qa/media.ts`: ffmpeg `freezedetect`, `silencedetect`, `blackdetect`.
@@ -571,6 +571,7 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 - Review messages and tool results list low-confidence items first.
 
 *6. Export tab (D27)*
+- **Brand switch** (user addition): a brand dropdown next to the toggles. Changing the brand re-renders the selected outputs from the existing `edit/timeline.vN.json` + `raw.mp4` + voice audio. It's a background engine job started directly from the panel (`POST /api/export-render {brand, callouts, subtitles, logoBug}`), with **no agent turn, no LLM call and no TTS**, progress in the panel, and the agent informed only on failure. Variants land in `out/edit-vN/<variant>/` and are reused when cached. A brand change never invalidates approvals: brands are presentation only.
 - Players (with the transcript track), downloads, toggles (callouts, subtitles, logo bug) → variant renders, the QA report with jump-to-time, "confirm & export anyway" for blocking items, and open folder. No publishing in v1.
 
 **How to test**
@@ -586,7 +587,7 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
   - confidence signals on injected defects (unseen target, wrong value, off-sync, fallback used);
   - the agent's view never raises a level;
   - the config diff/write (keeps `_comment`, precedence, rejects invalid values, never writes keys);
-  - the variant cache key.
+  - the variant cache key (brand, callouts, subtitles, logo bug); a brand switch re-renders without touching the VO, voice manifest or approvals and without any model call (asserted with a stub registry that fails on use).
 - **E2E on the fixture:**
   - `?flaky=1` → a blocking alert flag at the right time;
   - a VO with a wrong value → blocking value flag;

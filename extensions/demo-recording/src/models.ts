@@ -21,11 +21,7 @@ export interface ModelInfo {
 export function visionWarning(model: ModelInfo | undefined): string | undefined {
   if (!model) return undefined;
   if (model.input?.includes("image")) return undefined;
-  return (
-    `⚠ The current model (${model.provider}/${model.id}) has no image input: pi drops every screenshot and keyframe, so this runs on ` +
-    "page text only (blind to charts, layout, visual polish). Switch to a vision model for discovery and voice-over " +
-    "(e.g. a Claude Sonnet/Opus or GPT-5.6 model) — check `pi --list-models` (images column)."
-  );
+  return `⚠ The current model (${model.provider}/${model.id}) has no image input: pi drops every screenshot and keyframe, so this runs on page text only (blind to charts, layout, visual polish). Switch to a vision model for discovery and voice-over (e.g. a Claude Sonnet/Opus or GPT-5.6 model) — check \`pi --list-models\` (images column).`;
 }
 
 /** Warning when the context window is small for vision-heavy discovery. */

@@ -10,6 +10,7 @@
 import { EventBus } from "./bus.ts";
 import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
+import { Jobs } from "./jobs.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { type ProjectHandle, appDir, openProject } from "./workdir/layout.ts";
@@ -17,7 +18,19 @@ import { type ProjectHandle, appDir, openProject } from "./workdir/layout.ts";
 /** The subset of ExtensionAPI the runtime needs (keeps tests and the CLI simple). */
 export interface AgentBridge {
   sendUserMessage: (text: string, options?: { deliverAs?: "steer" | "followUp" }) => void;
+  /** Custom message into the session (job completions). */
+  sendMessage?: (
+    message: { customType: string; content: string; display: boolean; details?: unknown },
+    options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
+  ) => void;
 }
+
+/** Footer status sink (ctx.ui), captured from the latest tool/command context. */
+export interface StatusSink {
+  setStatus: (key: string, text: string | undefined) => void;
+}
+
+export const STATUS_KEY = "demo-rec";
 
 export class Runtime {
   readonly bus = new EventBus();
@@ -28,10 +41,20 @@ export class Runtime {
   private readonly resolve: () => DemoRecConfig;
   private readonly agent: AgentBridge | undefined;
   discovery: DiscoverySession | undefined;
+  readonly jobs = new Jobs();
+  private ui: StatusSink | undefined;
+  private lastStatus = 0;
 
   constructor(resolve: () => DemoRecConfig = () => resolveConfig(), agent?: AgentBridge) {
     this.resolve = resolve;
     this.agent = agent;
+    // Mirror progress into pi's footer status line.
+    this.bus.subscribe((e) => {
+      const message = typeof e.data?.message === "string" ? e.data.message : undefined;
+      if (e.type === "discovery.progress" || e.type === "take.progress") this.setStatus(message);
+      if (e.type === "discovery.closed" || e.type === "take.finished")
+        this.setStatus(undefined, true);
+    });
   }
 
   /** Resolved config; `reload` re-reads file/env (e.g. after the user edits config). */
@@ -65,6 +88,38 @@ export class Runtime {
     return p;
   }
 
+  /** Remember the latest UI context (for footer status from background jobs). */
+  bindUi(ui: StatusSink | undefined): void {
+    if (ui) this.ui = ui;
+  }
+
+  /** Footer status; throttled to ~2/s unless `force`. Undefined clears it. */
+  setStatus(text: string | undefined, force = false): void {
+    const now = Date.now();
+    if (!force && text !== undefined && now - this.lastStatus < 500) return;
+    this.lastStatus = now;
+    try {
+      this.ui?.setStatus(STATUS_KEY, text);
+    } catch {
+      // stale context after a session switch — ignore
+    }
+  }
+
+  /** Report a finished background job into the session (triggers a turn when idle). */
+  reportToAgent(content: string, details?: unknown): void {
+    this.bus.publish("agent.notified", { message: content.split("\n")[0] ?? "" }, this.activeSlug);
+    try {
+      if (this.agent?.sendMessage) {
+        this.agent.sendMessage(
+          { customType: "demo-recording", content, display: true, ...(details ? { details } : {}) },
+          { triggerTurn: true, deliverAs: "followUp" },
+        );
+      } else this.agent?.sendUserMessage(content, { deliverAs: "followUp" });
+    } catch (err) {
+      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+    }
+  }
+
   /** Deliver a panel action to the director as a user message. */
   notifyAgent(text: string): void {
     this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
@@ -92,8 +147,18 @@ export class Runtime {
       project: p ? { slug: p.slug, dir: p.dir, app: p.app, state: p.state } : null,
       discovery:
         this.discovery && !this.discovery.isClosed
-          ? { session: this.discovery.id, budget: this.discovery.budget() }
+          ? {
+              session: this.discovery.id,
+              budget: this.discovery.budget(),
+              progress: this.discovery.progress(),
+            }
           : null,
+      job: (() => {
+        const j = this.jobs.latest("record");
+        return j
+          ? { id: j.id, status: j.status, progress: j.progress ?? null, error: j.error ?? null }
+          : null;
+      })(),
     };
   }
 
@@ -142,6 +207,8 @@ export class Runtime {
   }
 
   async shutdown(): Promise<void> {
+    await this.jobs.cancelAll().catch(() => {});
+    this.setStatus(undefined, true);
     await this.closeDiscovery().catch(() => {});
     const panel = this.panel ?? (await this.panelStarting?.catch(() => undefined));
     this.panel = undefined;

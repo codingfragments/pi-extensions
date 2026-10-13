@@ -51,6 +51,8 @@ export interface ScreencastOptions {
   quality?: number;
   maxWidth?: number;
   maxHeight?: number;
+  /** File name prefix (one per take segment so resumed segments never collide). */
+  prefix?: string;
 }
 
 interface ScreencastFrameEvent {
@@ -80,6 +82,11 @@ export class Screencast {
   private writes: Promise<void>[] = [];
   private skew: number[] = [];
   private size: { width: number; height: number } | undefined;
+
+  /** JPEG frame size of the first frame (device pixels). */
+  get frameSize(): { width: number; height: number } | undefined {
+    return this.size;
+  }
   private t0 = 0;
   private running = false;
   private readonly onFrame = (event: ScreencastFrameEvent) => this.handle(event);
@@ -98,7 +105,7 @@ export class Screencast {
     const ts = event.metadata.timestamp ? event.metadata.timestamp * 1000 : received;
     if (event.metadata.timestamp) this.skew.push(received - ts);
     const index = this.frames.length + 1;
-    const file = `${String(index).padStart(6, "0")}.jpg`;
+    const file = `${this.opts.prefix ?? ""}${String(index).padStart(6, "0")}.jpg`;
     const buf = Buffer.from(event.data, "base64");
     if (!this.size) this.size = jpegSize(buf);
     this.frames.push({ index, file, ts, bytes: buf.length });
@@ -130,10 +137,7 @@ export class Screencast {
     // Frames can arrive marginally out of order; keep them sorted by timestamp.
     const frames = this.frames.filter((f) => f.ts <= endTs + 50).sort((a, b) => a.ts - b.ts);
     if (frames.length === 0) throw new Error("screencast produced no frames");
-    fs.writeFileSync(
-      path.join(this.dir, "..", "frames.jsonl"),
-      `${frames.map((f) => JSON.stringify(f)).join("\n")}\n`,
-    );
+    // frames.jsonl is written by the runner (it merges resumed segments).
     return {
       t0: this.t0,
       endTs,

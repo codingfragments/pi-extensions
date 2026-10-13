@@ -36,19 +36,24 @@ side panel and talks back through `[demo-panel]` messages.
    audience, stance and goal before you click anything.
 2. `demo_rec_browser open`. The screenshot is the source of truth. The aria
    digest gives exact values and the `{role, name}` targets to use.
-3. **Map first, then go deep.** Visit the main navigation areas once (look at
+3. **Declare your plan.** Right after the first look, call
+   `demo_rec_browser plan` with `areas` (the 3–7 parts of the app you intend
+   to explore, in order). Mark each one done (`plan` with `done: <area>`) as
+   you move on. This drives the progress estimate the user sees, so keep it
+   honest: re-declare it if you change course.
+4. **Map first, then go deep.** Visit the main navigation areas once (look at
    each). Then spend most of the budget on the 2–4 areas that serve the brief's
    goal.
-4. **Make the app do something.** Static dashboards make weak demos. Run real
+5. **Make the app do something.** Static dashboards make weak demos. Run real
    searches, open details, ask the assistant a question, and read what comes
    back. Note concrete values (numbers, names, outliers): they become the
    voice-over's hooks.
-5. **Hunt for the "aha".** For each candidate scene ask: what changes on
+6. **Hunt for the "aha".** For each candidate scene ask: what changes on
    screen, and why would *this audience* care? Prefer contrasts (before/after,
    outlier vs. average, question → precise answer).
-6. Watch the budget shown in every look result. When it's tight, stop
+7. Watch the budget shown in every look result. When it's tight, stop
    exploring and write the storyboard.
-7. **Every target in the storyboard must have worked during discovery.** If
+8. **Every target in the storyboard must have worked during discovery.** If
    you clicked it with `act`, it's verified. The storyboard write warns about
    targets you never saw.
 
@@ -73,10 +78,13 @@ side panel and talks back through `[demo-panel]` messages.
   *is* the point. **Callouts** (`callout: "…"`, ≤ 60 chars) mark important
   steps. They are not narration.
 - **Nondeterministic inputs** (chat questions, searches against live data):
-  use an `improvise` step (`prompt` describes what to invent from the live
-  screen). Recording support for `improvise` arrives in a later slice; until
-  then the recorder rejects it, so use fixed `type` steps for anything you
-  need to record now.
+  use an `improvise` step. Its `prompt` describes what to invent from the live
+  screen (e.g. "a sharp follow-up question naming the top account"). A fast
+  model writes the input while the cursor travels to the field. Always give a
+  `fallback:` text, which is typed if the model is slow or unavailable.
+  Without one, the scene fails and is retried. Add `vision: true` only when the
+  needed values are in a chart or canvas the aria digest can't see. Put a
+  `mark` on the improvise step so the voice-over can sync to it.
 - **Thumbnails:** set each scene's `screen` to the most representative screen
   id from your looks (e.g. `20260612-101233/s007`).
 
@@ -114,7 +122,7 @@ scenes:
 **Step kinds:** `goto {url}`, `move|hover|click {target}`,
 `type {target?, text, clear?}`, `press {key}`,
 `wait {for: target | {ms}, timeout}`, `scroll {target | dy}`, `pause {ms}`,
-`improvise {kind: type, target, prompt, max_chars, submit}`.
+`improvise {kind: type, target, prompt, max_chars, submit, fallback?, vision?}`.
 **Shared flags:** `mark`, `dwell`, `zoom`, `callout`.
 **Targets:** prefer `{role, name}` exactly as the aria digest shows them. Fall
 back to `{text}`, `{label}`, and `{css}` last.
@@ -139,8 +147,19 @@ back to `{text}`, `{label}`, and `{css}` last.
 
 ## Recording
 
-`demo_rec_record` records one continuous take of the **approved** version
-(headless, virtual cursor, 3200×1800 screencast). It reports duration, scene
-spans and mark timestamps. Report them briefly. If a step fails, the error
-names the scene, step and target. Fix the storyboard, which the user must
-re-approve, or ask the user.
+`demo_rec_record` starts a **background** take of the **approved** version:
+headless, human-like cursor and typing, 3200×1800 screencast. It returns
+immediately. Tell the user it's running (they can watch the progress bar in
+the panel) and **don't poll**. A `[demo-recording]` message arrives when it
+finishes. It reports duration, scene spans, mark timestamps, the improvised
+inputs, any error toasts, and any resumes. Summarize it briefly, flag
+anything that looks wrong (an error toast during a scene, a resume), and
+suggest the next step.
+
+A failing scene is retried automatically (up to `recording.maxRetriesPerScene`).
+The take is cut at that scene's start and the app is restored off-camera via
+the scene's `deep_link` (fast) or by replaying the previous scenes. Good
+footage before it is kept. If a scene still fails, the message names the
+scene, step and target. Fix the storyboard (the user must re-approve), or ask
+the user. `demo_rec_record` with `action: status` or `cancel` manages a
+running take.

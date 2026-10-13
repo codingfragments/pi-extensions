@@ -1,0 +1,34 @@
+# S3 storyboard for the Acme Pulse fixture: human motion, typing, scroll,
+# a slow search (dead time), and an improvised chat question.
+version: 1
+app: acme-pulse
+start_url: /
+summary: Headline churn hides a regional problem; search and the assistant explain it.
+scenes:
+  - id: 01-dashboard
+    title: Where churn hides
+    steps:
+      - { do: hover, target: { css: '[data-kpi="churn"]' }, mark: churn-kpi, dwell: 1.2s }
+      - { do: hover, target: { css: 'g[data-region="EMEA"] rect' }, mark: emea-bar, dwell: 1.2s, zoom: true }
+  - id: 02-search
+    title: Ask in plain language
+    deep_link: /search
+    steps:
+      - { do: click, target: { role: link, name: Search } }
+      - { do: type, target: { role: searchbox, name: Search }, text: churn by region, mark: type-start }
+      - { do: press, key: Enter }
+      - { do: wait, for: { css: table.regions }, timeout: 15s, mark: results-visible, callout: Regional breakdown }
+      - { do: hover, target: { css: 'tr[data-region="EMEA"]' }, dwell: 1.2s }
+  - id: 03-assistant
+    title: Ask why
+    deep_link: /chat
+    steps:
+      - { do: click, target: { role: link, name: Assistant } }
+      - do: improvise
+        kind: type
+        target: { role: textbox, name: Ask a question }
+        prompt: a short question asking why EMEA churn is so high
+        max_chars: 70
+        fallback: Why is EMEA churn so high?
+        mark: question
+      - { do: wait, for: { text: Litware Bank }, timeout: 15s, mark: answer, dwell: 2s }

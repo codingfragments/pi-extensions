@@ -8,9 +8,13 @@ import {
   useState,
 } from "/vendor/preact-htm.module.js";
 
-const token = new URLSearchParams(location.search).get("token") ?? "";
-// Keep the token out of the visible URL / history once captured.
-if (token) history.replaceState(null, "", location.pathname);
+// The token arrives once via ?token=; keep it in sessionStorage (this tab only)
+// so reloads keep working, and strip it from the visible URL / history.
+const TOKEN_KEY = "demo-rec-token";
+const urlToken = new URLSearchParams(location.search).get("token");
+if (urlToken) sessionStorage.setItem(TOKEN_KEY, urlToken);
+const token = urlToken ?? sessionStorage.getItem(TOKEN_KEY) ?? "";
+if (urlToken) history.replaceState(null, "", location.pathname);
 
 const TABS = [
   { id: "live", label: "Live", ready: true },
@@ -21,6 +25,10 @@ const TABS = [
 
 async function api(path) {
   const res = await fetch(path, { headers: { authorization: `Bearer ${token}` } });
+  if (res.status === 401)
+    throw new Error(
+      "This panel link has expired (pi restarted). Open the current link from /demo panel.",
+    );
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
   return res.json();
 }
@@ -192,9 +200,102 @@ function summarize(data) {
     .slice(0, 300);
 }
 
+const mmss = (ms) =>
+  `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
+
+function SegmentBar({ segments }) {
+  // segments: [{ key, label, weight, done (0..1), state: "done"|"current"|"todo", restarted? }]
+  return html`<div class="segbar">
+    ${segments.map(
+      (
+        s,
+      ) => html`<div key=${s.key} class=${`seg ${s.state}${s.restarted ? " restarted" : ""}`} style=${`flex:${Math.max(0.02, s.weight)}`} title=${s.label}>
+        <div class="fill" style=${`width:${Math.round(s.done * 100)}%`}></div>
+        <span>${s.label}</span>
+      </div>`,
+    )}
+  </div>`;
+}
+
+function RecordingProgress({ events }) {
+  const last = events
+    .filter(
+      (e) => e.type === "take.progress" || e.type === "take.started" || e.type === "take.finished",
+    )
+    .at(-1);
+  if (!last || last.type === "take.started")
+    return last
+      ? html`<section class="card progress"><h3>Recording</h3><p class="muted">starting…</p></section>`
+      : null;
+  if (last.type === "take.finished") {
+    return html`<section class="card progress"><h3>Recording <span class=${`pill ${last.data.status === "done" ? "" : "muted-pill"}`}>${last.data.status}</span></h3><p class="small-text">${last.data.message}</p></section>`;
+  }
+  const p = last.data.progress;
+  const segments = p.scenes.map((s, i) => ({
+    key: s.id,
+    label: `${i + 1}. ${s.title}${s.attempt > 1 ? ` (retry ${s.attempt - 1})` : ""}`,
+    weight: s.weight,
+    done: s.done,
+    state: s.done >= 0.999 ? "done" : i + 1 === p.scene.index ? "current" : "todo",
+    restarted: s.attempt > 1,
+  }));
+  return html`<section class="card progress">
+    <h3>Recording <span class="pill">${Math.round(p.fraction * 100)}%</span> ${p.phase !== "recording" ? html`<span class="muted small-text">${p.phase}</span>` : null}</h3>
+    <${SegmentBar} segments=${segments} />
+    <p class="small-text">scene ${p.scene.index}/${p.scene.total} · step ${p.step.index}/${p.step.total} · ${p.step.label}
+      <span class="muted"> · ${mmss(p.elapsedMs)} elapsed · ~${mmss(p.etaMs)} left</span></p>
+  </section>`;
+}
+
+function DiscoveryProgress({ events }) {
+  const last = events
+    .filter((e) => e.type === "discovery.progress" || e.type === "discovery.opened")
+    .at(-1);
+  if (!last || last.type !== "discovery.progress") return null;
+  // Once a take has started, discovery is over — don't show a stale bar.
+  const takeStarted = events.filter((e) => e.type === "take.started").at(-1);
+  if (takeStarted && takeStarted.seq > last.seq) return null;
+  const p = last.data.progress;
+  const exploreShare = 0.88;
+  const segments =
+    p.mode === "plan"
+      ? [
+          ...p.areas.map((a) => ({
+            key: a.name,
+            label: a.name,
+            weight: exploreShare / p.areas.length,
+            done: a.status === "done" ? 1 : 0,
+            state: a.status,
+          })),
+          {
+            key: "_write",
+            label: "storyboard",
+            weight: 1 - exploreShare,
+            done: p.fraction >= 1 ? 1 : 0,
+            state: p.fraction >= 1 ? "done" : "todo",
+          },
+        ]
+      : [
+          {
+            key: "_budget",
+            label: "budget used (upper bound)",
+            weight: 1,
+            done: p.budgetFraction,
+            state: "current",
+          },
+        ];
+  return html`<section class="card progress">
+    <h3>Discovery <span class="pill">${Math.round(p.fraction * 100)}%</span></h3>
+    <${SegmentBar} segments=${segments} />
+    <p class="small-text">${last.data.message}</p>
+  </section>`;
+}
+
 function Live({ events, state, stateError }) {
   return html`
     <${StatusCard} state=${state} error=${stateError} />
+    <${RecordingProgress} events=${events} />
+    <${DiscoveryProgress} events=${events} />
     <${DiscoveryCard} events=${events} />
     <${EventLog} events=${events} />`;
 }
@@ -396,6 +497,21 @@ function Review({ events }) {
 
 // ---------------- APP ----------------
 
+const THEME_KEY = "demo-rec-theme";
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState(document.documentElement.dataset.theme || "macchiato");
+  const next = theme === "macchiato" ? "latte" : "macchiato";
+  const flip = () => {
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem(THEME_KEY, next);
+    setTheme(next);
+  };
+  return html`<button class="theme-toggle" title=${`Switch to ${next === "latte" ? "Latte (light)" : "Macchiato (dark)"}`} onClick=${flip}>
+    ${theme === "macchiato" ? "☾ Macchiato" : "☀ Latte"}
+  </button>`;
+}
+
 function App() {
   const [tab, setTab] = useState("live");
   const { events, status } = useBus();
@@ -418,6 +534,7 @@ function App() {
           >${t.label}</button>`,
         )}
       </nav>
+      <${ThemeToggle} />
       <span class=${`conn ${status}`}>${status}</span>
     </header>
     <main class=${tab}>

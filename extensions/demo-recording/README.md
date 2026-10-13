@@ -1,6 +1,6 @@
 # demo-recording
 
-> **Status: S2 done.** Brief, discovery, storyboard, panel review, and recording an approved storyboard all run from pi. Voice-over and editing come next. Progress is tracked in the [implementation plan](docs/IMPLEMENTATION_PLAN.md#6-vertical-slices).
+> **Status: S3 done.** Human-like recording runs from pi: curved cursor paths, realistic typing, live improvised inputs, automatic resume, background recording with progress bars, and Catppuccin themes. Voice-over and editing come next (S4). Progress is tracked in the [implementation plan](docs/IMPLEMENTATION_PLAN.md#6-vertical-slices).
 
 Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
@@ -18,7 +18,16 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 2. `/demo discover [notes]`: the **demo-recording** skill explores the app with `demo_rec_browser`. You can watch it live in the panel: current screen, budget, and a safety feed.
 3. The agent writes a storyboard (`demo_rec_storyboard`). The panel **Review** tab shows scene cards. Mark each scene *Approve / Request changes / Re-run*, add notes, then **Send review to agent**. You get one consolidated `[demo-panel]` message, and the agent writes the next version, with a diff shown.
 4. **Approve vN** in the panel. This is the only way to approve; the agent cannot.
-5. Ask the agent to record: `demo_rec_record` makes one continuous take of the approved version.
+5. Ask the agent to record: `demo_rec_record` starts a **background** take of the approved version. The panel shows a per-scene progress bar with ETA, and pi's footer shows the current step. The agent gets a `[demo-recording]` message with the result.
+
+### Recording (S3)
+
+- **Motion:** curved paths with a natural speed profile (slow start, fast middle, slow landing), occasional overshoot-and-correct, and a small hand drift while dwelling. Seeded per take, so it can be reproduced.
+- **Typing:** variable per-key rhythm with pauses between words. Typos are optional: `"recording": { "typoRate": 0.02 }`.
+- **`improvise` steps:** a fast model invents the input (search/chat) from the live screen while the cursor travels. Default chain: `anthropic/claude-haiku-4-5` → `openai/gpt-5.4-mini`, using pi's configured auth (`"improvise": { "models": [...] }` or `DEMO_REC_IMPROVISE_MODELS`). If the model is late, the cursor hesitates for up to `hesitateMs` (3 s), then the step's `fallback` text is typed.
+- **Page watchers:** route changes, toasts and alerts (with text), and loading spinners are logged. Spinner time is recorded as dead time for the editor to cut.
+- **Resume:** a failing scene is retried (`"recording": { "maxRetriesPerScene": 2 }`). The take is cut at that scene's start, the app is restored off-camera (via `deep_link`, or by replaying the earlier scenes fast; a crashed browser is reopened), and the good footage before it is kept. Failed attempts are kept in `attempts.jsonl`.
+- **Panel:** progress bars for discovery (the agent's declared areas plus budget) and recording, in Catppuccin **Macchiato** (default) or **Latte**. Toggle in the header.
 
 **Tools:** `demo_rec_project`, `demo_rec_browser`, `demo_rec_storyboard`, `demo_rec_record`. **Skills:** `demo-brief`, `demo-recording`.
 
@@ -28,7 +37,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 - **Allowed but audited:** state changes (send, save, submit, chat messages). They are flagged in the panel and written to `apps/<app>/discovery/<session>/audit.jsonl`.
 - **Overrides:** `apps/<app>/policy.json`, for example `{"allow": ["Send"], "deny": ["Export"], "allowOrigins": ["https://sso.example.com"]}`. `allow` beats the built-in denylist.
 
-## What works today (S0–S2)
+## What works today (S0–S3)
 
 | In pi | Does |
 |---|---|
@@ -51,6 +60,7 @@ node extensions/demo-recording/cli.ts panel --ticker           # standalone pane
 node extensions/demo-recording/cli.ts run-s1 --fixture [--seed 7] [--headed]
 node extensions/demo-recording/cli.ts run-s1 --url https://app.example.com --app Example --storyboard my.yaml
 node extensions/demo-recording/cli.ts spike capture            # capture resolution comparison
+node extensions/demo-recording/cli.ts record --fixture          # S3 take with live progress (uses pi's model auth; --no-model to skip)
 ```
 
 A take lands in `projects/<p>/takes/take-NNN/` and contains:

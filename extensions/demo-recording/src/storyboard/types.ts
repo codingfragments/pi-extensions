@@ -44,6 +44,10 @@ export type Step =
       prompt: string;
       max_chars: number;
       submit: boolean;
+      /** Typed if the model is unavailable or too slow (else the scene fails and is retried). */
+      fallback?: string;
+      /** Send the screenshot too (slower; for charts/canvas the aria digest can't describe). */
+      vision?: boolean;
     });
 
 export type StepKind = Step["do"];

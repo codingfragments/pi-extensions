@@ -238,6 +238,7 @@ async function main(argv: string[]): Promise<number> {
         capture: cfg.capture,
         maxRetriesPerScene: cfg.recording.maxRetriesPerScene,
         typoRate: cfg.recording.typoRate,
+        keepFrames: cfg.recording.keepFrames,
         hesitateMs: cfg.improvise.hesitateMs,
         ...(improviser ? { improviser } : {}),
         ...(values.headed ? { headed: true } : {}),

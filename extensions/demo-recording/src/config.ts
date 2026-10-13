@@ -41,7 +41,7 @@ export interface DemoRecConfig {
   /** Live input generation for `improvise` steps (S3): model chain, hesitation budget. */
   improvise: { models: string[]; hesitateMs: number; timeoutMs: number };
   /** Recording behaviour (S3): retries per scene, typo rate (0 = none). */
-  recording: { maxRetriesPerScene: number; typoRate: number };
+  recording: { maxRetriesPerScene: number; typoRate: number; keepFrames: boolean };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
@@ -71,7 +71,7 @@ export function defaultConfig(home: string): DemoRecConfig {
       hesitateMs: 3000,
       timeoutMs: 6000,
     },
-    recording: { maxRetriesPerScene: 2, typoRate: 0 },
+    recording: { maxRetriesPerScene: 2, typoRate: 0, keepFrames: false },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
   };
@@ -192,6 +192,7 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
         throw new Error('demo-recording config: "recording.typoRate" must be 0..0.1');
       cfg.recording.typoRate = r;
     }
+    if (rec.keepFrames !== undefined) cfg.recording.keepFrames = rec.keepFrames === true;
   }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {

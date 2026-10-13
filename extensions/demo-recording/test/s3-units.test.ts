@@ -484,3 +484,50 @@ test("planDrift: still for short dwells, rests after landing, slow tiny jiggles 
     assert.ok(plan.length <= Math.ceil(ms / 3000), `${plan.length} jiggles in ${ms} ms`);
   }
 });
+
+test("replay guard: state changes detected statically; deep_link makes resume safe", async () => {
+  const { replayHazards, stateChanges, unsafeResumeScenes } = await import(
+    "../src/recorder/replay-guard.ts"
+  );
+  const sb = parseStoryboard(
+    `start_url: /
+scenes:
+  - id: 01-search
+    title: S
+    steps:
+      - { do: type, target: { role: searchbox, name: Search }, text: q }
+      - { do: press, key: Enter }
+      - { do: click, target: { role: link, name: Add-ons } }
+  - id: 02-cart
+    title: C
+    steps:
+      - { do: click, target: { role: button, name: Add to cart } }
+  - id: 03-chat
+    title: Chat
+    steps:
+      - { do: improvise, kind: type, target: { role: textbox, name: Ask }, prompt: p, fallback: hi }
+  - id: 04-safe
+    title: Safe
+    deep_link: /x
+    steps: [{ do: hover, target: { text: x } }]
+  - id: 05-end
+    title: End
+    steps: [{ do: hover, target: { text: y } }]
+`,
+    { version: 1 },
+  );
+  const [s1, s2, s3] = sb.scenes;
+  assert.deepEqual(stateChanges(s1 as never), [], "search submit and link clicks are safe");
+  assert.match(stateChanges(s2 as never)[0]?.reason ?? "", /Add to cart/);
+  assert.match(
+    stateChanges(s3 as never)[0]?.reason ?? "",
+    /improvised input into "Ask" is submitted/,
+  );
+  assert.deepEqual(replayHazards(sb.scenes, 1), [], "replaying only the search scene is safe");
+  assert.equal(replayHazards(sb.scenes, 2).length, 1);
+  assert.deepEqual(replayHazards(sb.scenes, 3), [], "deep_link → no replay");
+  assert.deepEqual(
+    unsafeResumeScenes(sb.scenes).map((u) => u.scene),
+    ["03-chat", "05-end"],
+  );
+});

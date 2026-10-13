@@ -136,6 +136,7 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
             signal,
             maxRetriesPerScene: cfg.recording.maxRetriesPerScene,
             typoRate: cfg.recording.typoRate,
+            keepFrames: cfg.recording.keepFrames,
             hesitateMs: cfg.improvise.hesitateMs,
             ...(improviser ? { improviser } : {}),
             ...(context ? { improviseContext: context } : {}),

@@ -12,6 +12,7 @@ import path from "node:path";
 import { EventBus } from "./bus.ts";
 import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
+import { voiceFit } from "./edit/pipeline.ts";
 import { Jobs } from "./jobs.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
@@ -207,6 +208,14 @@ export class Runtime {
           return m
             ? Object.fromEntries(Object.values(m.sections).map((sec) => [sec.key, sec.file]))
             : null;
+        },
+        fit: (version) => {
+          const p = this.activeProject();
+          try {
+            return p ? (voiceFit(p.dir, version, this.getConfig()) ?? null) : null;
+          } catch {
+            return null;
+          }
         },
       });
       this.panelStarting = startPanel({

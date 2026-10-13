@@ -504,13 +504,25 @@ const KIND_LABEL = {
   scene: "scene",
 };
 
-function TimingBar({ timing }) {
+function TimingBar({ timing, fit }) {
   if (!timing) return null;
+  // After the voice exists: REAL narration length vs the rendered scene; before: an estimate from word count.
+  if (fit && fit.voiceSec !== null) {
+    const pct = Math.min(100, Math.round((fit.voiceSec / Math.max(0.1, timing.usableSec)) * 100));
+    const cls = fit.level === "warn" ? "over" : fit.level === "info" ? "under" : "ok";
+    return html`<div class="timing-wrap">
+      <div class="timing" title="real voice length vs usable footage (dead time removed)">
+        <div class=${`bar ${cls}`}><div style=${`width:${pct}%`}></div></div>
+        <span class="small-text"><strong>${fit.voiceSec.toFixed(1)}s voice</strong> (real) / ${timing.usableSec}s footage → scene ${fit.sceneSec.toFixed(1)}s</span>
+      </div>
+      <p class=${`fit ${fit.level}`}>${fit.message}</p>
+    </div>`;
+  }
   const pct = Math.min(100, Math.round((timing.speechSec / Math.max(0.1, timing.usableSec)) * 100));
   const cls = timing.ratio > 1.35 ? "over" : timing.ratio < 0.35 ? "under" : "ok";
-  return html`<div class="timing" title="speech vs usable footage (dead time removed)">
+  return html`<div class="timing" title="estimated speech (from word count) vs usable footage">
     <div class=${`bar ${cls}`}><div style=${`width:${pct}%`}></div></div>
-    <span class="small-text">${timing.speechSec}s speech / ${timing.usableSec}s footage${timing.ratio > 1.35 ? " — frames will be frozen" : ""}</span>
+    <span class="small-text">~${timing.speechSec}s speech (estimate) / ${timing.usableSec}s footage${timing.ratio > 1.35 ? " — frames will be held" : ""}</span>
   </div>`;
 }
 
@@ -519,7 +531,7 @@ function Spoken({ text }) {
   return html`<p class="spoken">${text.split(ANCHOR_SPLIT).map((part) => (ANCHOR_SPLIT.test(part) ? html`<span class="mark">${part.slice(1, -1)}</span>` : part))}</p>`;
 }
 
-function VoSection({ section, timing, issues, review, readOnly, onReview, onEdit, audio }) {
+function VoSection({ section, timing, fit, issues, review, readOnly, onReview, onEdit, audio }) {
   const r = review?.scenes?.[section.key];
   const [draft, setDraft] = useState(section.written);
   const [note, setNote] = useState(r?.note ?? "");
@@ -536,7 +548,7 @@ function VoSection({ section, timing, issues, review, readOnly, onReview, onEdit
         <h3 class="title">${section.key}</h3>
         <span class="badge">${KIND_LABEL[section.kind]}</span>
       </header>
-      ${section.kind === "scene" ? html`<${TimingBar} timing=${timing} />` : null}
+      ${section.kind === "scene" ? html`<${TimingBar} timing=${timing} fit=${fit} />` : null}
       ${
         editing
           ? html`<textarea class="vo-edit" value=${draft} onInput=${(e) => setDraft(e.target.value)}></textarea>
@@ -616,7 +628,8 @@ function Voice({ events }) {
     <section class="card review-head">
       <div class="row">
         <h2>Voice-over v${data.version}</h2>
-        <span class="muted small-text">for ${data.take} · ${totalSpeech.toFixed(0)}s speech / ${totalFootage.toFixed(0)}s footage</span>
+        <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
+        ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
         ${isApproved ? html`<span class="badge approved">approved</span>` : null}
         ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
         <select value=${data.version} onChange=${(e) => setVersion(Number(e.target.value))}>
@@ -630,12 +643,13 @@ function Voice({ events }) {
           key=${`${data.version}-${s.key}`}
           section=${s}
           timing=${data.timing.find((t) => t.section === s.key)}
-          issues=${data.issues.filter((i) => i.section === s.key)}
+          issues=${data.issues.filter((i) => i.section === s.key && !(data.fit && /of speech for ~/.test(i.message)))}
           review=${data.review}
           readOnly=${readOnly}
           onReview=${onReview}
           onEdit=${onEdit}
           audio=${data.audio?.[s.key] ? media("project", data.audio[s.key]) : null}
+          fit=${data.fit?.find((f) => f.scene === s.key) ?? null}
         />`,
       )}
     </div>

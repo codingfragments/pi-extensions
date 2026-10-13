@@ -22,6 +22,8 @@ export function editSummary(r: EditResult): string {
       `- ${s.id}: ${(s.durationMs / 1000).toFixed(1)} s` +
         `${s.stats.cutMs ? `, cut ${(s.stats.cutMs / 1000).toFixed(1)} s` : ""}${s.stats.frozenMs ? `, held ${(s.stats.frozenMs / 1000).toFixed(1)} s` : ""}` +
         `${s.stats.silenceMs ? `, narrator waits ${(s.stats.silenceMs / 1000).toFixed(1)} s` : ""}` +
+        `${s.stats.stretchMs > 100 ? `, end stretched +${(s.stats.stretchMs / 1000).toFixed(1)} s` : ""}` +
+        `${s.stats.overrunMs > 100 ? ` ⚠ overrun ${(s.stats.overrunMs / 1000).toFixed(1)} s over moving content` : ""}` +
         `${late.length ? ` ⚠ off-sync: ${late.map((a) => `@${a.mark} ${a.drift > 0 ? "+" : ""}${a.drift} ms`).join(", ")}` : ""}`,
     );
   }

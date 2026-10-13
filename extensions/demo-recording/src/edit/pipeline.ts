@@ -12,6 +12,7 @@ import { readManifest } from "../tts/synthesize.ts";
 import { readVo } from "../vo/store.ts";
 import { readState, requireApproved } from "../workdir/state.ts";
 import { writeNextVersion } from "../workdir/versioning.ts";
+import { type SceneFit, sceneFits } from "./fit.ts";
 import { fullJob, renderJob, sceneJob } from "./render.ts";
 import { type Timeline, buildTimeline } from "./timeline.ts";
 
@@ -98,4 +99,31 @@ export async function runEdit(o: {
     scenes,
     full: { file: fullFile, durationSec: r.durationSec },
   };
+}
+
+/**
+ * Predicted fit of the REAL voice to the footage for a voice-over version —
+ * the same solver the render uses, without rendering (cheap, pure). Undefined
+ * until the voice exists for that version.
+ */
+export function voiceFit(
+  projectDir: string,
+  voVersion: number,
+  config: DemoRecConfig,
+): SceneFit[] | undefined {
+  const manifest = readManifest(projectDir, voVersion);
+  if (!manifest) return undefined;
+  const analysis = readAnalysis(path.join(projectDir, "takes", manifest.take));
+  if (!analysis) return undefined;
+  const timeline = buildTimeline(analysis, manifest, { fps: config.fps, size: config.output });
+  const voiceSec = Object.fromEntries(
+    Object.values(manifest.sections).map((s) => [s.key, s.durationSec]),
+  );
+  const usable = Object.fromEntries(
+    analysis.scenes.map((s) => [
+      s.id,
+      s.end - s.start - s.idle.reduce((n, r) => n + r.end - r.start, 0),
+    ]),
+  );
+  return sceneFits(timeline, voiceSec, usable);
 }

@@ -533,3 +533,22 @@ audio {
   width: 100%;
   margin-top: 6px;
 }
+
+/* ---------- S5: real-voice fit ---------- */
+.timing-wrap {
+  margin: 6px 0;
+}
+.fit {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.fit.ok {
+  color: var(--ok);
+}
+.fit.info {
+  color: var(--muted);
+}
+.fit.warn {
+  color: var(--warn);
+  font-weight: 600;
+}

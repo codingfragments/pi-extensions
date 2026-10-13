@@ -258,3 +258,90 @@ test("no anchors: whole scene fitted to the narration; anchors missing from the 
   assert.equal(e.audio.length, 1);
   assert.ok(Math.abs(e.durationMs - (7000 + LIMITS.tailMs)) <= 3);
 });
+
+// ---------------- end-of-scene stretch (user request) ----------------
+
+test("narration a bit longer than a static ending: the action plays out, then the FINAL settled frame is held", () => {
+  // results land at 4.0 s, the scene dwells until 6.0 s; narration needs ~1.2 s more than the footage
+  const s = base({
+    end: 6000,
+    protected: [{ start: 500, end: 2000 }],
+    events: { results: 4000 },
+    audioMs: 6400,
+    anchors: { results: 3800 },
+  });
+  const e = solveScene(s);
+  assertInvariants(s, e);
+  const holds = freezes(e.pieces);
+  assert.ok(holds.length >= 1);
+  assert.ok(
+    (holds.at(-1)?.freeze.at ?? 0) >= 6000 - 40,
+    `held at the scene's end frame (${holds.at(-1)?.freeze.at})`,
+  );
+  assert.ok(
+    e.stats.stretchMs > 300 && e.stats.stretchMs < 1500,
+    `small stretch ${e.stats.stretchMs} ms`,
+  );
+  assert.equal(e.stats.overrunMs, 0);
+  assert.ok(Math.abs(e.anchors[0]?.drift ?? 99) <= 80);
+});
+
+test("narration running past an ANIMATED ending is an overrun (visible freeze), not a gentle stretch", () => {
+  const s = base({
+    end: 6000,
+    motion: [{ start: 3000, end: 6000 }],
+    events: { live: 3000 },
+    audioMs: 7500,
+    anchors: { live: 3000 },
+  });
+  const e = solveScene(s);
+  assertInvariants(s, e);
+  assert.ok(e.stats.overrunMs > 1000, `overrun ${e.stats.overrunMs} ms`);
+});
+
+test("sceneFits: ok / info (small end stretch) / warn (big stretch, overrun, late anchor)", async () => {
+  const { sceneFits } = await import("../src/edit/fit.ts");
+  const mk = (id: string, stats: Partial<SceneEdit["stats"]>, drift = 0) => ({
+    id,
+    title: id,
+    audioFile: null,
+    pieces: [],
+    audio: [],
+    anchors: [{ mark: "m", event: 0, out: 0, audioAt: drift, drift }],
+    durationMs: 10_000,
+    stats: {
+      cutMs: 0,
+      frozenMs: 0,
+      spedMs: 0,
+      slowedMs: 0,
+      silenceMs: 0,
+      residualMs: 0,
+      stretchMs: 0,
+      overrunMs: 0,
+      ...stats,
+    },
+  });
+  const t = {
+    scenes: [
+      mk("a", {}),
+      mk("b", { stretchMs: 900 }),
+      mk("c", { stretchMs: 4000 }),
+      mk("d", { stretchMs: 2000, overrunMs: 2000 }),
+      mk("e", {}, 400),
+    ],
+  } as unknown as Parameters<typeof sceneFits>[0];
+  const fits = sceneFits(
+    t,
+    { a: 8, b: 9.2, c: 12, d: 11, e: 9 },
+    { a: 9000, b: 9000, c: 9000, d: 9000, e: 9000 },
+  );
+  assert.deepEqual(
+    fits.map((f) => f.level),
+    ["ok", "info", "warn", "warn", "warn"],
+  );
+  assert.match(fits[1]?.message ?? "", /stretched \+0\.9 s at the end/);
+  assert.match(fits[2]?.message ?? "", /runs 4\.0 s past the action/);
+  assert.match(fits[3]?.message ?? "", /overrun: narration runs 2\.0 s past moving content/);
+  assert.match(fits[4]?.message ?? "", /0\.4 s late/);
+  assert.equal(fits[1]?.voiceSec, 9.2);
+});

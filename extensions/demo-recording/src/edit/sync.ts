@@ -102,6 +102,10 @@ export interface SceneEdit {
     slowedMs: number;
     silenceMs: number;
     residualMs: number;
+    /** Time added at the END of the scene so the narration fits (slowed dwell + held end frame). */
+    stretchMs: number;
+    /** Part of that hold over moving content (animation/video/streaming): a visible stop. */
+    overrunMs: number;
   };
 }
 
@@ -152,13 +156,23 @@ export function solveSpan(
   intervals: Interval[],
   target: number,
   syncEvent: number,
+  opts: { preferEnd?: boolean } = {},
 ): { work: Work[]; residual: number; stats: SceneEdit["stats"] } {
   const work: Work[] = intervals.map((iv) => ({
     iv,
     keep: { start: iv.start, end: iv.end },
     speed: 1,
   }));
-  const stats = { cutMs: 0, frozenMs: 0, spedMs: 0, slowedMs: 0, silenceMs: 0, residualMs: 0 };
+  const stats = {
+    cutMs: 0,
+    frozenMs: 0,
+    spedMs: 0,
+    slowedMs: 0,
+    silenceMs: 0,
+    residualMs: 0,
+    stretchMs: 0,
+    overrunMs: 0,
+  };
   const total = () => work.reduce((n, w) => n + outLen(w), 0);
   let diff = total() - target;
 
@@ -223,12 +237,14 @@ export function solveSpan(
       const candidates = statics.filter(
         (w) => w.keep.end - Math.max(w.keep.start, syncEvent + LIMITS.settleMs) > 1000 / 30,
       );
-      const w = candidates[0] ?? statics.at(-1);
+      // End of a scene: let the action play out, then hold its final settled frame.
+      const endStatic = opts.preferEnd ? work.at(-1) : undefined;
+      const w = endStatic?.iv.kind === "static" ? endStatic : (candidates[0] ?? statics.at(-1));
       if (w) {
-        const at = Math.min(
-          w.keep.end - 1000 / 30,
-          Math.max(w.keep.start, syncEvent + LIMITS.settleMs),
-        );
+        const at =
+          w === endStatic
+            ? Math.max(w.keep.start, w.keep.end - 1000 / 30)
+            : Math.min(w.keep.end - 1000 / 30, Math.max(w.keep.start, syncEvent + LIMITS.settleMs));
         w.freeze = { at, dur: need };
         stats.frozenMs += need;
         need = 0;
@@ -310,7 +326,16 @@ export function solveScene(s: SceneInput): SceneEdit {
 
   const pieces: Piece[] = [];
   const anchors: AnchorResult[] = [];
-  const stats = { cutMs: 0, frozenMs: 0, spedMs: 0, slowedMs: 0, silenceMs: 0, residualMs: 0 };
+  const stats = {
+    cutMs: 0,
+    frozenMs: 0,
+    spedMs: 0,
+    slowedMs: 0,
+    silenceMs: 0,
+    residualMs: 0,
+    stretchMs: 0,
+    overrunMs: 0,
+  };
   let out = 0;
   for (let k = 0; k + 1 < points.length; k++) {
     const p0 = points[k] as (typeof points)[number];
@@ -319,7 +344,13 @@ export function solveScene(s: SceneInput): SceneEdit {
     // (so one span that couldn't absorb its delta doesn't shift all later ones).
     const target = Math.max(0, p1.a - out);
     const intervals = classify({ start: p0.v, end: p1.v }, ranges);
-    const solved = solveSpan(intervals, target, p0.v);
+    const last = k + 2 === points.length;
+    const solved = solveSpan(intervals, target, p0.v, { preferEnd: last });
+    if (last) {
+      const natural = intervals.reduce((n, iv) => n + (iv.end - iv.start), 0);
+      const added = solved.work.reduce((n, w) => n + outLen(w), 0) - natural;
+      if (added > 0) stats.stretchMs += added;
+    }
     for (const key of Object.keys(stats) as (keyof typeof stats)[])
       if (key !== "residualMs") stats[key] += solved.stats[key];
     pieces.push(...toPieces(solved.work));
@@ -357,11 +388,16 @@ export function solveScene(s: SceneInput): SceneEdit {
   }
   const durationMs = Math.round(Math.max(out, prevEnd + LIMITS.tailMs));
   if (durationMs > out + 1) {
-    // Narration ran past the video (residual drift): hold the last frame.
-    pieces.push({
-      freeze: { at: Math.max(s.start, s.end - 34), dur: durationMs - Math.round(out) },
-    });
-    stats.frozenMs += durationMs - Math.round(out);
+    // Narration ran past the video: hold the last frame (audio is never cut).
+    const hold = durationMs - Math.round(out);
+    pieces.push({ freeze: { at: Math.max(s.start, s.end - 34), dur: hold } });
+    stats.frozenMs += hold;
+    stats.stretchMs += hold;
+    // Holding a frame that is still moving (in-app video, animation, a streamed
+    // answer) is a visible stop: that part is an overrun, not a gentle stretch.
+    const tail = Math.max(s.start, s.end - 300);
+    const moving = [...s.motion, ...s.stream].some((r) => r.start < s.end && r.end > tail);
+    if (moving) stats.overrunMs += hold;
   }
   stats.residualMs = Math.round(anchors.reduce((n, a) => Math.max(n, Math.abs(a.drift)), 0));
   return { id: s.id, pieces, audio, anchors, durationMs, stats };

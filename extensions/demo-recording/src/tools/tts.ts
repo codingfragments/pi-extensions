@@ -8,6 +8,8 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { formatFits } from "../edit/fit.ts";
+import { voiceFit } from "../edit/pipeline.ts";
 import type { Job } from "../jobs.ts";
 import type { Runtime } from "../runtime.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
@@ -156,8 +158,14 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
             p.slug,
           );
           rt.setStatus(undefined, true);
-          if (j.result) rt.reportToAgent(`[demo-recording] ${voiceSummary(j.result)}`);
-          else
+          if (j.result) {
+            const fits = voiceFit(p.dir, version, cfg);
+            const warn = fits?.filter((f) => f.level === "warn") ?? [];
+            rt.reportToAgent(
+              `[demo-recording] ${voiceSummary(j.result)}${fits ? `\n\nFit of the real voice to the footage:\n${formatFits(fits)}` : ""}` +
+                `${warn.length ? `\n${warn.length} scene(s) need attention before rendering — shorten those sections (new VO version) or accept.` : ""}`,
+            );
+          } else
             rt.reportToAgent(
               `[demo-recording] Voice synthesis ${j.status}: ${j.error ?? "unknown error"}`,
             );

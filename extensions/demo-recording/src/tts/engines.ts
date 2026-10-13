@@ -230,8 +230,7 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
       if (res.status === 401 || res.status === 402 || res.status === 429 || res.status >= 500) {
         const detail = await elevenLabsDetail(res);
         throw new EngineUnavailable(
-          `ElevenLabs TTS failed (${res.status}${res.status === 429 ? ", rate limit or quota" : res.status === 402 ? ", quota" : ""}${detail ? `: ${detail}` : ""})` +
-            (res.status === 401 ? elevenLabsAuthHint(detail) : ""),
+          `ElevenLabs TTS failed (${res.status}${res.status === 429 ? ", rate limit or quota" : res.status === 402 ? ", quota" : ""}${detail ? `: ${detail}` : ""})${res.status === 401 ? elevenLabsAuthHint(detail) : ""}`,
         );
       }
       if (!res.ok)

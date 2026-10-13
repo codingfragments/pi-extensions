@@ -552,3 +552,72 @@ audio {
   color: var(--warn);
   font-weight: 600;
 }
+
+/* ---------- Brand tab ---------- */
+.brand-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 900px) {
+  .brand-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.brand-preview img {
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 8px;
+  display: block;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+}
+.brand-form fieldset {
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border-radius: 8px;
+  margin: 0 0 10px;
+  padding: 6px 10px 8px;
+}
+.brand-form legend {
+  color: var(--muted);
+  font-size: 0.85em;
+  padding: 0 4px;
+}
+.brand-field {
+  display: grid;
+  grid-template-columns: 110px auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.brand-field input[type="range"] {
+  width: 100%;
+}
+.brand-field input.hex {
+  width: 9em;
+  font-family: ui-monospace, monospace;
+}
+.brand-field .swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.4));
+}
+.variants {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.variants figure {
+  margin: 0;
+}
+.variants video {
+  width: 100%;
+  border-radius: 8px;
+  background: #000;
+}
+.variants figcaption {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}

@@ -124,7 +124,7 @@ Rule of thumb:
 |---|---|
 | [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
 | [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. Ships a CLI plus a `gdrive_publish` tool that only registers in configured projects. Manual: [MANUAL.md](extensions/gdrive-publish/MANUAL.md). |
-| [demo-recording](extensions/demo-recording/README.md) | *(in development, S4 done)* Automated PoC/demo video recorder for web apps: discovery → approved storyboard → human-like recording → anchored voice-over → ElevenLabs TTS → audio-led edit, with a local review panel. Plan: [IMPLEMENTATION_PLAN.md](extensions/demo-recording/docs/IMPLEMENTATION_PLAN.md). |
+| [demo-recording](extensions/demo-recording/README.md) | *(in development, S4 done, S5 in progress)* Automated PoC/demo video recorder for web apps: discovery → approved storyboard → human-like recording → anchored voice-over → ElevenLabs TTS → audio-led edit → branded render, with a local review panel. Plan: [IMPLEMENTATION_PLAN.md](extensions/demo-recording/docs/IMPLEMENTATION_PLAN.md). |
 
 ## Sandbox
 

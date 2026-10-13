@@ -39,6 +39,52 @@ export interface BrandAssets {
   logoBug?: { file: string; x: number; y: number; w: number; h: number; opacity: number };
 }
 
+/**
+ * Effective logo-bug height. The light logo is made for the backdrop, so in
+ * inset mode the bug stays in the margin and shrinks to fit it (down to 20 px);
+ * only full-bleed (or a hair-thin margin) puts it over the footage.
+ */
+export function logoBugHeight(
+  brand: Brand,
+  box: InsetBox,
+  size: { width: number; height: number },
+): number {
+  const want = brand.logoBug.heightPx;
+  if (brand.frame.mode !== "inset") return want;
+  const top = brand.logoBug.position.startsWith("top");
+  const margin = top ? box.y : size.height - box.y - box.h;
+  const fit = margin - 12;
+  return fit >= 20 ? Math.min(want, fit) : want;
+}
+
+/**
+ * Logo bug placement, never straddling the footage edge: centered in the
+ * margin around the inset footage (aligned with its edge) when the margin is
+ * tall enough, else inside the footage corner with padding.
+ */
+export function logoBugPosition(
+  pos: Brand["logoBug"]["position"],
+  bug: { w: number; h: number },
+  box: InsetBox,
+  size: { width: number; height: number },
+): { x: number; y: number } {
+  const top = pos.startsWith("top");
+  const left = pos.endsWith("left");
+  const margin = top ? box.y : size.height - box.y - box.h;
+  if (margin >= bug.h + 12) {
+    const x = left ? box.x : box.x + box.w - bug.w;
+    const y = top
+      ? Math.round((margin - bug.h) / 2)
+      : Math.round(box.y + box.h + (margin - bug.h) / 2);
+    return { x, y };
+  }
+  const pad = Math.round(size.width * 0.018);
+  return {
+    x: left ? box.x + pad : box.x + box.w - bug.w - pad,
+    y: top ? box.y + pad : box.y + box.h - bug.h - pad,
+  };
+}
+
 /** Footage box: inset% of the width, 16:9 kept, centered; even pixel sizes for yuv420p. */
 export function insetBox(brand: Brand, size: { width: number; height: number }): InsetBox {
   if (brand.frame.mode === "fullbleed") return { x: 0, y: 0, w: size.width, h: size.height };
@@ -164,9 +210,10 @@ export async function renderBrandAssets(
   const box = insetBox(l.brand, size);
   const wantTitle = (opts.withTitle ?? true) && l.brand.title.enabled && !!opts.title;
   const wantBug = (opts.withLogoBug ?? l.brand.logoBug.enabled) && !!logoFor(l, true);
+  const bugHeight = logoBugHeight(l.brand, box, size);
   const dir = path.join(
     opts.cacheDir,
-    hashOf(l, { size, title: wantTitle ? opts.title : null, wantBug }),
+    hashOf(l, { size, title: wantTitle ? opts.title : null, wantBug, bugHeight }),
   );
   const out: BrandAssets = { brand: l.brand, size, inset: box };
   const files = {
@@ -209,7 +256,7 @@ export async function renderBrandAssets(
       if (wantTitle && opts.title)
         await shot(titleHtml(l, size, opts.title), size.width, size.height, files.title);
       if (wantBug) {
-        const html = logoBugHtml(l, l.brand.logoBug.heightPx) as string;
+        const html = logoBugHtml(l, bugHeight) as string;
         const page = await browser.newPage({
           viewport: { width: 800, height: 200 },
           deviceScaleFactor: 1,
@@ -233,11 +280,13 @@ export async function renderBrandAssets(
   if (wantTitle) out.title = files.title;
   if (wantBug && fs.existsSync(files.bugMeta)) {
     const { w, h } = JSON.parse(fs.readFileSync(files.bugMeta, "utf8")) as { w: number; h: number };
-    const margin = Math.round(size.width * 0.022);
-    const pos = l.brand.logoBug.position;
-    const x = pos.endsWith("left") ? margin : size.width - w - margin;
-    const y = pos.startsWith("top") ? margin : size.height - h - margin;
-    out.logoBug = { file: files.bug, x, y, w, h, opacity: l.brand.logoBug.opacity };
+    out.logoBug = {
+      file: files.bug,
+      ...logoBugPosition(l.brand.logoBug.position, { w, h }, box, size),
+      w,
+      h,
+      opacity: l.brand.logoBug.opacity,
+    };
   }
   return out;
 }

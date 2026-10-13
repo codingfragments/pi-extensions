@@ -141,6 +141,7 @@ function serveMedia(
   res: http.ServerResponse,
   roots: Record<string, string | undefined>,
   pathname: string,
+  range?: string,
 ): void {
   const [, , rootName, ...rest] = pathname.split("/");
   const base = rootName ? roots[rootName] : undefined;
@@ -159,10 +160,33 @@ function serveMedia(
     sendJson(res, 404, { error: "not found" });
     return;
   }
-  res.writeHead(200, {
+  const size = fs.statSync(file).size;
+  const headers = {
     "content-type": MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream",
     "cache-control": "private, max-age=3600",
-  });
+    "accept-ranges": "bytes",
+  };
+  // Byte ranges: video seeking (Safari won't play MP4 without them).
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(range ?? ""));
+  if (m && (m[1] || m[2])) {
+    let start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+    let end = m[1] && m[2] ? Number(m[2]) : size - 1;
+    end = Math.min(end, size - 1);
+    start = Math.min(start, end);
+    if (start >= size) {
+      res.writeHead(416, { "content-range": `bytes */${size}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, {
+      ...headers,
+      "content-range": `bytes ${start}-${end}/${size}`,
+      "content-length": end - start + 1,
+    });
+    fs.createReadStream(file, { start, end }).pipe(res);
+    return;
+  }
+  res.writeHead(200, { ...headers, "content-length": size });
   fs.createReadStream(file).pipe(res);
 }
 
@@ -196,7 +220,7 @@ export async function startPanel(opts: PanelOptions): Promise<PanelHandle> {
     if (url.pathname.startsWith("/media/")) {
       if (!safeEqual(tokenFrom(req, url), token))
         return sendJson(res, 401, { error: "unauthorized" });
-      return serveMedia(res, opts.media?.() ?? {}, url.pathname);
+      return serveMedia(res, opts.media?.() ?? {}, url.pathname, req.headers.range);
     }
     if (url.pathname.startsWith("/api/")) {
       const name = url.pathname.slice(5);

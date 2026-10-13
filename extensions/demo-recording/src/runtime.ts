@@ -14,6 +14,7 @@ import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
 import { voiceFit } from "./edit/pipeline.ts";
 import { Jobs } from "./jobs.ts";
+import { brandRoutes } from "./panel/brand-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { readManifest } from "./tts/synthesize.ts";
@@ -218,15 +219,18 @@ export class Runtime {
           }
         },
       });
+      const brand = brandRoutes(this);
       this.panelStarting = startPanel({
         bus: this.bus,
         port: this.getConfig().panelPort,
         getState: () => this.snapshot(),
-        get: routes.get,
-        post: routes.post,
+        get: { ...routes.get, ...brand.get },
+        post: { ...routes.post, ...brand.post },
         media: () => {
+          const root = this.getConfig().root;
           const p = this.activeProject();
-          return p ? { app: appDir(this.getConfig().root, p.app.slug), project: p.dir } : {};
+          const previews = { previews: path.join(root, ".cache", "brand-previews") };
+          return p ? { app: appDir(root, p.app.slug), project: p.dir, ...previews } : previews;
         },
       }).then((handle) => {
         this.panel = handle;

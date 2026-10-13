@@ -17,7 +17,7 @@ description: Produces a polished POC demo video of a target web app via a two-pa
 |---|---|---|
 | Pass 1 — explore & learn | **implemented** | this skill + `poc_video_*` tools |
 | Checkpoint 1 — storyboard approval | **manual** (yaml review; panel pending) | validator + user |
-| Pass 2 — record | **in progress** — replay engine + human-like input done (ghost-cursor Bézier paths, DOM cursor overlay with post-navigation recall, jittered typing; `--raw-input` drops back to raw Playwright input); control bus/steering next | `scripts/record.ts` + `human.ts` |
+| Pass 2 — record | **implemented** — replay engine + human input + control bus. `record.ts --bus` streams events (scene started/intent/action/finished, storyboard-state-changed) and takes commands (pause/resume/retake/skip/validated edits); the runner is the single writer of storyboard.yaml; panel (thin bus client) still pending | `scripts/record.ts`, `human.ts`, `control-bus.ts` |
 | Post — VO, TTS, assembly | pending | `scripts/vo.py` / `tts.py` / `assemble.py` |
 
 ## Pass 1 protocol (implemented)

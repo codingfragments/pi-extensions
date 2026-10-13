@@ -8,8 +8,12 @@
  * selector fails its scene, the dry run continues, exit code is non-zero).
  */
 import fs from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
+import { WebSocket } from "ws";
+import { parse } from "yaml";
+import type { BusEvent } from "../control-bus.ts";
 import { createHumanInput } from "../human.ts";
 import { runRecording } from "./record.ts";
 
@@ -41,6 +45,18 @@ const brokenStoryboard = goodStoryboard.replace(
   "text=Learn more",
   "text=This Selector Never Exists",
 );
+
+const busStoryboard =
+  goodStoryboard +
+  [
+    "  - id: third-scene",
+    '    title: "To be skipped by command"',
+    '    intent: "prove the skip command"',
+    "    steps:",
+    '      - { type: navigate, url: "https://example.com/?third" }',
+    '      - { type: assert, selector: "text=Learn more" }',
+    "",
+  ].join("\n");
 
 /**
  * Overlay probe, DOM-typed via inline casts: the repo tsconfig has no DOM lib
@@ -130,20 +146,91 @@ async function main(): Promise<number> {
   const human = await createHumanInput(page);
   await page.goto("https://example.com", { waitUntil: "load" });
   await human.recall();
-  const overlay = await page.evaluate(overlayProbe);
+  // the link target (iana.org) chains redirects — evaluates race a mid-flight
+  // navigation occasionally, so probe with retries
+  const probeStable = async (): Promise<{ present: boolean; left: string; top: string }> => {
+    for (let t = 0; ; t++) {
+      try {
+        return await page.evaluate(overlayProbe);
+      } catch (e) {
+        if (t >= 2) throw e;
+        await new Promise<void>((r) => setTimeout(r, 400));
+      }
+    }
+  };
+  const overlay = await probeStable();
   if (!overlay.present || overlay.left === "") {
     throw new Error(`human layer broken: ${JSON.stringify(overlay)}`);
   }
   await human.click("role=link");
   await page.waitForLoadState("load");
   await human.recall();
-  const afterNav = await page.evaluate(overlayProbe);
+  const afterNav = await probeStable();
   if (!afterNav.present || afterNav.left === "" || afterNav.top === "") {
     throw new Error(`recall did not re-track cursor after navigation: ${JSON.stringify(afterNav)}`);
   }
   await overlayCtx.close();
   console.log(
     `✔ human layer: overlay tracked (after-nav position ${afterNav.left},${afterNav.top})`,
+  );
+
+  // 4. control bus: a scripted client steers the run — pause/resume, a valid
+  // edit, a rejected edit, a skip — and the runner (single writer) persists
+  let busUrlResolve: (u: string) => void;
+  const busUrl = new Promise<string>((r) => {
+    busUrlResolve = r;
+  });
+  const events: BusEvent[] = [];
+  fs.mkdirSync(path.join(tmp, "bus-run-dir"), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "bus-run-dir", "storyboard.yaml"), busStoryboard);
+  const runPromise = runRecording({
+    runDir: path.join(tmp, "bus-run-dir"),
+    mode: "dry-run",
+    headless: true,
+    autoStart: true,
+    bus: true,
+    onBusReady: (u) => busUrlResolve(u),
+  });
+  const ws = new WebSocket(await busUrl);
+  await new Promise<void>((r) => ws.once("open", r));
+  ws.on("message", (d) => {
+    const ev = JSON.parse(String(d)) as BusEvent;
+    events.push(ev);
+    if (ev.type === "run_status" && ev.status === "paused") {
+      ws.send(JSON.stringify({ type: "resume" }));
+    }
+  });
+  ws.send(JSON.stringify({ type: "pause" }));
+  ws.send(JSON.stringify({ type: "set", id: "follow-link", field: "hold_ms", value: 40 }));
+  ws.send(JSON.stringify({ type: "set", id: "follow-link", field: "hold_ms", value: 0 }));
+  ws.send(JSON.stringify({ type: "skip", id: "third-scene" }));
+  const busOut = await runPromise;
+  ws.close();
+
+  const saw = (t: string) => events.some((e) => e.type === t);
+  if (!saw("run_started") || !saw("scene_started") || !saw("run_finished")) {
+    throw new Error(`bus events incomplete: ${JSON.stringify(events.map((e) => e.type))}`);
+  }
+  if (!events.some((e) => e.type === "run_status" && e.status === "paused")) {
+    throw new Error("pause never reported");
+  }
+  if (!events.some((e) => e.type === "run_status" && e.status === "recording")) {
+    throw new Error("resume never reported");
+  }
+  if (!events.some((e) => e.type === "error" && String(e.message).includes("edit rejected"))) {
+    throw new Error("invalid edit was not rejected");
+  }
+  const third = busOut.scenes.find((s) => s.id === "third-scene");
+  if (third?.status !== "skipped") throw new Error(`third-scene not skipped: ${third?.status}`);
+  const disk = parse(await readFile(path.join(tmp, "bus-run-dir", "storyboard.yaml"), "utf8"));
+  const diskFollow = disk.scenes?.find?.((s: { id: string }) => s.id === "follow-link");
+  const diskThird = disk.scenes?.find?.((s: { id: string }) => s.id === "third-scene");
+  if (diskFollow?.hold_ms !== 40) {
+    throw new Error(`single writer did not persist hold_ms: ${diskFollow?.hold_ms}`);
+  }
+  if (diskThird?.skip !== true) throw new Error("single writer did not persist skip");
+  console.log(
+    "✔ control bus: client steered run (pause/resume, set, skip); rejected edit never touched disk",
   );
   console.log(`✔ smoke passed — artifacts under ${tmp}`);
   return 0;

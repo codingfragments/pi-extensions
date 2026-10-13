@@ -48,14 +48,12 @@ export function registerExplorationTools(pi: ExtensionAPI): void {
       const runDir = path.resolve(params.run_dir);
       if (!fs.existsSync(runDir)) {
         throw new Error(
-          `run dir ${runDir} does not exist — create it first: ` +
-            `node extensions/poc-video/scripts/pass1-init.ts <target>`,
+          `run dir ${runDir} does not exist — create it first: node extensions/poc-video/scripts/pass1-init.ts <target>`,
         );
       }
       const state = await openBrowser({ runDir, url: params.url, headless: params.headless });
       return text(
-        `browser open at ${state.page.url()}\nrun dir: ${state.runDir}\n` +
-          "STOP: wait for the user to log in manually and confirm they are on the start page, then continue exploration.",
+        `browser open at ${state.page.url()}\nrun dir: ${state.runDir}\nSTOP: wait for the user to log in manually and confirm they are on the start page, then continue exploration.`,
       );
     },
   });

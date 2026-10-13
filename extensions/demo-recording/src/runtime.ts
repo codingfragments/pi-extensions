@@ -13,6 +13,7 @@ import type { DiscoverySession } from "./discovery/session.ts";
 import { Jobs } from "./jobs.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
+import { readManifest } from "./tts/synthesize.ts";
 import { type ProjectHandle, appDir, openProject } from "./workdir/layout.ts";
 
 /** The subset of ExtensionAPI the runtime needs (keeps tests and the CLI simple). */
@@ -51,7 +52,13 @@ export class Runtime {
     // Mirror progress into pi's footer status line.
     this.bus.subscribe((e) => {
       const message = typeof e.data?.message === "string" ? e.data.message : undefined;
-      if (e.type === "discovery.progress" || e.type === "take.progress") this.setStatus(message);
+      if (
+        e.type === "discovery.progress" ||
+        e.type === "take.progress" ||
+        e.type === "tts.progress" ||
+        e.type === "edit.progress"
+      )
+        this.setStatus(message);
       if (e.type === "discovery.closed" || e.type === "take.finished")
         this.setStatus(undefined, true);
     });
@@ -173,6 +180,13 @@ export class Runtime {
             ? { id: this.discovery.id, dir: this.discovery.dir, budget: this.discovery.budget() }
             : undefined,
         notifyAgent: (text) => this.notifyAgent(text),
+        audio: (version) => {
+          const p = this.activeProject();
+          const m = p ? readManifest(p.dir, version) : undefined;
+          return m
+            ? Object.fromEntries(Object.values(m.sections).map((sec) => [sec.key, sec.file]))
+            : null;
+        },
       });
       this.panelStarting = startPanel({
         bus: this.bus,

@@ -477,3 +477,59 @@ button.st.on.rerun {
   text-overflow: ellipsis;
   color: var(--text);
 }
+
+/* ---------- S4: voice tab ---------- */
+.scene.vo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.spoken {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.spoken .mark {
+  margin: 0 4px;
+}
+.vo-edit {
+  width: 100%;
+  min-height: 110px;
+  padding: 8px;
+  font: 14px / 1.5 ui-monospace, Menlo, monospace;
+}
+.timing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+.timing .bar {
+  width: 220px;
+  height: 8px;
+  background: var(--chip);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.timing .bar div {
+  height: 100%;
+  background: var(--ok);
+}
+.timing .bar.over div {
+  background: var(--warn);
+}
+.timing .bar.under div {
+  background: var(--accent);
+}
+.issue {
+  margin: 4px 0;
+  font-size: 13px;
+}
+.issue.error {
+  color: var(--err);
+}
+.issue.warning {
+  color: var(--warn);
+}
+audio {
+  width: 100%;
+  margin-top: 6px;
+}

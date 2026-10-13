@@ -106,13 +106,15 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
         ctx as { modelRegistry?: Parameters<typeof modelAccessFrom>[0] } | undefined
       )?.modelRegistry;
       const needsModel = sb.storyboard.scenes.some((s) =>
-        s.steps.some((st) => st.do === "improvise"),
+        s.steps.some((st) => st.do === "improvise" && !st.fallback),
       );
       const improviser = registry
         ? createImproviser(modelAccessFrom(registry), cfg.improvise.models, cfg.improvise.timeoutMs)
         : undefined;
       if (needsModel && !improviser)
-        throw new Error("this storyboard has improvise steps but no model registry is available");
+        throw new Error(
+          "this storyboard has improvise steps without a fallback, but no model registry is available",
+        );
       const brief = fs.existsSync(path.join(p.dir, "brief.md"))
         ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")
         : "";
@@ -136,6 +138,7 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
             signal,
             maxRetriesPerScene: cfg.recording.maxRetriesPerScene,
             typoRate: cfg.recording.typoRate,
+            keepFrames: cfg.recording.keepFrames,
             hesitateMs: cfg.improvise.hesitateMs,
             ...(improviser ? { improviser } : {}),
             ...(context ? { improviseContext: context } : {}),

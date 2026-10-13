@@ -123,7 +123,7 @@ export async function runDoctor(
     uv?.status === 0 ? "pass" : "warn",
     uv?.status === 0
       ? firstLine(uv.stdout)
-      : "not found — needed from S4 (alignment, Kokoro): `brew install uv`",
+      : "not found — needed for word timings (Whisper) and the local Kokoro voice: `brew install uv`",
   );
 
   const chromium = await p.chromiumPath();

@@ -4,9 +4,13 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
 import { Runtime } from "./src/runtime.ts";
 import { registerBrowserTool } from "./src/tools/browser.ts";
+import { registerEditTool } from "./src/tools/edit.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
 import { registerRecordTool } from "./src/tools/record.ts";
 import { registerStoryboardTool } from "./src/tools/storyboard.ts";
+import { registerTakeTool } from "./src/tools/take.ts";
+import { registerTtsTool } from "./src/tools/tts.ts";
+import { registerVoTool } from "./src/tools/vo.ts";
 
 /**
  * demo-recording — automated PoC / demo video recorder for web apps.
@@ -51,4 +55,8 @@ export default function (pi: ExtensionAPI) {
   registerBrowserTool(pi, rt);
   registerStoryboardTool(pi, rt);
   registerRecordTool(pi, rt);
+  registerTakeTool(pi, rt);
+  registerVoTool(pi, rt);
+  registerTtsTool(pi, rt);
+  registerEditTool(pi, rt);
 }

@@ -7,6 +7,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { unsafeResumeScenes } from "../recorder/replay-guard.ts";
 import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatDiff, storyboardTargets } from "../storyboard/diff.ts";
@@ -66,6 +67,12 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
               `${r.scene} step ${r.step}: target ${describeTarget(r.target)} was never seen or used during discovery`,
             );
         }
+      }
+      for (const u of unsafeResumeScenes(written.storyboard.scenes)) {
+        warnings.push(
+          `${u.scene}: no deep_link — if it fails during recording it cannot be re-shot safely, because replaying earlier scenes ` +
+            `would repeat state changes (${u.hazards.map((h) => `${h.scene}: ${h.reason}`).join("; ")}). Add a deep_link.`,
+        );
       }
       for (const scene of written.storyboard.scenes) {
         if (!scene.screen)

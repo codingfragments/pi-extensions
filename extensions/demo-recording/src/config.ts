@@ -41,7 +41,16 @@ export interface DemoRecConfig {
   /** Live input generation for `improvise` steps (S3): model chain, hesitation budget. */
   improvise: { models: string[]; hesitateMs: number; timeoutMs: number };
   /** Recording behaviour (S3): retries per scene, typo rate (0 = none). */
-  recording: { maxRetriesPerScene: number; typoRate: number };
+  recording: { maxRetriesPerScene: number; typoRate: number; keepFrames: boolean };
+  /** Voice engines (S4). The chain order is `ttsChain`; keys come from the environment. */
+  tts: {
+    elevenlabs: { model: string; fallbackModel: string; stability?: number; similarity?: number };
+    openai: { model: string; voice: string; instructions: string };
+    kokoro: { voice: string };
+    say: { voice?: string };
+  };
+  /** Word-timing alignment for engines without provider timings (S4, Q4). */
+  align: { model: string };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
@@ -71,7 +80,19 @@ export function defaultConfig(home: string): DemoRecConfig {
       hesitateMs: 3000,
       timeoutMs: 6000,
     },
-    recording: { maxRetriesPerScene: 2, typoRate: 0 },
+    recording: { maxRetriesPerScene: 2, typoRate: 0, keepFrames: false },
+    tts: {
+      elevenlabs: { model: "eleven_v4", fallbackModel: "eleven_multilingual_v2" },
+      openai: {
+        model: "gpt-4o-mini-tts",
+        voice: "ash",
+        instructions:
+          "Expert product guide: calm, confident, conversational; crisp on numbers; no hype.",
+      },
+      kokoro: { voice: "am_michael" },
+      say: {},
+    },
+    align: { model: "base.en" },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
   };
@@ -192,6 +213,48 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
         throw new Error('demo-recording config: "recording.typoRate" must be 0..0.1');
       cfg.recording.typoRate = r;
     }
+    if (rec.keepFrames !== undefined) cfg.recording.keepFrames = rec.keepFrames === true;
+  }
+  const tts = raw.tts as Record<string, Record<string, unknown> | undefined> | undefined;
+  if (tts !== undefined) {
+    const str = (v: unknown, field: string) => {
+      if (typeof v !== "string" || !v.trim())
+        throw new Error(`demo-recording config: "${field}" must be a non-empty string`);
+      return v.trim();
+    };
+    const unit = (v: unknown, field: string) => {
+      if (typeof v !== "number" || v < 0 || v > 1)
+        throw new Error(`demo-recording config: "${field}" must be 0..1`);
+      return v;
+    };
+    const el = tts.elevenlabs;
+    if (el?.model !== undefined) cfg.tts.elevenlabs.model = str(el.model, "tts.elevenlabs.model");
+    if (el?.fallbackModel !== undefined)
+      cfg.tts.elevenlabs.fallbackModel = str(el.fallbackModel, "tts.elevenlabs.fallbackModel");
+    if (el?.stability !== undefined)
+      cfg.tts.elevenlabs.stability = unit(el.stability, "tts.elevenlabs.stability");
+    if (el?.similarity !== undefined)
+      cfg.tts.elevenlabs.similarity = unit(el.similarity, "tts.elevenlabs.similarity");
+    const oa = tts.openai;
+    if (oa?.model !== undefined) cfg.tts.openai.model = str(oa.model, "tts.openai.model");
+    if (oa?.voice !== undefined) cfg.tts.openai.voice = str(oa.voice, "tts.openai.voice");
+    if (oa?.instructions !== undefined)
+      cfg.tts.openai.instructions = str(oa.instructions, "tts.openai.instructions");
+    if (tts.kokoro?.voice !== undefined)
+      cfg.tts.kokoro.voice = str(tts.kokoro.voice, "tts.kokoro.voice");
+    if (tts.say?.voice !== undefined) cfg.tts.say.voice = str(tts.say.voice, "tts.say.voice");
+  }
+  const al = raw.align as Record<string, unknown> | undefined;
+  if (al?.model !== undefined) {
+    if (
+      typeof al.model !== "string" ||
+      !/^(tiny|base|small|medium)(\.en)?$|^large-v3(-turbo)?$/.test(al.model)
+    ) {
+      throw new Error(
+        'demo-recording config: "align.model" must be a faster-whisper model like base.en or small.en',
+      );
+    }
+    cfg.align.model = al.model;
   }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {

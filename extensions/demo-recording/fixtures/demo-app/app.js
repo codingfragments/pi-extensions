@@ -234,6 +234,35 @@ function item(id) {
   view.querySelector("#save-view").addEventListener("click", () => toast("View saved"));
 }
 
+// /live: a continuously animating canvas ("live traffic") — independent screen
+// motion like an in-app video. Deterministic: driven by elapsed time only.
+function live() {
+  view.innerHTML = `
+    <h1>Live traffic</h1>
+    <p class="sub">Requests per second, streaming</p>
+    <section class="panel"><canvas id="live" width="1000" height="320" aria-label="Live traffic chart" role="img"></canvas></section>`;
+  const canvas = view.querySelector("#live");
+  const ctx = canvas.getContext("2d");
+  const t0 = performance.now();
+  const frame = (now) => {
+    if (!view.contains(canvas)) return;
+    const t = (now - t0) / 1000;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#4f46e5";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let x = 0; x <= canvas.width; x += 4) {
+      const y = 160 + 90 * Math.sin(x / 70 - t * 3) + 40 * Math.sin(x / 23 + t * 5);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
 function settings() {
   view.innerHTML = `
     <h1>Settings</h1>
@@ -264,6 +293,7 @@ function route() {
   else if (path === "/search") search();
   else if (path === "/chat") chat();
   else if (path === "/settings") settings();
+  else if (path === "/live") live();
   else if (itemMatch) item(itemMatch[1]);
   else view.innerHTML = `<h1>Not found</h1><p><a href="/" data-link>Back to dashboard</a></p>`;
   document.title = `Acme Pulse · ${view.querySelector("h1")?.textContent ?? ""}`;

@@ -16,7 +16,7 @@ import type { Page } from "playwright";
  * Modes:
  *   --mode watch    headed, recordVideo on (default — real runs)
  *   --mode step     like watch, but pauses for ENTER between scenes
- *   --mode dry-run  slowMo walk, NO recordVideo — cheap selector validation
+ *   --mode dry-run  slowMo walk, NO recordVideo, RAW input — cheap selector validation
  *
  * Auth handshake: headed modes stop after launch — the user logs in
  * manually, navigates to the start page, presses ENTER. Credentials are
@@ -369,7 +369,11 @@ export async function runRecording(opts: RecordOptions): Promise<ScenesJson> {
     recordVideo: dryRun ? undefined : { dir: path.join(runDir, "recordings") },
   });
   const page = context.pages()[0] ?? (await context.newPage());
-  const human = opts.rawInput ? null : await createHumanInput(page);
+  // Human input is a RECORDING property. In dry-run it actively hurts: each
+  // ghost-cursor glide is dozens of mouse.move calls, and slowMo (on in
+  // dry-run) delays every one of them — a 1s validation pass ballooned to
+  // 15-25s. Dry-run is selector validation; it runs raw by default.
+  const human = opts.rawInput || dryRun ? null : await createHumanInput(page);
   const t0 = Date.now();
   const now = () => (Date.now() - t0) / 1000;
 

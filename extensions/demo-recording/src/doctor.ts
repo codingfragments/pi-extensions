@@ -9,6 +9,13 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { DemoRecConfig } from "./config.ts";
+import {
+  type ModelInfo,
+  type RegistryLike,
+  contextWarning,
+  improviseModelStatus,
+  visionWarning,
+} from "./models.ts";
 
 export type CheckStatus = "pass" | "warn" | "fail";
 
@@ -29,6 +36,10 @@ export interface DoctorProbes {
   freeBytes: (p: string) => number | undefined;
   /** Ensure the root exists and is writable; throws otherwise. */
   ensureWritable: (dir: string) => void;
+  /** pi's model registry, when running inside pi (improvise model + director checks). */
+  registry?: RegistryLike;
+  /** The current session model, when running inside pi. */
+  sessionModel?: ModelInfo;
 }
 
 const GiB = 1024 ** 3;
@@ -149,7 +160,7 @@ export async function runDoctor(
     "voice",
     cfg.voiceName ? "pass" : "warn",
     cfg.voiceName
-      ? `"${cfg.voiceName}" (resolved by name in S4)`
+      ? `"${cfg.voiceName}" (resolved by name at synthesis — verify for free with demo_rec_tts check)`
       : "no default voiceName configured — set per brief or in config",
   );
 
@@ -167,6 +178,26 @@ export async function runDoctor(
       free >= 5 * GiB ? "pass" : "warn",
       `${(free / GiB).toFixed(1)} GiB free${free >= 5 * GiB ? "" : " (recommend ≥ 5 GiB; frames are large)"}`,
     );
+
+  if (p.registry) {
+    const st = improviseModelStatus(cfg.improvise.models, p.registry);
+    const ok = st.filter((x) => x.ok);
+    add(
+      "improvise models",
+      ok.length ? (ok.length === st.length ? "pass" : "warn") : "warn",
+      st.map((x) => `${x.ok ? "✔" : "✖"} ${x.spec}${x.ok ? "" : ` (${x.reason})`}`).join("; ") +
+        (ok.length ? "" : " — improvise steps will type their fallback text"),
+    );
+  }
+  if (p.sessionModel) {
+    const w = visionWarning(p.sessionModel) ?? contextWarning(p.sessionModel);
+    add(
+      "session model",
+      w ? "warn" : "pass",
+      w ??
+        `${p.sessionModel.provider}/${p.sessionModel.id} (images, ${Math.round((p.sessionModel.contextWindow ?? 0) / 1000)}k context)`,
+    );
+  }
 
   return results;
 }

@@ -68,7 +68,21 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (command === "doctor") {
-    const results = await runDoctor(cfg);
+    // pi's own credentials (~/.pi/agent) decide which improvise models are usable.
+    const registry = await (async () => {
+      try {
+        const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+        const rt = await ModelRuntime.create();
+        return {
+          find: (p: string, id: string) => rt.getModel(p, id),
+          hasConfiguredAuth: (m: never) =>
+            rt.hasConfiguredAuth((m as { provider: string }).provider),
+        };
+      } catch {
+        return undefined;
+      }
+    })();
+    const results = await runDoctor(cfg, registry ? { registry } : {});
     console.log(formatDoctor(results));
     return results.some((r) => r.status === "fail") ? 1 : 0;
   }

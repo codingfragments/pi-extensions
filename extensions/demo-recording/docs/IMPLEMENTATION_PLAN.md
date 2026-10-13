@@ -552,6 +552,7 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 - **Zoom** from `zoom: true` steps using the logged target box: 1.5× (max 1.8×, clamped to the frame), 0.6 s ease in, hold until the next page change, next zoom or scene end, then 0.5 s out. A storyboard warning above 2 zooms per demo. The cursor stays correct inside the zoom.
   - **Spike Q3** (`docs/spikes/S5-zoom.md`): ffmpeg `crop`/`scale` expressions vs Node frame compositing. Pick by quality and speed.
 - **Callouts:** a fixed bottom-left branded pill over the footage. It fades in 150 ms before the step event and stays ~2.5 s or until the next callout. The director writes them (`callout:` ≤ 60 chars) and they're **editable inline in the Review tab**, with overlay-only changes (re-render, no re-take, no re-approval). Plus a `full.callouts.srt` sidecar.
+- **Highlight** (user addition, D26): an opt-in `highlight: true` per step (also allowed without a callout). It draws a subtle rounded outline (brand accent, 2 px, ~70 % opacity, faint soft glow, padding ~6 px) around the step's logged target box. It fades in and out with the callout (or ~2 s), follows zoom and scroll offset (box from the event log, mapped through the zoom transform), and is skipped for boxes larger than ~60 % of the frame. No fills, arrows or animation beyond the fade. The storyboard parser accepts the flag, the Review tab shows it, and the skill says to use it sparingly, when a callout refers to a specific region.
 - **Subtitles:** transcript VTT sidecars **always** (full and per scene, from the word timings). An optional **burned-in** variant; when enabled, **every video exists in two versions** (clean + subtitled).
 - **Variant cache:** renders are keyed by timeline + overlay options. The **Export tab toggles** callouts, subtitles and the logo bug, and only missing variants are re-rendered.
 
@@ -576,6 +577,7 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 - **Unit:**
   - brand package validation and normalization (contrast, missing dark logo);
   - zoom keyframes (never beyond headroom, eased, only flagged steps, cap warning);
+  - highlight geometry (box padding, zoom mapping, skipped when the box is too large, timing tied to the callout);
   - callout timing;
   - the VTT generator against the word timings;
   - the value extractor (currency, percent, counts, names);

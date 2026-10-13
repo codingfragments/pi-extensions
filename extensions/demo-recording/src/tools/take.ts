@@ -10,6 +10,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { analyzeTake, formatAnalysis, readAnalysis } from "../analysis/take.ts";
+import { visionWarning } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
 import { acceptTake, readState } from "../workdir/state.ts";
 import { type ToolContent, result, text } from "./common.ts";
@@ -111,7 +112,11 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
       rt.bus.publish("take.analyzing", { take, message: `analyzing ${take}` }, p.slug);
       const analysis = readAnalysis(takeDir) ?? (await analyzeTake(takeDir));
       rt.bus.publish("take.analyzed", { take, message: `${take} analyzed` }, p.slug);
-      const content: ToolContent[] = [text(formatAnalysis(analysis))];
+      const vision = visionWarning(ctx?.model);
+      if (vision) rt.bus.publish("model.warning", { message: vision }, p.slug);
+      const content: ToolContent[] = [
+        text(`${vision ? `${vision}\n\n` : ""}${formatAnalysis(analysis)}`),
+      ];
       if (params.images !== false) {
         const shots = analysis.scenes.flatMap((s) =>
           s.keyframes.filter((k) => k.label !== "end").map((k) => ({ ...k, scene: s.id })),

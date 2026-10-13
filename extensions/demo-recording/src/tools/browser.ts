@@ -11,6 +11,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { formatDiscoveryProgress } from "../discovery/progress.ts";
 import { type ActParams, DiscoverySession, type LookResult } from "../discovery/session.ts";
+import { contextWarning, visionWarning } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
 import { appDir } from "../workdir/layout.ts";
 import { setPhase } from "../workdir/state.ts";
@@ -109,9 +110,15 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
           if (p.state.phase === "brief") setPhase(p.dir, "discovery");
           await rt.ensurePanel();
           const look = await rt.discovery.look();
+          const warnings = [visionWarning(ctx?.model), contextWarning(ctx?.model)].filter(
+            (w): w is string => !!w,
+          );
+          for (const w of warnings) rt.bus.publish("model.warning", { message: w }, p.slug);
           return result(
             [
-              text(`discovery session ${rt.discovery.id} opened on ${p.app.baseUrl}`),
+              text(
+                `discovery session ${rt.discovery.id} opened on ${p.app.baseUrl}${warnings.length ? `\n${warnings.join("\n")}` : ""}`,
+              ),
               ...lookContent(look, progressLine(rt)),
             ],
             {

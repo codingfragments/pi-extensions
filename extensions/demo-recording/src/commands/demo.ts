@@ -166,7 +166,10 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return report(ctx, `demo panel: ${panel.url}`);
           }
           case "doctor": {
-            const results = await runDoctor(rt.getConfig(true));
+            const results = await runDoctor(rt.getConfig(true), {
+              ...(ctx.modelRegistry ? { registry: ctx.modelRegistry as never } : {}),
+              ...(ctx.model ? { sessionModel: ctx.model } : {}),
+            });
             rt.bus.publish("doctor.result", {
               message: results.map((r) => `${r.name}:${r.status}`).join(" "),
             });

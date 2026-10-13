@@ -557,7 +557,11 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 
 *3. Zoom, callouts, subtitles, variants (D26, D27)*
 - **Zoom** from `zoom: true` steps using the logged target box: 1.5× (max 1.8×, clamped to the frame), 0.6 s ease in, hold until the next page change, next zoom or scene end, then 0.5 s out. A storyboard warning above 2 zooms per demo. The cursor stays correct inside the zoom.
-  - **Spike Q3** (`docs/spikes/S5-zoom.md`): ffmpeg `crop`/`scale` expressions vs Node frame compositing. Pick by quality and speed.
+  - **Spike Q3** ✅ ([`docs/spikes/S5-zoom.md`](spikes/S5-zoom.md)). Decision: ffmpeg `perspective` (cubic, per frame) at **source resolution**, only inside zoom windows (`enable`), then one scale to the inset.
+    - **Smoothness:** jitter 0.006 px, vs 0.33 px RMS / 1.7 px worst for `zoompan` and crop.
+    - **Sharpness:** native-sharp up to 1.8× at dpr 2.
+    - **Cost:** about +0.25 s of render time per second of zoom.
+    - **Overlay order:** the highlight is drawn in page space before the zoom; callouts, logo and title are drawn on screen after it.
 - **Callouts:** a fixed bottom-left branded pill over the footage. It fades in 150 ms before the step event and stays ~2.5 s or until the next callout. The director writes them (`callout:` ≤ 60 chars) and they're **editable inline in the Review tab**, with overlay-only changes (re-render, no re-take, no re-approval). Plus a `full.callouts.srt` sidecar.
 - **Highlight** (user addition, D26): an opt-in `highlight: true` per step (also allowed without a callout). It draws a subtle rounded outline (brand accent, 2 px, ~70 % opacity, faint soft glow, padding ~6 px) around the step's logged target box. It fades in and out with the callout (or ~2 s), follows zoom and scroll offset (box from the event log, mapped through the zoom transform), and is skipped for boxes larger than ~60 % of the frame. No fills, arrows or animation beyond the fade. The storyboard parser accepts the flag, the Review tab shows it, and the skill says to use it sparingly, when a callout refers to a specific region.
 - **Subtitles:** transcript VTT sidecars **always** (full and per scene, from the word timings). An optional **burned-in** variant; when enabled, **every video exists in two versions** (clean + subtitled).
@@ -698,7 +702,7 @@ real GPU rendering, behind a flag, reusing everything else.
 |---|---|---|
 | Q1 | ~~Capture resolution default (3200×1800 vs 2560×1440)~~ → **3200×1800**, see spikes/S1-capture.md | S1 spike ✅ |
 | Q2 | ~~Kokoro via Python (uv) vs `kokoro-js` in Node~~ → **uv + kokoro-onnx** (no Node deps; ~5× real time) | S4 ✅ |
-| Q3 | Zoom rendering: ffmpeg expressions vs Node frame compositing (now also inset + backdrop + overlays) | S5 spike |
+| Q3 | ~~Zoom rendering: ffmpeg expressions vs Node frame compositing~~ → resolved: ffmpeg `perspective` at source res inside zoom windows ([spike](spikes/S5-zoom.md)) | S5 spike ✅ |
 | Q4 | ~~Default whisper model size~~ → **base.en + onset refinement** (≤ 32 ms) | S4 ✅ |
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |

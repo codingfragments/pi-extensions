@@ -68,6 +68,8 @@ export const CONFIG_DOCS: Record<string, string> = {
   "tts.kokoro.voice": "Local Kokoro voice (am_michael, am_adam, af_heart, bf_emma …).",
   "tts.say.voice": "Optional macOS say voice (dev only).",
   "align.model": "faster-whisper model for word timings: tiny.en | base.en | small.en | medium.en.",
+  brand:
+    "Brand package for rendering: built-in 'neutral' or a user brand in <root>/brands/ (see /demo brand list).",
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",
@@ -80,6 +82,7 @@ export const ENV_KEYS: Record<string, string> = {
   ttsChain: "DEMO_REC_TTS_CHAIN",
   voiceName: "DEMO_REC_VOICE",
   "improvise.models": "DEMO_REC_IMPROVISE_MODELS",
+  brand: "DEMO_REC_BRAND",
 };
 
 const SECRET = /(api[-_]?key|token|secret|password|credential)/i;

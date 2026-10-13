@@ -17,6 +17,8 @@ side panel and talks back through `[demo-panel]` messages.
 | 1 Discover | Explore the app, collect screens and values, find the story | `demo_rec_browser` |
 | 1 Storyboard | Write scenes and steps, then respond to review | `demo_rec_storyboard` |
 | 2 Record | Only after the user approves in the panel | `demo_rec_record` |
+| 3 Voice-over | Analyze the take, write the narration (demo-voiceover skill) | `demo_rec_take`, `demo_rec_vo` |
+| 4 Voice + edit | After the user approves the voice-over | `demo_rec_tts`, `demo_rec_edit` |
 
 **Hard rules**
 - **You cannot approve anything.** Approval is a button in the panel. Never
@@ -163,3 +165,9 @@ footage before it is kept. If a scene still fails, the message names the
 scene, step and target. Fix the storyboard (the user must re-approve), or ask
 the user. `demo_rec_record` with `action: status` or `cancel` manages a
 running take.
+
+## After the take
+
+The narrated video is produced with the **demo-voiceover** skill:
+`demo_rec_take analyze` → `demo_rec_take accept` → `demo_rec_vo template/write`
+→ the user approves in the panel's Voice tab → `demo_rec_tts` → `demo_rec_edit`.

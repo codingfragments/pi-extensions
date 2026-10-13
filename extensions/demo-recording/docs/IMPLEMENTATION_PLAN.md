@@ -454,7 +454,33 @@ idle range and alert. A forced failure resumes correctly.
 
 ---
 
-### S4 — Analysis, voice-over, TTS chain, alignment, audio-led edit *(Phase 3–4 core)*
+### S4 — Analysis, voice-over, TTS chain, alignment, audio-led edit *(Phase 3–4 core)* ✅ done
+
+> **Done:**
+> - **Take analysis** (`demo_rec_take`): motion map from frame differences, dead time vs **streaming content** (busy regions whose text grows aren't cut), page text at every mark, keyframes.
+> - **Voice-over:** script format with `[@mark]` anchors, `{{dom:mark|regex}}` bindings and `_intro/_bridge:/_outro`; validation against the take; versioned store (`demo_rec_vo`, no approve); `demo-voiceover` skill.
+> - **Panel Voice tab:** timing bars, inline edit → new version, per-section review, approval gate.
+> - **Voice chain** (`demo_rec_tts`, background): ElevenLabs by name with `/with-timestamps`, default `eleven_v4` → `eleven_multilingual_v2` fallback → OpenAI → Kokoro → say. One engine per video: a failure mid-render restarts the voice-over with the next engine. Content-hash cache.
+> - **Alignment:** char-level script↔transcript mapping, Whisper hallucination guards, onset refinement, anchor snapping.
+> - **Sync solver** (pure, property-tested).
+> - **Frame-exact renderer** (`demo_rec_edit`, background) → `out/edit-vN/{scenes/*.mp4, full.mp4, timeline.json}`.
+> - **Carry-overs:** resume replay guard; frame pruning.
+>
+> **Results:** S4 E2E on the fixture, measured independently in the final mix: anchors at 0–5 ms (target ±150 ms), screen events on cue, 4.2 s of dead time cut.
+>
+> **Q2:** Kokoro via `uv` + `kokoro-onnx`: ~8 s first run (124 MB models), ~5× real time.
+>
+> **Q4:** `base.en` + onset refinement, ≤ 32 ms on ground-truth audio (raw Whisper ≤ 182 ms); `small.en` optional.
+>
+> **Findings:**
+> - Whisper loops the prompt into trailing silence. Fixed with `condition_on_previous_text=False` + `hallucination_silence_threshold`, silent-word filtering, and earliest-match alignment.
+> - Whisper glues pauses onto the previous **or** next word. Fixed by refinement searching from inside the previous word.
+> - Number words ("Six" ↔ "6", "%" ↔ percent) are normalized on both sides.
+> - `hasBinary` didn't detect `uv`.
+> - ffmpeg 9 removed `-filter_complex_script` (use `-/filter_complex`).
+> - When video can't shrink (typing, in-app video), the narrator **pauses** rather than drifting.
+>
+> **Open:** live ElevenLabs check with the user's key + voice (`DEMO_REC_ELEVENLABS_E2E=1`, below).
 
 **Purpose.** Turn a take into a narrated, tightly synced video. This is the heart
 of the product: VO from the actual run, anchors, the provider chain, word
@@ -577,9 +603,9 @@ real GPU rendering, behind a flag, reusing everything else.
 | # | Question | Resolved in |
 |---|---|---|
 | Q1 | ~~Capture resolution default (3200×1800 vs 2560×1440)~~ → **3200×1800**, see spikes/S1-capture.md | S1 spike ✅ |
-| Q2 | Kokoro via Python (uv) vs `kokoro-js` in Node | S4 spike |
+| Q2 | ~~Kokoro via Python (uv) vs `kokoro-js` in Node~~ → **uv + kokoro-onnx** (no Node deps; ~5× real time) | S4 ✅ |
 | Q3 | Zoom rendering: ffmpeg expressions vs Node frame compositing | S5 spike |
-| Q4 | Default whisper model size (speed vs alignment accuracy) | S4 |
+| Q4 | ~~Default whisper model size~~ → **base.en + onset refinement** (≤ 32 ms) | S4 ✅ |
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |
 

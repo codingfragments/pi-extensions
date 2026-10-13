@@ -55,7 +55,8 @@ export class Runtime {
       if (
         e.type === "discovery.progress" ||
         e.type === "take.progress" ||
-        e.type === "tts.progress"
+        e.type === "tts.progress" ||
+        e.type === "edit.progress"
       )
         this.setStatus(message);
       if (e.type === "discovery.closed" || e.type === "take.finished")

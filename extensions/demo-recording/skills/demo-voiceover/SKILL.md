@@ -120,5 +120,22 @@ CHANGES or RE-RUN, with notes:
   version by itself. Read it (`demo_rec_vo get`) before your next write so you
   don't overwrite their edit.
 
-`[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked
-(next slice steps: voice and edit).
+`[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked.
+
+## Voice and edit (after approval)
+
+1. `demo_rec_tts check` (free) shows which engine and voice will be used: your
+   ElevenLabs voice by name, else OpenAI, else local Kokoro. If the user expects
+   their own voice and the check says otherwise, tell them why (e.g. key not
+   set, voice name not found) **before** synthesizing.
+2. `demo_rec_tts start` synthesizes every section in the background. One
+   engine is used for the whole video, and unchanged sections come from the
+   cache. Wait for the `[demo-recording]` message; don't poll.
+3. `demo_rec_edit start` runs the audio-led edit and renders per-scene videos
+   plus the full video. The result message has sync stats per scene:
+   - **"narrator waits"** means the video couldn't be shortened (typing,
+     in-app video), so the narrator pauses. That's fine in small doses.
+   - **"off-sync @mark +N ms"** means the narration before that anchor is too
+     long for the footage. Shorten the text before the anchor (new VO version
+     → re-approval → re-render; only changed sections are re-synthesized).
+4. Report the output paths and anything off-sync to the user.

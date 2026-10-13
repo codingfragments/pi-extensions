@@ -593,3 +593,18 @@ test("snapToOnset: an anchor inside a pause moves to the next speech onset", asy
   assert.equal(snapToOnset(1.3, env), 1.8);
   assert.equal(snapToOnset(0.5, env), 0.5, "inside speech: unchanged");
 });
+
+test("refineOnsets: a pause stretched into the PREVIOUS word's end is found too", () => {
+  // speech 0–1.0 s, silence 1.0–2.3 s, speech 2.3–3.0 s; Whisper says "more." lasts until 2.5 and "Results" starts at 2.5
+  const env = Array.from({ length: 320 }, (_, f) =>
+    f < 100 || (f >= 230 && f < 300) ? -12 : -120,
+  );
+  const words = [
+    { w: "nothing", s: 0.2, e: 0.6 },
+    { w: "more.", s: 0.6, e: 2.5 },
+    { w: "Results", s: 2.5, e: 2.9 },
+  ];
+  const r = refineOnsets(words, env);
+  assert.equal(r[2]?.s, 2.3);
+  assert.equal(r[1]?.e, 1.0, "previous word ends where the pause starts");
+});

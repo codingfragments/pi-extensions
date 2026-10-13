@@ -81,34 +81,41 @@ export function refineOnsets(
   const onDb = opts.onDb ?? peak - 32;
   const quietDb = opts.quietDb ?? peak - 42;
   const frame = (t: number) => Math.max(0, Math.min(env.length - 1, Math.round(t * ENV_HZ)));
-  const out: TimedWord[] = [];
-  words.forEach((word, i) => {
-    const prevEnd = i > 0 ? (out[i - 1] as TimedWord).e : 0;
-    // Look for a pause (≥ 120 ms quiet) between the previous word and well into
-    // this one: Whisper sometimes swallows a whole pause into the next word.
-    const from = frame(Math.max(prevEnd - 0.05, 0));
+  const out: TimedWord[] = words.map((w) => ({ ...w }));
+  for (let i = 0; i < out.length; i++) {
+    const word = out[i] as TimedWord;
+    const prev = i > 0 ? (out[i - 1] as TimedWord) : undefined;
+    // Search from inside the PREVIOUS word (Whisper may stretch it across the
+    // pause) to well into this one (or it may glue the pause onto this word).
+    const from = frame(prev ? prev.s + 0.12 : 0);
     const to = frame(Math.min(word.e - 0.05, word.s + 1.0));
     let quietRun = 0;
-    let afterPause = -1;
+    let quietStart = -1;
+    let onset = -1;
+    let pauseStart = -1;
     for (let f = from; f <= to; f++) {
-      const loud = (env[f] as number) >= onDb;
-      if ((env[f] as number) < quietDb) quietRun++;
-      else if (loud) {
-        if (quietRun >= 12 || (i === 0 && f === from)) {
-          afterPause = f; // first loud frame AFTER the quiet stretch
-          break;
+      const v = env[f] as number;
+      if (v < quietDb) {
+        if (quietRun === 0) quietStart = f;
+        quietRun++;
+      } else if (v >= onDb) {
+        // keep the LAST onset after a ≥ 120 ms quiet stretch: the pause nearest this word
+        if (quietRun >= 12) {
+          onset = f;
+          pauseStart = quietStart;
         }
         quietRun = 0;
       }
     }
-    if (afterPause < 0) {
-      out.push(word);
-      return;
-    }
-    const s = Math.min(afterPause / ENV_HZ, word.e - 0.05);
-    // Only move forward past Whisper's estimate, or back by ≤ 150 ms.
-    out.push(s >= word.s - 0.15 ? { ...word, s: +s.toFixed(3) } : word);
-  });
+    if (onset < 0) continue;
+    const s = Math.min(onset / ENV_HZ, word.e - 0.05);
+    if (Math.abs(s - word.s) < 0.005) continue;
+    if (s < word.s - 1.2) continue; // too far: not this word's onset
+    word.s = +s.toFixed(3);
+    // the previous word ends where the pause begins
+    if (prev && pauseStart >= 0 && prev.e > pauseStart / ENV_HZ)
+      prev.e = +Math.max(prev.s + 0.02, pauseStart / ENV_HZ).toFixed(3);
+  }
   return out;
 }
 

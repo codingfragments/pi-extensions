@@ -28,7 +28,7 @@ export function buildEngines(
   const uv = opts.uvAvailable ?? (() => hasBinary("uv"));
   const all: Record<string, TtsEngine> = {
     elevenlabs: elevenLabs({
-      ...(env.ELEVENLABS_API_KEY ? { apiKey: env.ELEVENLABS_API_KEY } : {}),
+      ...(env.ELEVENLABS_API_KEY?.trim() ? { apiKey: env.ELEVENLABS_API_KEY.trim() } : {}),
       voiceName,
       model: cfg.tts.elevenlabs.model,
       fallbackModel: cfg.tts.elevenlabs.fallbackModel,
@@ -41,7 +41,7 @@ export function buildEngines(
       ...(opts.fetch ? { fetch: opts.fetch } : {}),
     }),
     openai: openAi({
-      ...(env.OPENAI_API_KEY ? { apiKey: env.OPENAI_API_KEY } : {}),
+      ...(env.OPENAI_API_KEY?.trim() ? { apiKey: env.OPENAI_API_KEY.trim() } : {}),
       model: cfg.tts.openai.model,
       voice: cfg.tts.openai.voice,
       instructions: cfg.tts.openai.instructions,

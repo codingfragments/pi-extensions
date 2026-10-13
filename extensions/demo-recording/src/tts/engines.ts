@@ -46,6 +46,15 @@ export interface TtsEngine {
 /** HTTP errors that should make the chain fall back to the next engine. */
 export class EngineUnavailable extends Error {}
 
+/** 401 on the voice listing (kept separate so a voice-id fallback can apply). */
+export class VoicesUnauthorized extends EngineUnavailable {
+  readonly detail: string;
+  constructor(message: string, detail: string) {
+    super(message);
+    this.detail = detail;
+  }
+}
+
 const PY_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "py");
 
 /** Normalize any audio to 48 kHz mono PCM WAV (editor input format). */
@@ -66,6 +75,34 @@ export type FetchLike = (
 }>;
 
 // ---------------- ElevenLabs ----------------
+
+/** ElevenLabs' own error explanation: {"detail": {"status": "...", "message": "..."}} or {"detail": "..."}. */
+export async function elevenLabsDetail(res: { text(): Promise<string> }): Promise<string> {
+  const raw = await res.text().catch(() => "");
+  try {
+    const j = JSON.parse(raw) as { detail?: string | { status?: string; message?: string } };
+    if (typeof j.detail === "string") return j.detail;
+    if (j.detail) return [j.detail.status, j.detail.message].filter(Boolean).join(": ");
+    return ""; // JSON without a detail: nothing useful to add
+  } catch {
+    // not JSON
+  }
+  return raw.slice(0, 200);
+}
+
+/** Hint for the common 401 causes. */
+export function elevenLabsAuthHint(detail: string): string {
+  if (/missing_permissions|permission/i.test(detail)) {
+    return " — the key is restricted: enable 'Voices: Read' (and 'Text to Speech') for it in ElevenLabs → API keys, or set voiceName to the voice ID";
+  }
+  if (/invalid_api_key|invalid api key/i.test(detail)) {
+    return " — the key is wrong or revoked: copy it again (no quotes/whitespace), export it, and restart pi";
+  }
+  return "";
+}
+
+/** ElevenLabs voice IDs are 20 alphanumeric characters. */
+export const looksLikeVoiceId = (s: string) => /^[A-Za-z0-9]{20}$/.test(s.trim());
 
 export interface ElevenLabsOptions {
   apiKey?: string;
@@ -92,8 +129,17 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
       headers: headers(),
       ...(signal ? { signal } : {}),
     });
-    if (res.status === 401) throw new EngineUnavailable("ElevenLabs rejected the API key (401)");
-    if (!res.ok) throw new EngineUnavailable(`ElevenLabs /v1/voices failed (${res.status})`);
+    if (res.status === 401) {
+      const detail = await elevenLabsDetail(res);
+      throw new VoicesUnauthorized(
+        `ElevenLabs rejected the API key (401${detail ? `: ${detail}` : ""})${elevenLabsAuthHint(detail)}`,
+        detail,
+      );
+    }
+    if (!res.ok)
+      throw new EngineUnavailable(
+        `ElevenLabs /v1/voices failed (${res.status}: ${await elevenLabsDetail(res)})`,
+      );
     voices = ((await res.json()) as { voices: { voice_id: string; name: string }[] }).voices;
     return voices;
   };
@@ -130,6 +176,19 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
           voice: { id: voice.voice_id, name: voice.name },
         };
       } catch (err) {
+        // A key restricted to text-to-speech can't list voices: a voice ID still works.
+        if (
+          err instanceof VoicesUnauthorized &&
+          /permission/i.test(err.detail) &&
+          looksLikeVoiceId(o.voiceName)
+        ) {
+          const id = o.voiceName.trim();
+          return {
+            ok: true,
+            reason: `voice id ${id} (key can't list voices; using the id directly)`,
+            voice: { id, name: id },
+          };
+        }
         return { ok: false, reason: (err as Error).message };
       }
     },
@@ -169,14 +228,14 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
           );
       }
       if (res.status === 401 || res.status === 402 || res.status === 429 || res.status >= 500) {
+        const detail = await elevenLabsDetail(res);
         throw new EngineUnavailable(
-          `ElevenLabs TTS failed (${res.status}${res.status === 429 ? ", rate limit or quota" : res.status === 402 ? ", quota" : ""})`,
+          `ElevenLabs TTS failed (${res.status}${res.status === 429 ? ", rate limit or quota" : res.status === 402 ? ", quota" : ""}${detail ? `: ${detail}` : ""})` +
+            (res.status === 401 ? elevenLabsAuthHint(detail) : ""),
         );
       }
       if (!res.ok)
-        throw new Error(
-          `ElevenLabs TTS failed (${res.status}): ${(await res.text()).slice(0, 200)}`,
-        );
+        throw new Error(`ElevenLabs TTS failed (${res.status}): ${await elevenLabsDetail(res)}`);
       const body = (await res.json()) as {
         audio_base64: string;
         alignment?: {

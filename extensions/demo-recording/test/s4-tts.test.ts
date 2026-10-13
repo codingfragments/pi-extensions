@@ -608,3 +608,75 @@ test("refineOnsets: a pause stretched into the PREVIOUS word's end is found too"
   assert.equal(r[2]?.s, 2.3);
   assert.equal(r[1]?.e, 1.0, "previous word ends where the pause starts");
 });
+
+test("ElevenLabs 401: shows ElevenLabs' reason + a fix hint; restricted keys can still use a voice id", async () => {
+  const restricted = mockFetch(() => ({
+    status: 401,
+    json: {
+      detail: {
+        status: "missing_permissions",
+        message:
+          "The API key you used is missing the permission voices_read to execute this operation.",
+      },
+    },
+  }));
+  const byName = await elevenLabs({
+    apiKey: "k",
+    voiceName: "Stefan",
+    model: "m",
+    fallbackModel: "f",
+    fetch: restricted.fetch,
+  }).health();
+  assert.equal(byName.ok, false);
+  assert.match(
+    byName.reason,
+    /401: missing_permissions: The API key you used is missing the permission voices_read/,
+  );
+  assert.match(byName.reason, /enable 'Voices: Read'.*or set voiceName to the voice ID/);
+  const byId = await elevenLabs({
+    apiKey: "k",
+    voiceName: "JBFqnCBsd6RMkjVDRZzb",
+    model: "m",
+    fallbackModel: "f",
+    fetch: restricted.fetch,
+  }).health();
+  assert.deepEqual([byId.ok, byId.voice?.id], [true, "JBFqnCBsd6RMkjVDRZzb"]);
+
+  const invalid = mockFetch(() => ({
+    status: 401,
+    json: { detail: { status: "invalid_api_key", message: "Invalid API key" } },
+  }));
+  const bad = await elevenLabs({
+    apiKey: "k",
+    voiceName: "JBFqnCBsd6RMkjVDRZzb",
+    model: "m",
+    fallbackModel: "f",
+    fetch: invalid.fetch,
+  }).health();
+  assert.equal(bad.ok, false, "an invalid key is never papered over by the id fallback");
+  assert.match(
+    bad.reason,
+    /\(401: invalid_api_key: Invalid API key\) — the key is wrong or revoked/,
+  );
+});
+
+test("factory trims pasted whitespace from API keys", async () => {
+  const cfg = {
+    ...resolveConfig({ env: {}, home: "/h", readFile: () => undefined }),
+    voiceName: "George",
+  };
+  const seen: string[] = [];
+  const fetch: FetchLike = async (_url, init) => {
+    seen.push(String(init?.headers?.["xi-api-key"]));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => VOICES,
+      text: async () => "",
+      arrayBuffer: async () => new ArrayBuffer(0),
+    };
+  };
+  const [el] = buildEngines(cfg, { env: { ELEVENLABS_API_KEY: "  sk_abc\n" }, fetch });
+  assert.equal((await el?.health())?.ok, true);
+  assert.deepEqual(seen, ["sk_abc"]);
+});

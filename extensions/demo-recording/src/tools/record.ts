@@ -112,7 +112,9 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
         ? createImproviser(modelAccessFrom(registry), cfg.improvise.models, cfg.improvise.timeoutMs)
         : undefined;
       if (needsModel && !improviser)
-        throw new Error("this storyboard has improvise steps without a fallback, but no model registry is available");
+        throw new Error(
+          "this storyboard has improvise steps without a fallback, but no model registry is available",
+        );
       const brief = fs.existsSync(path.join(p.dir, "brief.md"))
         ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")
         : "";

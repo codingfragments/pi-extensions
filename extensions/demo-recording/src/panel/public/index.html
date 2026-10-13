@@ -6,6 +6,10 @@
     <meta name="referrer" content="no-referrer" />
     <title>demo-recording</title>
     <link rel="stylesheet" href="/style.css" />
+    <script>
+      // Apply the saved theme before first paint (default: Catppuccin Macchiato).
+      document.documentElement.dataset.theme = localStorage.getItem("demo-rec-theme") === "latte" ? "latte" : "macchiato";
+    </script>
   </head>
   <body>
     <div id="app"></div>

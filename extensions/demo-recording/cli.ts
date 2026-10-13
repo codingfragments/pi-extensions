@@ -7,6 +7,7 @@
  *   node extensions/demo-recording/cli.ts <command> [options]
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -16,7 +17,12 @@ import { formatDoctor, runDoctor } from "./src/doctor.ts";
 import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
 import { runS1 } from "./src/pipeline/s1.ts";
+import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
+import { formatProgress } from "./src/recorder/progress.ts";
+import { recordTake } from "./src/recorder/runner.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
+import { parseStoryboard } from "./src/storyboard/parse.ts";
+import { takeSummary } from "./src/tools/record.ts";
 import { ensureProject, listProjects, openProject } from "./src/workdir/layout.ts";
 
 const HELP = `demo-recording engine CLI
@@ -32,6 +38,9 @@ Commands:
                                            S1 walking skeleton: record a take, narrate with
                                            macOS say, naive-mux to out/<take>-naive.mp4
   spike capture [--storyboard F]           S1 capture spike: compare capture configs
+  record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
+                                           S3 take: human motion/typing, improvise via pi's
+                                           configured models (~/.pi/agent auth), resume, progress
 
 Environment: DEMO_REC_ROOT, DEMO_REC_CONFIG, DEMO_REC_PANEL_PORT (see README)`;
 
@@ -170,6 +179,77 @@ async function main(argv: string[]): Promise<number> {
         log: (m) => console.log(m),
       });
       console.log(`\n✔ ${result.output}`);
+    } finally {
+      await fixture?.close();
+    }
+    return 0;
+  }
+
+  if (command === "record") {
+    const args = sub ? [sub, ...rest] : rest;
+    const { values } = parseArgs({
+      args,
+      options: {
+        fixture: { type: "boolean", default: false },
+        url: { type: "string" },
+        storyboard: {
+          type: "string",
+          default: path.join(HERE, "fixtures", "storyboards", "s3-human.yaml"),
+        },
+        project: { type: "string", default: "s3-human" },
+        headed: { type: "boolean", default: false },
+        seed: { type: "string" },
+        "no-model": { type: "boolean", default: false },
+      },
+    });
+    if (!values.fixture && !values.url) {
+      console.error("record needs --fixture or --url <base-url>");
+      return 2;
+    }
+    const fixture = values.fixture ? await serveFixture(0) : undefined;
+    try {
+      const baseUrl = fixture?.url ?? (values.url as string);
+      const project = ensureProject(cfg.root, {
+        project: values.project,
+        appName: fixture ? "Acme Pulse" : new URL(baseUrl).hostname,
+        appUrl: baseUrl,
+      });
+      const storyboard = parseStoryboard(fs.readFileSync(path.resolve(values.storyboard), "utf8"), {
+        version: 1,
+      });
+      let improviser: ReturnType<typeof createImproviser> | undefined;
+      if (!values["no-model"]) {
+        const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+        const runtime = await ModelRuntime.create();
+        improviser = createImproviser(
+          modelAccessFrom(runtime as never),
+          cfg.improvise.models,
+          cfg.improvise.timeoutMs,
+        );
+      }
+      let last = "";
+      const take = await recordTake({
+        projectDir: project.dir,
+        storyboard,
+        storyboardVersion: 1,
+        baseUrl,
+        viewport: cfg.viewport,
+        fps: cfg.fps,
+        capture: cfg.capture,
+        maxRetriesPerScene: cfg.recording.maxRetriesPerScene,
+        typoRate: cfg.recording.typoRate,
+        hesitateMs: cfg.improvise.hesitateMs,
+        ...(improviser ? { improviser } : {}),
+        ...(values.headed ? { headed: true } : {}),
+        ...(values.seed ? { seed: Number(values.seed) } : {}),
+        onProgress: (p) => {
+          const line = formatProgress(p);
+          if (line !== last && process.stdout.isTTY) process.stdout.write(`\r\x1b[2K${line}`);
+          last = line;
+        },
+      });
+      if (process.stdout.isTTY) process.stdout.write("\n");
+      console.log(takeSummary(take, 1));
     } finally {
       await fixture?.close();
     }

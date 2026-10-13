@@ -49,6 +49,7 @@ interface Tool {
     params: Record<string, unknown>,
     signal?: unknown,
     onUpdate?: unknown,
+    ctx?: unknown,
   ) => Promise<{
     content: { type: string; text?: string }[];
     details: Record<string, unknown>;
@@ -60,6 +61,8 @@ async function load(opts: { hasUI?: boolean } = {}) {
   const commands = new Map<string, Command>();
   const tools = new Map<string, Tool>();
   const sent: { text: string; options?: Record<string, unknown> }[] = [];
+  const messages: { text: string; options?: Record<string, unknown> }[] = [];
+  const statuses: (string | undefined)[] = [];
   const entries: { type: string; customType: string; data: unknown }[] = [];
   const pi = {
     on: (name: string, h: Handler) => events.set(name, h),
@@ -69,16 +72,21 @@ async function load(opts: { hasUI?: boolean } = {}) {
       entries.push({ type: "custom", customType, data }),
     sendUserMessage: (text: string, options?: Record<string, unknown>) =>
       sent.push({ text, ...(options ? { options } : {}) }),
+    sendMessage: (message: { content: string }, options?: Record<string, unknown>) =>
+      messages.push({ text: message.content, ...(options ? { options } : {}) }),
   };
   const mod = await import(`../index.ts?${Date.now()}`);
   mod.default(pi);
   const notes: { msg: string; level?: string }[] = [];
   const ctx = {
     hasUI: opts.hasUI ?? false,
-    ui: { notify: (msg: string, level?: string) => notes.push({ msg, level }) },
+    ui: {
+      notify: (msg: string, level?: string) => notes.push({ msg, level }),
+      setStatus: (_key: string, text: string | undefined) => statuses.push(text),
+    },
     sessionManager: { getEntries: () => entries },
   };
-  return { events, commands, tools, sent, entries, notes, ctx };
+  return { events, commands, tools, sent, messages, statuses, entries, notes, ctx };
 }
 
 test("registers /demo, skills discovery and lifecycle hooks; no side effects at load", async () => {
@@ -222,3 +230,71 @@ test("/demo new hands off to the demo-brief skill; /demo discover to demo-record
   assert.equal(sent.length, 2);
   await events.get("session_shutdown")?.({}, ctx);
 });
+
+async function chromiumAvailable(): Promise<boolean> {
+  try {
+    const { chromium } = await import("playwright");
+    return fs.existsSync(chromium.executablePath());
+  } catch {
+    return false;
+  }
+}
+const recordSkip = !(await chromiumAvailable()) && "needs Playwright Chromium";
+
+test(
+  "S3 record tool: background job, footer progress, completion message into the session",
+  { skip: recordSkip, timeout: 120_000 },
+  async () => {
+    const { serveFixture } = await import("../src/fixture/server.ts");
+    const { approve } = await import("../src/workdir/state.ts");
+    const fixture = await serveFixture(0);
+    const { tools, messages, statuses, events, ctx } = await load();
+    try {
+      const project = tools.get("demo_rec_project");
+      const sbTool = tools.get("demo_rec_storyboard");
+      const record = tools.get("demo_rec_record");
+      assert.ok(project && sbTool && record);
+      await project.execute("1", {
+        action: "create",
+        project: "bg",
+        app_name: "Acme Pulse",
+        app_url: fixture.url,
+      });
+      await sbTool.execute("2", {
+        action: "write",
+        yaml: "start_url: /\nscenes:\n  - id: 01-a\n    title: A\n    steps:\n      - { do: hover, target: { role: link, name: Search }, mark: hovered }\n      - { do: click, target: { role: link, name: Search } }\n",
+      });
+      approve(path.join(root, "projects", "bg"), "storyboard", 1);
+
+      const t0 = Date.now();
+      const started = await record.execute("3", {}, undefined, undefined, ctx as never);
+      assert.ok(Date.now() - t0 < 3000, "start returns immediately");
+      assert.match(textOf(started), /Recording started \(record-1\)/);
+      await assert.rejects(
+        record.execute("4", {}, undefined, undefined, ctx as never),
+        /already running/,
+      );
+      assert.match(textOf(await record.execute("5", { action: "status" })), /record-1: running/);
+
+      const deadline = Date.now() + 90_000;
+      while (!messages.length && Date.now() < deadline)
+        await new Promise((r) => setTimeout(r, 200));
+      assert.equal(messages.length, 1, "exactly one completion message");
+      assert.match(
+        messages[0]?.text ?? "",
+        /^\[demo-recording\] Recorded take-001 of storyboard v1/,
+      );
+      assert.match(messages[0]?.text ?? "", /hovered @ /);
+      assert.deepEqual(messages[0]?.options, { triggerTurn: true, deliverAs: "followUp" });
+      assert.ok(
+        statuses.some((s) => s?.startsWith("🎬")),
+        "footer showed recording progress",
+      );
+      assert.equal(statuses.at(-1), undefined, "footer cleared at the end");
+      assert.match(textOf(await record.execute("6", { action: "status" })), /record-1: done/);
+    } finally {
+      await events.get("session_shutdown")?.({}, ctx);
+      await fixture.close();
+    }
+  },
+);

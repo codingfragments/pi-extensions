@@ -38,6 +38,10 @@ export interface DemoRecConfig {
   ttsChain: TtsEngine[];
   /** ElevenLabs voice, resolved by name (D12). Empty = ask at brief time. */
   voiceName: string;
+  /** Live input generation for `improvise` steps (S3): model chain, hesitation budget. */
+  improvise: { models: string[]; hesitateMs: number; timeoutMs: number };
+  /** Recording behaviour (S3): retries per scene, typo rate (0 = none). */
+  recording: { maxRetriesPerScene: number; typoRate: number };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
@@ -62,6 +66,12 @@ export function defaultConfig(home: string): DemoRecConfig {
     panelPort: 3777,
     ttsChain: ["elevenlabs", "openai", "kokoro"],
     voiceName: "",
+    improvise: {
+      models: ["anthropic/claude-haiku-4-5", "openai/gpt-5.4-mini"],
+      hesitateMs: 3000,
+      timeoutMs: 6000,
+    },
+    recording: { maxRetriesPerScene: 2, typoRate: 0 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
   };
@@ -149,6 +159,40 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       throw new Error('demo-recording config: "voiceName" must be a string');
     cfg.voiceName = raw.voiceName;
   }
+  const imp = raw.improvise as Record<string, unknown> | undefined;
+  if (imp !== undefined) {
+    if (imp.models !== undefined) {
+      if (
+        !Array.isArray(imp.models) ||
+        !imp.models.length ||
+        imp.models.some((m) => typeof m !== "string" || !/^[^/]+\/.+$/.test(m))
+      ) {
+        throw new Error(
+          'demo-recording config: "improvise.models" must be a non-empty list of "provider/id"',
+        );
+      }
+      cfg.improvise.models = imp.models as string[];
+    }
+    if (imp.hesitateMs !== undefined)
+      cfg.improvise.hesitateMs = positiveInt(imp.hesitateMs, "improvise.hesitateMs");
+    if (imp.timeoutMs !== undefined)
+      cfg.improvise.timeoutMs = positiveInt(imp.timeoutMs, "improvise.timeoutMs");
+  }
+  const rec = raw.recording as Record<string, unknown> | undefined;
+  if (rec !== undefined) {
+    if (rec.maxRetriesPerScene !== undefined) {
+      const n = rec.maxRetriesPerScene;
+      if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > 5)
+        throw new Error('demo-recording config: "recording.maxRetriesPerScene" must be 0..5');
+      cfg.recording.maxRetriesPerScene = n;
+    }
+    if (rec.typoRate !== undefined) {
+      const r = rec.typoRate;
+      if (typeof r !== "number" || r < 0 || r > 0.1)
+        throw new Error('demo-recording config: "recording.typoRate" must be 0..0.1');
+      cfg.recording.typoRate = r;
+    }
+  }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {
     if (b.discoveryScreens !== undefined)
@@ -196,6 +240,12 @@ export function resolveConfig(input: ResolveInput = {}): DemoRecConfig {
   if (env.DEMO_REC_TTS_CHAIN) {
     cfg.ttsChain = parseChain(env.DEMO_REC_TTS_CHAIN, "DEMO_REC_TTS_CHAIN");
     envSources.push("DEMO_REC_TTS_CHAIN");
+  }
+  if (env.DEMO_REC_IMPROVISE_MODELS) {
+    cfg.improvise.models = env.DEMO_REC_IMPROVISE_MODELS.split(",")
+      .map((m) => m.trim())
+      .filter(Boolean);
+    envSources.push("DEMO_REC_IMPROVISE_MODELS");
   }
   if (env.DEMO_REC_VOICE) {
     cfg.voiceName = env.DEMO_REC_VOICE;

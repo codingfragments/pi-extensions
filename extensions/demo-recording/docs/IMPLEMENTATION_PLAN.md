@@ -70,7 +70,7 @@ extensions/demo-recording/
 │   ├── browser/
 │   │   ├── session.ts          launch, storageState restore/save, viewport/DPR
 │   │   ├── cursor/overlay.js   injected virtual cursor (SVG, styles, click ripple)
-│   │   ├── cursor/motion.ts    ghost-cursor paths → page.mouse + overlay sync
+│   │   ├── cursor/motion.ts    arc + min-jerk trajectories → page.mouse + rAF overlay
 │   │   ├── cursor/typing.ts    human typing model
 │   │   ├── cursor/scroll.ts    eased wheel scrolling
 │   │   ├── perceive.ts         screenshot + DOM harvest (text, roles, boxes, values)
@@ -245,7 +245,7 @@ A pure approval of everything flips the gate directly. The message just informs 
 |---|---|---|
 | Language/runtime | TypeScript via jiti (no build) | Same as the rest of the repo |
 | Browser automation | `playwright` (Chromium) | Already in root devDeps. `npx playwright install chromium` is checked by doctor |
-| Human mouse paths | `@playwright-labs/ghost-cursor` (MIT) | Path math (bezier, overshoot, Fitts timing). The visible cursor is **our own overlay**, not its debug helper |
+| Human mouse paths | own cubic-arc + min-jerk trajectory (`cursor/motion.ts`) | ghost-cursor was tried in S3; its sparse point table produced visible corners. The visible cursor is our own overlay, animated on `requestAnimationFrame` |
 | Capture | CDP `Page.startScreencast` | JPEG q≈92, frame-acked. OS capture in S7 |
 | Video processing | ffmpeg (Homebrew) | libx264 for masters, `h264_videotoolbox` optional for fast previews |
 | Overlays/title cards | HTML templates → PNG via the same Playwright (`omitBackground`) | No new deps. Brandable later. No Remotion (license) |
@@ -257,7 +257,7 @@ A pure approval of everything flips the gate directly. The message just informs 
 | TTS 3 | Kokoro (local, Apache-2) | Python via uv. Spike S4: `kokoro-js` (ONNX in Node) might avoid Python |
 | TTS dev | macOS `say` | Smoke tests and CI only |
 | Director model | session model (Claude Sonnet/Opus class or GPT-5 class) | Discovery vision, storyboard, VO, cut decisions |
-| In-run `improvise` model | fast model via `@earendil-works/pi-ai` (Claude Haiku / GPT mini class), configurable | Latency is hidden: the call runs **while** the cursor travels to the input |
+| In-run `improvise` model | `anthropic/claude-haiku-4-5` → `openai/gpt-5.4-mini` via pi's model registry (`improvise.models`) | Benchmarked in S3. The call starts **before** the cursor travels to the input. If it is late, the cursor hesitates (≤ `hesitateMs`), then the step's `fallback` text is typed |
 | Validation | `typebox` schemas for storyboard, events, timeline, VO | Shared with tool parameter schemas |
 | Tests | `node --test` (Node 24 type stripping), Playwright headless on the fixture | Heavy e2e is opt-in with `DEMO_REC_E2E=1` |
 
@@ -380,7 +380,43 @@ schema-valid storyboard for the fixture app through the panel, with no hand-edit
 
 ---
 
-### S3 — Recorder quality: human cursor, typing, improvise, resume *(Phase 2)*
+### S3 — Recorder quality: human cursor, typing, improvise, resume *(Phase 2)* ✅ done
+
+> **Done:**
+> - Human motion: seeded cubic-arc geometry (initially ghost-cursor, replaced after review — see below), Fitts duration, a min-jerk velocity profile, overshoot+correct on long moves, idle drift during dwell.
+> - Typing: log-normal delays, word/punctuation pauses, optional typos.
+> - Page observers: route, toast/alert with text and level, idle ranges from busy indicators, console/page errors.
+> - `improvise` with hesitation and `fallback`.
+> - Resume: failed attempts are cut at scene start and kept in `attempts.jsonl`. State is restored via `deep_link` or a fast off-camera replay, the browser is reopened after a crash, and segments are stitched with an exact master.
+> - Background `demo_rec_record` (start/status/cancel), completion via `pi.sendMessage`, footer status.
+> - **Progress bars** for recording (per-scene segments, restarts, ETA) and discovery (`plan` areas + budget).
+> - **Catppuccin Macchiato/Latte** themes.
+> - `cli.ts record`.
+>
+> **Q5 resolved:** `anthropic/claude-haiku-4-5` (text-only, ~0.84 s median) → `openai/gpt-5.4-mini` (minimal reasoning, ~1.05 s). Benchmark below.
+>
+> **Deferred:** session-expiry detection → S6 (needs the login probe); frame-retention policy → S4.
+>
+> **Cursor tuning (after user review: "a tiny bit jerky; mainly the jiggle when stationary"):**
+> - ghost-cursor's sparse point table was replaced by a dense, gentle C-arc (both control points on one side).
+> - Mouse events are sampled by real elapsed time.
+> - The overlay plays the planned trajectory on `requestAnimationFrame` (the compositor clock) instead of following jittery CDP `mousemove` deliveries.
+> - Moves are about 25 % slower (cap 1.6 s). Overshoot is rarer and smaller, with no pause before the correction.
+> - Idle drift (`DRIFT` in `motion.ts`): still for dwells < 1.8 s; rests 0.9–1.6 s after landing; jiggles of ±2/±1.2 px taking 1.4–2.2 s, with 1.6–3 s gaps.
+> - Measured direction change between 30 fps frames: median 19° → 3°, p90 53° → 8°. Guarded by a regression test.
+>
+> **Findings:**
+> - Events must be discarded by log position, not time (the previous scene-end shares the failed scene-start's millisecond).
+> - The panel lost its connection on reload (token stripped from the URL); the token is now kept in `sessionStorage`.
+>
+> | Model (median of 3, fixture screen) | Text only | + screenshot |
+> |---|---|---|
+> | anthropic/claude-haiku-4-5 | **836 ms** | 1066 ms |
+> | openai/gpt-5.4-mini (minimal) | 1053 ms | 1925 ms |
+> | openai/gpt-5.4-nano (minimal) | 1014 ms | 3923 ms |
+> | openai/gpt-4.1-mini | 1298 ms | 2978 ms |
+> | openai/gpt-4.1-nano | 1481 ms | 4616 ms |
+> | anthropic/claude-haiku-5-5 | 2459 ms | 3229 ms |
 
 **Purpose.** Make takes look human and survive reality: realistic motion,
 typing and scrolling, cursor styles, live `improvise` inputs, complete event
@@ -515,7 +551,7 @@ and notes as human input. No secrets leak in artifacts or logs.
 real GPU rendering, behind a flag, reusing everything else.
 
 **Deliverables**
-- `capture/native-macos.ts`: headed Chrome window at a fixed position/size, real cursor driven via CGEvent (Swift/JXA helper) along the same ghost-cursor paths, capture via ScreenCaptureKit (or ffmpeg avfoundation), clock sync between capture and the event log (a flash-frame marker at take start).
+- `capture/native-macos.ts`: headed Chrome window at a fixed position/size, real cursor driven via CGEvent (Swift/JXA helper) along the same planned trajectories, capture via ScreenCaptureKit (or ffmpeg avfoundation), clock sync between capture and the event log (a flash-frame marker at take start).
 - Same event log contract, so analysis, VO, edit and QA are unchanged.
 - Doctor checks for Screen Recording / Accessibility permissions.
 
@@ -534,7 +570,7 @@ real GPU rendering, behind a flag, reusing everything else.
 - **Determinism.** The fixture is seeded. The engine never uses `Math.random` without a seeded RNG stored in the take (`take.json`), so a take's motion/typing can be replayed exactly.
 - **Security.** The panel binds only to 127.0.0.1 and requires a per-session token (protects against CSRF from other local sites). API keys come from env/keychain only. The README calls out the destructive/egress capabilities: browser actions on real apps, external TTS/LLM calls with screen content.
 - **Panel theme** (user request): [Catppuccin](https://catppuccin.com/palette) **Macchiato** (dark, default) and **Latte** (light), switchable from a toggle in the panel header. The choice is stored in `localStorage` and defaults to Macchiato regardless of the OS setting. The panel CSS already uses custom properties (`--bg`, `--card`, `--text`, `--accent`, `--ok`, `--warn`, `--err`, …), so this means two `[data-theme]` variable sets mapped to Catppuccin colors (base/mantle/surface0/text/subtext0/blue/green/yellow/red), plus status colors checked for contrast in both flavors. Scope: panel only; the fixture app and rendered videos are unaffected. Lands with the next panel-heavy slice (S3 progress bars).
-- **Packaging.** Runtime deps (`playwright`, `@playwright-labs/ghost-cursor`, `ws`, `yaml`) go in `dependencies`. Pi core packages + `typebox` go in `peerDependencies: "*"`. The Chromium download is a doctor-guided step. ffmpeg and uv are documented system prerequisites.
+- **Packaging.** Runtime deps (`playwright`, `ws`, `yaml`) go in `dependencies`. Pi core packages + `typebox` go in `peerDependencies: "*"`. The Chromium download is a doctor-guided step. ffmpeg and uv are documented system prerequisites.
 
 ## 8. Open questions (to resolve inside the slices)
 
@@ -544,7 +580,7 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q2 | Kokoro via Python (uv) vs `kokoro-js` in Node | S4 spike |
 | Q3 | Zoom rendering: ffmpeg expressions vs Node frame compositing | S5 spike |
 | Q4 | Default whisper model size (speed vs alignment accuracy) | S4 |
-| Q5 | Improvise model default (latency budget ≤ cursor travel time) | S3 |
+| Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |
 
 ## 9. Definition of done (v1 = S0–S6)

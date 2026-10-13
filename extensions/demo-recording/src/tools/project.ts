@@ -66,7 +66,8 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
       app_url: Type.Optional(Type.String({ description: "App base URL (create)" })),
       content: Type.Optional(Type.String({ description: "Full brief markdown (write_brief)" })),
     }),
-    async execute(_id, params) {
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      rt.bindUi(ctx?.ui);
       const cfg = rt.getConfig();
       switch (params.action) {
         case "create": {

@@ -148,6 +148,10 @@ function parseStep(v: unknown, path: string): Step {
         prompt,
         max_chars: max,
         submit: v.submit === undefined ? true : Boolean(v.submit),
+        ...(typeof v.fallback === "string" && v.fallback.trim()
+          ? { fallback: v.fallback.trim().slice(0, max) }
+          : {}),
+        ...(v.vision === true ? { vision: true } : {}),
       };
     }
     default:

@@ -9,19 +9,21 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { formatDiscoveryProgress } from "../discovery/progress.ts";
 import { type ActParams, DiscoverySession, type LookResult } from "../discovery/session.ts";
 import type { Runtime } from "../runtime.ts";
 import { appDir } from "../workdir/layout.ts";
 import { setPhase } from "../workdir/state.ts";
 import { TargetSchema, type ToolContent, result, text, toTarget } from "./common.ts";
 
-function lookContent(look: LookResult): ToolContent[] {
+function lookContent(look: LookResult, progress?: string): ToolContent[] {
   const b = look.budget;
   return [
     { type: "image", data: look.jpeg.toString("base64"), mimeType: "image/jpeg" },
     text(
       `screen ${look.screen} — ${look.title} — ${look.url}\n` +
         `budget: screens ${b.screens}, actions ${b.actions}, minutes ${b.minutes}${b.exhausted ? " — EXHAUSTED: write the storyboard now" : ""}\n` +
+        `${progress ? `progress: ${progress}\n` : ""}` +
         `aria digest (use these role/name pairs as targets):\n${look.digest}`,
     ),
   ];
@@ -36,9 +38,10 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
       "look: screenshot (source of truth) + aria digest with exact values and role/name targets; returns a screen id usable as a storyboard scene thumbnail. " +
       "act: click | hover | type | press | scroll | goto | back | wait, using storyboard target syntax ({role, name} preferred) — every action passes a safety check " +
       "(destructive/financial/sharing actions are blocked; state-changing ones are allowed but audited and shown to the user). " +
+      "plan: right after the first look, declare the areas you will explore (areas: [...]); mark each one done as you move on (done: name) — this drives the user's progress estimate. " +
       "close: end the session. Budgets for screens/actions/minutes are enforced.",
     parameters: Type.Object({
-      action: StringEnum(["open", "look", "act", "close"] as const),
+      action: StringEnum(["open", "look", "act", "plan", "close"] as const),
       step: Type.Optional(
         StringEnum(["click", "hover", "type", "press", "scroll", "goto", "back", "wait"] as const, {
           description: "act: what to do",
@@ -61,6 +64,17 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
       ms: Type.Optional(
         Type.Number({ description: "act wait: milliseconds (or timeout when a target is given)" }),
       ),
+      areas: Type.Optional(
+        Type.Array(Type.String(), {
+          description:
+            "plan: the app areas you intend to explore, in order (drives the user's progress estimate)",
+        }),
+      ),
+      done: Type.Optional(
+        Type.String({
+          description: "plan: mark this area as explored (the next one becomes current)",
+        }),
+      ),
       look: Type.Optional(
         Type.Boolean({ description: "act: return a fresh look afterwards (default true)" }),
       ),
@@ -74,7 +88,8 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
         }),
       ),
     }),
-    async execute(_id, params) {
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      rt.bindUi(ctx?.ui);
       switch (params.action) {
         case "open": {
           const p = rt.requireProject();
@@ -97,7 +112,7 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
           return result(
             [
               text(`discovery session ${rt.discovery.id} opened on ${p.app.baseUrl}`),
-              ...lookContent(look),
+              ...lookContent(look, progressLine(rt)),
             ],
             {
               session: rt.discovery.id,
@@ -106,7 +121,9 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
         }
         case "look": {
           const d = requireSession(rt);
-          return result(lookContent(await d.look(params.full_page ? { fullPage: true } : {})));
+          return result(
+            lookContent(await d.look(params.full_page ? { fullPage: true } : {}), progressLine(rt)),
+          );
         }
         case "act": {
           const d = requireSession(rt);
@@ -130,7 +147,17 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             `${r.urlChanged ? ` → navigated to ${r.url}` : ""}${r.note ? ` — ${r.note}` : ""}` +
             `${r.verifiedTarget ? `\nverified storyboard target: ${JSON.stringify(r.verifiedTarget)}` : ""}`;
           if (params.look === false) return result(summary, { verdict: r.verdict });
-          return result([text(summary), ...lookContent(await d.look())], { verdict: r.verdict });
+          return result([text(summary), ...lookContent(await d.look(), progressLine(rt))], {
+            verdict: r.verdict,
+          });
+        }
+        case "plan": {
+          const d = requireSession(rt);
+          if (params.areas?.length) d.setPlan(params.areas);
+          if (params.done) d.markDone(params.done);
+          if (!params.areas?.length && !params.done)
+            throw new Error("plan needs areas (declare) and/or done (mark an area explored)");
+          return result(progressLine(rt) ?? "plan updated");
         }
         default: {
           const d = rt.discovery;
@@ -145,6 +172,11 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
       }
     },
   });
+}
+
+function progressLine(rt: Runtime): string | undefined {
+  const d = rt.discovery;
+  return d && !d.isClosed ? formatDiscoveryProgress(d.progress()) : undefined;
 }
 
 function requireSession(rt: Runtime): DiscoverySession {

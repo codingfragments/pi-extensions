@@ -31,7 +31,8 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
       ),
       version: Type.Optional(Type.Number({ description: "get: version number (default latest)" })),
     }),
-    async execute(_id, params) {
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      rt.bindUi(ctx?.ui);
       const p = rt.requireProject();
       if (params.action === "get") {
         const sb = readStoryboard(p.dir, params.version);
@@ -48,6 +49,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
       }
       if (!params.yaml?.trim()) throw new Error("write needs yaml (the complete storyboard)");
       const written = writeStoryboard(p.dir, params.yaml);
+      if (rt.discovery && !rt.discovery.isClosed) rt.discovery.markStoryboardWritten();
       if (["brief", "discovery", "storyboard-review"].includes(p.state.phase))
         setPhase(p.dir, "storyboard-review");
 

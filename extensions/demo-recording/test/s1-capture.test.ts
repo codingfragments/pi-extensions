@@ -191,12 +191,22 @@ scenes:
       viewport: { width: 1280, height: 720, dpr: 1 },
       fps: 30,
       seed: 1,
+      maxRetriesPerScene: 0,
     }),
-    /scene 01-broken, step 0 \(click\): target not visible/,
+    /scene 01-broken, step 0 \(click\): target not visible.*\(after 1 attempt\)/,
   );
   const takeDir = path.join(projectDir, "takes", "take-001");
   const meta = JSON.parse(fs.readFileSync(path.join(takeDir, "take.json"), "utf8"));
   assert.equal(meta.status, "failed");
   assert.match(meta.error, /target not visible/);
-  assert.ok(readEvents(path.join(takeDir, "events.jsonl")).some((e) => e.type === "error"));
+  // The failed attempt is cut out of the take and kept as evidence in attempts.jsonl.
+  assert.ok(!readEvents(path.join(takeDir, "events.jsonl")).some((e) => e.type === "scene-start"));
+  const attempts = fs
+    .readFileSync(path.join(takeDir, "attempts.jsonl"), "utf8")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+  assert.equal(attempts.length, 1);
+  assert.match(attempts[0].error, /target not visible/);
+  assert.ok(attempts[0].events.some((e: { type: string }) => e.type === "scene-start"));
 });

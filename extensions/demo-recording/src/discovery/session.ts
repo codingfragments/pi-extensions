@@ -28,6 +28,12 @@ import type { Target } from "../storyboard/types.ts";
 import { sleep } from "../util/duration.ts";
 import { createRng } from "../util/rng.ts";
 import { type AppInfo, appDir } from "../workdir/layout.ts";
+import {
+  type AreaState,
+  type DiscoveryProgress,
+  discoveryProgress,
+  formatDiscoveryProgress,
+} from "./progress.ts";
 
 export interface DiscoveryBudgets {
   discoveryScreens: number;
@@ -251,6 +257,68 @@ export class DiscoverySession {
     );
   }
 
+  // ---- exploration plan + progress estimate (S3) ----
+  private areas: AreaState[] = [];
+  private storyboardWritten = false;
+
+  /** Declare (or replace) the areas the director intends to explore. Done areas are kept. */
+  setPlan(names: string[]): void {
+    const clean = [...new Set(names.map((n) => n.trim()).filter(Boolean))].slice(0, 20);
+    if (!clean.length) throw new Error("plan needs at least one area name");
+    const done = new Map(this.areas.filter((a) => a.doneAt !== undefined).map((a) => [a.name, a]));
+    this.areas = clean.map((name) => done.get(name) ?? { name });
+    this.startCurrent();
+    this.append("actions.jsonl", { kind: "plan", areas: clean });
+    this.emitProgress();
+  }
+
+  /** Mark an area explored; the next open area becomes current. */
+  markDone(name: string): void {
+    const area = this.areas.find((a) => a.name.toLowerCase() === name.trim().toLowerCase());
+    if (!area)
+      throw new Error(
+        `unknown area "${name}" — declared areas: ${this.areas.map((a) => a.name).join(", ") || "none"}`,
+      );
+    area.startedAt ??= Date.now();
+    area.doneAt = Date.now();
+    this.startCurrent();
+    this.append("actions.jsonl", { kind: "area-done", area: area.name });
+    this.emitProgress();
+  }
+
+  /** Called when the storyboard is written: the last progress segment completes. */
+  markStoryboardWritten(): void {
+    this.storyboardWritten = true;
+    this.emitProgress();
+  }
+
+  private startCurrent(): void {
+    const current = this.areas.find((a) => a.doneAt === undefined);
+    if (current && current.startedAt === undefined) current.startedAt = Date.now();
+  }
+
+  progress(): DiscoveryProgress {
+    const b = this.opts.budgets;
+    const minutes = (Date.now() - this.startedAt) / 60000;
+    return discoveryProgress({
+      startedAt: this.startedAt,
+      now: Date.now(),
+      areas: this.areas,
+      budgetUsed: {
+        screens: this.screens / b.discoveryScreens,
+        actions: this.actions / b.discoveryActions,
+        minutes: minutes / b.discoveryMinutes,
+      },
+      budgetMinutes: b.discoveryMinutes,
+      storyboardWritten: this.storyboardWritten,
+    });
+  }
+
+  private emitProgress(): void {
+    const p = this.progress();
+    this.emit("discovery.progress", { progress: p, message: formatDiscoveryProgress(p) });
+  }
+
   budget(): Budget {
     const b = this.opts.budgets;
     const minutes = (Date.now() - this.startedAt) / 60000;
@@ -327,6 +395,7 @@ export class DiscoverySession {
       media: `discovery/${this.id}/screens/${file}.jpg`,
       budget: this.budget(),
     });
+    this.emitProgress();
     return { screen, url, title, jpeg, digest, truncated, budget: this.budget() };
   }
 
@@ -544,6 +613,7 @@ export class DiscoverySession {
       level: verdict.level,
       url,
     });
+    this.emitProgress();
     return result;
   }
 

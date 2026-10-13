@@ -1,6 +1,6 @@
 # demo-recording
 
-> **Status: S0 (skeleton) done. Nothing records yet.** Progress is tracked in the [implementation plan](docs/IMPLEMENTATION_PLAN.md#6-vertical-slices).
+> **Status: S1 (walking skeleton) done.** It records a hand-written storyboard and narrates it with macOS `say`. Progress is tracked in the [implementation plan](docs/IMPLEMENTATION_PLAN.md#6-vertical-slices).
 
 Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
@@ -12,7 +12,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 - Decisions: [docs/VISION.md](docs/VISION.md)
 - Implementation plan (vertical slices S0–S7): [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
 
-## What works today (S0)
+## What works today (S0–S1)
 
 | In pi | Does |
 |---|---|
@@ -29,7 +29,22 @@ node extensions/demo-recording/cli.ts doctor
 node extensions/demo-recording/cli.ts fixture serve            # Acme Pulse test app (?slow=1, ?flaky=1)
 node extensions/demo-recording/cli.ts project new --name "Churn PoC" --url https://app.example.com --app "Example"
 node extensions/demo-recording/cli.ts panel --ticker           # standalone panel with test events
+
+# S1 walking skeleton: fixture + fixtures/storyboards/s1-search.yaml → out/take-NNN-naive.mp4
+node extensions/demo-recording/cli.ts run-s1 --fixture [--seed 7] [--headed]
+node extensions/demo-recording/cli.ts run-s1 --url https://app.example.com --app Example --storyboard my.yaml
+node extensions/demo-recording/cli.ts spike capture            # capture resolution comparison
 ```
+
+A take lands in `projects/<p>/takes/take-NNN/` and contains:
+- `frames/`: 3200×1800 JPEGs
+- `frames.jsonl`
+- `events.jsonl`: every step on the screencast clock, with element boxes and `mark` anchors
+- `take.json`: seed, stats, status
+- `scenes.json`
+- `raw.mp4`: CFR master at capture resolution
+
+The S1 storyboard format (a subset; the full schema arrives in S2) is documented in `src/storyboard/types.ts`. See `fixtures/storyboards/s1-search.yaml` for an example.
 
 ## Configuration
 
@@ -41,12 +56,15 @@ Optional JSON file at `~/.config/demo-recording/config.json` (or `$DEMO_REC_CONF
   "viewport": { "width": 1600, "height": 900, "dpr": 2 },
   "output": { "width": 1920, "height": 1080 },
   "fps": 30,
+  "capture": { "quality": 92 },
   "panelPort": 3777,
   "ttsChain": ["elevenlabs", "openai", "kokoro"],
   "voiceName": "My Voice",
   "budgets": { "discoveryScreens": 40, "discoveryActions": 150, "discoveryMinutes": 20 }
 }
 ```
+
+To downscale capture on weaker machines, set `"capture": { "maxWidth": 2560, "maxHeight": 1440 }` (see [docs/spikes/S1-capture.md](docs/spikes/S1-capture.md)).
 
 Environment variables override the file: `DEMO_REC_ROOT`, `DEMO_REC_PANEL_PORT`, `DEMO_REC_TTS_CHAIN` (comma-separated), `DEMO_REC_VOICE`. A malformed config file is a hard error.
 
@@ -79,7 +97,8 @@ Artifacts are versioned and never overwritten (`storyboard/v3.yaml`, `takes/take
 ## Development
 
 ```bash
-node --test extensions/demo-recording/test/*.test.ts   # browser tests skip if Chromium is missing
+node --test extensions/demo-recording/test/*.test.ts   # browser/ffmpeg tests skip if missing
+DEMO_REC_E2E=1 node --test extensions/demo-recording/test/s1-e2e.test.ts   # full pipeline (macOS)
 npm run typecheck && npm run lint
 ```
 

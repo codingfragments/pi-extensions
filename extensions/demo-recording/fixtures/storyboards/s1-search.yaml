@@ -1,0 +1,43 @@
+# S1 walking-skeleton storyboard for the Acme Pulse fixture (hand-written).
+# From S2 on, storyboards are produced by discovery and approved in the panel.
+version: 1
+app: acme-pulse
+start_url: /
+scenes:
+  - id: 01-dashboard
+    title: Where churn hides
+    narration: >-
+      This is Acme Pulse. Churn looks harmless at three point one percent,
+      but the regional chart tells a different story.
+    steps:
+      - do: hover
+        target: { css: '[data-kpi="churn"]' }
+        mark: churn-kpi
+        dwell: 1.2s
+      - do: hover
+        target: { css: 'g[data-region="EMEA"] rect' }
+        mark: emea-bar
+        dwell: 1.4s
+
+  - id: 02-search
+    title: Ask in plain language
+    narration: >-
+      So let's just ask. Search for churn by region, and EMEA jumps out
+      at fourteen point two percent.
+    steps:
+      - do: click
+        target: { role: link, name: Search }
+      - do: type
+        target: { role: searchbox, name: Search }
+        text: churn by region
+        mark: type-start
+      - do: press
+        key: Enter
+      - do: wait
+        for: { css: "table.regions" }
+        timeout: 15s
+        mark: results-visible
+      - do: hover
+        target: { css: 'tr[data-region="EMEA"]' }
+        mark: emea-row
+        dwell: 1.5s

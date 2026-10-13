@@ -24,6 +24,12 @@ export interface DemoRecConfig {
   viewport: { width: number; height: number; dpr: number };
   /** Render frame rate (D15). */
   fps: number;
+  /**
+   * Screencast capture (D2). Default: full device pixels (viewport × dpr).
+   * Set maxWidth/maxHeight (e.g. 2560×1440) to downscale on weaker machines
+   * (docs/spikes/S1-capture.md).
+   */
+  capture: { quality: number; maxWidth?: number; maxHeight?: number };
   /** Render output size (D15). */
   output: { width: number; height: number };
   /** Preferred panel port; the next free port is used if taken. */
@@ -51,6 +57,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     root: path.join(home, "DemoRecordings"),
     viewport: { width: 1600, height: 900, dpr: 2 },
     fps: 30,
+    capture: { quality: 92 },
     output: { width: 1920, height: 1080 },
     panelPort: 3777,
     ttsChain: ["elevenlabs", "openai", "kokoro"],
@@ -123,6 +130,18 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
     if (out.height !== undefined) cfg.output.height = positiveInt(out.height, "output.height");
   }
   if (raw.fps !== undefined) cfg.fps = positiveInt(raw.fps, "fps");
+  const cap = raw.capture as Record<string, unknown> | undefined;
+  if (cap !== undefined) {
+    if (cap.quality !== undefined) {
+      const q = positiveInt(cap.quality, "capture.quality");
+      if (q > 100) throw new Error('demo-recording config: "capture.quality" must be 1..100');
+      cfg.capture.quality = q;
+    }
+    if (cap.maxWidth !== undefined)
+      cfg.capture.maxWidth = positiveInt(cap.maxWidth, "capture.maxWidth");
+    if (cap.maxHeight !== undefined)
+      cfg.capture.maxHeight = positiveInt(cap.maxHeight, "capture.maxHeight");
+  }
   if (raw.panelPort !== undefined) cfg.panelPort = positiveInt(raw.panelPort, "panelPort");
   if (raw.ttsChain !== undefined) cfg.ttsChain = parseChain(raw.ttsChain, "ttsChain");
   if (raw.voiceName !== undefined) {

@@ -124,7 +124,6 @@ Rule of thumb:
 |---|---|
 | [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
 | [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. Ships a CLI plus a `gdrive_publish` tool that only registers in configured projects. Manual: [MANUAL.md](extensions/gdrive-publish/MANUAL.md). |
-| [poc-video](extensions/poc-video/README.md) | Two-pass POC demo video pipeline: agent explores a web app, records a deterministic human-like walkthrough, narrates it with a cloned voice, assembles final.mp4. Scaffolded — storyboard/vo contracts + validator; runner, panel, VO/TTS and assembly pending. |
 
 ## Sandbox
 
@@ -139,7 +138,6 @@ CSV, an xlsx, and an obvious test image). It is not loaded by pi.
 |---|---|
 | [grill-me](skills/grill-me/SKILL.md) | Adversarially stress-tests a plan, design doc, PR, or code by interrogating it with tough questions before it ships. |
 | [gdrive-publish](skills/gdrive-publish/SKILL.md) | Guides publishing a docs folder to Google Drive as native Docs/Sheets: plan first, read the warning taxonomy, commit the manifest, never prune or auto-approve without being asked. Human manual: [MANUAL.md](skills/gdrive-publish/MANUAL.md). |
-| [poc-video](skills/poc-video/SKILL.md) | Produces a polished POC demo video of a target web app via a two-pass pipeline — agent exploration, then deterministic recording with human-like input, cloned-voice narration, dense-but-breathing assembly. Scaffolded — contracts only; hard rules: manual auth, no silent spend, no silent fallback. |
 
 ## License
 

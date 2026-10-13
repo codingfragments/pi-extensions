@@ -17,7 +17,7 @@ description: Produces a polished POC demo video of a target web app via a two-pa
 |---|---|---|
 | Pass 1 — explore & learn | **implemented** | this skill + `poc_video_*` tools |
 | Checkpoint 1 — storyboard approval | **manual** (yaml review; panel pending) | validator + user |
-| Pass 2 — record | pending | `scripts/record.ts` |
+| Pass 2 — record | **in progress** — replay engine done (`scripts/record.ts`: watch/step/dry-run, deterministic steps, settle/hold, scenes.json, recordVideo → webm); human-like input + control bus/steering next | `scripts/record.ts` |
 | Post — VO, TTS, assembly | pending | `scripts/vo.py` / `tts.py` / `assemble.py` |
 
 ## Pass 1 protocol (implemented)
@@ -82,5 +82,7 @@ either driver.
 ```bash
 # scaffold:      node extensions/poc-video/scripts/pass1-init.ts <target> --pocs-root <pocs>
 # validate:      node extensions/poc-video/scripts/validate-storyboard.mjs <storyboard.yaml> [vo.yaml]
+# record/replay: cd extensions/poc-video && just record <run-dir> [watch|step|dry-run]
+#                (dry-run = selector validation, no recording; watch = real recording)
 # manual tests:  cd extensions/poc-video && just --list
 ```

@@ -1,0 +1,19 @@
+# MANUAL TEST FIXTURE — must be REJECTED by the validator.
+# Error class: duplicate scene ids.
+# Expect: "✖ … duplicate id 'setup-landing'"
+
+meta:
+  target: fixture
+  title: "duplicate ids"
+  voice: { name: "Stefan" }
+  target_duration_s: 30
+
+scenes:
+  - id: setup-landing
+    title: "first"
+    intent: "same id twice must not pass"
+    steps: [{ type: navigate, url: "https://example.com" }]
+  - id: setup-landing
+    title: "second"
+    intent: "same id twice must not pass"
+    steps: [{ type: navigate, url: "https://example.com/2" }]

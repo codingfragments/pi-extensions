@@ -61,6 +61,8 @@ export interface ResolveInput {
   env?: NodeJS.ProcessEnv;
   home?: string;
   readFile?: (file: string) => string | undefined;
+  /** Per-project overrides (`projects/<p>/config.json`), applied after the global file. */
+  projectConfigFile?: string;
 }
 
 const TTS_ENGINES: readonly TtsEngine[] = ["elevenlabs", "openai", "kokoro", "say"];
@@ -267,27 +269,32 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
   }
 }
 
+/** Parse a config file's text into an object (hard error on malformed JSON). */
+export function parseConfigText(text: string, file: string): Record<string, unknown> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`demo-recording config: ${file} is not valid JSON (${(err as Error).message})`);
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`demo-recording config: ${file} must contain a JSON object`);
+  }
+  return raw as Record<string, unknown>;
+}
+
 export function resolveConfig(input: ResolveInput = {}): DemoRecConfig {
   const env = input.env ?? process.env;
   const home = input.home ?? os.homedir();
   const readFile = input.readFile ?? readFileIfExists;
   const cfg = defaultConfig(home);
 
-  const file = configFilePath(env, home);
-  const text = readFile(file);
-  if (text !== undefined) {
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch (err) {
-      throw new Error(
-        `demo-recording config: ${file} is not valid JSON (${(err as Error).message})`,
-      );
-    }
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-      throw new Error(`demo-recording config: ${file} must contain a JSON object`);
-    }
-    applyFile(cfg, raw as Record<string, unknown>, home);
+  for (const file of [configFilePath(env, home), input.projectConfigFile].filter(
+    (f): f is string => !!f,
+  )) {
+    const text = readFile(file);
+    if (text === undefined) continue;
+    applyFile(cfg, parseConfigText(text, file), home);
     cfg.sources.push(file);
   }
 

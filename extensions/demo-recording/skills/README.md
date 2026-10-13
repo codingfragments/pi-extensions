@@ -9,3 +9,4 @@ in `../index.ts`. They are added slice by slice (see
 | [`demo-brief/`](demo-brief/SKILL.md) | Draft `brief.md` from free-form input, ask for gaps, web search only on request | S2 ✅ |
 | [`demo-recording/`](demo-recording/SKILL.md) | Director's playbook: discovery, demo-worthiness, human-like flow, storyboard format, review loop, recording | S2 ✅ |
 | [`demo-voiceover/`](demo-voiceover/SKILL.md) | VO from the actual take: stance/density/style rules, `[@mark]` anchors, `{{dom:…}}` value bindings, full-video intro/bridges/outro, review loop | S4 ✅ |
+| [`demo-config/`](demo-config/SKILL.md) | View, explain and change settings (voice, engines, models, budgets) globally or per project, diff-confirmed | S5 ✅ |

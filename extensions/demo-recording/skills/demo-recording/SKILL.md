@@ -171,3 +171,5 @@ running take.
 The narrated video is produced with the **demo-voiceover** skill:
 `demo_rec_take analyze` → `demo_rec_take accept` → `demo_rec_vo template/write`
 → the user approves in the panel's Voice tab → `demo_rec_tts` → `demo_rec_edit`.
+Shortcuts the user may type: `/demo voiceover`, `/demo render`, `/demo voices`,
+`/demo config`. For settings questions use the **demo-config** skill.

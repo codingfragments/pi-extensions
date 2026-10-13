@@ -7,6 +7,8 @@
  * idempotently on `session_shutdown`.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { EventBus } from "./bus.ts";
 import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
@@ -14,7 +16,7 @@ import { Jobs } from "./jobs.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { readManifest } from "./tts/synthesize.ts";
-import { type ProjectHandle, appDir, openProject } from "./workdir/layout.ts";
+import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/layout.ts";
 
 /** The subset of ExtensionAPI the runtime needs (keeps tests and the CLI simple). */
 export interface AgentBridge {
@@ -39,14 +41,19 @@ export class Runtime {
   private panel: PanelHandle | undefined;
   private panelStarting: Promise<PanelHandle> | undefined;
   private activeSlug: string | undefined;
-  private readonly resolve: () => DemoRecConfig;
+  private readonly resolve: (projectConfigFile?: string) => DemoRecConfig;
+  private configKey = "";
   private readonly agent: AgentBridge | undefined;
   discovery: DiscoverySession | undefined;
   readonly jobs = new Jobs();
   private ui: StatusSink | undefined;
   private lastStatus = 0;
 
-  constructor(resolve: () => DemoRecConfig = () => resolveConfig(), agent?: AgentBridge) {
+  constructor(
+    resolve: (projectConfigFile?: string) => DemoRecConfig = (f) =>
+      resolveConfig(f ? { projectConfigFile: f } : {}),
+    agent?: AgentBridge,
+  ) {
     this.resolve = resolve;
     this.agent = agent;
     // Mirror progress into pi's footer status line.
@@ -65,9 +72,23 @@ export class Runtime {
   }
 
   /** Resolved config; `reload` re-reads file/env (e.g. after the user edits config). */
+  /** Effective config: defaults < global file < active project's config.json < env. */
   getConfig(reload = false): DemoRecConfig {
-    if (!this.config || reload) this.config = this.resolve();
+    const key = this.activeSlug ?? "";
+    if (!this.config || reload || this.configKey !== key) {
+      const base = this.resolve();
+      const file = this.projectConfigPath(base.root);
+      this.config = file && fs.existsSync(file) ? this.resolve(file) : base;
+      this.configKey = key;
+    }
     return this.config;
+  }
+
+  /** `projects/<p>/config.json` of the active project (whether or not it exists). */
+  projectConfigPath(root = this.getConfig().root): string | undefined {
+    return this.activeSlug
+      ? path.join(projectDir(root, this.activeSlug), "config.json")
+      : undefined;
   }
 
   setActiveProject(slug: string | undefined): void {

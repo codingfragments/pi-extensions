@@ -517,37 +517,98 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 
 ---
 
-### S5 — Polish & deterministic QA *(D13, D14)*
+### S5 — Polish, brands, QA, guided review *(D13, D14, D21–D28)*
 
-**Purpose.** Lift the result from "correct" to "looks produced", and catch the
-failures humans would spot: selective zoom, step callouts, the title card,
-and the automated QA report.
+**Purpose.** Take the output from correct to produced, and point the human at what
+actually needs their attention: a branded look, selective zoom, step callouts,
+subtitles and variants, deterministic QA with blocking rules, confidence-guided
+review, and conversational config. Decisions D21–D28 come from the S5 grill.
 
 **Deliverables**
-- Zoom/pan from step `zoom: true` events, using the logged box: eased in → hold → out on the next page change or the next zoom target. Max scale is bounded by DPR headroom.
-  - **Spike** (`docs/spikes/S5-zoom.md`): ffmpeg `scale=eval=frame` + per-frame `crop` expressions vs Node-side frame compositing (sharp). Pick by quality and speed.
-- Callouts (step captions, D14): HTML template → transparent PNG → `overlay` with fade, timed from step events. Sidecar `full.callouts.srt`. Optional `full.transcript.vtt` from the alignment (off by default).
-- Title card (full video only): HTML template from the brief (app name, topic, date) → 3 s clip, fade.
-- `qa/`:
-  - `media.ts`: ffmpeg `freezedetect`, `silencedetect`, `blackdetect` on rendered outputs.
-  - `values.ts`: every number/name in the final VO text exists in the DOM snapshot at its anchor (or in the nearest snapshot within the scene). A mismatch is a hard flag.
-  - Alerts/console errors during the used segments are flagged with timestamps.
-  - `drift.ts`: whisper on the rendered audio vs the script → per-scene drift score.
-  - `report.md` + panel flags on scene cards. The director auto-fixes trivial flags (re-time, re-cut) and asks about the rest.
-- Panel **EXPORT**: playable outputs, downloads, QA report.
+
+*1. Model and config guards (first: they help testing right away)*
+- A warning in the discovery and take-analysis results (and the panel) when the session model has **no image input**, because pi silently strips screenshots.
+- Doctor checks that `improvise.models` are available in pi.
+- **Config skill** (`demo-config`, `demo_rec_config`, `/demo config`):
+  - show effective values with their source;
+  - precedence: defaults < global `~/.config/demo-recording/config.json` < `projects/<p>/config.json` < env;
+  - change values with a **diff before every write**, keeping the `_comment` docs, validated by the resolver;
+  - never touches API keys.
+- **Voice list:** `demo_rec_tts voices` shows name, id and category for each voice, with a pick → free `check` flow.
+- Convenience commands: `/demo voiceover`, `/demo render`.
+
+*2. Brands (D24, D25)*
+- **Brand package format:** `brand.json` (colors: bg/backdrop/accent/text/muted, font, inset %, corner radius, shadow, logo bug on/off + position/opacity, title layout) plus `logo-light.svg|png`, `logo-dark.svg|png`, and an optional backdrop image or gradient. Validated on load.
+- The **neutral brand ships in the extension** (`brands/neutral/`). User brands live in `~/DemoRecordings/brands/<name>/`.
+- The **`demo-brand` skill** and `/demo brand new`: explain what's needed, take a zip or folder, extract and normalize (SVG/PNG logos, contrast checks on colors, font fallback) into a package. Then `/demo brand use <name>`, `list`, and config `brand` for the default; a project or app can override.
+- **Panel Brand tab:** brand list, a live preview on a real keyframe (title card, framed footage, callout), quick tweaks (accent, backdrop, inset, corner, logo position) saved back to the package, and "set as default".
+- **Renderer:**
+  - footage **inset on the backdrop** (rounded and shadowed, zooms happen inside the inset);
+  - **title card** (app, demo title, date from the brief), a 0.8 s cross-dissolve into the first frame under the intro narration;
+  - optional **logo bug** on the full video;
+  - all overlays are HTML templates rendered to transparent PNGs through Playwright.
+
+*3. Zoom, callouts, subtitles, variants (D26, D27)*
+- **Zoom** from `zoom: true` steps using the logged target box: 1.5× (max 1.8×, clamped to the frame), 0.6 s ease in, hold until the next page change, next zoom or scene end, then 0.5 s out. A storyboard warning above 2 zooms per demo. The cursor stays correct inside the zoom.
+  - **Spike Q3** (`docs/spikes/S5-zoom.md`): ffmpeg `crop`/`scale` expressions vs Node frame compositing. Pick by quality and speed.
+- **Callouts:** a fixed bottom-left branded pill over the footage. It fades in 150 ms before the step event and stays ~2.5 s or until the next callout. The director writes them (`callout:` ≤ 60 chars) and they're **editable inline in the Review tab**, with overlay-only changes (re-render, no re-take, no re-approval). Plus a `full.callouts.srt` sidecar.
+- **Highlight** (user addition, D26): an opt-in `highlight: true` per step (also allowed without a callout). It draws a subtle rounded outline (brand accent, 2 px, ~70 % opacity, faint soft glow, padding ~6 px) around the step's logged target box. It fades in and out with the callout (or ~2 s), follows zoom and scroll offset (box from the event log, mapped through the zoom transform), and is skipped for boxes larger than ~60 % of the frame. No fills, arrows or animation beyond the fade. The storyboard parser accepts the flag, the Review tab shows it, and the skill says to use it sparingly, when a callout refers to a specific region.
+- **Subtitles:** transcript VTT sidecars **always** (full and per scene, from the word timings). An optional **burned-in** variant; when enabled, **every video exists in two versions** (clean + subtitled).
+- **Variant cache:** renders are keyed by timeline + **brand** + overlay options. The **Export tab toggles** callouts, subtitles and the logo bug, and only missing variants are re-rendered.
+
+*4. Deterministic QA (D13, D21) and mechanical auto-fix (D22)*
+- `qa/media.ts`: ffmpeg `freezedetect`, `silencedetect`, `blackdetect`.
+- `qa/values.ts`: every number or name in the final narration must exist in the page text at its anchor (or the nearest snapshot in the scene).
+- Alerts and console errors in **used** footage.
+- `qa/drift.ts`: Whisper on the rendered audio vs the timeline, per anchor.
+- **Blocking:** value mismatch, error toast or console error in used footage, anchor drift above 300 ms. **Warnings:** holds, silences, narrator pauses, filler. Output goes to `report.md` and panel flags.
+- **Auto-fix (mechanical only):** anchor re-time or move, alignment re-run, hold handling, re-render. Stored as `edit/overrides.json`; the approved script and audio are untouched; every fix is listed in the report. Content changes (narration, values, re-takes, storyboard) are always asked.
+
+*5. Confidence-guided review (D23)*
+- **Measured signals** (see the cross-cutting section) → a high/medium/low level with reasons, per storyboard scene and VO section.
+- **Agent's view:** the director's 1–5 self-rating with a one-line reason, stored with the version. It can only lower the level.
+- **Panel:** badges, "N items need your eyes", lowest-first sorting, jump links to the step, anchor or keyframe, and "approve high-confidence" behind a click plus a confirmation listing what's skipped.
+- Review messages and tool results list low-confidence items first.
+
+*5b. Voice direction (D29, user addition)*
+- **Voice tab "Direction" panel:** presets for stance (champion / evaluator / teacher), tone (punchier / calmer / more technical), length (shorter / longer / match footage), a focus field, and free text. Then **"Draft new version"**.
+- **Bridge:** one `[demo-panel] Voice-over direction for vN …` message. The agent (demo-voiceover skill) rewrites the **whole** script as vN+1 from the same take analysis, keeping anchors valid and the timing budget, and summarizes how it applied the direction. Per-section notes still work as before.
+- **Version comparison** in the Voice tab: per-section changed/unchanged badges, a word-level diff against the previous version, timing bars, and confidence (D23). Approve as usual.
+- **"Generate voice & render"** button after approval, an engine job straight from the panel (`POST /api/voice-render`): TTS (cache, so only changed sections are synthesized), then the edit/render with the current brand and overlay options. Before starting it shows an **estimate**: characters to synthesize for the selected engine, and sections reused from the cache. Progress in the panel; the agent gets the result message.
+- **Optional:** "save as default direction" writes a `Narration direction:` line into the brief, so future voice-overs start from it.
+
+*6. Export tab (D27)*
+- **Brand switch** (user addition): a brand dropdown next to the toggles. Changing the brand re-renders the selected outputs from the existing `edit/timeline.vN.json` + `raw.mp4` + voice audio. It's a background engine job started directly from the panel (`POST /api/export-render {brand, callouts, subtitles, logoBug}`), with **no agent turn, no LLM call and no TTS**, progress in the panel, and the agent informed only on failure. Variants land in `out/edit-vN/<variant>/` and are reused when cached. A brand change never invalidates approvals: brands are presentation only.
+- Players (with the transcript track), downloads, toggles (callouts, subtitles, logo bug) → variant renders, the QA report with jump-to-time, "confirm & export anyway" for blocking items, and open folder. No publishing in v1.
 
 **How to test**
-- Unit: zoom keyframe generation (never exceeds headroom, eases, no zoom on unflagged steps), callout timing, the value extractor (numbers with units/percent/currency, names).
-- E2E on the fixture:
-  - `?flaky=1` produces an alert flag at the right timestamp.
-  - A VO with a deliberately wrong value gets a hard flag.
-  - `?slow=1` without a cut (solver disabled) gets a freeze/dead-air flag.
-- Manual review: the fixture demo with zooms on 2 flagged steps only, callouts on the important steps, and a title card on the full video only.
+- **Unit:**
+  - brand package validation and normalization (contrast, missing dark logo);
+  - zoom keyframes (never beyond headroom, eased, only flagged steps, cap warning);
+  - highlight geometry (box padding, zoom mapping, skipped when the box is too large, timing tied to the callout);
+  - callout timing;
+  - the VTT generator against the word timings;
+  - the value extractor (currency, percent, counts, names);
+  - the blocking classification;
+  - override application (the approved VO and audio hashes are unchanged);
+  - confidence signals on injected defects (unseen target, wrong value, off-sync, fallback used);
+  - the agent's view never raises a level;
+  - the config diff/write (keeps `_comment`, precedence, rejects invalid values, never writes keys);
+  - voice direction: the direction message contains every preset + free text; the new version is a full script (all sections present); the cost estimate counts only cache misses; "Generate voice & render" refuses an unapproved version;
+  - the variant cache key (brand, callouts, subtitles, logo bug); a brand switch re-renders without touching the VO, voice manifest or approvals and without any model call (asserted with a stub registry that fails on use).
+- **E2E on the fixture:**
+  - `?flaky=1` → a blocking alert flag at the right time;
+  - a VO with a wrong value → blocking value flag;
+  - an uncut spinner (solver disabled) → a warning;
+  - the clean run → zero blocking;
+  - toggling subtitles renders only the subtitled variant.
+- **Visual (manual):** the neutral brand title → dissolve → inset footage, 2 zooms, callouts, a logo bug when enabled. Then a brand built from a zip in the Brand tab, previewed on a keyframe.
 
-**Exit criteria.** QA catches all three injected fixture defects with zero false
-positives on the clean fixture run. Polished output passes the reviewer's visual check.
-
----
+**Exit criteria.**
+- QA catches all injected fixture defects, with zero blocking items on the clean run.
+- The neutral brand and one user-built brand both render the full video and the variants.
+- The confidence view surfaces the injected weak items first.
+- Config changes go through diff, confirm and validation.
 
 ### S6 — Auth, safety hardening, real-app acceptance
 
@@ -630,7 +691,7 @@ real GPU rendering, behind a flag, reusing everything else.
 |---|---|---|
 | Q1 | ~~Capture resolution default (3200×1800 vs 2560×1440)~~ → **3200×1800**, see spikes/S1-capture.md | S1 spike ✅ |
 | Q2 | ~~Kokoro via Python (uv) vs `kokoro-js` in Node~~ → **uv + kokoro-onnx** (no Node deps; ~5× real time) | S4 ✅ |
-| Q3 | Zoom rendering: ffmpeg expressions vs Node frame compositing | S5 spike |
+| Q3 | Zoom rendering: ffmpeg expressions vs Node frame compositing (now also inset + backdrop + overlays) | S5 spike |
 | Q4 | ~~Default whisper model size~~ → **base.en + onset refinement** (≤ 32 ms) | S4 ✅ |
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |

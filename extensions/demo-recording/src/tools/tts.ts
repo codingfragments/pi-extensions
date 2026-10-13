@@ -10,7 +10,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { Job } from "../jobs.ts";
 import type { Runtime } from "../runtime.ts";
-import { buildEngines } from "../tts/factory.ts";
+import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
+import { briefVoice, buildEngines } from "../tts/factory.ts";
 import { type VoiceManifest, readManifest, renderVoice, selectEngine } from "../tts/synthesize.ts";
 import { readVo } from "../vo/store.ts";
 import { readState, requireApproved } from "../workdir/state.ts";
@@ -18,9 +19,15 @@ import { result } from "./common.ts";
 
 export function voiceSummary(m: VoiceManifest): string {
   const lines = [
-    `Voice-over v${m.voVersion} synthesized with ${m.engine} (voice "${m.voice.name}"): ${m.totalSec.toFixed(1)} s total, ` +
+    `Voice-over v${m.voVersion} synthesized with ${m.engine}${m.models?.length ? ` / ${m.models.join(", ")}` : ""} (voice "${m.voice.name}"): ${m.totalSec.toFixed(1)} s total, ` +
       `${m.billedChars} characters synthesized${m.engine === "elevenlabs" || m.engine === "openai" ? " (billed)" : " (local, no cost)"} (${Object.values(m.sections).filter((s) => s.cached).length}/${Object.keys(m.sections).length} sections from cache).`,
   ];
+  for (const f of m.modelFallbacks ?? [])
+    lines.push(`⚠ ${f.section}: fell back from ${f.from} to ${f.to} (${f.reason})`);
+  if ((m.models?.length ?? 0) > 1)
+    lines.push(
+      `⚠ mixed models in one video: ${m.models.join(", ")} — re-render to make them consistent`,
+    );
   if (m.skipped.length)
     lines.push(`skipped engines: ${m.skipped.map((s) => `${s.engine} (${s.reason})`).join("; ")}`);
   for (const s of Object.values(m.sections)) {
@@ -38,12 +45,13 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
     name: "demo_rec_tts",
     label: "Demo voice synthesis",
     description:
-      "Voice for the APPROVED voice-over. check: which engine and voice the chain would use (ElevenLabs custom voice by name → OpenAI → Kokoro), " +
+      "Voice for the APPROVED voice-over. voices: list every ElevenLabs voice in the account (name, id, category; yours first). " +
+      "check: which engine and voice the chain would use (ElevenLabs custom voice by name → OpenAI → Kokoro), " +
       "no cost. start: synthesize every section in the background (one engine for the whole video, cached by content, word timings + anchor times " +
       "per section); you get a [demo-recording] message when done. status/cancel manage the job. Refuses unless the user approved a voice-over in the panel.",
     parameters: Type.Object({
       action: Type.Optional(
-        StringEnum(["check", "start", "status", "cancel"] as const, {
+        StringEnum(["check", "voices", "start", "status", "cancel"] as const, {
           description: "default start",
         }),
       ),
@@ -64,12 +72,37 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
         if (j) j.controller.abort();
         return result(j ? `cancelling ${j.id}` : "no voice job running");
       }
-      const p = rt.requireProject();
+      // voices/check work without a project (brief voice applies when one is active)
+      const active = rt.activeProject();
       const cfg = rt.getConfig(true);
-      const brief = fs.existsSync(path.join(p.dir, "brief.md"))
-        ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")
-        : "";
+      const brief =
+        active && fs.existsSync(path.join(active.dir, "brief.md"))
+          ? fs.readFileSync(path.join(active.dir, "brief.md"), "utf8")
+          : "";
       const engines = buildEngines(cfg, { brief });
+      if (action === "voices") {
+        const all = sortVoices(
+          await listElevenLabsVoices({
+            ...(process.env.ELEVENLABS_API_KEY?.trim()
+              ? { apiKey: process.env.ELEVENLABS_API_KEY.trim() }
+              : {}),
+            ...(signal ? { signal } : {}),
+          }),
+        );
+        const current = (briefVoice(brief) ?? cfg.voiceName).trim().toLowerCase();
+        const lines = all.map((v) => {
+          const on =
+            current &&
+            (v.name.toLowerCase() === current ||
+              v.voice_id === current ||
+              v.name.toLowerCase().startsWith(current));
+          return `${on ? "▶" : " "} ${v.name}  (${v.category ?? "?"}, id ${v.voice_id})`;
+        });
+        return result(
+          `${all.length} ElevenLabs voices (yours first). Current: ${briefVoice(brief) ? `brief → "${briefVoice(brief)}"` : cfg.voiceName ? `config → "${cfg.voiceName}"` : "none set"}\n` +
+            `${lines.join("\n")}\n\nTo pick one: demo_rec_config set voiceName "<name>" (global or project scope), or the brief's Voice field; or run /demo voices.`,
+        );
+      }
       if (action === "check") {
         const lines: string[] = [];
         for (const e of engines) {
@@ -83,6 +116,7 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
         return result(lines.join("\n"));
       }
 
+      const p = rt.requireProject();
       const state = readState(p.dir) ?? p.state;
       const version = requireApproved(state, "vo");
       const vo = readVo(p.dir, version);

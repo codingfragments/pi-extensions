@@ -25,6 +25,10 @@ export interface EngineHealth {
 
 export interface SynthResult {
   durationSec: number;
+  /** Model actually used (provider engines), e.g. eleven_v4. */
+  model?: string;
+  /** Set when the engine had to fall back from the configured model. */
+  fallback?: { from: string; to: string; reason: string };
   /** Provider character timings over the given text (ElevenLabs). */
   chars?: { chars: string[]; starts: number[]; ends: number[] };
 }
@@ -101,6 +105,47 @@ export function elevenLabsAuthHint(detail: string): string {
   return "";
 }
 
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  /** cloned | professional | generated | premade | … */
+  category?: string;
+  labels?: Record<string, string>;
+}
+
+/** All voices in the account (needs the key's "Voices: Read" permission). */
+export async function listElevenLabsVoices(o: {
+  apiKey?: string;
+  fetch?: FetchLike;
+  baseUrl?: string;
+  signal?: AbortSignal;
+}): Promise<ElevenLabsVoice[]> {
+  if (!o.apiKey) throw new EngineUnavailable("ELEVENLABS_API_KEY is not set");
+  const http = o.fetch ?? (globalThis.fetch as unknown as FetchLike);
+  const res = await http(`${o.baseUrl ?? "https://api.elevenlabs.io"}/v1/voices`, {
+    headers: { "xi-api-key": o.apiKey, "content-type": "application/json" },
+    ...(o.signal ? { signal: o.signal } : {}),
+  });
+  if (res.status === 401) {
+    const detail = await elevenLabsDetail(res);
+    throw new VoicesUnauthorized(
+      `ElevenLabs rejected the API key (401${detail ? `: ${detail}` : ""})${elevenLabsAuthHint(detail)}`,
+      detail,
+    );
+  }
+  if (!res.ok)
+    throw new EngineUnavailable(
+      `ElevenLabs /v1/voices failed (${res.status}: ${await elevenLabsDetail(res)})`,
+    );
+  return ((await res.json()) as { voices: ElevenLabsVoice[] }).voices;
+}
+
+/** Your own voices first (cloned/professional/generated), then the library; alphabetical within. */
+export function sortVoices(voices: ElevenLabsVoice[]): ElevenLabsVoice[] {
+  const own = (v: ElevenLabsVoice) => (v.category && v.category !== "premade" ? 0 : 1);
+  return [...voices].sort((a, b) => own(a) - own(b) || a.name.localeCompare(b.name));
+}
+
 /** ElevenLabs voice IDs are 20 alphanumeric characters. */
 export const looksLikeVoiceId = (s: string) => /^[A-Za-z0-9]{20}$/.test(s.trim());
 
@@ -120,27 +165,17 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
   const http = o.fetch ?? (globalThis.fetch as unknown as FetchLike);
   const base = o.baseUrl ?? "https://api.elevenlabs.io";
   let model = o.model;
-  let voices: { voice_id: string; name: string }[] | undefined;
+  let voices: ElevenLabsVoice[] | undefined;
   const headers = () => ({ "xi-api-key": o.apiKey ?? "", "content-type": "application/json" });
 
   const listVoices = async (signal?: AbortSignal) => {
     if (voices) return voices;
-    const res = await http(`${base}/v1/voices`, {
-      headers: headers(),
+    voices = await listElevenLabsVoices({
+      ...(o.apiKey ? { apiKey: o.apiKey } : {}),
+      fetch: http,
+      baseUrl: base,
       ...(signal ? { signal } : {}),
     });
-    if (res.status === 401) {
-      const detail = await elevenLabsDetail(res);
-      throw new VoicesUnauthorized(
-        `ElevenLabs rejected the API key (401${detail ? `: ${detail}` : ""})${elevenLabsAuthHint(detail)}`,
-        detail,
-      );
-    }
-    if (!res.ok)
-      throw new EngineUnavailable(
-        `ElevenLabs /v1/voices failed (${res.status}: ${await elevenLabsDetail(res)})`,
-      );
-    voices = ((await res.json()) as { voices: { voice_id: string; name: string }[] }).voices;
     return voices;
   };
 
@@ -216,10 +251,12 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
             ...(signal ? { signal } : {}),
           },
         );
+      let fallback: SynthResult["fallback"];
       let res = await call(model);
       if (res.status === 400 || res.status === 422) {
         const detail = await res.text();
         if (/model/i.test(detail) && model !== o.fallbackModel) {
+          fallback = { from: model, to: o.fallbackModel, reason: detail.slice(0, 160) };
           model = o.fallbackModel; // account/model mismatch: same voice, older model
           res = await call(model);
         } else
@@ -250,6 +287,8 @@ export function elevenLabs(o: ElevenLabsOptions): TtsEngine {
       const a = body.alignment;
       return {
         durationSec,
+        model,
+        ...(fallback ? { fallback } : {}),
         ...(a
           ? {
               chars: {
@@ -311,7 +350,7 @@ export function openAi(o: OpenAiOptions): TtsEngine {
       fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
       const durationSec = await toWav(raw, outWav);
       fs.rmSync(raw, { force: true });
-      return { durationSec };
+      return { durationSec, model: o.model };
     },
   };
 }

@@ -680,3 +680,70 @@ test("factory trims pasted whitespace from API keys", async () => {
   assert.equal((await el?.health())?.ok, true);
   assert.deepEqual(seen, ["sk_abc"]);
 });
+
+test(
+  "the ElevenLabs model actually used is recorded (incl. fallbacks) per section and in the manifest",
+  { skip: !FF && "needs ffmpeg" },
+  async () => {
+    const { modelFromIdentity } = await import("../src/tts/synthesize.ts");
+    assert.equal(modelFromIdentity("elevenlabs:v-1:eleven_v4:d:d"), "eleven_v4");
+    assert.equal(modelFromIdentity("openai:gpt-4o-mini-tts:ash:"), "gpt-4o-mini-tts");
+    assert.equal(modelFromIdentity("say:default"), undefined);
+
+    const mp3 = tone(path.join(dir, "t.mp3"), 0.8, ["-c:a", "libmp3lame"]).toString("base64");
+    const chars = [..."Hello there"];
+    const alignment = {
+      characters: chars,
+      character_start_times_seconds: chars.map((_, i) => i * 0.05),
+      character_end_times_seconds: chars.map((_, i) => i * 0.05 + 0.05),
+    };
+    const mk = (rejectV4: boolean) =>
+      elevenLabs({
+        apiKey: "k",
+        voiceName: "George",
+        model: "eleven_v4",
+        fallbackModel: "eleven_multilingual_v2",
+        fetch: mockFetch((url, init) => {
+          if (url.endsWith("/v1/voices")) return { status: 200, json: VOICES };
+          const model = JSON.parse(String(init?.body)).model_id;
+          if (rejectV4 && model === "eleven_v4")
+            return { status: 400, body: "model not supported for timestamps" };
+          return { status: 200, json: { audio_base64: mp3, alignment } };
+        }).fetch,
+      });
+    const vo = sectionsOf("---\ntake: take-001\n---\n## 01-a\nHello there\n");
+    const ok = await renderVoice({
+      projectDir: dir,
+      voVersion: 1,
+      take: "take-001",
+      sections: vo,
+      engines: [mk(false)],
+    });
+    assert.deepEqual(ok.models, ["eleven_v4"]);
+    assert.equal(ok.sections["01-a"]?.model, "eleven_v4");
+    assert.deepEqual(ok.modelFallbacks, []);
+    const again = await renderVoice({
+      projectDir: dir,
+      voVersion: 2,
+      take: "take-001",
+      sections: vo,
+      engines: [mk(false)],
+    });
+    assert.equal(again.sections["01-a"]?.cached, true);
+    assert.equal(again.sections["01-a"]?.model, "eleven_v4", "model known for cached sections too");
+
+    const fb = await renderVoice({
+      projectDir: dir,
+      voVersion: 3,
+      take: "take-001",
+      sections: sectionsOf("---\ntake: take-001\n---\n## 01-a\nA new line\n"),
+      engines: [mk(true)],
+    });
+    assert.deepEqual(fb.models, ["eleven_multilingual_v2"]);
+    assert.equal(fb.modelFallbacks[0]?.from, "eleven_v4");
+    const { voiceSummary } = await import("../src/tools/tts.ts");
+    const summary = voiceSummary(fb);
+    assert.match(summary, /synthesized with elevenlabs \/ eleven_multilingual_v2/);
+    assert.match(summary, /⚠ 01-a: fell back from eleven_v4 to eleven_multilingual_v2/);
+  },
+);

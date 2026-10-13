@@ -17,7 +17,7 @@ description: Produces a polished POC demo video of a target web app via a two-pa
 |---|---|---|
 | Pass 1 — explore & learn | **implemented** | this skill + `poc_video_*` tools |
 | Checkpoint 1 — storyboard approval | **manual** (yaml review; panel pending) | validator + user |
-| Pass 2 — record | **in progress** — replay engine done (`scripts/record.ts`: watch/step/dry-run, deterministic steps, settle/hold, scenes.json, recordVideo → webm); human-like input + control bus/steering next | `scripts/record.ts` |
+| Pass 2 — record | **in progress** — replay engine + human-like input done (ghost-cursor Bézier paths, DOM cursor overlay with post-navigation recall, jittered typing; `--raw-input` drops back to raw Playwright input); control bus/steering next | `scripts/record.ts` + `human.ts` |
 | Post — VO, TTS, assembly | pending | `scripts/vo.py` / `tts.py` / `assemble.py` |
 
 ## Pass 1 protocol (implemented)

@@ -9,6 +9,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { chromium } from "playwright";
+import { createHumanInput } from "../human.ts";
 import { runRecording } from "./record.ts";
 
 const goodStoryboard = `# smoke fixture — deterministic, public, no login
@@ -39,6 +41,19 @@ const brokenStoryboard = goodStoryboard.replace(
   "text=Learn more",
   "text=This Selector Never Exists",
 );
+
+/**
+ * Overlay probe, DOM-typed via inline casts: the repo tsconfig has no DOM lib
+ * (and `/// <reference lib="dom" />` would leak DOM globals into the whole
+ * program — it broke gdrive-publish's fetch overloads). Runs inside the page.
+ */
+const overlayProbe = () => {
+  const doc = (globalThis as unknown as { document: { querySelector: (s: string) => OverlayEl } })
+    .document;
+  const el = doc.querySelector("p-mouse-pointer");
+  return { present: !!el, left: el ? el.style.left : "", top: el ? el.style.top : "" };
+};
+type OverlayEl = { style: { left: string; top: string } } | null;
 
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
@@ -87,25 +102,49 @@ async function main(): Promise<number> {
     console.log(
       "ℹ broken-selector phase skipped (watch aborts on failure — covered by dry-run smoke)",
     );
-    console.log(`✔ smoke passed (${mode}) — artifacts under ${tmp}`);
-    return 0;
+  } else {
+    const badDir = path.join(tmp, "broken-run");
+    fs.mkdirSync(badDir, { recursive: true });
+    fs.writeFileSync(path.join(badDir, "storyboard.yaml"), brokenStoryboard);
+    const bad = await runRecording({
+      runDir: badDir,
+      mode: "dry-run",
+      headless: true,
+      autoStart: true,
+    });
+    const [b1, b2] = bad.scenes;
+    if (!b1 || !b2) throw new Error(`expected 2 scenes in broken run, got ${bad.scenes.length}`);
+    if (b1.status !== "failed") throw new Error(`scene 1 should have failed: ${b1.status}`);
+    if (b2.status !== "recorded")
+      throw new Error(`dry run should have continued to scene 2: ${b2.status}`);
+    console.log("✔ failure semantics: broken scene marked failed, walk continued, error recorded");
+    console.log(`  (${b1.error ?? "no error string?"})`);
   }
-  const badDir = path.join(tmp, "broken-run");
-  fs.mkdirSync(badDir, { recursive: true });
-  fs.writeFileSync(path.join(badDir, "storyboard.yaml"), brokenStoryboard);
-  const bad = await runRecording({
-    runDir: badDir,
-    mode: "dry-run",
-    headless: true,
-    autoStart: true,
-  });
-  const [b1, b2] = bad.scenes;
-  if (!b1 || !b2) throw new Error(`expected 2 scenes in broken run, got ${bad.scenes.length}`);
-  if (b1.status !== "failed") throw new Error(`scene 1 should have failed: ${b1.status}`);
-  if (b2.status !== "recorded")
-    throw new Error(`dry run should have continued to scene 2: ${b2.status}`);
-  console.log("✔ failure semantics: broken scene marked failed, walk continued, error recorded");
-  console.log(`  (${b1.error ?? "no error string?"})`);
+
+  // 3. human layer: DOM cursor overlay installs (init script), tracks recall on a
+  // fresh navigation — headless, no recording, just the DOM contract
+  const overlayCtx = await chromium.launch({ headless: true });
+  const page = await (
+    await overlayCtx.newContext({ viewport: { width: 1280, height: 800 } })
+  ).newPage();
+  const human = await createHumanInput(page);
+  await page.goto("https://example.com", { waitUntil: "load" });
+  await human.recall();
+  const overlay = await page.evaluate(overlayProbe);
+  if (!overlay.present || overlay.left === "") {
+    throw new Error(`human layer broken: ${JSON.stringify(overlay)}`);
+  }
+  await human.click("role=link");
+  await page.waitForLoadState("load");
+  await human.recall();
+  const afterNav = await page.evaluate(overlayProbe);
+  if (!afterNav.present || afterNav.left === "" || afterNav.top === "") {
+    throw new Error(`recall did not re-track cursor after navigation: ${JSON.stringify(afterNav)}`);
+  }
+  await overlayCtx.close();
+  console.log(
+    `✔ human layer: overlay tracked (after-nav position ${afterNav.left},${afterNav.top})`,
+  );
   console.log(`✔ smoke passed — artifacts under ${tmp}`);
   return 0;
 }

@@ -17,7 +17,7 @@
   --err: #ed8796; /* red */
   --on-accent: #181926;
   color-scheme: dark;
-  font: 14px / 1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 16px / 1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 :root[data-theme="latte"] {
   --bg: #dce0e8; /* crust */
@@ -80,7 +80,7 @@ nav button:disabled {
   cursor: not-allowed;
 }
 .conn {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .conn.live {
@@ -117,7 +117,7 @@ h3 {
   margin: 0 0 8px;
 }
 h3 {
-  font-size: 13px;
+  font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -138,14 +138,14 @@ dd {
   color: var(--muted);
 }
 .small {
-  font-size: 12px;
+  font-size: 14px;
   margin: 10px 0 0;
 }
 .mono,
 code,
 .log {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
+  font-size: 14px;
 }
 .pill {
   background: color-mix(in srgb, var(--accent) 18%, var(--card));
@@ -190,7 +190,7 @@ main.review {
   min-height: calc(100vh - 49px);
 }
 .small-text {
-  font-size: 12px;
+  font-size: 14px;
 }
 .warn {
   color: var(--warn);
@@ -231,7 +231,7 @@ main.review {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: 15px;
 }
 .safety li {
   border-left: 3px solid var(--warn);
@@ -263,7 +263,7 @@ main.review {
   margin-left: auto;
 }
 .badge {
-  font-size: 11px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: .04em;
   border-radius: 999px;
@@ -324,7 +324,7 @@ main.review {
 }
 .scene .title {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   text-transform: none;
   letter-spacing: 0;
   color: var(--text);
@@ -341,7 +341,7 @@ main.review {
 .steps {
   margin: 8px 0;
   padding-left: 20px;
-  font-size: 13px;
+  font-size: 15px;
 }
 .steps li {
   margin: 2px 0;
@@ -349,10 +349,10 @@ main.review {
 .mark {
   color: var(--accent);
   font-family: ui-monospace, Menlo, monospace;
-  font-size: 12px;
+  font-size: 14px;
 }
 .flag {
-  font-size: 11px;
+  font-size: 13px;
   background: var(--chip);
   border-radius: 4px;
   padding: 0 5px;
@@ -417,7 +417,7 @@ button.st.on.rerun {
 }
 .flash {
   color: var(--accent);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .theme-toggle {
@@ -427,7 +427,7 @@ button.st.on.rerun {
   border-radius: 999px;
   padding: 2px 10px;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -473,7 +473,7 @@ button.st.on.rerun {
   position: relative;
   display: block;
   padding: 2px 6px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 18px;
   white-space: nowrap;
   overflow: hidden;
@@ -486,7 +486,7 @@ button.st.on.rerun {
   grid-template-columns: minmax(0, 1fr);
 }
 .spoken {
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.6;
   margin: 8px 0;
 }
@@ -497,7 +497,7 @@ button.st.on.rerun {
   width: 100%;
   min-height: 110px;
   padding: 8px;
-  font: 14px / 1.5 ui-monospace, Menlo, monospace;
+  font: 16px / 1.5 ui-monospace, Menlo, monospace;
 }
 .timing {
   display: flex;
@@ -524,7 +524,7 @@ button.st.on.rerun {
 }
 .issue {
   margin: 4px 0;
-  font-size: 13px;
+  font-size: 15px;
 }
 .issue.error {
   color: var(--err);
@@ -543,7 +543,7 @@ audio {
 }
 .fit {
   margin: 2px 0 0;
-  font-size: 13px;
+  font-size: 15px;
 }
 .fit.ok {
   color: var(--ok);
@@ -677,7 +677,7 @@ nav button .dot {
   color: var(--warn);
 }
 .stage-head .next {
-  font-size: 12px;
+  font-size: 14px;
   padding: 2px 8px;
   border-radius: 6px;
   background: var(--chip);
@@ -705,7 +705,7 @@ aside.live {
 }
 .live-summary {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   padding: 6px 10px;
   border-radius: 8px;
   background: var(--card);
@@ -722,7 +722,7 @@ aside.live {
 }
 .chip {
   font: inherit;
-  font-size: 11px;
+  font-size: 13px;
   padding: 1px 8px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -748,7 +748,7 @@ aside.live {
 }
 .live-sec h3 {
   margin: 0 0 6px;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -807,7 +807,7 @@ aside.live {
   border: 1px solid var(--line);
 }
 .frame figcaption {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   margin-top: 4px;
 }
@@ -826,7 +826,7 @@ aside.live {
 }
 button.ghost {
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   background: none;
   border: 1px solid transparent;
   color: var(--muted);
@@ -889,7 +889,7 @@ button.ghost:hover {
 /* recording tab */
 .group-head {
   margin: 6px 2px 0;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
@@ -922,10 +922,10 @@ button.ghost:hover {
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 .keyframes figcaption {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   margin-top: 2px;
   overflow: hidden;
@@ -940,7 +940,7 @@ button.ghost:hover {
 }
 input.note {
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -977,7 +977,7 @@ nav.steps {
 }
 .config-btn {
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -1015,14 +1015,14 @@ nav.steps {
 }
 .fact-group legend {
   padding: 0 6px;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .fact-group.goal textarea {
   width: 100%;
-  font-size: 15px;
+  font-size: 17px;
 }
 .field {
   display: grid;
@@ -1030,7 +1030,7 @@ nav.steps {
   min-width: 0;
 }
 .field-label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   display: flex;
   justify-content: space-between;
@@ -1068,7 +1068,7 @@ nav.steps {
 }
 .segmented button {
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   padding: 4px 11px;
   white-space: nowrap;
   border: none;
@@ -1105,7 +1105,7 @@ nav.steps {
   grid-template-columns: 34px 1fr 54px;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .length-picker output {
@@ -1142,7 +1142,7 @@ nav.steps {
   overflow: hidden;
 }
 .tp-app {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #a3a9b8;
@@ -1155,13 +1155,13 @@ nav.steps {
   margin: 8px 0 9px;
 }
 .tp-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 650;
   line-height: 1.1;
 }
 .tp-sub {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 15px;
   color: #a3a9b8;
 }
 ul.findings,
@@ -1186,7 +1186,7 @@ li.finding.ignore {
   opacity: 0.55;
 }
 .f-icon {
-  font-size: 18px;
+  font-size: 20px;
   text-align: center;
 }
 .f-media {
@@ -1231,5 +1231,126 @@ pre.brief-text {
   background: var(--inset);
   padding: 10px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
+}
+
+/* ⚙ Config → Settings (S5 part 5b) */
+.api-keys {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.settings-groups {
+  display: grid;
+  gap: 12px;
+  container-type: inline-size;
+}
+.setting-group h3 {
+  margin: 0 0 6px;
+}
+.setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px 24px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.setting-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+/* enough room (the form's own width, Live panel accounted for): the explanation sits to the right of the value */
+@container (min-width: 760px) {
+  .setting {
+    grid-template-columns: minmax(420px, 3fr) minmax(220px, 2fr);
+    align-items: start;
+  }
+  .setting-doc {
+    padding-top: 2px;
+  }
+}
+.setting.dirty {
+  box-shadow: inset 3px 0 0 var(--warn);
+  padding-left: 8px;
+}
+.setting-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.setting-label {
+  font-weight: 600;
+}
+.setting-edit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.setting-edit input[type="text"],
+.setting-edit input[type="number"],
+.setting-edit select,
+.setting-edit textarea {
+  font: inherit;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--inset);
+  color: var(--text);
+  min-width: 260px;
+  max-width: 100%;
+}
+.setting-edit input[type="number"] {
+  min-width: 120px;
+  width: 140px;
+}
+.badge.src-default {
+  background: var(--chip);
+  color: var(--muted);
+}
+.badge.src-global {
+  background: color-mix(in srgb, var(--accent) 20%, var(--card));
+  color: var(--accent);
+}
+.badge.src-project {
+  background: color-mix(in srgb, var(--mauve) 22%, var(--card));
+  color: var(--mauve);
+}
+.badge.src-env {
+  background: color-mix(in srgb, var(--warn) 22%, var(--card));
+  color: var(--warn);
+}
+.engines {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.engine {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 4px 1px 8px;
+  background: var(--inset);
+}
+.raw-files summary {
+  cursor: pointer;
+  list-style: revert;
+}
+.raw-files[open] summary {
+  margin-bottom: 8px;
+}
+pre.raw {
+  white-space: pre-wrap;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--inset);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
 }

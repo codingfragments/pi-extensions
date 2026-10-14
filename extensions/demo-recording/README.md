@@ -84,10 +84,21 @@ The first step, with three views:
   - **States:** each finding is **auto** (the director decides), **use** (always in the recording *and* the narration; storyboard scenes list the findings they cover, and uncovered *use* findings produce a warning) or **ignore** (never brought up). Evidence shows as thumbnails.
 - **Memory:** the working line, the brief with versions and diffs, the input log (mark outdated / restore), and sources and assets.
 
+### ⚙ Config (S5)
+
+- **Settings:** every setting grouped (Voice, Models, Recording & capture, Output & look, Discovery budgets, General), the most important first.
+  - **Per setting:** the effective value, a source badge (default / global / project / env), the docs, and the value in each layer.
+  - **Override notes:** e.g. "overridden by project kc", or "env DEMO_REC_VOICE overrides the files".
+  - **Scope:** switch between **Global** and **This project**, so project-only overrides live here too, never in the Project tab.
+  - **Saving:** inputs follow the type: number, toggle, select (brand, alignment model), a reorderable TTS engine chain, the model list. **Save** and **reset** go through a diff confirmation and are validated by the real config resolver. `root` is global-only. Secret-looking keys are refused, and `_comment` is kept.
+- **Raw files:** the global and project `config.json` are shown **read-only** beside the form, with *open in editor* and *reload*.
+- **API keys:** only `ELEVENLABS_API_KEY: set / not set` and the same for OpenAI. Keys come from the environment only.
+- **Brands:** the brand editor (preview, tweaks, save, save as copy, set default).
+
 ### Panel: the control room (S5)
 
 - **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
-- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps; it holds all configuration, currently the brand editor, with settings coming in S5 part 5b. The **Project** tab at the far left is step one (see below).
+- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps, and holds all tool configuration (see below). The **Project** tab at the far left is step one (see below).
   - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
   - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
   - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).

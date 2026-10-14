@@ -365,6 +365,8 @@ test(
         await page.waitForTimeout(250);
       }
       await page.locator("button.config-btn").click();
+      await page.waitForSelector(".setting-group");
+      await page.locator(".subtabs .chip", { hasText: "Brands" }).click();
       await page.waitForSelector(".brand-grid");
       await page.locator("nav button", { hasText: "Recording" }).first().click();
       await page.waitForSelector(".card.take");

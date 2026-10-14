@@ -658,8 +658,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 3 | Stage model + project input log | ✅ |
 | 4 | Control room + **branching stages** (D44–D47): stage tabs with input pickers, several accepted versions per stage, working line, orphans, Recording tab, Live side panel, `/demo panel` opens the browser | ✅ |
 | 5a | **Project screen** (D48): a Project tab at the far left — project facts, the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | ✅ |
-| 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | next |
-| 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
+| 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | ✅ |
+| 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | next |
 | 7 | Annotation rendering (engine) | |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | |

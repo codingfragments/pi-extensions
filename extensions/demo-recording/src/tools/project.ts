@@ -10,7 +10,15 @@ import { Type } from "typebox";
 import { ACTIVE_ENTRY } from "../commands/demo.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
-import { projectContext } from "../workdir/context.ts";
+import { appDirOf, projectContext } from "../workdir/context.ts";
+import {
+  AGENT_KINDS,
+  type Evidence,
+  formatFindings,
+  listFindings,
+  markFinding,
+  recordFinding,
+} from "../workdir/findings.ts";
 import {
   INPUT_KINDS,
   INPUT_STAGES,
@@ -37,6 +45,23 @@ export function stageForPhase(phase: Phase): InputStage {
     done: "render",
   };
   return map[phase];
+}
+
+/** "screen:<session>/s014" | "take:take-006@102.4" | "url:…" | "file:…" → Evidence. */
+export function parseEvidence(ref: string): Evidence {
+  const [kind, ...rest] = ref.split(":");
+  const v = rest.join(":").trim();
+  if (kind === "screen" && v) return { type: "screen", id: v };
+  if (kind === "take") {
+    const m = /^(take-\d{3,})(?:@(\d+(?:\.\d+)?))?$/.exec(v);
+    if (m) return { type: "take", take: m[1] as string, t: Math.round(Number(m[2] ?? 0) * 1000) };
+  }
+  if (kind === "url" && /^https?:\/\//.test(v)) return { type: "url", url: v };
+  if (kind === "file" && v) return { type: "file", path: v };
+  if (/^https?:\/\//.test(ref)) return { type: "url", url: ref };
+  throw new Error(
+    `evidence "${ref}" must look like screen:<session>/sNNN, take:take-006@12.5, url:https://… or file:<path>`,
+  );
 }
 
 export function projectStatus(rt: Runtime): string {
@@ -92,7 +117,8 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
     description:
       "Demo-recording project management: status of the active project (phase, stage lineage, approvals), create/open a project, read or write its brief (brief.md, versioned). " +
       "context: the project's memory (brief, stage lineage, every active input from commands, panel reviews and chat) — read it when you (re)open a project or after a restart, and follow it. " +
-      "note: record a project-relevant direction, source or asset the user gave in chat (so it survives the session). mark: mark an input outdated (with reason) or restore it, when the user withdraws a direction.",
+      "note: record a project-relevant direction, source or asset the user gave in chat (so it survives the session). mark: mark an input outdated (with reason) or restore it, when the user withdraws a direction. " +
+      "finding: record something notable you found (strength, weakness, friction, value, use-case, length) with evidence — the user marks findings auto/use/ignore in the Project tab; USE findings must appear in the recording and the narration. findings: list them. mark_finding: only when the user asks in chat.",
     parameters: Type.Object({
       action: StringEnum([
         "status",
@@ -103,6 +129,9 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
         "context",
         "note",
         "mark",
+        "finding",
+        "findings",
+        "mark_finding",
       ] as const),
       project: Type.Optional(Type.String({ description: "Project name (create/open)" })),
       app_name: Type.Optional(
@@ -141,6 +170,34 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
         Type.Boolean({ description: "mark: true = outdated (default), false = restore" }),
       ),
       reason: Type.Optional(Type.String({ description: "mark: why it no longer applies" })),
+      finding_kind: Type.Optional(
+        StringEnum(AGENT_KINDS as unknown as (typeof AGENT_KINDS)[number][], {
+          description:
+            "finding: strength | weakness | friction | value | use-case | length | other",
+        }),
+      ),
+      finding_stage: Type.Optional(
+        StringEnum(["discovery", "recording", "vo", "render"] as const, {
+          description: "finding: where it was found (default discovery)",
+        }),
+      ),
+      evidence: Type.Optional(
+        Type.Array(Type.String(), {
+          description:
+            'finding: evidence refs — "screen:<session>/sNNN", "take:take-006@102.4" (seconds), "url:https://…", "file:<project-relative path>"',
+        }),
+      ),
+      suggestion: Type.Optional(
+        Type.String({ description: "finding: suggested change (e.g. a new target length)" }),
+      ),
+      scene: Type.Optional(
+        Type.String({ description: "finding: storyboard scene id it belongs to" }),
+      ),
+      state: Type.Optional(
+        StringEnum(["auto", "use", "ignore"] as const, {
+          description: "mark_finding: only when the user asked for it",
+        }),
+      ),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
@@ -236,6 +293,49 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           return result(
             `${e.id} ${e.outdated ? `marked outdated (${e.outdated.reason})` : "restored"}.`,
           );
+        }
+        case "finding": {
+          const p = rt.requireProject();
+          if (!params.text?.trim()) throw new Error("finding needs text");
+          const f = recordFinding(p.dir, {
+            stage: params.finding_stage ?? "discovery",
+            kind: params.finding_kind ?? "other",
+            text: params.text,
+            evidence: (params.evidence ?? []).map(parseEvidence),
+            ...(params.suggestion ? { suggestion: params.suggestion } : {}),
+            ...(params.scene ? { scene: params.scene } : {}),
+          });
+          rt.bus.publish(
+            "finding.recorded",
+            { id: f.id, message: `finding ${f.id} (${f.kind}): ${f.text.slice(0, 60)}` },
+            p.slug,
+          );
+          return result(
+            `Recorded ${f.id} (${f.kind}). The user sees it in the Project tab and can mark it use / ignore.`,
+          );
+        }
+        case "findings": {
+          const p = rt.requireProject();
+          const st = readState(p.dir) ?? p.state;
+          return result(
+            formatFindings(
+              listFindings(p.dir, { appDir: appDirOf(p.dir, st.app), since: st.createdAt }),
+            ),
+          );
+        }
+        case "mark_finding": {
+          const p = rt.requireProject();
+          if (!params.id || !params.state) throw new Error("mark_finding needs id and state");
+          const st = readState(p.dir) ?? p.state;
+          const f = markFinding(p.dir, params.id, params.state, {
+            appDir: appDirOf(p.dir, st.app),
+          });
+          rt.bus.publish(
+            "finding.marked",
+            { id: f.id, state: f.state, message: `${f.id} → ${f.state}` },
+            p.slug,
+          );
+          return result(`${f.id} is now "${f.state}".`);
         }
         default:
           return result(projectStatus(rt));

@@ -61,6 +61,8 @@ export interface Scene {
   screen?: string;
   /** Talking points for the VO (the VO itself is written from the take in S4). */
   narration_outline?: string[];
+  /** Findings this scene covers (S5 part 5a): every "use" finding must be covered by a scene. */
+  findings?: string[];
   /** S1 only: draft narration for the naive `say` mux. Replaced by the VO script in S4. */
   narration?: string;
   steps: Step[];

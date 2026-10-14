@@ -189,6 +189,14 @@ function parseScene(v: unknown, path: string): Scene {
     }
     scene.narration_outline = v.narration_outline as string[];
   }
+  if (v.findings !== undefined) {
+    if (
+      !Array.isArray(v.findings) ||
+      v.findings.some((x) => typeof x !== "string" || !/^[ef]-[0-9a-f]{4,}$/.test(x))
+    )
+      fail(`${path}.findings`, 'must be a list of finding ids like "f-0003" or "e-1a2b3c4d"');
+    scene.findings = v.findings as string[];
+  }
   return scene;
 }
 

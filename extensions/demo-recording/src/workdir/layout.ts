@@ -99,11 +99,14 @@ function briefStub(input: NewProjectInput, app: AppInfo): string {
 
 - **App:** ${app.name}
 - **URL:** ${app.baseUrl}
+- **Extra URLs:** _none_
 - **Title:** _TODO_
-- **Audience:** _TODO_
-- **Stance:** _champion | evaluator | teacher_
+- **Subtitle:** _TODO_
+- **Persona:** _TODO (who watches, what they already know)_
+- **Depth:** _poc | showcase | sales_
+- **Stance:** _champion | evaluator | teacher (default from depth)_
 - **Goal / key message:** _TODO_
-- **Target length:** _TODO_
+- **Target length:** _TODO (min–max, default from depth)_
 - **Must show:** _TODO_
 - **Must avoid:** _TODO_
 - **Language:** English

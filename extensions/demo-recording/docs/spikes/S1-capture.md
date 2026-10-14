@@ -49,4 +49,4 @@ CPU % is summed over all Playwright browser processes, so 100 % = one core. The 
 - **Default:** 1600×900 CSS @ DPR 2 → 3200×1800 capture → 1920×1080 @ 30 fps render (D15 unchanged).
 - **Fallback:** `"capture": { "maxWidth": 2560, "maxHeight": 1440 }` in the config. It saves ~20 % browser CPU and ~30 % frame storage.
 - **Disk:** ~2.6 MB/s of JPEG frames at 3200×1800, so a 5-minute take is ~800 MB of frames. Frames are kept for S3 resume/stitching. A cleanup policy is follow-up work (S3).
-- **Watch:** a 4K-class app with heavy animation (video, WebGL) could saturate; re-run this spike on such a target in S6.
+- **Watch:** a 4K-class app with heavy animation (video, WebGL) could saturate; re-run this spike on such a target in S7 (real-app acceptance).

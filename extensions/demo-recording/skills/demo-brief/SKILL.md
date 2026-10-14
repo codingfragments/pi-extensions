@@ -36,11 +36,14 @@ told you.
 
 - **App:** <name>
 - **URL:** <base url>
+- **Extra URLs:** <other entry points, e.g. admin or docs — space-separated, or "none">
 - **Title:** <short demo title for the video's title card, ≤ 60 chars; ask for one, or propose one from the goal>
-- **Audience:** <who watches, what they already know>
-- **Stance:** champion | evaluator | teacher
+- **Subtitle:** <optional second line on the title card, ≤ 90 chars>
+- **Persona:** <who watches, what they already know>
+- **Depth:** poc | showcase | sales
+- **Stance:** champion | evaluator | teacher (omit to use the depth default)
 - **Goal / key message:** <the one thing the viewer should believe afterwards>
-- **Target length:** <e.g. 3–4 min total>
+- **Target length:** <min–max, e.g. 3–4 min; omit to use the depth default>
 - **Must show:** <features/flows that are non-negotiable>
 - **Must avoid:** <areas, data, or claims to keep out>
 - **Language:** English
@@ -56,6 +59,19 @@ and weaknesses. For the evaluator stance, list what to scrutinize.>
 <Hints on where the interesting parts are, test accounts/data to use, things
 that are slow or flaky.>
 ```
+
+## Depth cheat-sheet
+
+Depth is the kind of demo. It sets defaults the brief can override:
+
+| Depth | Discovery & storyboard | Narration | Default stance | Default length | Annotations & findings |
+|---|---|---|---|---|---|
+| **poc** | depth over breadth, real edge cases, weaknesses become scenes | facts, numbers, honest limits | evaluator | 3–5 min | more callouts on evidence; weakness findings stay *auto* |
+| **showcase** | the broadest tour of polished features | feature-forward, confident, neutral | teacher | 2–3 min | calm, few annotations |
+| **sales** | few flows tied to outcomes, a before/after story, a closing value scene | benefits, the persona's pain → outcome, a call to action in the outro | champion | 60–90 s | chapter titles + callouts on outcomes; weakness findings default to *ignore* |
+
+`Audience:` from older briefs is read as **Persona**. The panel's **Project**
+tab edits these fields as a form; each save is a new brief version.
 
 ## Stance cheat-sheet
 

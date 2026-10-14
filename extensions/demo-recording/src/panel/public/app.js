@@ -5,10 +5,12 @@
 import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
 import { LivePanel } from "./live.js";
+import { Project } from "./project.js";
 import { Recording } from "./recording.js";
 import { StageHeader, VersionActions, stageOf, useStages } from "./stages.js";
 
 const TABS = [
+  { id: "project", label: "Project", stage: null },
   { id: "storyboard", label: "Storyboard", stage: "storyboard" },
   { id: "recording", label: "Recording", stage: "recording" },
   { id: "voice", label: "Voice over", stage: "vo" },
@@ -761,7 +763,7 @@ function ThemeToggle() {
 const LIVE_OPEN_KEY = "demo-rec-live-open";
 
 function App() {
-  const [tab, setTab] = useState("storyboard");
+  const [tab, setTab] = useState("project");
   const [liveOpen, setLiveOpenState] = useState(localStorage.getItem(LIVE_OPEN_KEY) !== "false");
   const setLiveOpen = (v) => {
     localStorage.setItem(LIVE_OPEN_KEY, String(v));
@@ -787,17 +789,19 @@ function App() {
   }, [lastTake]);
   const waiting = stages?.next?.who === "user" ? stages.next.stage : null;
   const body =
-    tab === "storyboard"
-      ? html`<${Review} events=${events} stages=${stages} />`
-      : tab === "recording"
-        ? html`<${Recording} events=${events} stages=${stages} />`
-        : tab === "voice"
-          ? html`<${Voice} events=${events} stages=${stages} />`
-          : tab === "annotations"
-            ? html`<${Annotations} stages=${stages} />`
-            : tab === "render"
-              ? html`<${Render} events=${events} stages=${stages} />`
-              : html`<${Config} events=${events} />`;
+    tab === "project"
+      ? html`<${Project} events=${events} />`
+      : tab === "storyboard"
+        ? html`<${Review} events=${events} stages=${stages} />`
+        : tab === "recording"
+          ? html`<${Recording} events=${events} stages=${stages} />`
+          : tab === "voice"
+            ? html`<${Voice} events=${events} stages=${stages} />`
+            : tab === "annotations"
+              ? html`<${Annotations} stages=${stages} />`
+              : tab === "render"
+                ? html`<${Render} events=${events} stages=${stages} />`
+                : html`<${Config} events=${events} />`;
   return html`
     <header class="top">
       <strong>demo-recording</strong>

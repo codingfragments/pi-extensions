@@ -16,18 +16,18 @@ import { formatProgress } from "../recorder/progress.ts";
 import { type TakeResult, recordTake } from "../recorder/runner.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard } from "../storyboard/store.ts";
+import { briefFieldValue } from "../workdir/brief.ts";
 import { appDir } from "../workdir/layout.ts";
 import { readState, requireSelected, setPhase } from "../workdir/state.ts";
 import { result } from "./common.ts";
 
 /** One line of audience/goal context from brief.md for the improviser. */
 export function briefContext(brief: string): string | undefined {
-  const pick = (label: string) =>
-    new RegExp(`\\*\\*${label}:?\\*\\*:?\\s*(.+)`, "i").exec(brief)?.[1]?.trim();
-  const parts = [
-    pick("Audience") && `audience: ${pick("Audience")}`,
-    pick("Goal / key message") && `goal: ${pick("Goal / key message")}`,
-  ].filter((x): x is string => !!x && !x.includes("TODO"));
+  const persona = briefFieldValue(brief, "Persona", ["Audience"]);
+  const goal = briefFieldValue(brief, "Goal / key message", ["Goal"]);
+  const parts = [persona && `audience: ${persona}`, goal && `goal: ${goal}`].filter(
+    (x): x is string => !!x,
+  );
   return parts.length ? parts.join("; ").slice(0, 300) : undefined;
 }
 

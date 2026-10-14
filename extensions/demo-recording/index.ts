@@ -18,7 +18,7 @@ import { registerVoTool } from "./src/tools/vo.ts";
  * demo-recording — automated PoC / demo video recorder for web apps.
  *
  *   docs/VISION.md               agreed decisions (D1–D20)
- *   docs/IMPLEMENTATION_PLAN.md  vertical slices S0–S7 (currently: S2)
+ *   docs/IMPLEMENTATION_PLAN.md  vertical slices S0–S8 (currently: S5)
  *
  * Skills ship inside this extension (./skills) and are contributed through
  * `resources_discover`, so they also load when the extension is installed via

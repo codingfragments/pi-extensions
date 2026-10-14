@@ -12,6 +12,8 @@ import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatDiff, storyboardTargets } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions, writeStoryboard } from "../storyboard/store.ts";
+import { appDirOf } from "../workdir/context.ts";
+import { listFindings, uncoveredUseFindings } from "../workdir/findings.ts";
 import { acceptedVersions } from "../workdir/stages.ts";
 import { getReview, readState, setPhase } from "../workdir/state.ts";
 import { result } from "./common.ts";
@@ -75,6 +77,21 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
             `would repeat state changes (${u.hazards.map((h) => `${h.scene}: ${h.reason}`).join("; ")}). Add a deep_link.`,
         );
       }
+      // Every "use" finding must be covered by a scene (S5 part 5a).
+      const st = readState(p.dir) ?? p.state;
+      const findings = listFindings(p.dir, {
+        appDir: appDirOf(p.dir, st.app),
+        since: st.createdAt,
+      });
+      for (const f of uncoveredUseFindings(findings, written.storyboard.scenes))
+        warnings.push(
+          `${f.id} is marked USE ("${f.text.slice(0, 80)}") but no scene lists it in findings: — it must appear in the recording and the narration`,
+        );
+      const known = new Set(findings.map((f) => f.id));
+      for (const scene of written.storyboard.scenes)
+        for (const id of scene.findings ?? [])
+          if (!known.has(id))
+            warnings.push(`${scene.id}: findings lists ${id}, which doesn't exist`);
       for (const scene of written.storyboard.scenes) {
         if (!scene.screen)
           warnings.push(

@@ -515,3 +515,52 @@ test("S5 project memory: /demo notes and chat notes are logged, context excludes
   assert.ok(second.messages.some((m) => /Project context: memproj/.test(m.text)));
   await second.events.get("session_shutdown")?.({}, second.ctx);
 });
+
+test("S5 findings: the agent records findings with evidence; USE findings must be covered by a scene", async () => {
+  const { tools, commands, ctx, events } = await load({ hasUI: false });
+  const demo = commands.get("demo");
+  const proj = tools.get("demo_rec_project");
+  const sb = tools.get("demo_rec_storyboard");
+  assert.ok(demo && proj && sb);
+  await demo.handler("new findproj http://127.0.0.1:9/ Acme Pulse", ctx);
+  assert.match(
+    textOf(
+      await proj.execute("1", {
+        action: "finding",
+        finding_kind: "weakness",
+        text: "Search only matches names",
+        evidence: ["screen:20261013-153705/s007", "take:take-001@12.5", "https://acme.test/search"],
+      }),
+    ),
+    /Recorded f-0001 \(weakness\)/,
+  );
+  await assert.rejects(
+    proj.execute("2", { action: "finding", text: "x", evidence: ["somewhere"] }),
+    /evidence "somewhere" must look like/,
+  );
+  await assert.rejects(proj.execute("3", { action: "finding" }), /finding needs text/);
+  assert.match(
+    textOf(await proj.execute("4", { action: "findings" })),
+    /AUTO — candidates[\s\S]*f-0001 \[weakness\/agent, discovery\] Search only matches names \(evidence: screen 20261013-153705\/s007; take-001 @12\.5s; https:\/\/acme\.test\/search\)/,
+  );
+  assert.match(
+    textOf(await proj.execute("5", { action: "mark_finding", id: "f-0001", state: "use" })),
+    /f-0001 is now "use"/,
+  );
+
+  const yaml = (covered: boolean) =>
+    `start_url: /\nscenes:\n  - id: 01-a\n    title: A\n${covered ? "    findings: [f-0001]\n" : ""}    steps: [ { do: hover, target: { role: link, name: Search } } ]\n`;
+  assert.match(
+    textOf(await sb.execute("6", { action: "write", yaml: yaml(false) })),
+    /f-0001 is marked USE .* no scene lists it in findings:/,
+  );
+  assert.doesNotMatch(
+    textOf(await sb.execute("7", { action: "write", yaml: yaml(true) })),
+    /is marked USE/,
+  );
+  assert.match(
+    textOf(await proj.execute("8", { action: "context" })),
+    /USE — must appear in the recording AND the narration[\s\S]*f-0001/,
+  );
+  await events.get("session_shutdown")?.({}, ctx);
+});

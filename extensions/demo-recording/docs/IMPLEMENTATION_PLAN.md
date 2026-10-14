@@ -661,7 +661,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | ✅ |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | ✅ |
 | 7 | Annotation rendering (engine) — [docs/ANNOTATIONS.md](ANNOTATIONS.md) | ✅ |
-| 8 | Annotations stage (designer, tab, review, approve, import) | |
+| 8 | Annotations stage (designer, tab, review, approve, import) | ✅ |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | |
 | 10 | Deterministic QA + mechanical auto-fix | |
 | 11 | Confidence-guided review + voice direction | |
@@ -811,7 +811,14 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Sidecars:** `full.callouts.srt` (callouts) and VTT transcripts move to part 9.
 - **Tests:** `test/s5-annotations.test.ts` — validation, versions, time mapping, resolution (settled/step/text/layout/box, warnings, page changes), zoom geometry and easing, segment planning and graph shape, full-video shifting, slicing, and a real render of every type on a synthetic take with pixel probes.
 
-*8. Annotations stage (D31, D35–D37, D52–D58)* — in progress
+*8. Annotations stage (D31, D35–D37, D52–D58)* — ✅ done; user-facing reference: [ANNOTATIONS.md](ANNOTATIONS.md#the-annotations-stage)
+- **As built (refinements found on the fixture):**
+  - **Q7 value bonus:** "+1 for a VO match" means the narration at the anchor *mentions what the item shows* (a content word or number of the target's text, or of the callout). A bare narration anchor is not enough: almost every mark is one, which pushed everything to 5. Spotlights get no bonus.
+  - **Recommended set:** value-5 items (must-haves) come first, then value per noise. Pure ratio order filled the half with cheap highlights and left the demo's key zoom off.
+  - **Placement:** checked one item at a time, so two zoom candidates for the same moment don't knock each other out.
+  - **Stills:** 960×540 (sharp enough on a card); clips and scene drafts 640×360.
+  - **Input pack:** privacy hits are masked; long texts (an assistant's answer) are kept, truncated for display.
+  - **Accepting:** refused while the version has unsaved draft changes. The agent then re-renders with `demo_rec_edit action=rerender annotations=N`.
 - **Annotation designer = a skill in the main agent (D52).** `skills/demo-annotations` (Annotation designer + Privacy officer). The agent reads a compact **input pack** from `demo_rec_annotations action=context` and submits suggestions with `action=suggest`; the engine does everything deterministic.
   - **The input pack, per scene:**
     - duration;

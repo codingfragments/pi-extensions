@@ -10,12 +10,16 @@ They come after the voice-over in the pipeline (storyboard → recording → VO 
 **annotations** → render, D30): only then is it known what the narration
 stresses and where each moment lands in the edited video.
 
-- **Today (S5 part 7):** the rendering engine. Annotation files are written by
-  hand (or by a script), checked, previewed and rendered from the CLI.
-- **Next (S5 part 8):** the *Annotation designer* suggests them (about twice as
-  many as needed, the best half enabled), the *Privacy officer* suggests
-  redactions, and the panel's Annotations tab lets you toggle, edit, nudge and
-  preview them. Both write the same file format described here.
+Where they come from:
+
+- **The Annotation designer** (the agent, `demo-annotations` skill) suggests
+  them automatically after each sync edit: about twice as many as needed, the
+  best half switched on. The **Privacy officer** adds redaction suggestions
+  (off until you confirm). See [The Annotations stage](#the-annotations-stage).
+- **You** review them in the panel's **Annotations** tab: toggle, edit texts,
+  nudge timing, pick other targets, preview, re-suggest with instructions,
+  and accept.
+- **By hand** (or a script): the same file format, from the [CLI](#cli).
 
 All examples on this page are real renders of the bundled Acme Pulse fixture
 (the [example file](#the-fixture-example) is below), with the `neutral` brand.
@@ -25,6 +29,7 @@ All examples on this page are real renders of the bundled Acme Pulse fixture
 ## Contents
 
 - [How it works](#how-it-works)
+- [The Annotations stage](#the-annotations-stage): [designer](#the-annotation-designer) · [privacy](#privacy-suggestions) · [weights and budget](#weights-and-the-budget) · [the tab](#the-annotations-tab) · [re-suggest and import](#re-suggest-and-import) · [accept and render](#accept-and-render)
 - [The file](#the-file)
 - [Anchors: when](#anchors-when)
 - [Targets: where](#targets-where)
@@ -76,6 +81,141 @@ timing: an annotated render has exactly the same frames as the clean one.
 
 ---
 
+## The Annotations stage
+
+```
+sync edit done ──► designer (agent) ──► annotations/vN.json ──► Annotations tab ──► accept ──► render with vN
+  (auto-suggest)     context → suggest       suggestions,         toggle / edit /                demo_rec_edit
+                     engine: places,         ~half enabled,       nudge / preview /              rerender annotations=N
+                     weighs, privacy         privacy off          re-suggest
+```
+
+### The Annotation designer
+
+A skill of the main agent (`skills/demo-annotations`, D52). It runs
+**automatically after each sync edit** whose voice-over has no annotations
+yet (config `annotations.autoSuggest`, default on, D53), when you press
+**Suggest annotations** / **Re-suggest** in the tab, or when you ask in chat.
+
+1. It reads an **input pack** (`demo_rec_annotations action=context`), a
+   compact text of a few KB: per scene the duration, the steps and their
+   element boxes, the director's `emphasis` hints (✦), the narration at each
+   anchor with its output time, and the elements on screen at each mark with
+   refs (`t13107#e24`) it can target directly. Secrets found by the privacy
+   scan are masked in it.
+2. It submits **about 2× as many suggestions as should be on**
+   (`action=suggest`), each with a value 1–5 and a one-line reason, following
+   the skill's rules: the callout names *what*, the voice says *why*; nothing
+   while typing; never two things on the same region at once; ≤ 2 zooms.
+3. The **engine** does everything deterministic: validates and places every
+   suggestion (unplaceable ones go back to the agent with the reason, e.g.
+   `mark "nope" is not in 01-dashboard`), adds the privacy scan's redactions,
+   computes the weights, switches on the recommended set and writes the next
+   `annotations/vN.json` (`by: annotation-designer`).
+
+For the fixture, the stub designer set in
+[`fixtures/annotations/stub-designer.json`](../fixtures/annotations/stub-designer.json)
+is what such a run submits (12 suggestions → 6 on).
+
+### Privacy suggestions
+
+A deterministic scan of every layout snapshot (D54) finds **emails, phone
+numbers, API keys and access tokens (`sk-…`, `ghp_…`, AWS, Slack, Google),
+session tokens (JWTs), IBAN- and card-like numbers (Luhn-checked) and long
+IDs**, while ignoring amounts, percentages and dates. Each hit becomes a
+**redact suggestion that is off**, targeted at the smallest element carrying
+the text, from its first appearance; its reason names the kind and shows the
+text masked (`privacy: looks like an email address (da••••••••••••le)`). The
+designer adds what a pattern can't see: real person or customer names,
+addresses, internal URLs — judged from the brief (a demo tenant with fake
+names is fine). Turn them on in the tab to redact.
+
+### Weights and the budget
+
+Every suggestion carries a **value** and a **noise** cost (Q7):
+
+| | |
+|---|---|
+| **value** 1–5 | from the designer; **+1** (max 5) when it matches an `emphasis` hint, is anchored to a spoken word, or the narration at its anchor mentions what it shows (e.g. the row says "EMEA" and so does the voice). The reason says which. Spotlights never get the bonus. |
+| **noise** | by type: callout 1.0, highlight 0.6, zoom 1.5, spotlight 2.0; +0.5 × (extra time / default) when longer than the default. Chapters and redactions: 0 — outside the budget. |
+
+The **recommended set** (what gets switched on): about half of the counted
+suggestions — the must-haves (value 5) first, then the best value per noise —
+never more than 2 zooms, never two items on the same region at the same time,
+spotlight only at value 5, chapters and redactions off. Its noise is the
+**optimum**. The tab's **budget meter** compares the enabled noise with it:
+**balanced** within ±25 %, otherwise *too quiet* or *too busy*; plus how much
+of the suggested value is switched on.
+
+### The Annotations tab
+
+![The Annotations tab: header with the budget meter, filters, re-suggest; one card per suggestion with its still](images/annotations/panel-tab.jpg)
+
+- **Header:** the stage header (input voice-over, accepted versions, working
+  line), the version picker, **Accept**, who made the version and from what
+  (re-suggested from, imported from, your edits on), the instructions it was
+  made with, and the **budget meter**.
+- **Filters** by type and by *enabled* / *suggested, off*.
+- **One card per suggestion**, grouped by scene:
+  - a **still** at its peak moment, rendered right away and cached (▶ renders
+    and plays a 640×360 clip around it, with the voice);
+  - type, id and an **on/off** switch;
+  - the **text** (callouts, chapters; ≤ 60 characters, live counter);
+  - when: its anchor and output time window, with **±½ s nudges** for start
+    and length;
+  - its target, and **other targets** the designer considered (one click
+    switches);
+  - the reason, value and noise, and tags: **privacy**, **yours** (you changed
+    it), **can't place** (with why).
+- **▶ Play scene with enabled annotations:** a low-res draft of the scene
+  with everything that is on (chapters only appear in the full video).
+
+![Unsaved changes: the draft bar](images/annotations/panel-draft.jpg)
+
+**Edits are a draft** (D58): every toggle, text edit, nudge or target switch
+applies at once (stills and the budget update), shown as *N unsaved changes*.
+**Save as vN** writes one new version with all of them (each item keeps what
+you changed in its `edits`, and the save is logged in the project's inputs);
+**Discard** drops them. The draft is on disk, so it survives reloads and
+restarts.
+
+### Re-suggest and import
+
+- **Re-suggest with instructions** (the box in the header): your text goes to
+  the agent verbatim (and into the project's inputs). The designer suggests
+  again on top of the version — and **every item you added, edited or
+  toggled is kept as it is** (D56); everything else is regenerated. Save or
+  discard unsaved changes first.
+- **Import from an older version** (`demo_rec_annotations action=import
+  from=N`, e.g. after a new take or voice-over): carries over every item
+  whose scene and mark still exist and whose target still resolves on the
+  new recording — with your edits — and lists the rest with the reason
+  (`mark gone`, `target not found`). Deterministic, no model (D57).
+
+### Accept and render
+
+**Accept** in the tab (one or several versions, like every stage) tells the
+agent, which re-renders with them: `demo_rec_edit action=rerender
+annotations=N` → `out/edit-vN/<brand>+aN/`. Draft and final renders with QA
+come with the Render stage (S5 part 9).
+
+### The tool
+
+`demo_rec_annotations` (the agent's side):
+
+| Action | Does |
+|---|---|
+| `context` | the input pack (with `base` + `instructions` for a re-suggest) |
+| `suggest` | submit suggestions → next version (with `base`: keep the user's changes) |
+| `get` | a version (or `draft=true`: the panel's unsaved draft) with weights and budget |
+| `write` | a full revision as JSON (exact changes the user asked for) |
+| `import` | carry what still matches from version `from` |
+| `preview` | a clip + still of one annotation (the still comes back as an image) |
+
+There is no approve: you accept in the panel.
+
+---
+
 ## The file
 
 `annotations/vN.json` in the project, versioned like everything else (a new
@@ -106,7 +246,10 @@ version per change, never overwritten).
 | `version` | — | Set when stored. |
 | `basedOn.vo` | yes | The voice-over version the annotations were made for. A render on an edit of another VO still works (anchors go through marks) but warns. |
 | `take` | yes | The take (`take-NNN`). Rendering on an edit of another take is refused — boxes would point at the wrong things. |
-| `by`, `importedFrom` | no | Who wrote it; which version it was imported from (part 8). |
+| `by` | no | Who wrote it: `annotation-designer`, `user edits`, `import`, `agent`, … |
+| `importedFrom`, `resuggestedFrom`, `editedFrom` | no | The version it was imported from, re-suggested on top of, or saved panel edits on. |
+| `instructions` | no | The user's instructions for a re-suggest. |
+| `budget.optimumNoise` | no | Noise of the recommended set (for the budget meter). |
 | `items[]` | yes | The annotations. |
 
 **Item fields:**
@@ -122,7 +265,11 @@ version per change, never overwritten).
 | `durMs` | all (optional) | How long it stays; each type has a default ([Timing](#timing-and-motion)). For redact, `0` (default) = to the end of the scene. |
 | `factor` | zoom (optional) | 1.1–1.8, default 1.5. |
 | `enabled` | all | Only enabled items are rendered. |
-| `weight`, `reason`, `origin` | — | Written by the designer (part 8: value 1–5, noise cost, why, suggested/edited/manual). Ignored by the renderer. |
+| `weight` | — | `{ value 1–5, noise }` ([weights](#weights-and-the-budget)). Ignored by the renderer. |
+| `reason` | — | Why (one line from the designer; privacy hits say what was found). |
+| `origin` | — | `suggested`, `edited` (you changed it) or `manual` (you asked for it). |
+| `edits` | — | Your changes (`enabled`, `text`, `start`, `duration`, `target`) with the previous value — kept on re-suggest and import. |
+| `alternatives` | zoom, highlight, … | Other targets the designer considered; the tab offers them. |
 
 Validation is strict and names the exact field (`annotations: items[3].text
 must be ≤ 60 characters — it marks, it doesn't narrate`); an invalid file is
@@ -136,13 +283,15 @@ never stored.
 |---|---|
 | `{ "mark": "results-visible" }` | The moment of that storyboard mark in the edited video. Exact: it is the same anchor the narration is synced to. |
 | `{ "sceneStart": true }` | The first frame of the scene. |
-| `"offsetMs": 1400` (with either) | Shift by this much (negative = earlier). Use it for "a beat after the results appear". |
+| `{ "word": "EMEA", "occurrence": 2 }` | The moment the voice says that word (or short phrase) in the scene's narration — the n-th time, default the first. Through the voice's word timings, so it moves with the narration. Punctuation and case don't matter. |
+| `"offsetMs": 1400` (with any) | Shift by this much (negative = earlier). Use it for "a beat after the results appear". |
 
 The anchor is the moment the annotation should be **fully there**. Each type
 starts a little earlier (its lead-in) so it has arrived by then — a zoom
 starts 0.6 s before its mark, so it is completely in when the number appears.
 
-Anchors to a VO word (`{"word": "EMEA"}`) are planned for part 8.
+Use a word anchor when the voice names something that has no mark of its own
+("…and **EMEA** is far above everyone else").
 
 ---
 
@@ -495,9 +644,9 @@ Preview clips take 2–3 s and are cached.
 
 ## Not yet
 
-- **VO-word anchors** (`{"word": "EMEA"}`) — part 8, with the designer.
 - **Tracking:** redactions and highlights don't follow an element that moves
   (scroll, animation); they end at a page change instead.
-- **Panel UI** (toggle, edit text, nudge ±0.5 s, previews on cards, budget
-  meter) — part 8. A full timeline editor is in `FUTURE_IDEAS.md`.
+- **Adding a new annotation from the panel** — ask the agent in chat ("add a
+  callout 'two clicks' when the export finishes"); a full timeline editor is
+  in `FUTURE_IDEAS.md`.
 - **Callout subtitles** (`full.callouts.srt`) — part 9, with the render stage.

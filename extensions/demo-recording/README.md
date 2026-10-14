@@ -146,8 +146,14 @@ Zooms, highlights, spotlights, callouts, chapter titles and redactions, burned i
 - **Motion:** nothing pops in. Overlays fade with a small entrance motion: highlights settle, callouts rise, chapters slide in. Zooms ease in and out, and redactions are instant.
 - **Spaces:** page-space types (redact, highlight, spotlight) are drawn on the recorded page and follow a zoom. Callouts and chapters sit on the finished frame.
 - **Output:** annotated renders go to `out/edit-vN/<brand>+aN/`, next to the clean render.
-- **Today:** hand-written files and the CLI (`annotate add|check|preview`, `render --annotations N`).
-- **Next:** in S5 part 8, the Annotation designer suggests annotations and the panel's Annotations tab edits them.
+- **Suggested for you:** after each sync edit, the Annotation designer (the agent, `demo-annotations` skill) suggests about twice as many as needed. The engine places and weighs them, switches the best half on and adds privacy redactions, which stay off until you confirm. Config: `annotations.autoSuggest`.
+- **Annotations tab:**
+  - a card per suggestion, with its still (▶ plays a clip);
+  - on/off switches, inline texts, ±½ s nudges and other targets;
+  - a budget meter, filters, and "Play scene with enabled annotations";
+  - **Re-suggest with instructions**, which keeps everything you changed.
+- **Saving and accepting:** edits are a draft until **Save as vN**. **Accept** a version, and the agent re-renders with it (`demo_rec_edit action=rerender annotations=N`).
+- **By hand:** the same files via the CLI (`annotate add|check|preview`, `render --annotations N`).
 
 Full reference, with an example of every type: [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md).
 

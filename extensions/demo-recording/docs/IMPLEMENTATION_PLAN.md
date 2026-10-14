@@ -753,6 +753,10 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **The old Live tab content** (discovery card, recording progress) moves into the Live panel. Review and Voice become the Storyboard and Voice over tabs, unchanged inside. The Brand tab moves to Config (part 5).
 
 *5a. Project screen (D42, D43, D48)* — its own step, the **Project** tab at the far left of the stepper (before Storyboard)
+- **Project facts** (project-only, edited here; stored in the brief / project files, never in `config.json`):
+  - **title** and **subtitle** (title card; the brief's `Title:` plus a new `Subtitle:`);
+  - **persona** (audience / stance) and **depth** — `poc` | `showcase` | `sales` — which steer discovery, storyboard and narration;
+  - **app URL(s) and login**: the base URL plus extra URLs (e.g. admin, docs) and the login state (`/demo login`, last check, which account — never the credentials themselves).
 - **Memory** (what the agent reads via `demo_rec_project context`, D42):
   - **Brief:** current text, version history (`brief/vN.md`) with a diff to the previous version; editable as today.
   - **Inputs:** the input log, filterable by stage, kind and source, newest first; each entry links to the version it produced. **Mark outdated / restore** with a reason (D43): never deleted, struck through, skipped by the agent.
@@ -763,7 +767,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - *Recordings:* error toasts / console errors, improvise fallbacks used, resumes and retries, dead time, value mismatches (later: QA flags, part 10).
   - Each finding links to its evidence (screen, take + time, keyframe) and can be marked "use in the demo" / "ignore".
 - **Routes:** `GET /api/context`, `GET /api/findings`, `POST /api/input-mark {id, outdated, reason}`.
-- **No configuration here:** project-level config overrides live under ⚙ Config (part 5b).
+- **No tool configuration here:** project-scope overrides of tool settings (voice, TTS chain, models, budgets, brand default …) live under ⚙ Config (part 5b). Rule of thumb: *facts about this demo* → Project tab; *how the tool behaves* (globally or for this project) → ⚙ Config.
 
 *5b. Config UI (D41, D48)* — the **⚙ Config** button at the far right of the top bar (done in part 4), separate from the process steps
 - **Settings:**

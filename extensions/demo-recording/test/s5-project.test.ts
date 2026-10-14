@@ -451,30 +451,53 @@ test(
         d.type() === "prompt" ? d.accept("not relevant anymore") : d.accept(),
       );
       await page.goto(panel.url);
-      await page.waitForSelector(".facts-grid");
+      await page.waitForSelector(".fact-groups");
       assert.equal(
         (await page.locator("nav.steps button").first().textContent())?.trim(),
         "Project",
         "Project is the first step",
       );
-      await page
-        .locator('.facts-grid label:has(> span:text-is("Depth")) select')
-        .selectOption("sales");
-      await page
-        .locator('.facts-grid label:has(> span:text-is("Title")) input')
-        .fill("Keyboards that sell");
+      assert.deepEqual(await page.locator(".fact-group legend").allTextContents(), [
+        "Title card",
+        "Audience & length",
+        "App & access",
+        "Goal / key message",
+      ]);
+      await page.locator(".segmented button", { hasText: "sales" }).click();
       assert.match(
-        (await page
-          .locator('.facts-grid label:has(> span:text-is("Stance")) select option')
-          .first()
-          .textContent()) ?? "",
-        /default from depth: champion/,
+        (await page.locator(".segmented button", { hasText: "default" }).getAttribute("title")) ??
+          "",
+        /champion/,
+        "stance default follows depth",
       );
+      await page
+        .locator(".field:has(.field-label:text-is('Title')) input")
+        .fill("Keyboards that sell");
+      assert.equal(
+        await page.locator(".tp-title").textContent(),
+        "Keyboards that sell",
+        "live title-card preview",
+      );
+      await page.locator(".length-picker .chip", { hasText: /^1 min–1:30$/ }).click();
+      await page.locator(".length-picker .sliders input").nth(1).fill("120");
+      assert.match(
+        (await page.locator(".length-picker small").textContent()) ?? "",
+        /target 1 min–2 min/,
+      );
+      await page.locator(".url-add input").fill("https://k.test/admin");
+      await page.locator(".url-add button").click();
+      assert.equal(await page.locator(".url-list li input").count(), 1);
+      await page
+        .locator(".fact-group.goal textarea")
+        .fill("KeyCraft's cart is solid, its data is not");
       await page.getByRole("button", { name: "Save facts" }).click();
       await page.waitForTimeout(700);
       const brief = fs.readFileSync(path.join(p.dir, "brief.md"), "utf8");
       assert.match(brief, /\*\*Depth:\*\* sales/);
       assert.match(brief, /\*\*Title:\*\* Keyboards that sell/);
+      assert.match(brief, /\*\*Target length:\*\* 1–2 min/);
+      assert.match(brief, /\*\*Extra URLs:\*\* https:\/\/k\.test\/admin/);
+      assert.match(brief, /\*\*Goal \/ key message:\*\* KeyCraft's cart is solid, its data is not/);
 
       await page.locator(".subtabs .chip", { hasText: "Findings" }).click();
       await page.waitForSelector("li.finding");

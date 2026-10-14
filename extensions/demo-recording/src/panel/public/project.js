@@ -9,21 +9,122 @@ import { media, post, useApi } from "./core.js";
 const PROJECT_EVENTS =
   /^(brief|input|finding|project|stage|line|storyboard|take|vo|edit|discovery)\./;
 
-const FACT_FIELDS = [
-  { key: "title", label: "Title", hint: "title card, ≤ 60 chars" },
-  { key: "subtitle", label: "Subtitle", hint: "second line on the title card" },
-  { key: "persona", label: "Persona", hint: "who watches, what they already know" },
-  { key: "depth", label: "Depth", type: "depth" },
-  { key: "stance", label: "Stance", type: "stance" },
-  { key: "length", label: "Target length", hint: "min–max, e.g. 3–4 min or 60–90 s" },
-  {
-    key: "goal",
-    label: "Goal / key message",
-    hint: "the one thing the viewer should believe afterwards",
-  },
-  { key: "url", label: "App URL", hint: "base URL" },
-  { key: "extraUrls", label: "Extra URLs", hint: "admin, docs … (space-separated)" },
+// ---- facts editor building blocks ----
+
+const LENGTH_PRESETS = [
+  [30, 60],
+  [60, 90],
+  [90, 120],
+  [120, 180],
+  [180, 300],
+  [300, 480],
 ];
+const LEN_MIN = 15;
+const LEN_MAX = 900;
+const LEN_STEP = 15;
+
+/** Seconds → "45 s", "1:30", "3 min". */
+export function fmtSec(sec) {
+  if (sec < 60) return `${sec} s`;
+  return sec % 60 === 0
+    ? `${sec / 60} min`
+    : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+
+/** [min, max] seconds → a brief value the server parses ("3–5 min", "60–90 s", "2:30–3:30"). */
+export function lengthText([lo, hi]) {
+  if (lo >= 60 && lo % 60 === 0 && hi % 60 === 0) return `${lo / 60}–${hi / 60} min`;
+  if (hi < 120) return `${lo}–${hi} s`;
+  const ms = (x) => `${Math.floor(x / 60)}:${String(x % 60).padStart(2, "0")}`;
+  return `${ms(lo)}–${ms(hi)}`;
+}
+
+/** Parse a brief length value client-side (same rules as the server, enough for the sliders). */
+function parseLen(v) {
+  if (!v) return null;
+  const s = v.toLowerCase();
+  const unitMin = /\bmin/.test(s);
+  const nums = [...s.matchAll(/(\d+(?::\d{2})?(?:[.,]\d+)?)/g)].map((m) => {
+    const t = m[1];
+    if (t.includes(":")) {
+      const [mm, ss] = t.split(":").map(Number);
+      return mm * 60 + ss;
+    }
+    const n = Number(t.replace(",", "."));
+    return unitMin ? n * 60 : n;
+  });
+  if (!nums.length) return null;
+  const a = nums[0];
+  const b = nums[1] ?? a;
+  return [Math.min(a, b), Math.max(a, b)];
+}
+
+function Segmented({ options, value, onChange, title }) {
+  return html`<div class="segmented" role="radiogroup" title=${title ?? ""}>${options.map(
+    (o) =>
+      html`<button type="button" role="radio" aria-checked=${value === o.value} class=${value === o.value ? "on" : ""} title=${o.title ?? ""} onClick=${() => onChange(o.value)}>${o.label}</button>`,
+  )}</div>`;
+}
+
+function LengthPicker({ value, onChange, def }) {
+  const parsed = parseLen(value);
+  const range = parsed ?? def ?? [120, 180];
+  const fromDefault = !parsed;
+  const clamp = (x) => Math.max(LEN_MIN, Math.min(LEN_MAX, Math.round(x / LEN_STEP) * LEN_STEP));
+  const setRange = (lo, hi) => onChange(lengthText([clamp(lo), clamp(hi)]));
+  const isPreset = (p) => parsed && p[0] === parsed[0] && p[1] === parsed[1];
+  return html`<div class="length-picker">
+    <div class="presets">
+      ${LENGTH_PRESETS.map((p) => html`<button type="button" class=${`chip ${isPreset(p) ? "on" : ""}`} onClick=${() => setRange(p[0], p[1])}>${fmtSec(p[0])}–${fmtSec(p[1])}</button>`)}
+      ${def ? html`<button type="button" class=${`chip ${fromDefault ? "on" : ""}`} title="no length in the brief: use the depth default" onClick=${() => onChange("")}>depth default (${fmtSec(def[0])}–${fmtSec(def[1])})</button>` : null}
+    </div>
+    <div class=${`sliders ${fromDefault ? "from-default" : ""}`}>
+      <label>min <input type="range" min=${LEN_MIN} max=${LEN_MAX} step=${LEN_STEP} value=${range[0]}
+        onInput=${(e) => {
+          const lo = Number(e.target.value);
+          setRange(lo, Math.max(lo, range[1]));
+        }} /><output>${fmtSec(range[0])}</output></label>
+      <label>max <input type="range" min=${LEN_MIN} max=${LEN_MAX} step=${LEN_STEP} value=${range[1]}
+        onInput=${(e) => {
+          const hi = Number(e.target.value);
+          setRange(Math.min(range[0], hi), hi);
+        }} /><output>${fmtSec(range[1])}</output></label>
+    </div>
+    <small class="muted">${fromDefault ? (def ? `using the depth default ${fmtSec(def[0])}–${fmtSec(def[1])} — move a slider or pick a preset to set your own` : "not set — pick a preset or move a slider") : `target ${fmtSec(range[0])}–${fmtSec(range[1])}`}</small>
+  </div>`;
+}
+
+function UrlList({ value, onChange }) {
+  const urls = (value ?? "").split(/[\s,]+/).filter(Boolean);
+  const [draft, setDraft] = useState("");
+  const write = (list) => onChange(list.join(" "));
+  const add = () => {
+    const u = draft.trim();
+    if (!u) return;
+    write([...urls, u]);
+    setDraft("");
+  };
+  return html`<div class="url-list">
+    ${
+      urls.length
+        ? html`<ul>${urls.map(
+            (u, i) => html`<li key=${`${i}-${u}`}>
+        <input type="url" value=${u} onChange=${(e) => write(urls.map((x, j) => (j === i ? e.target.value.trim() : x)).filter(Boolean))} />
+        <button type="button" class="ghost" title="remove" onClick=${() => write(urls.filter((_, j) => j !== i))}>✕</button>
+      </li>`,
+          )}</ul>`
+        : html`<p class="muted small-text">no extra URLs</p>`
+    }
+    <div class="url-add">
+      <input type="url" placeholder="https://… (admin, docs, a second app)" value=${draft} onInput=${(e) => setDraft(e.target.value)} onKeyDown=${(e) => e.key === "Enter" && add()} />
+      <button type="button" disabled=${!draft.trim()} onClick=${add}>+ add</button>
+    </div>
+  </div>`;
+}
+
+function Field({ label, hint, children, counter }) {
+  return html`<label class="field"><span class="field-label">${label}${counter ? html`<span class=${`counter ${counter.over ? "over" : ""}`}>${counter.text}</span>` : null}</span>${children}${hint ? html`<small class="muted">${hint}</small>` : null}</label>`;
+}
 
 function Facts({ events }) {
   const { data, error, reload } = useApi("/api/project", events, PROJECT_EVENTS);
@@ -58,32 +159,85 @@ function Facts({ events }) {
       setTimeout(() => setFlash(null), 6000);
     }
   };
-  const field = (f) => {
-    if (f.type === "depth")
-      return html`<select value=${value("depth")} onChange=${(e) => set("depth", e.target.value)}>
-        <option value="">— not set —</option>
-        ${Object.entries(data.depthDefaults).map(([k, d]) => html`<option value=${k}>${k} — ${d.label.split("—")[1]?.trim() ?? d.label}</option>`)}
-      </select>`;
-    if (f.type === "stance")
-      return html`<select value=${value("stance")} onChange=${(e) => set("stance", e.target.value)}>
-        <option value="">${def ? `default from depth: ${def.stance}` : "— not set —"}</option>
-        ${["champion", "evaluator", "teacher"].map((s) => html`<option value=${s}>${s}</option>`)}
-      </select>`;
-    return html`<input type="text" value=${value(f.key)} placeholder=${f.key === "length" && def ? `default from depth: ${def.length}` : f.hint} onInput=${(e) => set(f.key, e.target.value)} />`;
-  };
+  const title = value("title");
+  const subtitle = value("subtitle");
+  const count = (v, max) => ({ text: `${v.length}/${max}`, over: v.length > max });
+  const depthOptions = [
+    { value: "", label: "—", title: "not set" },
+    ...Object.entries(data.depthDefaults).map(([k, d]) => ({ value: k, label: k, title: d.label })),
+  ];
+  const stanceOptions = [
+    {
+      value: "",
+      label: def ? "default" : "—",
+      title: def ? `use the depth default (${def.stance})` : "not set",
+    },
+    ...["champion", "evaluator", "teacher"].map((x) => ({ value: x, label: x })),
+  ];
   return html`<section class="card facts">
-    <div class="row"><h2>${data.facts.title ?? data.project}</h2>
-      ${data.facts.subtitle ? html`<span class="muted">${data.facts.subtitle}</span>` : null}
-      <span class="grow"></span>${flash ? html`<span class="flash">${flash}</span>` : null}</div>
-    <p class="muted small-text">Facts about this demo, stored as fields of brief.md (${data.briefVersions.length} version${data.briefVersions.length === 1 ? "" : "s"}). How the tool behaves — also for this project only — is set under ⚙ Config.</p>
-    <div class="facts-grid">
-      <label><span>App</span><span class="readonly">${data.app.name} <span class="muted small-text">(${data.app.slug})</span></span></label>
-      ${FACT_FIELDS.map((f) => html`<label><span>${f.label}</span>${field(f)}${f.key === "depth" && def ? html`<small class="muted">${def.label}</small>` : null}${f.key === "stance" && !value("stance") && data.effective.stance ? html`<small class="muted">effective: ${data.effective.stance}${data.effective.stanceFromDepth ? " (depth default)" : ""}</small>` : null}${f.key === "length" && data.effective.length ? html`<small class="muted">effective: ${data.effective.length}${data.effective.lengthFromDepth ? " (depth default)" : ""}</small>` : null}</label>`)}
-      <label><span>Login</span><span class="readonly">${data.login.saved ? `saved session (${new Date(data.login.savedAt).toLocaleString()}) — contents never shown` : html`<span class="muted">no saved session — <code>/demo login ${data.app.slug}</code> (S7)</span>`}</span></label>
-    </div>
-    <div class="row"><span class="muted small-text">${dirty ? "unsaved changes" : "no changes"}</span><span class="grow"></span>
+    <div class="row">
+      <h2>Project facts</h2>
+      <span class="muted small-text">fields of brief.md · ${data.briefVersions.length} version${data.briefVersions.length === 1 ? "" : "s"} · tool settings live under ⚙ Config</span>
+      <span class="grow"></span>
+      ${flash ? html`<span class="flash">${flash}</span>` : null}
       <button disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
-      <button class="primary" disabled=${busy || !dirty} onClick=${save}>Save facts</button></div>
+      <button class="primary" disabled=${busy || !dirty} onClick=${save}>Save facts</button>
+    </div>
+
+    <div class="fact-groups">
+      <fieldset class="fact-group">
+        <legend>Title card</legend>
+        <div class="title-preview" aria-label="title card preview">
+          ${(title.trim() || data.app.name).toLowerCase() === data.app.name.toLowerCase() ? null : html`<div class="tp-app">${data.app.name}</div>`}
+          <div class="tp-rule"></div>
+          <div class="tp-title">${title.trim() || data.app.name}</div>
+          ${subtitle ? html`<div class="tp-sub">${subtitle}</div>` : null}
+        </div>
+        <${Field} label="Title" counter=${count(title, 60)} hint="large line on the title card">
+          <input type="text" value=${title} placeholder="e.g. What KeyCraft gets right" onInput=${(e) => set("title", e.target.value)} />
+        </${Field}>
+        <${Field} label="Subtitle" counter=${count(subtitle, 90)} hint="optional second line">
+          <input type="text" value=${subtitle} placeholder="e.g. and what it makes up" onInput=${(e) => set("subtitle", e.target.value)} />
+        </${Field}>
+      </fieldset>
+
+      <fieldset class="fact-group">
+        <legend>Audience & length</legend>
+        <${Field} label="Persona" hint="who watches, what they already know">
+          <textarea rows="3" value=${value("persona")} placeholder="e.g. developers evaluating test targets" onInput=${(e) => set("persona", e.target.value)}></textarea>
+        </${Field}>
+        <${Field} label="Depth" hint=${def ? def.label : "poc · showcase · sales — sets stance and length defaults"}>
+          <${Segmented} options=${depthOptions} value=${depth} onChange=${(v) => set("depth", v)} />
+        </${Field}>
+        <${Field} label="Stance" hint=${!value("stance") && data.effective.stance ? `effective: ${data.effective.stance}${data.effective.stanceFromDepth ? " (depth default)" : ""}` : "the narrator's attitude"}>
+          <${Segmented} options=${stanceOptions} value=${value("stance")} onChange=${(v) => set("stance", v)} />
+        </${Field}>
+        <${Field} label="Target length">
+          <${LengthPicker} value=${value("length")} def=${def?.lengthSec ?? null} onChange=${(v) => set("length", v)} />
+        </${Field}>
+      </fieldset>
+
+      <fieldset class="fact-group">
+        <legend>App & access</legend>
+        <${Field} label="App"><span class="readonly">${data.app.name} <span class="muted small-text">(${data.app.slug})</span></span></${Field}>
+        <${Field} label="App URL" hint="where discovery and recording start">
+          <input type="url" value=${value("url")} placeholder="https://…" onInput=${(e) => set("url", e.target.value)} />
+        </${Field}>
+        <${Field} label="Extra URLs" hint="other entry points the demo may use">
+          <${UrlList} value=${value("extraUrls")} onChange=${(v) => set("extraUrls", v)} />
+        </${Field}>
+        <${Field} label="Login">
+          <span class="readonly">${data.login.saved ? html`<span class="badge approved">saved session</span> <span class="muted small-text">${new Date(data.login.savedAt).toLocaleString()} · contents never shown</span>` : html`<span class="muted">no saved session — <code>/demo login ${data.app.slug}</code> (S7)</span>`}</span>
+        </${Field}>
+      </fieldset>
+    </div>
+
+    <fieldset class="fact-group goal">
+      <legend>Goal / key message</legend>
+      <textarea rows="4" value=${value("goal")} placeholder="The one thing the viewer should believe afterwards — the demo is built around it." onInput=${(e) => set("goal", e.target.value)}></textarea>
+      <small class="muted">Kept on one line in brief.md; a short goal (≤ 60 chars) can also serve as the title card fallback.</small>
+    </fieldset>
+    <div class="row"><span class="muted small-text">${dirty ? `unsaved: ${Object.keys(patch).join(", ")}` : "no changes"}</span></div>
   </section>`;
 }
 

@@ -129,13 +129,19 @@ export function projectRoutes(deps: ProjectRouteDeps): {
             stance: e.stance ?? null,
             stanceFromDepth: e.stanceFromDepth,
             length: e.length ? formatLength(e.length) : null,
+            lengthSec: e.length ?? null,
             lengthFromDepth: e.lengthFromDepth,
             extraUrls: e.extraUrls,
           },
           depthDefaults: Object.fromEntries(
             Object.entries(DEPTH_DEFAULTS).map(([k, v]) => [
               k,
-              { stance: v.stance, length: formatLength(v.length), label: v.label },
+              {
+                stance: v.stance,
+                length: formatLength(v.length),
+                lengthSec: v.length,
+                label: v.label,
+              },
             ]),
           ),
           login: fs.existsSync(auth)

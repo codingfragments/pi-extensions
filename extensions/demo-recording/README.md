@@ -139,6 +139,18 @@ Full reference, with every option, the automatic decisions and the render chain:
 - **`emphasis:`** on a step or scene is the director's intent ("the EMEA outlier is the story"). It's only a hint: the Annotation designer chooses zooms and callouts later. Old `zoom:` / `callout:` flags still parse, become emphasis hints, and produce a warning on storyboard write.
 - **Recording tab:** each take card shows how many layout snapshots it has. Takes recorded before this change have none, so re-record a project to get them.
 
+### Annotations (S5)
+
+Zooms, highlights, spotlights, callouts, chapter titles and redactions, burned into the render. Each one is anchored to a storyboard mark (or a scene start), so it lands exactly on its moment in the edited video. It points at a step's element, a text on screen, or a box.
+
+- **Motion:** nothing pops in. Overlays fade with a small entrance motion: highlights settle, callouts rise, chapters slide in. Zooms ease in and out, and redactions are instant.
+- **Spaces:** page-space types (redact, highlight, spotlight) are drawn on the recorded page and follow a zoom. Callouts and chapters sit on the finished frame.
+- **Output:** annotated renders go to `out/edit-vN/<brand>+aN/`, next to the clean render.
+- **Today:** hand-written files and the CLI (`annotate add|check|preview`, `render --annotations N`).
+- **Next:** in S5 part 8, the Annotation designer suggests annotations and the panel's Annotations tab edits them.
+
+Full reference, with an example of every type: [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md).
+
 ### Recording (S3)
 
 - **Motion:** curved paths with a natural speed profile (slow start, fast middle, slow landing), occasional overshoot-and-correct, and a small hand drift while dwelling. Seeded per take, so it can be reproduced.
@@ -183,6 +195,10 @@ node extensions/demo-recording/cli.ts run-s1 --url https://app.example.com --app
 node extensions/demo-recording/cli.ts spike capture            # capture resolution comparison
 node extensions/demo-recording/cli.ts record --fixture          # S3 take with live progress (uses pi's model auth; --no-model to skip)
 node extensions/demo-recording/cli.ts fixture-demo             # S4: full narrated demo of the fixture with your voice chain
+node extensions/demo-recording/cli.ts annotate add --project P --file a.json   # S5: store annotations/vN.json (validated)
+node extensions/demo-recording/cli.ts annotate check --project P               # resolved times, boxes, warnings
+node extensions/demo-recording/cli.ts annotate preview --project P --id ID     # clip + still of one annotation (cached)
+node extensions/demo-recording/cli.ts render --project P --annotations N       # re-render with annotations → out/edit-vN/<brand>+aN/
 DEMO_REC_ELEVENLABS_E2E=1 DEMO_REC_VOICE="<your voice>" node --test extensions/demo-recording/test/s4-elevenlabs.test.ts   # live voice check (~200 chars)
 ```
 
@@ -229,7 +245,7 @@ Environment variables override the file: `DEMO_REC_ROOT`, `DEMO_REC_PANEL_PORT`,
 ```
 ~/DemoRecordings/
   apps/<app>/        app.json, auth/ (0700), policy.json, discovery/   (shared across demos)
-  projects/<demo>/   brief.md, context/, state.json, storyboard/, takes/, vo/, edit/, out/, jobs/
+  projects/<demo>/   brief.md, context/, state.json, storyboard/, takes/, vo/, edit/, annotations/, out/, previews/, jobs/
 ```
 
 Artifacts are versioned and never overwritten (`storyboard/v3.yaml`, `takes/take-002/`).

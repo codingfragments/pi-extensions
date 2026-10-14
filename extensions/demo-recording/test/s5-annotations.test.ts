@@ -10,14 +10,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { fullOps, prepareAnnotations } from "../src/annotations/apply.ts";
+import { fullOps, prepareAnnotations, sceneOps } from "../src/annotations/apply.ts";
 import {
   annotationVersions,
   readAnnotations,
   validateAnnotations,
   writeAnnotations,
 } from "../src/annotations/file.ts";
-import { sliceJob } from "../src/annotations/preview.ts";
+import { previewAnnotation, sliceJob } from "../src/annotations/preview.ts";
 import {
   type RenderAnnotations,
   zoomFilter,
@@ -347,6 +347,79 @@ test("resolve: overlapping zooms are dropped, overlapping callouts are cut short
   assert.equal(c1?.endMs, c2?.startMs, "only one callout at a time");
 });
 
+test("resolve: page-space annotations end at a page change (route or scroll); chapters stay out of scene clips", () => {
+  const dir = makeProject(false);
+  const take = path.join(dir, "takes", "take-001");
+  fs.appendFileSync(
+    path.join(take, "events.jsonl"),
+    `${JSON.stringify({ t: 1800, type: "route", scene: "s1", data: { url: "/next" } })}\n`,
+  );
+  const r = resolveAnnotations(
+    fileOf([
+      item({ id: "hl", type: "highlight", target: { step: 0 } }),
+      item({
+        id: "rd",
+        type: "redact",
+        anchor: { sceneStart: true },
+        target: { box: { x: 0, y: 0, w: 50, h: 20 } },
+      }),
+      item({ id: "co", type: "callout", text: "screen space is not affected" }),
+    ]),
+    { timeline: TIMELINE, takeDir: take, ...geo },
+  );
+  const by = Object.fromEntries(r.items.map((x) => [x.id, x]));
+  assert.equal(by.hl?.endMs, 1800, "highlight ends at the route change");
+  assert.equal(by.rd?.endMs, 1800);
+  assert.equal(by.co?.endMs, 3500, "callouts are screen space: unaffected");
+  assert.match(r.warnings.join("\n"), /rd: the page changes at 1\.80 s — the redaction ends there/);
+  // a scroll in a later snapshot counts too
+  const dir2 = makeProject(false);
+  const take2 = path.join(dir2, "takes", "take-001");
+  const lines = fs
+    .readFileSync(path.join(take2, "layout.jsonl"), "utf8")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+  lines[1].scroll = { x: 0, y: 240 };
+  fs.writeFileSync(
+    path.join(take2, "layout.jsonl"),
+    `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`,
+  );
+  const r2 = resolveAnnotations(fileOf([item({ id: "z", type: "zoom", target: { step: 0 } })]), {
+    timeline: TIMELINE,
+    takeDir: take2,
+    ...geo,
+  });
+  assert.equal(
+    r2.items[0]?.endMs,
+    takeToSceneMs(SCENE, 2900),
+    "zoom ends when the page has scrolled",
+  );
+  // chapters: in the full video, not in per-scene clips unless asked
+  const prepared = {
+    version: 1,
+    resolved: [],
+    warnings: [],
+    scenes: { s1: { page: [], blurs: [], zooms: [], screen: [{ ...OPS_CHAPTER }] } },
+  };
+  assert.equal(sceneOps(prepared, "s1")?.screen.length, 0);
+  assert.equal(sceneOps(prepared, "s1", { chapters: true })?.screen.length, 1);
+  assert.equal(fullOps(prepared, { s1: 0 })?.screen.length, 1);
+});
+
+const OPS_CHAPTER = {
+  id: "ch",
+  type: "chapter" as const,
+  file: "/x/ch.png",
+  w: 300,
+  h: 80,
+  x: 40,
+  y: 400,
+  startMs: 0,
+  endMs: 2500,
+  fadeMs: 300,
+};
+
 test("zoom geometry: centered, clamped to the frame, factor lowered to keep the target in view", () => {
   const src = { w: 1600, h: 900 };
   const a = zoomRect({ x: 700, y: 400, w: 200, h: 100 }, 1.6, src);
@@ -382,6 +455,7 @@ const OPS: RenderAnnotations = {
   page: [
     {
       id: "hl",
+      type: "highlight",
       file: "/x/hl.png",
       w: 100,
       h: 50,
@@ -398,6 +472,7 @@ const OPS: RenderAnnotations = {
   screen: [
     {
       id: "co",
+      type: "callout",
       file: "/x/co.png",
       w: 300,
       h: 60,
@@ -557,8 +632,15 @@ test(
       item({
         id: "rd",
         type: "redact",
-        anchor: { sceneStart: true },
+        anchor: { mark: "m1" }, // 1000 ms = frame 30
         target: { box: { x: 510, y: 290, w: 180, h: 95 } }, // over testsrc2's checkerboard
+      }),
+      item({
+        id: "sp",
+        type: "spotlight",
+        anchor: { mark: "m1", offsetMs: 900 },
+        target: { box: { x: 100, y: 330, w: 120, h: 40 } },
+        durMs: 600,
       }),
       item({ id: "co", type: "callout", anchor: { mark: "m2" }, text: "Look here", durMs: 900 }),
       item({
@@ -612,12 +694,28 @@ test(
     // redact (CSS 510,290 180×95 → source 1020,580 360×190): the checkerboard is gone
     const rd = outBox({ x: 1045, y: 600, w: 310, h: 150 });
     assert.ok(
-      detail(rgbCrop(ann, 0.5, rd)) < detail(rgbCrop(clean, 0.5, rd)) * 0.1,
+      detail(rgbCrop(ann, 1.5, rd)) < detail(rgbCrop(clean, 1.5, rd)) * 0.1,
       "redacted region lost its detail",
     );
     assert.ok(
-      detail(rgbCrop(ann, 0.0, rd)) < detail(rgbCrop(clean, 0.0, rd)) * 0.1,
-      "redact is there from the first frame (no fade)",
+      detail(rgbCrop(ann, 0.99, rd)) < detail(rgbCrop(clean, 0.99, rd)) * 0.1,
+      "redact fully there on its first frame (frame 30, no fade)",
+    );
+    assert.ok(
+      detail(rgbCrop(ann, 0.95, rd)) > detail(rgbCrop(clean, 0.95, rd)) * 0.8,
+      "…and not one frame earlier (frame 29)",
+    );
+    // spotlight (1.6–2.5 s): far away is darker, the cut-out isn't
+    const mean = (b: Buffer) => b.reduce((x, y) => x + y, 0) / b.length;
+    const far = { x: 700, y: 20, w: 150, h: 80 };
+    assert.ok(
+      mean(rgbCrop(ann, 2.1, far)) < mean(rgbCrop(clean, 2.1, far)) * 0.6,
+      "spotlight dims the rest",
+    );
+    const hole = outBox({ x: 210, y: 670, w: 220, h: 60 });
+    assert.ok(
+      meanDiff(rgbCrop(ann, 2.1, hole), rgbCrop(clean, 2.1, hole)) < 6,
+      "the spotlit element stays as it is",
     );
     // chapter: lower third, gone after it ends
     const ch = { x: 22, y: 488, w: 100, h: 30 };
@@ -637,5 +735,36 @@ test(
       meanDiff(rgbCrop(ann, 2.6, quiet), rgbCrop(clean, 2.6, quiet)) < 3,
       "untouched area unchanged",
     );
+    // previews: a clip + still of one annotation, cached
+    const pv = {
+      projectDir: dir,
+      timeline: TIMELINE,
+      file,
+      id: "zm",
+      brand: resolveBrand(root, "neutral"),
+      frame: { inset: { x: 0, y: 0, w: 960, h: 540 } },
+      fps: 30,
+      output: out,
+      cacheDir: path.join(root, "cache"),
+      outDir: path.join(dir, "previews"),
+    };
+    const p1 = await previewAnnotation(pv);
+    assert.ok(fs.statSync(p1.clip).size > 10_000 && fs.statSync(p1.still).size > 10_000);
+    assert.equal(
+      p1.peakMs,
+      (2900 + 4500) / 2 - 1900,
+      "still at the middle of the zoom, in clip time",
+    );
+    const mtime = fs.statSync(p1.clip).mtimeMs;
+    const t0 = Date.now();
+    const p2 = await previewAnnotation(pv);
+    assert.equal(p2.clip, p1.clip);
+    assert.equal(fs.statSync(p2.clip).mtimeMs, mtime, "cached, not re-rendered");
+    assert.ok(Date.now() - t0 < 1500);
+    const p3 = await previewAnnotation({
+      ...pv,
+      file: { ...file, items: file.items.map((x) => (x.id === "zm" ? { ...x, factor: 1.3 } : x)) },
+    });
+    assert.notEqual(p3.clip, p1.clip, "a changed annotation makes a new preview");
   },
 );

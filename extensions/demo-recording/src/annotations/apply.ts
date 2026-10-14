@@ -82,11 +82,19 @@ export async function prepareAnnotations(o: {
 const shift = <T extends { startMs: number; endMs: number }>(xs: T[], d: number): T[] =>
   xs.map((x) => ({ ...x, startMs: x.startMs + d, endMs: x.endMs + d }));
 
-/** Ops for one scene video. */
-export const sceneOps = (
+/**
+ * Ops for one scene video. Chapter titles belong to the full video (they
+ * introduce a scene in the sequence); per-scene clips get them only on request.
+ */
+export function sceneOps(
   p: PreparedAnnotations | undefined,
   scene: string,
-): RenderAnnotations | undefined => p?.scenes[scene];
+  o: { chapters?: boolean } = {},
+): RenderAnnotations | undefined {
+  const ops = p?.scenes[scene];
+  if (!ops || o.chapters) return ops;
+  return { ...ops, screen: ops.screen.filter((x) => x.type !== "chapter") };
+}
 
 /** Ops for the full video (scene ops shifted by each scene's start). */
 export function fullOps(

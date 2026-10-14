@@ -99,6 +99,35 @@ function overlap(a: Box, b: Box): number {
   return w * h;
 }
 
+const PAGE_SPACE: AnnotationType[] = ["zoom", "highlight", "spotlight", "redact"];
+
+/**
+ * Take time of the first page change after `atTake` in the scene: a route
+ * change, a scroll step, or a layout snapshot whose scroll position differs.
+ * Page-space annotations end there — afterwards their box points at the wrong thing.
+ */
+export function pageChangeAfter(
+  events: TakeEvent[],
+  snaps: LayoutSnapshot[],
+  scene: string,
+  atTake: number,
+): number | undefined {
+  const ev = events.find(
+    (e) => e.scene === scene && e.t > atTake && (e.type === "route" || e.type === "scroll"),
+  );
+  const base = layoutAt(snaps, atTake);
+  const moved = base
+    ? snaps.find(
+        (x) =>
+          x.t > atTake &&
+          x.scene === scene &&
+          (Math.abs(x.scroll.y - base.scroll.y) > 4 || Math.abs(x.scroll.x - base.scroll.x) > 4),
+      )
+    : undefined;
+  const ts = [ev?.t, moved?.t].filter((t): t is number => t !== undefined);
+  return ts.length ? Math.min(...ts) : undefined;
+}
+
 /** Find a target box in CSS px. */
 export function findTargetBox(
   target: AnnotationTarget,
@@ -185,7 +214,18 @@ export function resolveAnnotations(
     if (it.anchor.offsetMs) atTake = sceneMsToTake(sc, atMs);
     const dur = it.durMs ?? DEFAULT_DURATION[it.type];
     const startMs = Math.max(0, atMs - LEAD_MS[it.type]);
-    const endMs = Math.min(sc.durationMs, dur > 0 ? atMs + dur : sc.durationMs);
+    let endMs = Math.min(sc.durationMs, dur > 0 ? atMs + dur : sc.durationMs);
+    if (PAGE_SPACE.includes(it.type)) {
+      const change = pageChangeAfter(events, snaps, it.scene, atTake);
+      const changeMs = change !== undefined ? takeToSceneMs(sc, change) : undefined;
+      if (changeMs !== undefined && changeMs < endMs) {
+        endMs = changeMs;
+        if (it.type === "redact")
+          warnings.push(
+            `${it.id}: the page changes at ${(changeMs / 1000).toFixed(2)} s — the redaction ends there; add another one for the new position if the secret is still on screen`,
+          );
+      }
+    }
     if (endMs - startMs < 300) {
       warnings.push(`${it.id}: less than 0.3 s left in the scene at its anchor — skipped`);
       continue;

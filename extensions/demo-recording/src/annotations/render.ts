@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { LoadedBrand } from "../brand/brand.ts";
 import type { Box, ResolvedAnnotation } from "./resolve.ts";
-import { MOTION, ZOOM_IN_MS, ZOOM_OUT_MS } from "./types.ts";
+import { type AnnotationType, MOTION, ZOOM_IN_MS, ZOOM_OUT_MS } from "./types.ts";
 
 /**
  * Entry motion on top of the fade (D-part-7: "fade + small motion"):
@@ -34,6 +34,7 @@ export interface Motion {
 
 export interface OverlayOp {
   id: string;
+  type: AnnotationType;
   file: string;
   /** PNG size (px). */
   w: number;
@@ -117,21 +118,27 @@ interface PngJob {
   h: number;
   /** Clip to this element's box (pill-like overlays); else the whole viewport. */
   clipSelector?: string;
+  /** Extra px around the clip (the drop shadow); the PNG's content then starts at (pad, pad). */
+  clipPad?: number;
 }
 
 async function renderPngs(
   jobs: PngJob[],
   cacheDir: string,
-): Promise<Map<string, { file: string; w: number; h: number }>> {
+): Promise<Map<string, { file: string; w: number; h: number; pad: number }>> {
   fs.mkdirSync(cacheDir, { recursive: true });
-  const out = new Map<string, { file: string; w: number; h: number }>();
+  const out = new Map<string, { file: string; w: number; h: number; pad: number }>();
   const todo: PngJob[] = [];
   for (const j of jobs) {
-    const file = path.join(cacheDir, `${hash([j.html, j.w, j.h, j.clipSelector ?? ""])}.png`);
+    const file = path.join(
+      cacheDir,
+      `${hash([j.html, j.w, j.h, j.clipSelector ?? "", j.clipPad ?? 0])}.png`,
+    );
     const meta = `${file}.json`;
     if (fs.existsSync(file) && fs.existsSync(meta))
       out.set(j.key, {
         file,
+        pad: j.clipPad ?? 0,
         ...(JSON.parse(fs.readFileSync(meta, "utf8")) as { w: number; h: number }),
       });
     else todo.push(j);
@@ -147,24 +154,30 @@ async function renderPngs(
       });
       await page.setContent(j.html, { waitUntil: "load" });
       await page.evaluate("document.fonts && document.fonts.ready");
-      const file = path.join(cacheDir, `${hash([j.html, j.w, j.h, j.clipSelector ?? ""])}.png`);
+      const file = path.join(
+        cacheDir,
+        `${hash([j.html, j.w, j.h, j.clipSelector ?? "", j.clipPad ?? 0])}.png`,
+      );
       let w = j.w;
       let h = j.h;
       if (j.clipSelector) {
         const bb = await page.locator(j.clipSelector).boundingBox();
         if (!bb) throw new Error(`overlay ${j.key}: nothing to render`);
+        const pad = j.clipPad ?? 0;
         const clip = {
-          x: Math.floor(bb.x),
-          y: Math.floor(bb.y),
-          width: Math.ceil(bb.width) + 1,
-          height: Math.ceil(bb.height) + 1,
+          x: Math.floor(bb.x) - pad,
+          y: Math.floor(bb.y) - pad,
+          width: Math.ceil(bb.width) + 1 + 2 * pad,
+          height: Math.ceil(bb.height) + 1 + 2 * pad,
         };
+        if (clip.x < 0 || clip.y < 0)
+          throw new Error(`overlay ${j.key}: the shadow margin doesn't fit the page`);
         await page.screenshot({ path: file, omitBackground: true, clip });
         w = clip.width;
         h = clip.height;
       } else await page.screenshot({ path: file, omitBackground: true });
       fs.writeFileSync(`${file}.json`, JSON.stringify({ w, h }));
-      out.set(j.key, { file, w, h });
+      out.set(j.key, { file, w, h, pad: j.clipPad ?? 0 });
       await page.close();
     }
   } finally {
@@ -186,6 +199,8 @@ export async function buildRenderAnnotations(
   const k = o.source.w / o.footage.w;
   /** Output scale vs. 1080p. */
   const s = o.out.height / 1080;
+  /** Room for the pills' drop shadow (offset 6 + blur 22 at 1080p). */
+  const shadowPad = Math.round(32 * s);
   const jobs: PngJob[] = [];
   const ops: RenderAnnotations = { page: [], blurs: [], zooms: [], screen: [] };
   const pending: {
@@ -266,7 +281,8 @@ export async function buildRenderAnnotations(
         w: o.out.width,
         h: Math.round(200 * s),
         clipSelector: "#pill",
-        html: `<!doctype html><html><body style="margin:0;background:transparent;${fontCss(o.brand)}"><div id="pill" style="display:inline-flex;align-items:center;gap:${Math.round(12 * s)}px;margin:${Math.round(20 * s)}px;padding:${Math.round(13 * s)}px ${Math.round(24 * s)}px;border-radius:999px;background:${b.colors.pill};color:${b.colors.pillText};font-size:${Math.round(28 * s)}px;font-weight:${b.font.weight};box-shadow:0 ${Math.round(6 * s)}px ${Math.round(22 * s)}px rgba(0,0,0,.35)"><span style="width:${Math.round(10 * s)}px;height:${Math.round(10 * s)}px;border-radius:50%;background:${accent}"></span>${esc(r.text)}</div></body></html>`,
+        clipPad: shadowPad,
+        html: `<!doctype html><html><body style="margin:0;background:transparent;${fontCss(o.brand)}"><div id="pill" style="display:inline-flex;align-items:center;gap:${Math.round(12 * s)}px;margin:${shadowPad + 4}px;padding:${Math.round(13 * s)}px ${Math.round(24 * s)}px;border-radius:999px;background:${b.colors.pill};color:${b.colors.pillText};font-size:${Math.round(28 * s)}px;font-weight:${b.font.weight};box-shadow:0 ${Math.round(6 * s)}px ${Math.round(22 * s)}px rgba(0,0,0,.35)"><span style="width:${Math.round(10 * s)}px;height:${Math.round(10 * s)}px;border-radius:50%;background:${accent}"></span>${esc(r.text)}</div></body></html>`,
       });
       pending.push({
         r,
@@ -285,7 +301,8 @@ export async function buildRenderAnnotations(
         w: o.out.width,
         h: Math.round(220 * s),
         clipSelector: "#ch",
-        html: `<!doctype html><html><body style="margin:0;background:transparent;${fontCss(o.brand)}"><div id="ch" style="display:inline-flex;flex-direction:column;margin:${Math.round(20 * s)}px;padding:${Math.round(16 * s)}px ${Math.round(26 * s)}px ${Math.round(18 * s)}px;border-radius:${Math.round(14 * s)}px;background:${b.colors.pill};color:${b.colors.text};box-shadow:0 ${Math.round(6 * s)}px ${Math.round(22 * s)}px rgba(0,0,0,.35)"><div style="width:${Math.round(46 * s)}px;height:${Math.max(3, Math.round(4 * s))}px;border-radius:3px;background:${accent};margin-bottom:${Math.round(10 * s)}px"></div><div style="font-size:${Math.round(34 * s)}px;font-weight:${Math.max(600, b.font.weight)};letter-spacing:-.01em">${esc(r.text)}</div></div></body></html>`,
+        clipPad: shadowPad,
+        html: `<!doctype html><html><body style="margin:0;background:transparent;${fontCss(o.brand)}"><div id="ch" style="display:inline-flex;flex-direction:column;margin:${shadowPad + 4}px;padding:${Math.round(16 * s)}px ${Math.round(26 * s)}px ${Math.round(18 * s)}px;border-radius:${Math.round(14 * s)}px;background:${b.colors.pill};color:${b.colors.text};box-shadow:0 ${Math.round(6 * s)}px ${Math.round(22 * s)}px rgba(0,0,0,.35)"><div style="width:${Math.round(46 * s)}px;height:${Math.max(3, Math.round(4 * s))}px;border-radius:3px;background:${accent};margin-bottom:${Math.round(10 * s)}px"></div><div style="font-size:${Math.round(34 * s)}px;font-weight:${Math.max(600, b.font.weight)};letter-spacing:-.01em">${esc(r.text)}</div></div></body></html>`,
       });
       pending.push({
         r,
@@ -303,9 +320,12 @@ export async function buildRenderAnnotations(
   for (const p of pending) {
     const png = pngs.get(p.key);
     if (!png) continue;
-    const pos = p.place(png.w, png.h);
+    // Place by the visible element; the PNG extends `pad` px around it (shadow).
+    const vis = p.place(png.w - 2 * png.pad, png.h - 2 * png.pad);
+    const pos = { x: vis.x - png.pad, y: vis.y - png.pad };
     const op: OverlayOp = {
       id: p.r.id,
+      type: p.r.type,
       file: png.file,
       w: png.w,
       h: png.h,
@@ -319,12 +339,12 @@ export async function buildRenderAnnotations(
     (p.space === "page" ? ops.page : ops.screen).push(op);
   }
   // Chapter titles sit in the lower third; a callout shown at the same time stacks above it.
-  const typeOf = (id: string) => items.find((r) => r.id === id)?.type;
-  const chapters = ops.screen.filter((x) => typeOf(x.id) === "chapter");
+  const chapters = ops.screen.filter((x) => x.type === "chapter");
   for (const c of ops.screen) {
-    if (typeOf(c.id) !== "callout") continue;
+    if (c.type !== "callout") continue;
     const ch = chapters.find((x) => x.startMs < c.endMs && c.startMs < x.endMs);
-    if (ch) c.y = ch.y - c.h - Math.round(14 * s);
+    // (both PNGs carry the shadow pad around the visible element)
+    if (ch) c.y = ch.y - c.h + 2 * shadowPad - Math.round(14 * s);
   }
   return { ops, warnings };
 }

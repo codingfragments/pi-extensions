@@ -810,33 +810,68 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Sidecars:** `full.callouts.srt` (callouts) and VTT transcripts move to part 9.
 - **Tests:** `test/s5-annotations.test.ts` — validation, versions, time mapping, resolution (settled/step/text/layout/box, warnings, page changes), zoom geometry and easing, segment planning and graph shape, full-video shifting, slicing, and a real render of every type on a synthetic take with pixel probes.
 
-*8. Annotations stage (D31, D35–D37)*
-- **Annotation designer** (`annotation-designer` skill, played by the Director by default; D40).
-  - **Inputs:** the accepted take (keyframes, layout snapshots, events), the storyboard's `emphasis` hints, the generated voice-over (script, anchors, word timings), the brief, and the input log.
-  - **Suggests about 2× as many annotations as it enables**, each with:
-    - type, scene, anchor (`mark` or word);
-    - target (element ref from a layout snapshot, or a step target);
-    - text (callouts, chapters), and a one-line reason;
-    - weights (Q7).
-  - **Pre-enables** the recommended set: the best value per noise within the caps.
-  - **Defaults:** spotlight is off unless the value is 5; chapter titles and redactions are off and outside the budget.
-  - **The **Privacy officer** role** (part of the same skill run by default) scans layout snapshots for emails, person names, tokens and IDs, and adds redaction suggestions with the reason "looks like an email".
-  - **Writing rules** in the skill: a callout names *what* to look at, the voice says *why*, and never word for word; no annotation during typing; nothing on top of a callout; don't stack zooms.
+*8. Annotations stage (D31, D35–D37, D52–D58)* — in progress
+- **Annotation designer = a skill in the main agent (D52).** `skills/demo-annotations` (Annotation designer + Privacy officer). The agent reads a compact **input pack** from `demo_rec_annotations action=context` and submits suggestions with `action=suggest`; the engine does everything deterministic.
+  - **The input pack, per scene:**
+    - duration;
+    - marks with their output time and the VO sentence at each anchor;
+    - `emphasis` hints;
+    - steps with their targets;
+    - the on-screen elements at each mark (role, text, ref `t<ms>#e<n>`, box);
+    - privacy hits;
+    - the caps and the noise table.
+  - **What the engine does on `suggest`:**
+    - validates and resolves every item, and returns the ones that don't resolve, with reasons, so the agent can fix them;
+    - adds the privacy scan's redactions;
+    - computes the noise, the value bonus (+1 for an `emphasis` or VO-anchor match, cap 5), the recommended set (greedy value/noise within the caps, 2× ratio), the optimum and the budget;
+    - pre-enables the recommended set: spotlight only at value 5; chapters and redactions off and outside the budget;
+    - writes `annotations/vN.json` (`by: annotation-designer`).
+- **Auto-suggest after the edit (D53):**
+  - when a sync edit finishes and its VO has no annotations yet, the edit report asks the agent to run the designer (config `annotations.autoSuggest`, default on);
+  - the Annotations tab has a **Re-suggest** box with extra instructions, which go to the agent and into the input log.
+- **Privacy (D54):**
+  - a deterministic scan of the layout snapshots finds emails, phone numbers, API keys/tokens/JWTs, IBAN- and card-like numbers (Luhn) and long IDs;
+  - the designer adds person and company names it judges sensitive;
+  - all of them are disabled redact suggestions with a reason, for the user to confirm.
+- **Re-suggest keeps the user's changes (D56):** on a new suggest based on vK, the items the user added, edited or toggled carry over unchanged; everything else is regenerated. The result lists what was kept.
+- **Import from vK is deterministic (D57):**
+  - an item carries over when its scene and mark (or scene start) exist and its target resolves on the new take; text edits, nudges and toggles come with it;
+  - the rest is listed as "not carried: mark gone / target not found";
+  - no model call.
+- **Draft + Save as new version (D58):**
+  - panel edits (toggle, text, ±0.5 s start/duration nudge, target candidate) go to `annotations/draft.json`; the stills and the budget meter update instantly;
+  - "Save as vN" writes one version with `origin`/`edits` kept, and logs the edit as an input; "Discard" drops the draft;
+  - the draft survives panel reloads.
+- **VO-word anchors:** `{ "word": "EMEA", "occurrence"?: n }`, the n-th occurrence in the scene's VO section, through the TTS word timings and the scene's audio placement.
 - **Tool `demo_rec_annotations`:**
-  - `suggest` (background; writes `annotations/vN.json`, `basedOn` the VO version);
-  - `get` and `write` (agent revisions);
-  - `import from=vK`, which re-applies the user's manual decisions (toggles, text edits, nudges) where the target and anchor still match, and lists the ones that couldn't be carried over;
-  - `approve` is refused, because only the user approves (as with the storyboard).
-- **Auto-start:** when voice generation + timeline finish, the Director hands over to the designer automatically, and v1 appears in the tab.
+  - `context`;
+  - `suggest` (items + `base` version + instructions);
+  - `get` (a compact list with weights and budget);
+  - `write` (full revision);
+  - `import from=vK`;
+  - `preview id`;
+  - `approve` is refused, because only the user approves.
 - **Annotations tab:**
-  - one card per suggestion, grouped by scene: type icon, text, reason, weights, a still preview, and "play clip";
-  - **filters** by type and by enabled/suggested;
-  - a **budget meter** ("noise 7.5 / optimum 8 — balanced"; value captured %);
-  - on/off toggles, inline text edit (callout and chapter), ±0.5 s start and duration nudges, a choice between zoom-target candidates;
-  - every save is a new version (like VO inline edits), and the edit is logged as an input;
-  - "Play scene with enabled annotations" (draft clip);
-  - "Send review to agent" with notes, and **Approve**.
-- **Panel routes:** `GET /api/annotations?version=`, `POST /api/annotations-edit` (toggle, text, nudge, target), `POST /api/annotation-preview {id, kind: still|clip}`, `POST /api/review*`, `POST /api/approve {artifact: "annotations"}`.
+  - **header:** the stage header (versions, "based on VO vN", accept);
+  - **Re-suggest box:** shows the budget meter ("noise 7.5 / optimum 8 · balanced", value captured %);
+  - **filters:** by type, and enabled/suggested;
+  - **cards per scene:** type icon, text, reason, value/noise, toggle, inline text edit, nudges, target candidates;
+  - **draft bar:** "unsaved changes · Save as vN · Discard";
+  - **"Play scene with enabled annotations"** (low-res draft);
+  - **send review to agent.**
+- **Previews (D55):**
+  - every card's still loads right away, from a 1-frame render at its peak, cached;
+  - the 640×360 clip renders on play, cached;
+  - the scene draft is 640×360.
+- **Panel routes:**
+  - `GET annotations?version=` (version or draft, resolved items, budget, warnings);
+  - `annotations-edit` (draft ops);
+  - `annotations-save`;
+  - `annotations-discard`;
+  - `annotations-resuggest {instructions}`;
+  - `annotation-preview {id, kind: still|clip}`;
+  - `annotations-scene-draft {scene}`;
+  - accept through the stage routes.
 
 *9. Render stage (D27, D38)*
 - **Render versions** `render/vN.json`: `{ basedOn: { annotations: N }, kind: draft|final, brand, variants: { subtitles, callouts, logoBug }, outputs, qa }`.

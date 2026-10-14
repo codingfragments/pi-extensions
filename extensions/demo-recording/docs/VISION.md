@@ -18,13 +18,16 @@ lives in one working directory.
 
 ## Phases (user-facing)
 
-| Phase | What happens | Human gate |
-|---|---|---|
-| **0. Brief** | Guided `/demo new` + free-form context + brief-drafting skill (web search only on request) → `brief.md` | brief reviewed (soft) |
-| **1. Discover & storyboard** | Agent explores the app (vision-first, DOM-assisted), proposes scenes, order, steps, narration outline; live in panel | **storyboard approval** (hard gate before recording) |
-| **2. Record** | One continuous take of the approved storyboard; `improvise` steps for live inputs; split into scenes later | take accepted (soft, QA flags) |
-| **3. Analyse & voice-over** | Keyframes + event log + DOM values → cut list, zoom picks, anchored VO script | **VO script approval** (hard gate before TTS, costs money) |
-| **4. Voice, edit, export** | TTS chain → alignment → audio-led edit → polish → QA → `out/` | final review (soft) |
+| Phase | Stage (panel tab) | What happens | Human gate |
+|---|---|---|---|
+| **0. Brief** | Config → Project context | Guided `/demo new` + free-form context + brief-drafting skill (web search only on request) → `brief.md` | brief reviewed (soft) |
+| **1. Discover & storyboard** | Storyboard | Agent explores the app (vision-first, DOM-assisted), proposes scenes, order, steps, narration outline and `emphasis` hints; live in the Live panel | **storyboard approval** (hard gate before recording) |
+| **2. Record** | Recording | One continuous take of the approved storyboard; `improvise` steps for live inputs; event log + layout snapshots; split into scenes | **recording accepted** (hard gate before the voice-over) |
+| **3. Voice over** | Voice over | Keyframes + events + DOM values → anchored VO script → approval → TTS (costs money) → audio-led edit (timeline) | **VO script approval** (hard gate before TTS) |
+| **4. Annotations** | Annotations | Designer suggests ~2× zooms/callouts/highlights/…, enables the best half; user toggles, edits, approves | **annotations approval** (hard gate before the final render) |
+| **5. Render** | Render | Brand + variants → draft or final render → QA (blocking rules) → `out/` | **final render** needs approvals + QA (or explicit per-item confirmation) |
+
+Each stage is versioned and links to exactly one parent version (D30). A new approved upstream version resets the approvals downstream (D33). The project's inputs are kept in a log that both the agent and the panel read (D42).
 
 ## Decisions
 
@@ -68,8 +71,11 @@ lives in one working directory.
 | D36 | Budget and filtering | The enabled count follows the **2× ratio** (no fixed per-scene or per-second quota). Each suggestion carries a **noise/value weight**. The Annotations tab shows a **target budget meter** (above or below the suggested optimum) and **filters by type** | Keep long lists manageable and the noise/value balance visible |
 | D37 | Annotation review | Each card shows a **still keyframe with the overlay** plus a short, cached, low-res **live clip**. Edits: callout/chapter text, ±0.5 s timing nudges, choosing between zoom target candidates. Every save is a new version. Auto-start after the voice is generated; "Send review to agent" loop as in other stages. A full editor goes to `docs/FUTURE_IDEAS.md` | Judge motion and timing without a full render |
 | D38 | Render stage | Final export needs an **approved annotation version**. A watermarked low-res **draft render** works from any version. Render versions are export runs (annotations vN + brand + variants), each with a QA report. QA (D21) blocks only the final export. Subtitles stay a **render option** (VTT always written, burned-in optional), not an annotation | Sign-off stays meaningful; previews stay cheap |
-| D39 | Panel as control room | Tabs: **Storyboard · Recording · Voice over · Annotations · Render** (Brand moves inside Render). Each stage tab shows its version picker, "based on …" and approval. **Live becomes a collapsible right-side activity panel** (a bottom drawer on narrow windows): always the log stream, plus a segmented progress bar and a frame preview when there is one. Each stage can configure what it shows. Collapsed, it still shows the stage, the activity or "waiting for you", and the progress bar | One place to watch and steer every stage |
+| D39 | Panel as control room | Tabs: **Storyboard · Recording · Voice over · Annotations · Render** (Brand moves into Config, D41; Render keeps a brand dropdown). Each stage tab shows its version picker, "based on …" and approval. **Live becomes a collapsible right-side activity panel** (a bottom drawer on narrow windows): always the log stream, plus a segmented progress bar and a frame preview when there is one. Each stage can configure what it shows. Collapsed, it still shows the stage, the activity or "waiting for you", and the progress bar | One place to watch and steer every stage |
 | D40 | Cast (actors) | **Director** (leads, talks to the user, final QA gate), **Researcher** (discovery), **Storyboard writer**, **Operator** (live browser, improvise model), **Voice writer**, **Cutter** (timeline; assembles the per-scene and full videos), **Annotation designer**, **Brand designer**, **QA reviewer** (independent checks, reports only), **Privacy officer** (sensitive data, proposes redactions). Each role is a **skill the Director plays by default**; running a role as a separate model run is opt-in in config (e.g. Operator on a fast model, QA reviewer in a fresh context) | Clear responsibilities without the cost of handing off between separate model runs |
+| D41 | Config UI (user addition) | The panel gets a **Config** area with three sections. **Settings:** every option with its effective value, source and docs; edited through a validated form, always diff-confirmed, global or project scope; the raw global and project files shown **read-only** beside it ("open in editor", "reload"); API keys only as set/not set. **Brands:** the Brand tab moves here (Render keeps a brand dropdown per render). **Project context:** brief and its history, the input log, sources and assets, discovery, lineage | One place to see and change how the tool behaves, without hand-editing JSON |
+| D42 | Project input log (memory) | Every directional input is recorded in `inputs.jsonl` with stage, version and source (command, panel, chat, agent): brief revisions, `/demo` notes, review notes, voice nudges, annotation reviews, attached sources and assets, and project-relevant chat directions. The agent re-reads it (`demo_rec_project context`) when a project is opened or a session restarts. The Project context view shows the same data | Chat history is lost with the session; the project's memory must survive it and be checkable |
+| D43 | Correcting the memory | Inputs are never deleted or edited. The user can mark an entry **outdated / ignore** with a reason; the agent then skips it and the view shows it struck through. The brief stays editable (versioned) | History keeps explaining why versions look the way they do, while regretted directions stop steering |
 
 ## Explicit non-goals for v1
 

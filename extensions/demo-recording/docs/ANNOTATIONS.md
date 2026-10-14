@@ -425,7 +425,8 @@ node extensions/demo-recording/cli.ts render --project <p> --annotations N [--ed
 ## The fixture example
 
 One annotation of every type on the Acme Pulse fixture (`fixture-demo`
-project; the storyboard is `fixtures/storyboards/s3-human.yaml`):
+project; the storyboard is `fixtures/storyboards/s3-human.yaml`). The file
+ships as [`fixtures/annotations/s3-human.json`](../fixtures/annotations/s3-human.json):
 
 ```json
 {
@@ -451,8 +452,7 @@ To reproduce (free, local voice, about 2 minutes):
 R=$(mktemp -d); echo '{}' > $R/none.json
 export DEMO_REC_ROOT=$R DEMO_REC_CONFIG=$R/none.json DEMO_REC_NO_OPEN=1 DEMO_REC_TTS_CHAIN=say
 node extensions/demo-recording/cli.ts fixture-demo          # take + VO + edit + clean render
-# save the JSON above as $R/example.json, then:
-node extensions/demo-recording/cli.ts annotate add --project fixture-demo --file $R/example.json
+node extensions/demo-recording/cli.ts annotate add --project fixture-demo --file extensions/demo-recording/fixtures/annotations/s3-human.json
 node extensions/demo-recording/cli.ts annotate check --project fixture-demo
 node extensions/demo-recording/cli.ts render --project fixture-demo --annotations 1
 open $R/projects/fixture-demo/out/edit-v1/neutral+a1/full.mp4

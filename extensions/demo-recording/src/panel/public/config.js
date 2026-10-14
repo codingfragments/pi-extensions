@@ -102,19 +102,21 @@ function SettingRow({ s, scope, project, onSaved }) {
   else if (scope === "global" && s.layers.project !== null && project)
     notes.push(html`<span class="badge stale">overridden by project ${project}</span>`);
   return html`<div class=${`setting ${dirty ? "dirty" : ""}`}>
-    <div class="setting-head">
-      <span class="setting-label">${s.label}</span>
-      <span class="mono small-text muted">${s.key}</span>
-      <span class=${`badge src-${s.source}`} title="where the effective value comes from">${s.source}</span>
-      ${notes}
+    <div class="setting-main">
+      <div class="setting-head">
+        <span class="setting-label">${s.label}</span>
+        <span class="mono small-text muted">${s.key}</span>
+        <span class=${`badge src-${s.source}`} title="where the effective value comes from">${s.source}</span>
+        ${notes}
+      </div>
+      <div class="setting-edit">
+        <${SettingInput} s=${s} value=${value} disabled=${disabled} onChange=${setDraft} />
+        ${dirty ? html`<button class="primary" disabled=${busy} onClick=${() => run({ value: draft }, "Set")}>Save</button><button class="ghost" onClick=${() => setDraft(undefined)}>cancel</button>` : null}
+        ${!dirty && layer !== null ? html`<button class="ghost" disabled=${busy} title=${`remove from the ${scope} file (falls back to ${scope === "project" ? "global/default" : "default"})`} onClick=${() => run({ unset: true }, "Reset")}>reset</button>` : null}
+      </div>
+      <div class="layers small-text muted">effective <b>${show(s.value)}</b> · default ${show(s.layers.default)} · global ${show(s.layers.global)}${project ? html` · project ${show(s.layers.project)}` : null}${s.globalOnly ? " · global only" : ""}</div>
     </div>
-    ${s.doc ? html`<div class="small-text muted">${s.doc}</div>` : null}
-    <div class="setting-edit">
-      <${SettingInput} s=${s} value=${value} disabled=${disabled} onChange=${setDraft} />
-      ${dirty ? html`<button class="primary" disabled=${busy} onClick=${() => run({ value: draft }, "Set")}>Save</button><button class="ghost" onClick=${() => setDraft(undefined)}>cancel</button>` : null}
-      ${!dirty && layer !== null ? html`<button class="ghost" disabled=${busy} title=${`remove from the ${scope} file (falls back to ${scope === "project" ? "global/default" : "default"})`} onClick=${() => run({ unset: true }, "Reset")}>reset</button>` : null}
-    </div>
-    <div class="layers small-text muted">effective <b>${show(s.value)}</b> · default ${show(s.layers.default)} · global ${show(s.layers.global)}${project ? html` · project ${show(s.layers.project)}` : null}${s.globalOnly ? " · global only" : ""}</div>
+    <div class="setting-doc small-text muted">${s.doc}</div>
   </div>`;
 }
 
@@ -159,27 +161,25 @@ export function Settings({ events }) {
       <p class="muted small-text">${scope === "project" ? `Changes go into ${data.files.project} and apply to this project only.` : `Changes go into ${data.files.global} and apply to every project (unless a project overrides them).`} Order: default → global → project → environment. Facts about the demo itself live in the Project tab.</p>
       <div class="api-keys">${data.apiKeys.map((k) => html`<span class=${`badge ${k.set ? "approved" : "old"}`} title=${k.for}>${k.name}: ${k.set ? "set" : "not set"}</span>`)}<span class="muted small-text">API keys come from the environment only — never shown or stored here.</span></div>
     </section>
-    <div class="settings-grid">
-      <div class="settings-groups">
-        ${data.groups.map(
-          (g) => html`<section class="card setting-group">
-            <h3>${g.label}</h3>
-            ${g.settings.map((s) => html`<${SettingRow} key=${s.key} s=${s} scope=${scope} project=${data.project} onSaved=${say} />`)}
-          </section>`,
-        )}
-      </div>
-      <aside class="card raw-files">
+    <div class="settings-groups">
+      ${data.groups.map(
+        (g) => html`<section class="card setting-group">
+          <h3>${g.label}</h3>
+          ${g.settings.map((s) => html`<${SettingRow} key=${s.key} s=${s} scope=${scope} project=${data.project} onSaved=${say} />`)}
+        </section>`,
+      )}
+      <details class="card raw-files">
+        <summary><b>Raw config files</b> <span class="muted small-text">read-only — global ${data.raw.global ? "" : "(not created yet) "}· project ${data.files.project ? (data.raw.project ? "" : "(not created yet)") : "(no active project)"}</span></summary>
         <div class="row">
-          <h3>Raw files</h3><span class="grow"></span>
           <div class="segmented">
             <button class=${rawTab === "global" ? "on" : ""} onClick=${() => setRawTab("global")}>global</button>
             <button class=${rawTab === "project" ? "on" : ""} disabled=${!data.files.project} onClick=${() => setRawTab("project")}>project</button>
           </div>
+          <span class="mono small-text muted">${rawFile ?? "—"}</span>
+          <span class="grow"></span>
+          <button disabled=${!rawFile} onClick=${() => open(rawTab)}>open in editor</button>
         </div>
-        <div class="mono small-text muted">${rawFile ?? "—"}</div>
         <pre class="raw">${raw ?? "(file does not exist yet — defaults apply)"}</pre>
-        <div class="row"><span class="muted small-text">read-only here</span><span class="grow"></span>
-          <button disabled=${!rawFile} onClick=${() => open(rawTab)}>open in editor</button></div>
-      </aside>
+      </details>
     </div>`;
 }

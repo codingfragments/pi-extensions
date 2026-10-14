@@ -82,7 +82,7 @@ const addTo = <T>(m: Record<string, Set<T>>, k: string, v: T) => {
 };
 
 export function emphasisFor(projectDir: string, timeline: Timeline): Emphasis {
-  const e: Emphasis = { stepMarks: {}, steps: {}, voMarks: {} };
+  const e: Emphasis = { stepMarks: {}, steps: {}, voText: {} };
   const sbVersion = readTakeStoryboardVersion(projectDir, timeline.take);
   const sb = readStoryboard(projectDir, sbVersion)?.storyboard;
   for (const sc of sb?.scenes ?? []) {
@@ -96,7 +96,11 @@ export function emphasisFor(projectDir: string, timeline: Timeline): Emphasis {
   if (vo) {
     for (const sec of parseVo(vo).sections)
       if (sec.scene && sec.kind === "scene")
-        for (const seg of sec.segments) if (seg.anchor) addTo(e.voMarks, sec.scene, seg.anchor);
+        for (const seg of sec.segments) {
+          const m = e.voText[sec.scene] ?? {};
+          e.voText[sec.scene] = m;
+          m[seg.anchor ?? ""] = `${m[seg.anchor ?? ""] ?? ""} ${seg.text}`.trim();
+        }
   }
   return e;
 }
@@ -163,6 +167,18 @@ function placeEach(
   return { items: out, why };
 }
 
+/** The text an item points at (its layout element or text target), for the VO match. */
+function shownText(t: AnnotationTarget | undefined, snaps: LayoutSnapshot[]): string {
+  if (!t) return "";
+  if ("text" in t) return t.text;
+  if ("layout" in t) {
+    const [, ms, id] = /^t(\d+)#(e\d+)$/.exec(t.layout) ?? [];
+    const el = snaps.find((s) => s.t === Number(ms))?.els.find((e) => e.id === id);
+    return el?.text ?? el?.name ?? "";
+  }
+  return "";
+}
+
 /** Privacy hits as disabled redact suggestions (D54), unless a redaction already covers the element. */
 export function privacySuggestions(
   snaps: LayoutSnapshot[],
@@ -223,6 +239,7 @@ export function suggestAnnotations(o: {
   const kept = (baseFile?.items ?? []).filter(userTouched);
   const taken = new Set(kept.map((k) => k.id));
   const emphasis = emphasisFor(o.projectDir, o.timeline);
+  const snaps = readLayout(path.join(o.projectDir, "takes", o.timeline.take));
   const sceneIds = new Set(o.timeline.scenes.map((s) => s.id));
 
   const fresh: AnnotationItem[] = [];
@@ -272,7 +289,7 @@ export function suggestAnnotations(o: {
       });
     }
     const v = Math.max(1, Math.min(5, Math.round(sg.value)));
-    const bonus = valueBonus(item, emphasis);
+    const bonus = valueBonus(item, emphasis, shownText(item.target, snaps));
     item.weight = { value: Math.min(5, v + bonus.bonus), noise: noiseOf(item) };
     if (bonus.why) item.reason = `${item.reason} (+1: ${bonus.why})`;
     fresh.push(item);

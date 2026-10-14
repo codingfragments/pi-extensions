@@ -1384,3 +1384,253 @@ p.emphasis {
     line-height: 20px;
   }
 }
+
+/* ---------------- Annotations tab (S5 part 8) ---------------- */
+.ann-head h2 .badge {
+  vertical-align: middle;
+}
+.budget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 10px 0 6px;
+}
+.budget-bar {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 520px;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--inset);
+  overflow: hidden;
+}
+.budget-bar .band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--ok) 25%, transparent);
+}
+.budget-bar .fill {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.budget.too-busy .budget-bar .fill {
+  background: var(--err);
+}
+.budget.too-quiet .budget-bar .fill {
+  background: var(--warn);
+}
+.budget-bar .opt {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ok);
+}
+.budget-text {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.budget.balanced .budget-text b {
+  color: var(--ok);
+}
+.budget.too-busy .budget-text b {
+  color: var(--err);
+}
+.budget.too-quiet .budget-text b {
+  color: var(--warn);
+}
+.draft-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 18%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.filters {
+  margin: 8px 0;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.resuggest {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.resuggest summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.resuggest textarea {
+  width: 100%;
+  margin: 8px 0;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--inset);
+  color: var(--text);
+}
+.ann-scene h3 {
+  margin: 0;
+}
+.ann-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.ann-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--inset);
+}
+.ann-card.on {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+.ann-card.off .ann-thumb {
+  opacity: 0.55;
+}
+.ann-card.problem {
+  border-color: var(--err);
+}
+.ann-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #000;
+  display: block;
+}
+.ann-thumb img,
+video.ann-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.ann-thumb.missing,
+.ann-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85em;
+  padding: 8px;
+  text-align: center;
+  height: 100%;
+  box-sizing: border-box;
+}
+.ann-thumb .play {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+.ann-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+.ann-type {
+  font-weight: 600;
+}
+.ann-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ann-text input {
+  flex: 1;
+  font: inherit;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+}
+.ann-text .count {
+  font-size: 0.8em;
+  color: var(--muted);
+}
+.ann-text .count.warn {
+  color: var(--warn);
+}
+.ann-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.nudges {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+button.tiny {
+  padding: 1px 7px;
+  font-size: 0.85em;
+}
+.ann-alts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.ann-reason {
+  margin: 0;
+  color: var(--muted);
+}
+.ann-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pill.privacy {
+  background: color-mix(in srgb, var(--mauve) 30%, var(--chip));
+}
+.pill.edited {
+  background: color-mix(in srgb, var(--ok) 30%, var(--chip));
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.switch input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.scene-draft {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.scene-video {
+  width: min(640px, 100%);
+  border-radius: 8px;
+}

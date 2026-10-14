@@ -61,7 +61,8 @@ const shiftOps = (o: RenderAnnotations, d: number): RenderAnnotations => {
 
 export interface AnnotationPreview {
   id: string;
-  clip: string;
+  /** The clip (absent for kind "still" when it wasn't rendered yet). */
+  clip?: string;
   still: string;
   /** Peak moment inside the clip (ms) — where the still is taken. */
   peakMs: number;
@@ -79,6 +80,8 @@ export async function previewAnnotation(o: {
   output: { width: number; height: number };
   cacheDir: string;
   outDir: string;
+  /** both (default): clip + still from it; still: a 1-frame render at the peak (fast); clip: the clip (+ still). */
+  kind?: "both" | "still" | "clip";
 }): Promise<AnnotationPreview> {
   const item = o.file.items.find((x) => x.id === o.id);
   if (!item) throw new Error(`annotation ${o.id} is not in v${o.file.version}`);
@@ -123,18 +126,107 @@ export async function previewAnnotation(o: {
   fs.mkdirSync(o.outDir, { recursive: true });
   const clip = path.join(o.outDir, `${o.id}-${key}.mp4`);
   const still = path.join(o.outDir, `${o.id}-${key}.png`);
+  const opts = {
+    fps: o.fps,
+    width: o.output.width,
+    height: o.output.height,
+    source: geo.source,
+    brand: o.frame,
+  };
+  const warnings = [...r.warnings, ...built.warnings];
+  if (o.kind === "still" && !fs.existsSync(clip)) {
+    if (!fs.existsSync(still)) {
+      // One frame at the peak: a 3-frame slice, first frame out.
+      const at = from + peakMs;
+      const frameMs = 1000 / o.fps;
+      const tmp = path.join(o.outDir, `${o.id}-${key}.still.mp4`);
+      await renderJob(
+        sliceJob(sceneJob(o.timeline, item.scene, o.projectDir), at, at + 3 * frameMs),
+        path.join(takeDir, "raw.mp4"),
+        tmp,
+        { ...opts, annotations: shiftOps(built.ops, -at) },
+      );
+      try {
+        await ffmpeg(["-i", tmp, "-frames:v", "1", "-y", still]);
+      } finally {
+        fs.rmSync(tmp, { force: true });
+      }
+    }
+    return { id: o.id, still, peakMs, warnings };
+  }
   if (!fs.existsSync(clip)) {
     const job = sliceJob(sceneJob(o.timeline, item.scene, o.projectDir), from, to);
     await renderJob(job, path.join(takeDir, "raw.mp4"), clip, {
-      fps: o.fps,
-      width: o.output.width,
-      height: o.output.height,
-      source: geo.source,
-      brand: o.frame,
+      ...opts,
       annotations: shiftOps(built.ops, -from),
     });
   }
   if (!fs.existsSync(still))
     await ffmpeg(["-ss", (peakMs / 1000).toFixed(3), "-i", clip, "-frames:v", "1", "-y", still]);
-  return { id: o.id, clip, still, peakMs, warnings: [...r.warnings, ...built.warnings] };
+  return { id: o.id, clip, still, peakMs, warnings };
+}
+
+/** A low-res draft of one scene with all enabled annotations (D55), cached. */
+export async function previewScene(o: {
+  projectDir: string;
+  timeline: Timeline;
+  file: AnnotationFile;
+  scene: string;
+  brand: LoadedBrand;
+  frame: RenderBrand;
+  fps: number;
+  output: { width: number; height: number };
+  cacheDir: string;
+  outDir: string;
+}): Promise<{ file: string; warnings: string[] }> {
+  const sc = o.timeline.scenes.find((s) => s.id === o.scene);
+  if (!sc) throw new Error(`scene ${o.scene} is not in the edit`);
+  const geo = resolveContext(o.projectDir, o.timeline);
+  const items = o.file.items.filter(
+    (x) => x.scene === o.scene && x.enabled && x.type !== "chapter",
+  );
+  const r = resolveAnnotations({ ...o.file, items }, geo);
+  const footage = o.frame.backdrop
+    ? o.frame.inset
+    : { x: 0, y: 0, w: o.output.width, h: o.output.height };
+  const built = await buildRenderAnnotations(r.items, {
+    brand: o.brand,
+    source: geo.source,
+    out: o.output,
+    footage,
+    cacheDir: o.cacheDir,
+  });
+  const key = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify([
+        o.timeline.take,
+        sc.pieces,
+        sc.audio,
+        r.items,
+        built.ops,
+        o.frame,
+        o.output,
+        o.fps,
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 16);
+  fs.mkdirSync(o.outDir, { recursive: true });
+  const file = path.join(o.outDir, `scene-${o.scene}-${key}.mp4`);
+  if (!fs.existsSync(file))
+    await renderJob(
+      sceneJob(o.timeline, o.scene, o.projectDir),
+      path.join(geo.takeDir, "raw.mp4"),
+      file,
+      {
+        fps: o.fps,
+        width: o.output.width,
+        height: o.output.height,
+        source: geo.source,
+        brand: o.frame,
+        annotations: built.ops,
+      },
+    );
+  return { file, warnings: [...r.warnings, ...built.warnings] };
 }

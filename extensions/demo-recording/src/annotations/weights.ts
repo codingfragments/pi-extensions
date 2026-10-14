@@ -38,11 +38,56 @@ export interface Emphasis {
   stepMarks: Record<string, Set<string>>;
   /** scene → step indices that carry an `emphasis` hint. */
   steps: Record<string, Set<number>>;
-  /** scene → marks the narration is anchored to ([@mark]). */
-  voMarks: Record<string, Set<string>>;
+  /** scene → mark ("" = scene start) → the narration spoken from that anchor. */
+  voText: Record<string, Record<string, string>>;
 }
 
-export function valueBonus(it: AnnotationItem, e: Emphasis): { bonus: number; why?: string } {
+const STOP = new Set([
+  "this",
+  "that",
+  "with",
+  "from",
+  "they",
+  "there",
+  "their",
+  "what",
+  "when",
+  "into",
+  "just",
+  "about",
+  "than",
+  "then",
+  "have",
+  "here",
+  "your",
+  "only",
+  "also",
+  "very",
+]);
+/** Content words and numbers of a text (for the VO match). */
+export function contentWords(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/\{\{[^}]*\}\}/g, " ")
+      .split(/[^\p{L}\p{N}.%]+/u)
+      .map((w) => w.replace(/^[.%]+|[.]+$/g, ""))
+      .filter((w) => (w.length >= 4 && !STOP.has(w)) || /\d/.test(w)),
+  );
+}
+
+/**
+ * +1 (Q7): the item matches an `emphasis` hint, is anchored to a spoken word,
+ * or the narration at its anchor mentions what it shows (`shows`: the target
+ * element's text, a callout/chapter text). Spotlights never get the bonus —
+ * they need a designer value of 5 on their own (D35).
+ */
+export function valueBonus(
+  it: AnnotationItem,
+  e: Emphasis,
+  shows = "",
+): { bonus: number; why?: string } {
+  if (it.type === "spotlight") return { bonus: 0 };
   const a = it.anchor;
   const t = it.target;
   if (
@@ -51,8 +96,12 @@ export function valueBonus(it: AnnotationItem, e: Emphasis): { bonus: number; wh
   )
     return { bonus: 1, why: "matches an emphasis hint" };
   if ("word" in a) return { bonus: 1, why: "anchored to a spoken word" };
-  if ("mark" in a && e.voMarks[it.scene]?.has(a.mark))
-    return { bonus: 1, why: "on a narration anchor" };
+  const said = e.voText[it.scene]?.["mark" in a ? a.mark : ""];
+  if (said) {
+    const spoken = contentWords(said);
+    const hit = [...contentWords(`${shows} ${it.text ?? ""}`)].find((w) => spoken.has(w));
+    if (hit) return { bonus: 1, why: `the narration mentions “${hit}” here` };
+  }
   return { bonus: 0 };
 }
 
@@ -95,9 +144,12 @@ export function recommend(
     )
     .filter((it) => it.type !== "spotlight" || (it.weight?.value ?? 0) >= 5)
     .sort((a, b) => {
+      // Must-haves (value 5) first, then the best value per noise (Q7; ties: higher value).
+      const fa = (a.weight?.value ?? 0) >= 5 ? 1 : 0;
+      const fb = (b.weight?.value ?? 0) >= 5 ? 1 : 0;
       const ra = (a.weight?.value ?? 1) / Math.max(0.1, a.weight?.noise ?? noiseOf(a));
       const rb = (b.weight?.value ?? 1) / Math.max(0.1, b.weight?.noise ?? noiseOf(b));
-      return rb - ra || (b.weight?.value ?? 0) - (a.weight?.value ?? 0);
+      return fb - fa || rb - ra || (b.weight?.value ?? 0) - (a.weight?.value ?? 0);
     });
   const target = Math.ceil(items.filter((it) => counted(it.type)).length / 2);
   for (const it of cands) {

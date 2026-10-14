@@ -51,7 +51,7 @@ export function pickElements(s: LayoutSnapshot, max = MAX_ELEMENTS): LayoutEleme
   return s.els
     .filter((e) => {
       const t = (e.text ?? e.name ?? "").trim();
-      return t.length > 0 && t.length <= 80 && e.box.w >= 4 && e.box.h >= 4;
+      return t.length > 0 && e.box.w >= 4 && e.box.h >= 4;
     })
     .sort((a, b) => rank(a) - rank(b) || a.box.w * a.box.h - b.box.w * b.box.h)
     .filter((e) => {
@@ -179,7 +179,8 @@ export function annotationContext(o: {
       for (const e of els) {
         const raw = (e.text ?? e.name ?? "").trim();
         const d = detect(raw);
-        const shown = d ? raw.replace(d.match, mask(d.match)) : raw;
+        const masked = d ? raw.replace(d.match, mask(d.match)) : raw;
+        const shown = masked.length > 90 ? `${masked.slice(0, 87).trimEnd()}…` : masked;
         L.push(
           `  t${snap.t}#${e.id} ${e.role} "${shown}" ${boxStr(e.box)}${d ? ` (privacy: ${d.kind})` : ""}`,
         );

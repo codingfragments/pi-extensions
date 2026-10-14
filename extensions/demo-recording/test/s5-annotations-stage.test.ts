@@ -161,7 +161,7 @@ function makeProject(): string {
   fs.mkdirSync(path.join(dir, "vo", "audio"), { recursive: true });
   fs.writeFileSync(
     path.join(dir, "vo", "script.v1.md"),
-    "---\ntake: take-001\n---\n## 01-dash — Dashboard\nChurn looks fine. [@m1] Three point one percent. [@m2] But EMEA tells another story, EMEA again.\n",
+    "---\ntake: take-001\n---\n## 01-dash — Dashboard\nChurn looks fine. [@m1] Three point one percent churn. [@m2] But EMEA tells another story, EMEA again.\n",
   );
   const words = [
     "Churn",
@@ -318,9 +318,9 @@ test("recommended set: best value per noise, half of the counted, caps, spotligh
     xs.map((x) => x.item),
     xs.map((x) => x.res),
   );
-  // 7 counted → 4 picked: h1, h2 (3/0.6 = 5), then the zooms (5/1.5 = 3.3) before c1 (3/1);
-  // z1 overlaps h1 (same region, same time) → z2, z3
-  assert.deepEqual([...rec].sort(), ["h1", "h2", "z2", "z3"]);
+  // 7 counted → 4 picked: must-haves (value 5) first — z1, z2 (cap 2; z3 left out), then by value/noise:
+  // h1 overlaps z1 (same region, same time) → h2 (3/0.6), c1 (3/1)
+  assert.deepEqual([...rec].sort(), ["c1", "h2", "z1", "z2"]);
   assert.ok(!rec.has("s1"), "spotlight below 5 never recommended");
   assert.ok(!rec.has("ch"));
   assert.ok(!(rec.has("h1") && rec.has("z1")), "never two on the same region at the same time");
@@ -431,7 +431,10 @@ test("suggest: places, drops with reasons, adds privacy redactions (off), bonuse
   assert.equal(by["zoom-row"]?.weight?.value, 5);
   assert.match(by["zoom-row"]?.reason ?? "", /emphasis/);
   assert.equal(by["co-emea"]?.weight?.value, 5);
-  assert.equal(by["hl-kpi"]?.weight?.value, 4, "on a narration anchor");
+  assert.equal(by["hl-kpi"]?.weight?.value, 3, "no bonus: the narration doesn't name what a step target shows");
+  assert.equal(by["co-kpi"]?.weight?.value, 4, "the narration at m1 mentions “churn”");
+  assert.match(by["co-kpi"]?.reason ?? "", /mentions “churn” here/);
+  assert.equal(by["sp-row"]?.weight?.value, 4, "spotlights never get the bonus");
   // enabled: counted = 6 (2 zooms, hl, 2 callouts, spotlight) → 3 on; chapter/redacts off
   const on = (f?.items ?? []).filter((x) => x.enabled).map((x) => x.id);
   assert.equal(on.length, 3);
@@ -595,7 +598,7 @@ test("input pack: narration with anchor times, emphasis, steps, elements with re
   const dir = makeProject();
   const text = annotationContext({ projectDir: dir, timeline: TIMELINE, timelineVersion: 1 });
   assert.match(text, /## 01-dash — Dashboard \(6\.00 s\)/);
-  assert.match(text, /\[@m1 1\.00 s\] Three point one percent\./);
+  assert.match(text, /\[@m1 1\.00 s\] Three point one percent churn\./);
   assert.match(
     text,
     /1 hover \{"css":"#row"\} @m2 at 3\.00 s box 400,300 600×40 ✦ the EMEA row is the story/,

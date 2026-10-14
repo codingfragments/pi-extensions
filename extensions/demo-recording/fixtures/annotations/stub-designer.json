@@ -1,0 +1,119 @@
+{
+  "about": "What a designer run returns for the fixture-demo project (s3-human storyboard): demo_rec_annotations action=suggest input. Used by tests and the docs; no model involved.",
+  "suggestions": [
+    {
+      "id": "zoom-emea-bar",
+      "type": "zoom",
+      "scene": "01-dashboard",
+      "anchor": { "mark": "emea-bar" },
+      "target": { "step": 1 },
+      "alternatives": [{ "layout": "t1386#e29" }],
+      "factor": 1.6,
+      "value": 5,
+      "reason": "the outlier bar is the story of the scene and small in the frame"
+    },
+    {
+      "id": "hl-churn-kpi",
+      "type": "highlight",
+      "scene": "01-dashboard",
+      "anchor": { "mark": "churn-kpi" },
+      "target": { "layout": "t1386#e13" },
+      "value": 3,
+      "reason": "the voice reads the headline number"
+    },
+    {
+      "id": "co-headline",
+      "type": "callout",
+      "scene": "01-dashboard",
+      "anchor": { "mark": "churn-kpi", "offsetMs": 300 },
+      "text": "Headline churn: 3.1 %",
+      "value": 2,
+      "reason": "names the number the voice calls harmless"
+    },
+    {
+      "id": "co-emea",
+      "type": "callout",
+      "scene": "01-dashboard",
+      "anchor": { "word": "EMEA" },
+      "text": "EMEA: 14.2 %",
+      "value": 4,
+      "reason": "lands as the voice says EMEA"
+    },
+    {
+      "id": "ch-dashboard",
+      "type": "chapter",
+      "scene": "01-dashboard",
+      "anchor": { "sceneStart": true },
+      "text": "Where churn hides",
+      "value": 2,
+      "reason": "structure for the full video"
+    },
+    {
+      "id": "hl-emea-row",
+      "type": "highlight",
+      "scene": "02-search",
+      "anchor": { "mark": "results-visible", "offsetMs": 1200 },
+      "target": { "layout": "t13107#e21" },
+      "value": 4,
+      "reason": "the row the narration lands on"
+    },
+    {
+      "id": "sp-emea-row",
+      "type": "spotlight",
+      "scene": "02-search",
+      "anchor": { "mark": "results-visible", "offsetMs": 1200 },
+      "target": { "layout": "t13107#e21" },
+      "durMs": 2200,
+      "value": 4,
+      "reason": "alternative to the highlight: dims the other regions"
+    },
+    {
+      "id": "co-grouping",
+      "type": "callout",
+      "scene": "02-search",
+      "anchor": { "mark": "results-visible" },
+      "text": "Grouped by region, first try",
+      "value": 4,
+      "reason": "names what just happened"
+    },
+    {
+      "id": "zoom-emea-cell",
+      "type": "zoom",
+      "scene": "02-search",
+      "anchor": { "mark": "results-visible", "offsetMs": 800 },
+      "target": { "layout": "t13107#e23" },
+      "alternatives": [{ "layout": "t13107#e21" }],
+      "factor": 1.5,
+      "value": 3,
+      "reason": "the number the voice reads"
+    },
+    {
+      "id": "zoom-answer",
+      "type": "zoom",
+      "scene": "03-assistant",
+      "anchor": { "mark": "answer" },
+      "target": { "layout": "t23113#e7" },
+      "factor": 1.4,
+      "value": 4,
+      "reason": "the answer text is small; it names the accounts"
+    },
+    {
+      "id": "co-accounts",
+      "type": "callout",
+      "scene": "03-assistant",
+      "anchor": { "mark": "answer", "offsetMs": 600 },
+      "text": "Names the accounts behind it",
+      "value": 3,
+      "reason": "the payoff of the scene"
+    },
+    {
+      "id": "hl-answer",
+      "type": "highlight",
+      "scene": "03-assistant",
+      "anchor": { "word": "Litware" },
+      "target": { "layout": "t23113#e7" },
+      "value": 3,
+      "reason": "as the voice names Litware Bank"
+    }
+  ]
+}

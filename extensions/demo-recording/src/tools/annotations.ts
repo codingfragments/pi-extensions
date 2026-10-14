@@ -213,7 +213,11 @@ export function runSuggest(
   });
   rt.bus.publish(
     "annotations.updated",
-    { version: r.version, message: `annotations v${r.version} suggested (${r.enabled} on)` },
+    {
+      version: r.version,
+      by: "agent",
+      message: `annotations v${r.version} suggested (${r.enabled} on)`,
+    },
     p.slug,
   );
   return formatDesignReport(r);
@@ -301,6 +305,7 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
             "annotations.updated",
             {
               version: stored.version,
+              by: "agent",
               message: `annotations v${stored.version} written by the agent`,
             },
             p.slug,
@@ -318,6 +323,7 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
             "annotations.updated",
             {
               version: r.version,
+              by: "agent",
               message: `annotations v${r.version} imported from v${params.from}`,
             },
             p.slug,

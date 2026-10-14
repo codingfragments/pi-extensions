@@ -749,17 +749,17 @@ test(
       outDir: path.join(dir, "previews"),
     };
     const p1 = await previewAnnotation(pv);
-    assert.ok(fs.statSync(p1.clip).size > 10_000 && fs.statSync(p1.still).size > 10_000);
+    assert.ok(fs.statSync(p1.clip as string).size > 10_000 && fs.statSync(p1.still).size > 10_000);
     assert.equal(
       p1.peakMs,
       (2900 + 4500) / 2 - 1900,
       "still at the middle of the zoom, in clip time",
     );
-    const mtime = fs.statSync(p1.clip).mtimeMs;
+    const mtime = fs.statSync(p1.clip as string).mtimeMs;
     const t0 = Date.now();
     const p2 = await previewAnnotation(pv);
     assert.equal(p2.clip, p1.clip);
-    assert.equal(fs.statSync(p2.clip).mtimeMs, mtime, "cached, not re-rendered");
+    assert.equal(fs.statSync(p2.clip as string).mtimeMs, mtime, "cached, not re-rendered");
     assert.ok(Date.now() - t0 < 1500);
     const p3 = await previewAnnotation({
       ...pv,

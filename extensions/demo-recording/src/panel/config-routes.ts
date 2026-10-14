@@ -116,15 +116,23 @@ const SECTION_NAMES: Record<string, string> = {
   align: "Alignment",
 };
 const word = (w: string) =>
-  w.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
-/** "tts.elevenlabs.model" → "ElevenLabs · Model", "voiceName" → "Voice Name". */
+  w
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (c) => c.toUpperCase())
+    .replace(/\bTts\b/g, "TTS")
+    .replace(/\bDpr\b/g, "DPR")
+    .replace(/\bFps\b/g, "FPS");
+/** "tts.elevenlabs.model" → "ElevenLabs · Model", "voiceName" → "Voice Name", "budgets.discoveryActions" → "Discovery · Actions". */
 const pretty = (key: string) => {
   const parts = key.split(".");
   const leaf = word(parts.at(-1) ?? key);
   const section = parts.length >= 2 ? parts.at(-2) : undefined;
-  return section && section !== "tts"
-    ? `${SECTION_NAMES[section] ?? word(section)} · ${leaf}`
+  if (!section || section === "tts") return leaf;
+  const sec = SECTION_NAMES[section] ?? word(section);
+  const rest = leaf.startsWith(`${sec} `)
+    ? leaf.slice(sec.length + 1).replace(/^./, (c) => c.toUpperCase())
     : leaf;
+  return `${sec} · ${rest}`;
 };
 /** Most important first inside a group; the rest alphabetical. */
 const PRIORITY = [

@@ -87,6 +87,9 @@ test("settings view: groups, priority order, labels, types, layers, env override
   assert.equal(by("tts.elevenlabs.model")?.label, "ElevenLabs · Model");
   assert.equal(by("tts.openai.model")?.label, "OpenAI · Model");
   assert.equal(by("voiceName")?.label, "Voice Name");
+  assert.equal(by("ttsChain")?.label, "TTS Chain");
+  assert.equal(by("budgets.discoveryActions")?.label, "Discovery · Actions");
+  assert.equal(by("viewport.dpr")?.label, "Viewport · DPR");
   const vn = by("voiceName");
   assert.deepEqual(
     [vn?.source, vn?.value, vn?.layers.global, vn?.layers.project],

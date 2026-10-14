@@ -169,11 +169,14 @@ function serveMedia(
   // Byte ranges: video seeking (Safari won't play MP4 without them).
   const m = /^bytes=(\d*)-(\d*)$/.exec(String(range ?? ""));
   if (m && (m[1] || m[2])) {
-    let start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
-    let end = m[1] && m[2] ? Number(m[2]) : size - 1;
-    end = Math.min(end, size - 1);
-    start = Math.min(start, end);
+    const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
     if (start >= size) {
+      res.writeHead(416, { "content-range": `bytes */${size}` });
+      res.end();
+      return;
+    }
+    const end = Math.min(m[1] && m[2] ? Number(m[2]) : size - 1, size - 1);
+    if (end < start) {
       res.writeHead(416, { "content-range": `bytes */${size}` });
       res.end();
       return;

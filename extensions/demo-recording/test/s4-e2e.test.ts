@@ -17,7 +17,13 @@ import { insetBox, renderBrandAssets } from "../src/brand/assets.ts";
 import { resolveBrand } from "../src/brand/brand.ts";
 import { createBrand } from "../src/brand/manage.ts";
 import { resolveConfig } from "../src/config.ts";
-import { fullAnchorTimes, renderVariant, runEdit, titleInfoFor } from "../src/edit/pipeline.ts";
+import {
+  fullAnchorTimes,
+  renderVariant,
+  runEdit,
+  titleInfoFor,
+  voiceFit,
+} from "../src/edit/pipeline.ts";
 import { serveFixture } from "../src/fixture/server.ts";
 import { ffprobe, hasBinary, run } from "../src/media/ffmpeg.ts";
 import { recordTake } from "../src/recorder/runner.ts";
@@ -246,6 +252,32 @@ test(
       console.log(
         `S4 E2E sync: ${errors.join(", ")}; full ${probe.duration.toFixed(1)} s; cut ${edit.timeline.totals.cutMs} ms`,
       );
+
+      // Real-voice fit per scene (what the Voice tab shows after TTS): the
+      // measured voice length (never the estimate), stretch/overrun from the timeline.
+      const fits = voiceFit(project.dir, vo.version, config);
+      assert.ok(fits, "fit is available once the voice exists");
+      assert.deepEqual(
+        fits.map((f) => f.scene),
+        edit.timeline.scenes.map((sc) => sc.id),
+      );
+      for (const f of fits) {
+        assert.ok((f.voiceSec ?? 0) > 0.5, `${f.scene}: real voice length ${f.voiceSec}`);
+        assert.ok(
+          Math.abs(
+            f.sceneSec * 1000 -
+              (edit.timeline.scenes.find((sc) => sc.id === f.scene)?.durationMs ?? 0),
+          ) < 50,
+          `${f.scene}: scene length matches the timeline`,
+        );
+        const sc = edit.timeline.scenes.find((x) => x.id === f.scene);
+        assert.ok(
+          Math.abs(f.stretchMs - (sc?.stats.stretchMs ?? -99)) < 1,
+          `${f.scene}: stretch from the timeline (${f.stretchMs} vs ${sc?.stats.stretchMs})`,
+        );
+        if (f.level === "warn")
+          assert.match(f.message, /past the action|off-sync|over moving/, f.message);
+      }
 
       // Brand switch (D27): re-render the same timeline with another brand —
       // no new timeline, no TTS; same length, logo bug in the corner.

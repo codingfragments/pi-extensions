@@ -92,6 +92,21 @@ export async function previewContent(
   return { content, files };
 }
 
+/** Preview after a write: the brand is already saved, so a failed render must not fail the call. */
+async function safePreview(rt: Runtime, name: string): Promise<{ content: ToolContent[] }> {
+  try {
+    return await previewContent(rt, name);
+  } catch (err) {
+    return {
+      content: [
+        text(
+          `(preview not rendered: ${(err as Error).message.split("\n")[0]} — check /demo doctor, then preview again)`,
+        ),
+      ],
+    };
+  }
+}
+
 export function registerBrandTool(pi: ExtensionAPI, rt: Runtime): void {
   pi.registerTool({
     name: "demo_rec_brand",
@@ -210,7 +225,7 @@ export function registerBrandTool(pi: ExtensionAPI, rt: Runtime): void {
             { name: l.brand.name, message: `brand ${l.brand.name} created` },
             rt.activeProjectSlug,
           );
-          const pv = await previewContent(rt, l.brand.name);
+          const pv = await safePreview(rt, l.brand.name);
           return result([
             text(
               `Created brand "${l.brand.name}" at ${l.dir}.${l.warnings.length ? `\nwarnings:\n- ${l.warnings.join("\n- ")}` : ""}`,
@@ -227,7 +242,7 @@ export function registerBrandTool(pi: ExtensionAPI, rt: Runtime): void {
             { name: l.brand.name, message: `brand ${l.brand.name} updated` },
             rt.activeProjectSlug,
           );
-          const pv = await previewContent(rt, l.brand.name);
+          const pv = await safePreview(rt, l.brand.name);
           return result([
             text(
               `Updated "${l.brand.name}".${l.warnings.length ? `\nwarnings:\n- ${l.warnings.join("\n- ")}` : ""}`,

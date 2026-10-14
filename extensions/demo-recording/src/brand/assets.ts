@@ -190,7 +190,7 @@ body{${backgroundCss(l)};color:${b.colors.text};display:flex;align-items:center}
 .date{margin-top:${Math.round(40 * s)}px;font-size:${Math.round(26 * s)}px;color:${b.colors.muted}}
 </style></head><body><div class="wrap">
 ${logo && b.title.logoPosition !== "none" ? `<img class="logo" src="${dataUri(logo)}">` : ""}
-<div class="app">${esc(info.app)}</div><div class="rule"></div>
+${info.app ? `<div class="app">${esc(info.app)}</div>` : ""}<div class="rule"></div>
 <div class="title">${esc(info.title)}</div>
 <div class="date">${esc(info.date)}</div></div></body></html>`;
 }

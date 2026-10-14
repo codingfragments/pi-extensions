@@ -69,6 +69,8 @@ export interface Scene {
 export interface Storyboard {
   version: number;
   app?: string;
+  /** Short demo title for the title card (≤ 60 chars), e.g. "What KeyCraft gets right — and what it makes up". */
+  title?: string;
   /** One-paragraph pitch of the whole demo (shown at the top of the review). */
   summary?: string;
   start_url: string;

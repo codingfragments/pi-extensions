@@ -68,7 +68,7 @@ test("settings view: groups, priority order, labels, types, layers, env override
   const groups = settingsView(layerFiles(env, os.homedir(), p.dir), env, os.homedir(), root);
   assert.deepEqual(
     groups.map((g) => g.id),
-    ["voice", "models", "recording", "output", "discovery", "general"],
+    ["voice", "models", "recording", "output", "annotations", "discovery", "general"],
   );
   const voice = groups.find((g) => g.id === "voice")?.settings ?? [];
   assert.deepEqual(
@@ -77,6 +77,9 @@ test("settings view: groups, priority order, labels, types, layers, env override
     "most important first",
   );
   const by = (k: string) => groups.flatMap((g) => g.settings).find((s) => s.key === k);
+  const auto = by("annotations.autoSuggest");
+  assert.equal(auto?.type, "boolean");
+  assert.equal(auto?.value, true, "on by default (D53)");
   assert.equal(by("ttsChain")?.type, "engines");
   assert.deepEqual(by("ttsChain")?.options, ["elevenlabs", "openai", "kokoro", "say"]);
   assert.equal(by("brand")?.type, "enum");

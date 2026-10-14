@@ -1,6 +1,6 @@
 # demo-recording — Implementation Plan
 
-Companion to [VISION.md](VISION.md) (decisions D1–D20). This plan is built
+Companion to [VISION.md](VISION.md) (decisions D1–D43). This plan is built
 from **vertical slices**: every slice ends with something you can run
 end-to-end and watch, never with a layer that only works in isolation.
 Slice S1 already produces a (crude) narrated MP4. Every later slice makes
@@ -31,7 +31,7 @@ one part of that pipeline good.
 └─────────────────────────────────────────┼─────────────────────────────┘
                                           ▼ ws
 ┌──────────────── panel (127.0.0.1:3777, token-protected) ──────────────┐
-│ LIVE · REVIEW · VOICE · EXPORT   — Preact + htm, vendored, no build   │
+│ STORYBOARD·RECORDING·VOICE·ANNOTATIONS·RENDER·CONFIG + LIVE side panel│
 └───────────────────────────────────────────────────────────────────────┘
           all artifacts ──►  ~/DemoRecordings/{apps,projects}/…
 ```
@@ -125,11 +125,17 @@ installed via a filtered package source that selects only this extension.
       frames/  frames.jsonl              screencast frames + timestamps
       events.jsonl  dom/  keyframes/
       raw.mp4  scenes.json               CFR master + scene boundaries
+      layout.jsonl                       (S5 part 6) visible-element snapshots, §3.7
       audit.jsonl  qa.json
     vo/script.v1.md …  audio/<engine>/<scene>.wav  alignment/<scene>.json
-    edit/timeline.v1.json
-    out/scenes/NN-<id>.mp4  out/full.mp4  out/full.callouts.srt
-        out/full.transcript.vtt  out/report.md
+    edit/timeline.v1.json                (cutter output, part of the voice-over stage)
+    annotations/v1.json …                (S5: §3.6)
+    render/v1.json  v1.qa.json  v1.overrides.json   (S5: §3.8)
+    inputs.jsonl                         (S5: project input log, §3.9)
+    brief/v1.md …                        brief history
+    out/edit-vN/<brand>/scenes/NN-<id>.mp4  full.mp4   (S5 part 2; legacy after part 9)
+    out/render-vN/<variant>/…  full.callouts.srt  full.transcript.vtt  report.md
+  brands/<name>/                         user brand packages (docs/BRANDS.md)
 ```
 
 ### 3.2 Storyboard (`storyboard/vN.yaml`)
@@ -137,6 +143,7 @@ installed via a filtered package source that selects only this extension.
 ```yaml
 version: 2
 app: acme-analytics
+title: Find the churn problem in a minute     # optional, ≤ 60 chars (title card)
 start_url: /dashboard
 viewport: { width: 1600, height: 900, dpr: 2 }
 scenes:
@@ -152,7 +159,7 @@ scenes:
       - { do: type,  target: { role: searchbox, name: Search }, text: churn by region, mark: type-start }
       - { do: press, key: Enter }
       - { do: wait,  for: { text: Results }, timeout: 15s, mark: results-visible }
-      - { do: hover, target: { text: EMEA }, dwell: 1.2s, zoom: true, callout: Regional outlier }
+      - { do: hover, target: { text: EMEA }, dwell: 1.2s, emphasis: the EMEA outlier is the story }
       - { do: improvise, kind: type, target: { role: textbox, name: Ask a follow-up },
           prompt: ask a sharp follow-up based on the visible answer, max_chars: 80,
           submit: true, mark: followup-sent }
@@ -160,8 +167,10 @@ scenes:
 ```
 
 Targets resolve in order: `role+name` (Playwright `getByRole`) → `text` → `label` → `css`.
-`mark:` names the **anchor events** that the VO can reference. `zoom` and `callout`
-are opt-in per step (D14).
+`mark:` names the **anchor events** that the VO and annotations can reference.
+`emphasis:` (per step or scene, free text) is the director's intent only; annotations
+are chosen later, in the Annotations stage (D31/D32). Legacy `zoom: true` / `callout:`
+still parse and become emphasis hints.
 
 ### 3.3 Event log (`events.jsonl`)
 
@@ -195,14 +204,105 @@ Four seconds, and it got the grouping right. [@results-visible] EMEA at
 
 ```json
 {"fps":30,"size":[1920,1080],"segments":[
-  {"scene":"03-search","src":[2000,5600],"speed":1.0,
-   "zoom":[{"t":3100,"box":[400,80,560,60],"scale":1.5,"ease":"inOutCubic"}]},
+  {"scene":"03-search","src":[2000,5600],"speed":1.0},
   {"scene":"03-search","src":[9000,9400],"speed":1.0},
   {"scene":"03-search","freeze":{"at":9400,"dur":1100}}],
- "audio":[{"file":"audio/elevenlabs/03-search.wav","at":0}],
- "callouts":[{"text":"Regional outlier","in":7.2,"out":9.8}],
- "titlecard":null}
+ "audio":[{"file":"audio/elevenlabs/03-search.wav","at":0}]}
 ```
+
+The timeline is timing only: cuts, speed, holds, audio placement and anchors. Zooms,
+callouts and other overlays live in the annotation version (§3.6); brand, title card
+and variants are applied at render (§3.8).
+
+### 3.6 Annotations (`annotations/vN.json`, S5 part 7/8)
+
+```json
+{"version":3,"basedOn":{"vo":4},"take":"take-007","by":"annotation-designer",
+ "importedFrom":2,
+ "budget":{"optimumNoise":8.0},
+ "items":[
+  {"id":"a1","type":"zoom","scene":"03-search","anchor":{"mark":"results-visible"},
+   "target":{"layout":"t9420#e17","text":"EMEA 14.2%"},"durMs":null,
+   "weight":{"value":5,"noise":1.5},"enabled":true,"origin":"suggested",
+   "reason":"the narration's key number; small in the frame"},
+  {"id":"a2","type":"callout","scene":"03-search","anchor":{"mark":"results-visible","offsetMs":0},
+   "text":"EMEA: 14.2 % churn","durMs":2500,"weight":{"value":4,"noise":1.0},
+   "enabled":true,"origin":"edited","edits":[{"at":"…","field":"text","from":"Regional outlier"}]},
+  {"id":"a3","type":"redact","scene":"05-account","target":{"layout":"t21800#e4","text":"jane@…"},
+   "weight":{"value":3,"noise":0},"enabled":false,"origin":"suggested","reason":"looks like an email"}
+ ]}
+```
+
+- **`type`:** `zoom` | `callout` | `highlight` | `spotlight` | `redact` | `chapter`.
+- **`anchor`:** a storyboard `mark`, a VO word (`{"word":"EMEA","section":"03-search"}`), or a scene start. It maps to output time through the timeline.
+- **`target`:** a layout-snapshot element ref (`t<ms>#e<n>`) plus its text, or a step target. Missing for callouts and chapters.
+
+**Weights (Q7, resolved):**
+- **`value`** (1–5): from the designer, raised by +1 when the item matches an `emphasis` hint or a VO anchor/word, capped at 5.
+- **`noise`:** deterministic, per type × duration:
+
+  | Type | Base noise |
+  |---|---|
+  | callout | 1.0 |
+  | highlight | 0.6 |
+  | zoom | 1.5 |
+  | spotlight | 2.0 |
+  | chapter, redact | 0 (outside the budget) |
+
+  Items longer than their type's default duration add `+0.5 × (extra seconds / default)`.
+- **Recommended set:** greedy by `value / noise` (ties: higher value), respecting the caps (≤ 2 zooms, no two overlapping in time on the same region) and the 2× ratio (enable about half of the counted suggestions).
+- **`optimumNoise`:** the noise of the recommended set.
+- **Budget meter:**
+  - "balanced" within ±25 % of the optimum, otherwise "too quiet" or "too busy";
+  - plus "value captured" = enabled value / total suggested value.
+
+**Versioning:** every save in the panel makes a new version; `origin` and `edits` keep what the user changed, which `import` re-applies.
+
+### 3.7 Layout snapshots (`takes/take-NNN/layout.jsonl`, S5 part 6)
+
+```json
+{"t":9420,"reason":"settle","url":"/search?q=churn","scroll":{"x":0,"y":0},
+ "els":[{"id":"e17","role":"cell","text":"EMEA 14.2%","box":{"x":412,"y":388,"w":120,"h":28}},
+        {"id":"e18","role":"button","name":"Export","box":{"x":1400,"y":80,"w":96,"h":32}}]}
+```
+
+**Granularity (Q8, resolved):**
+- **When:** a snapshot after each step settles (after its wait condition, or at the next frame-quiet moment, ≤ 1.5 s), at every `mark`, and on a route change once it settles. At most one per 500 ms.
+- **Which elements:** those intersecting the viewport, and visible (not `display:none`, `visibility:hidden` or `opacity` < 0.1). Kept:
+  - elements with their own text (≤ 200 chars, trimmed);
+  - interactive roles (button, link, textbox, combobox, checkbox, tab, menuitem);
+  - table cells and rows, headings;
+  - images with alt text;
+  - inputs (their *value* only when not `type=password` and not `autocomplete` credential fields).
+- **Size:** at most 400 elements, the largest text boxes first, then interactive ones. Typical: 20–60 KB per snapshot, about 2–5 MB per take.
+- **Boxes:** CSS px in the viewport (× dpr = source px), plus the scroll offset.
+- **Relation to `dom/<mark>.yaml`:** the existing aria snapshots at marks stay (the VO value bindings use them). Layout snapshots add positions.
+
+### 3.8 Render versions (`render/vN.json`, S5 part 9)
+
+```json
+{"version":2,"basedOn":{"annotations":3},"kind":"final","brand":"acme",
+ "variants":{"subtitles":"burned+clean","callouts":true,"logoBug":true},
+ "outputs":{"clean":"out/render-v2/acme/full.mp4","subtitled":"out/render-v2/acme+subs/full.mp4",
+            "scenes":"out/render-v2/acme/scenes/","vtt":"out/render-v2/full.transcript.vtt"},
+ "qa":{"file":"render/v2.qa.json","blocking":0,"warnings":3,"confirmed":[]},
+ "rim":{"color":"#ffffff1f","reason":"auto: contrast 1.45 < 1.8"}}
+```
+
+### 3.9 Project input log (`inputs.jsonl`, S5 part 3)
+
+```json
+{"id":"in-0007","at":"2026-10-14T09:12:03Z","stage":"vo","version":4,"source":"panel",
+ "kind":"nudge","text":"calmer, more evaluator, cut scene 2 by a third",
+ "refs":["vo/script.v4.md"]}
+{"id":"in-0008","at":"…","stage":"annotations","version":3,"source":"chat","kind":"direction",
+ "text":"no zoom on the login screen","outdated":{"at":"…","reason":"login scene removed"}}
+```
+
+- **`source`:** `command` | `panel` | `chat` | `agent`.
+- **`kind`:** `brief` | `direction` | `review` | `nudge` | `asset` | `source`.
+- **Agent reads:** `demo_rec_project context` returns the entries that are not outdated, grouped by stage.
+- **Panel reads:** Project context shows everything, with outdated entries struck through.
 
 ---
 
@@ -221,6 +321,11 @@ Tool names use the `demo_rec_` prefix (collision-resistant, see repo AGENTS.md).
 | `demo_rec_tts` | 4 | synthesize the approved VO per scene via the provider chain (background) |
 | `demo_rec_edit` | 4 | build timeline (sync solver) + render scenes and full video (background) |
 | `demo_rec_qa` | 2–4 | run detectors, write `qa.json` / `report.md`, raise panel flags |
+| `demo_rec_config` | any | show / set / unset settings, two-phase (diff first) — S5 ✅ |
+| `demo_rec_brand` | render | list / show / inspect / create / update / duplicate / preview / use — S5 ✅ |
+| `demo_rec_annotations` | annotations | `suggest` (background), `get`, `write`, `import from=vK`; never approves — S5 part 8 |
+| `demo_rec_render` | render | `draft` / `final` (background), `status`; brand + variants — S5 part 9 |
+| `demo_rec_project context` | any | the project's memory: brief, non-outdated inputs, lineage, stale flags — S5 part 3 |
 
 | Command | Purpose |
 |---|---|
@@ -517,123 +622,284 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 
 ---
 
-### S5 — Polish, brands, QA, guided review *(D13, D14, D21–D28)*
+### S5 — Stages, control room, brands, annotations, QA, guided review *(D13, D14, D21–D43)*
 
-**Purpose.** Take the output from correct to produced, and point the human at what
-actually needs their attention: a branded look, selective zoom, step callouts,
-subtitles and variants, deterministic QA with blocking rules, confidence-guided
-review, and conversational config. Decisions D21–D28 come from the S5 grill.
+**Purpose.** Take the output from *correct* to *produced*, and turn the panel into a control room that points the human at what actually needs their attention.
+- **Stage chain:** a strict, versioned chain Storyboard → Recording → Voice over → Annotations → Render (D30, D33), with a project input log as the project's memory (D42).
+- **Look:** a branded look (D24/D25).
+- **Annotations:** zooms, callouts, highlights and more, chosen *after* the voice-over from what was recorded and said (D31–D37).
+- **Render:** a render stage with drafts, variants and a QA gate (D38, D21/D22).
+- **Config:** a Config UI for settings, brands and project context (D41–D43).
+- **Review help:** confidence-guided review and voice direction (D23, D29).
 
-> **Restructure pending (D30–D40, annotation grill).** Parts 1–2 and the Q3 spike are done. The remaining parts move to the new stage chain Storyboard → Recording → Voice over → Annotations → Render:
-> - Annotations become their own phase (suggest ~2×, enable the top half, review, approve).
-> - Recording adds layout snapshots.
-> - The panel gets stage tabs and the Live control-room side panel.
-> - The Export tab becomes the Render stage.
->
-> Parts 3–6 below still describe the pre-grill design and will be rewritten before implementation.
+**Parts and order.** Each part is one PR, with tests, and ends with something runnable.
 
-**Deliverables**
+| Part | Content | Status |
+|---|---|---|
+| 1 | Model and config guards, config skill, voice picker | ✅ #33 |
+| 2 | Brands: package format, renderer, tool/skill/commands, Brand tab | ✅ #34, #37, #38 |
+| — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
+| 3 | Stage model + project input log | next |
+| 4 | Control-room shell (stage tabs, Live side panel) | |
+| 5 | Config UI (Settings · Brands · Project context) | |
+| 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
+| 7 | Annotation rendering (engine) | |
+| 8 | Annotations stage (designer, tab, review, approve, import) | |
+| 9 | Render stage (draft/final, render versions, variants, subtitles) | |
+| 10 | Deterministic QA + mechanical auto-fix | |
+| 11 | Confidence-guided review + voice direction | |
+| 12 | Actor & dependency model document, per-role model config | |
 
-*1. Model and config guards (first: they help testing right away)*
-- A warning in the discovery and take-analysis results (and the panel) when the session model has **no image input**, because pi silently strips screenshots.
-- Doctor checks that `improvise.models` are available in pi.
+**Why this order:**
+- **3 first:** the chain and the input log are the backbone every later part writes into.
+- **4 before 5–9:** the new tabs land in the new shell, not the old one.
+- **6 before 7–8:** the renderer and the designer need positions for elements nobody clicked.
+- **7 before 8:** the engine can be tested with hand-written annotation files, no LLM.
+- **9–10 together** form the final export gate.
+- **11 polishes** stable stages.
+- **12 documents** the roles once they exist in code.
+
+---
+
+*1. Model and config guards* — ✅ done (#33)
+- **Model warnings:**
+  - a warning in the discovery and take-analysis results (and the panel) when the session model has **no image input**;
+  - doctor checks that `improvise.models` are available.
 - **Config skill** (`demo-config`, `demo_rec_config`, `/demo config`):
-  - show effective values with their source;
-  - precedence: defaults < global `~/.config/demo-recording/config.json` < `projects/<p>/config.json` < env;
-  - change values with a **diff before every write**, keeping the `_comment` docs, validated by the resolver;
+  - effective values with their source;
+  - precedence: defaults < global < `projects/<p>/config.json` < env;
+  - a diff before every write, keeping `_comment`, validated;
   - never touches API keys.
-- **Voice list:** `demo_rec_tts voices` shows name, id and category for each voice, with a pick → free `check` flow.
-- Convenience commands: `/demo voiceover`, `/demo render`.
+- **Voice list** (`demo_rec_tts voices`, `/demo voices`), plus the `/demo voiceover` and `/demo render` commands.
 
-*2. Brands (D24, D25)* — ✅ done
-- **Status:**
-  - `src/brand/{brand,assets,manage}.ts`, `brands/neutral/`;
-  - the `demo_rec_brand` tool, `/demo brand list|use|new|rerender`, the `demo-brand` skill;
-  - the panel Brand tab (live preview with unsaved tweaks, diff-confirmed save, save as copy, set default, re-render with brand plus playable variants);
-  - `renderVariant` writes `out/edit-vN/<brand>/`.
-
-  The logo bug stays in the backdrop margin (shrunk to fit) in inset mode, because the light logo is only guaranteed contrast there.
-- **Follow-ups:**
-  - footage rim (`frame.border`, `"auto"` = drawn only when the footage edge blends into the backdrop, judged from the take's keyframes);
-  - title fallback chain (brief `Title:` → storyboard `title:` → short goal → project name; no app/title duplicate);
-  - validation for `font.weight` and the logo-bug fields.
-
-  Full reference: [docs/BRANDS.md](BRANDS.md).
-- **Brand package format:** `brand.json` (colors: bg/backdrop/accent/text/muted, font, inset %, corner radius, shadow, logo bug on/off + position/opacity, title layout) plus `logo-light.svg|png`, `logo-dark.svg|png`, and an optional backdrop image or gradient. Validated on load.
-- The **neutral brand ships in the extension** (`brands/neutral/`). User brands live in `~/DemoRecordings/brands/<name>/`.
-- The **`demo-brand` skill** and `/demo brand new`: explain what's needed, take a zip or folder, extract and normalize (SVG/PNG logos, contrast checks on colors, font fallback) into a package. Then `/demo brand use <name>`, `list`, and config `brand` for the default; a project or app can override.
-- **Panel Brand tab:** brand list, a live preview on a real keyframe (title card, framed footage, callout), quick tweaks (accent, backdrop, inset, corner, logo position) saved back to the package, and "set as default".
+*2. Brands (D24, D25)* — ✅ done (#34, #37, #38). Full reference: [BRANDS.md](BRANDS.md).
+- **Code:** `src/brand/{brand,assets,manage,rim}.ts`, `brands/neutral/`.
+- **Agent and commands:** the `demo_rec_brand` tool, `/demo brand list|use|new|rerender`, and the `demo-brand` skill.
+- **Panel Brand tab:**
+  - preview of unsaved tweaks on a real keyframe;
+  - diff-confirmed save, save as copy, set default;
+  - re-render, with playable variants.
 - **Renderer:**
-  - footage **inset on the backdrop** (rounded and shadowed, zooms happen inside the inset);
-  - **title card** (app, demo title, date from the brief), a 0.8 s cross-dissolve into the first frame under the intro narration;
-  - optional **logo bug** on the full video;
-  - all overlays are HTML templates rendered to transparent PNGs through Playwright.
+  - inset footage with mask, shadow and an automatic rim;
+  - title card with dissolve and opening-frame hold;
+  - logo bug in the backdrop margin.
+- **`renderVariant`** writes `out/edit-vN/<brand>/`.
+- **Title text:** fallback chain (brief `Title:` → storyboard `title:` → short goal → project name), shown as one line when it would repeat the app name.
 
-*3. Zoom, callouts, subtitles, variants (D26, D27)*
-- **Zoom** from `zoom: true` steps using the logged target box: 1.5× (max 1.8×, clamped to the frame), 0.6 s ease in, hold until the next page change, next zoom or scene end, then 0.5 s out. A storyboard warning above 2 zooms per demo. The cursor stays correct inside the zoom.
-  - **Spike Q3** ✅ ([`docs/spikes/S5-zoom.md`](spikes/S5-zoom.md)). Decision: ffmpeg `perspective` (cubic, per frame) at **source resolution**, only inside zoom windows (`enable`), then one scale to the inset.
-    - **Smoothness:** jitter 0.006 px, vs 0.33 px RMS / 1.7 px worst for `zoompan` and crop.
-    - **Sharpness:** native-sharp up to 1.8× at dpr 2.
-    - **Cost:** about +0.25 s of render time per second of zoom.
-    - **Overlay order:** the highlight is drawn in page space before the zoom; callouts, logo and title are drawn on screen after it.
-- **Callouts:** a fixed bottom-left branded pill over the footage. It fades in 150 ms before the step event and stays ~2.5 s or until the next callout. The director writes them (`callout:` ≤ 60 chars) and they're **editable inline in the Review tab**, with overlay-only changes (re-render, no re-take, no re-approval). Plus a `full.callouts.srt` sidecar.
-- **Highlight** (user addition, D26): an opt-in `highlight: true` per step (also allowed without a callout). It draws a subtle rounded outline (brand accent, 2 px, ~70 % opacity, faint soft glow, padding ~6 px) around the step's logged target box. It fades in and out with the callout (or ~2 s), follows zoom and scroll offset (box from the event log, mapped through the zoom transform), and is skipped for boxes larger than ~60 % of the frame. No fills, arrows or animation beyond the fade. The storyboard parser accepts the flag, the Review tab shows it, and the skill says to use it sparingly, when a callout refers to a specific region.
-- **Subtitles:** transcript VTT sidecars **always** (full and per scene, from the word timings). An optional **burned-in** variant; when enabled, **every video exists in two versions** (clean + subtitled).
-- **Variant cache:** renders are keyed by timeline + **brand** + overlay options. The **Export tab toggles** callouts, subtitles and the logo bug, and only missing variants are re-rendered.
+*3. Stage model + project input log (D30, D33, D42)*
+- **Stages and versions:**
+  - `storyboard` — `storyboard/vN.yaml`.
+  - `recording` — `takes/take-NNN/`; the take number is the recording version.
+  - `vo` — `vo/script.vN.md`, plus the generated voice and the cutter's `edit/timeline.vN.json`.
+  - `annotations` — `annotations/vN.json`.
+  - `render` — `render/vN.json` plus outputs.
+- **Versioning:** every version records **`basedOn`** (exactly one parent version). Version numbers count up per stage and are not hierarchical.
+- **`state.json` schema 2:** `stages.<stage> = { approved?: N, latest?: N, stale?: { reason, at } }`, plus `history`. The old `approved.storyboard`, `approved.vo` and `acceptedTake` fields are migrated on first open, with a backup kept as `state.v1.json`.
+- **Cascade reset (D33).** A new approved upstream version clears the downstream approvals and marks the downstream drafts as *based on an outdated parent*. Nothing is deleted, old versions stay readable, and "import from vN" (annotations, part 8) reuses work. Enforced in the engine:
+  - `demo_rec_record` needs an approved storyboard;
+  - `demo_rec_tts` needs an approved VO whose `basedOn` take is the accepted recording;
+  - annotation suggestions need generated voice + timeline;
+  - a final render needs approved annotations.
+- **Project input log** `inputs.jsonl` (D42): one line per directional input. The panel, the agent and the commands all write through one `recordInput()`. Recorded inputs:
+  - the brief and its revisions (`brief/vN.md`);
+  - `/demo new` / `/demo discover` notes;
+  - review notes and "send review to agent" messages per stage and version;
+  - voice-direction nudges (D29);
+  - annotation reviews;
+  - attached sources and assets (`context/`, brand material, web sources the brief skill used, with URL);
+  - chat directions the director classifies as project-relevant ("make scene 2 calmer").
 
-*4. Deterministic QA (D13, D21) and mechanical auto-fix (D22)*
-- `qa/media.ts`: ffmpeg `freezedetect`, `silencedetect`, `blackdetect`.
-- `qa/values.ts`: every number or name in the final narration must exist in the page text at its anchor (or the nearest snapshot in the scene).
-- Alerts and console errors in **used** footage.
-- `qa/drift.ts`: Whisper on the rendered audio vs the timeline, per anchor.
-- **Blocking:** value mismatch, error toast or console error in used footage, anchor drift above 300 ms. **Warnings:** holds, silences, narrator pauses, filler. Output goes to `report.md` and panel flags.
-- **Auto-fix (mechanical only):** anchor re-time or move, alignment re-run, hold handling, re-render. Stored as `edit/overrides.json`; the approved script and audio are untouched; every fix is listed in the report. Content changes (narration, values, re-takes, storyboard) are always asked.
+  Each entry: `{ id, at, stage, version?, source: command|panel|chat|agent, kind: brief|direction|review|nudge|asset|source, text, refs[], outdated?: { at, reason } }`.
+- **Agent memory:**
+  - `demo_rec_project context` returns the active project's brief, the non-outdated inputs (newest first, grouped by stage), the lineage, and open stale flags;
+  - the `demo-recording` skill re-reads it on `/demo open` and after a session restart, so the agent's memory and the Project context view (part 5) always match;
+  - "outdated" entries are skipped (D43).
+- **Migration of existing projects** (keycraft):
+  - storyboard v1–v2 (v2 approved);
+  - takes 001–006 as recordings v1–v6, each `basedOn` its `take.json` storyboard version;
+  - VO v1–v3 `basedOn` the take in each script;
+  - timelines attached to their VO version;
+  - existing `out/edit-vN/` kept as legacy outputs, listed under Render as "legacy".
 
-*5. Confidence-guided review (D23)*
-- **Measured signals** (see the cross-cutting section) → a high/medium/low level with reasons, per storyboard scene and VO section.
-- **Agent's view:** the director's 1–5 self-rating with a one-line reason, stored with the version. It can only lower the level.
-- **Panel:** badges, "N items need your eyes", lowest-first sorting, jump links to the step, anchor or keyframe, and "approve high-confidence" behind a click plus a confirmation listing what's skipped.
-- Review messages and tool results list low-confidence items first.
+  Review notes already in `state.json` are copied into `inputs.jsonl`.
 
-*5b. Voice direction (D29, user addition)*
-- **Voice tab "Direction" panel:** presets for stance (champion / evaluator / teacher), tone (punchier / calmer / more technical), length (shorter / longer / match footage), a focus field, and free text. Then **"Draft new version"**.
-- **Bridge:** one `[demo-panel] Voice-over direction for vN …` message. The agent (demo-voiceover skill) rewrites the **whole** script as vN+1 from the same take analysis, keeping anchors valid and the timing budget, and summarizes how it applied the direction. Per-section notes still work as before.
-- **Version comparison** in the Voice tab: per-section changed/unchanged badges, a word-level diff against the previous version, timing bars, and confidence (D23). Approve as usual.
-- **"Generate voice & render"** button after approval, an engine job straight from the panel (`POST /api/voice-render`): TTS (cache, so only changed sections are synthesized), then the edit/render with the current brand and overlay options. Before starting it shows an **estimate**: characters to synthesize for the selected engine, and sections reused from the cache. Progress in the panel; the agent gets the result message.
-- **Optional:** "save as default direction" writes a `Narration direction:` line into the brief, so future voice-overs start from it.
+*4. Control-room shell (D39)*
+- **Tabs:** Storyboard · Recording · Voice over · Annotations · Render · Config.
+- **Shared stage header:** version picker, "based on …", approved/stale badge, and a cascade notice ("approving this resets Annotations v3 and Render v2").
+- **Recording tab (new):** takes per storyboard version, with accept / re-record, analysis status, and a keyframe strip. Live takes stream in the Live panel.
+- **Live control-room panel:**
+  - **Layout:** a right-side slide-out (~360 px), which becomes a bottom drawer below ~1100 px. Collapsible: the collapsed rail still shows the current stage, the activity or "waiting for you", and the progress bar.
+  - **Contents:** always the log stream, plus a segmented progress bar and a frame preview (latest discovery/recording frame, render thumbnail) when the activity has them.
+  - **Per stage:** each stage contributes its own components (e.g. the Recording stage shows scene segments and improvise events; Render shows per-variant progress) and can toggle them.
+- **The old Live tab content** (discovery card, recording progress) moves into the Live panel. Review and Voice become the Storyboard and Voice over tabs, unchanged inside. The Brand tab moves to Config (part 5).
 
-*6. Export tab (D27)*
-- **Brand switch** (user addition): a brand dropdown next to the toggles. Changing the brand re-renders the selected outputs from the existing `edit/timeline.vN.json` + `raw.mp4` + voice audio. It's a background engine job started directly from the panel (`POST /api/export-render {brand, callouts, subtitles, logoBug}`), with **no agent turn, no LLM call and no TTS**, progress in the panel, and the agent informed only on failure. Variants land in `out/edit-vN/<variant>/` and are reused when cached. A brand change never invalidates approvals: brands are presentation only.
-- Players (with the transcript track), downloads, toggles (callouts, subtitles, logo bug) → variant renders, the QA report with jump-to-time, "confirm & export anyway" for blocking items, and open folder. No publishing in v1.
+*5. Config UI (D41–D43)*
+- **Settings:**
+  - every setting from `CONFIG_DOCS`, grouped, showing the effective value, its source (default / global / project / env), the docs, and whether it's shadowed;
+  - edited through a validated form, always diff-confirmed, with global or project scope;
+  - the raw global and project files are shown **read-only** beside it, with "open in editor" and "reload";
+  - API keys: only "set / not set" plus the env-var name, never shown or written.
+- **Brands:** the current Brand tab, moved in.
+- **Project context**, the "memory" of the selected project:
+  - **Brief:** current text, version history (`brief/vN.md`) and a diff to the previous version; editable as today.
+  - **Inputs:** the input log, filterable by stage, kind and source, newest first. Each entry links to the version it produced. **Mark outdated / restore** with a reason (D43): never deleted, struck through, and skipped by the agent.
+  - **Sources and assets:** `context/` files, web sources with URLs, brand material, uploaded files.
+  - **Discovery:** sessions, sitemap, screens and the audit log.
+  - **Lineage:** the stage chain with approved, latest and stale versions, and what a re-approval would reset.
+- **Routes:** `GET /api/config`, `POST /api/config-set {key, value, scope, confirm?}` (two-phase, as `demo_rec_config`), `GET /api/context`, `POST /api/input-mark {id, outdated, reason}`.
 
-**How to test**
-- **Unit:**
-  - brand package validation and normalization (contrast, missing dark logo);
-  - zoom keyframes (never beyond headroom, eased, only flagged steps, cap warning);
-  - highlight geometry (box padding, zoom mapping, skipped when the box is too large, timing tied to the callout);
-  - callout timing;
-  - the VTT generator against the word timings;
-  - the value extractor (currency, percent, counts, names);
-  - the blocking classification;
-  - override application (the approved VO and audio hashes are unchanged);
-  - confidence signals on injected defects (unseen target, wrong value, off-sync, fallback used);
-  - the agent's view never raises a level;
-  - the config diff/write (keeps `_comment`, precedence, rejects invalid values, never writes keys);
-  - voice direction: the direction message contains every preset + free text; the new version is a full script (all sections present); the cost estimate counts only cache misses; "Generate voice & render" refuses an unapproved version;
-  - the variant cache key (brand, callouts, subtitles, logo bug); a brand switch re-renders without touching the VO, voice manifest or approvals and without any model call (asserted with a stub registry that fails on use).
-- **E2E on the fixture:**
-  - `?flaky=1` → a blocking alert flag at the right time;
-  - a VO with a wrong value → blocking value flag;
-  - an uncut spinner (solver disabled) → a warning;
-  - the clean run → zero blocking;
-  - toggling subtitles renders only the subtitled variant.
-- **Visual (manual):** the neutral brand title → dissolve → inset footage, 2 zooms, callouts, a logo bug when enabled. Then a brand built from a zip in the Brand tab, previewed on a keyframe.
+*6. Recording inputs (D32, D34)*
+- **Layout snapshots** `takes/take-NNN/layout.jsonl` (Q8): positions of visible elements, so annotations can target anything on screen.
+- **Settled target boxes:** each step's target box is logged again once the page has settled after the step (`box` at the action, `boxSettled` after). This fixes highlights on elements that move just after an action.
+- **Storyboard changes:**
+  - optional top-level `title` (≤ 60 chars, done);
+  - per-scene and per-step **`emphasis:`** free text (the director's intent, D32);
+  - legacy `zoom: true` / `callout:` still parse and are converted into emphasis hints ("suggest a zoom here" / suggested callout text), with a deprecation note.
+- **Skill updates:**
+  - `demo-recording` writes `emphasis`, not annotation decisions;
+  - `demo-voiceover` keeps `[@mark]` anchors (annotations use them for timing).
+- **Re-record keycraft** after this part, so it gets layout snapshots.
+
+*7. Annotation rendering (engine; D26, D35; spike Q3)*
+- **Input:** `annotations/vN.json` (data contract in §3.6), mapped through the timeline: take time → output time per scene and for the full video.
+- **Annotation types, in render order (see the [spike](spikes/S5-zoom.md)):**
+  - **Redact / blur:** strong box blur of the element's box (page space, before the zoom), for every frame where the element is visible (from layout snapshots).
+  - **Highlight:** rounded outline in the brand accent, 2 px at 1080p (≈ 3.6 px at source), ~70 % opacity, faint glow, ~6 px padding. Drawn in page space before the zoom, so it follows it. Fades with its callout or ~2 s. Skipped when the box is larger than 60 % of the frame.
+  - **Zoom:** `perspective` (cubic, `eval=frame`, `(in-1)/fps`) at source resolution, only inside its window (`enable`).
+    - 1.5× (max 1.8×), 0.6 s ease in so it is fully in **at the event**, hold until the next page change, the next zoom or the scene end, then 0.5 s out;
+    - at most 2 per demo;
+    - scenes with a zoom or page-space overlay keep source resolution until after the zoom; others keep the early scale.
+  - **Spotlight:** dims everything except the box (rounded cut-out, ~55 % dark), 0.3 s in/out. Page space, before the zoom.
+  - **Callout:** fixed bottom-left branded pill (`colors.pill`/`pillText`, ≤ 60 chars), fades in 150 ms before the event, ~2.5 s or until the next callout. Screen space, after the inset.
+  - **Chapter title:** lower-third at a scene start ("2 · Find at-risk accounts"), 2.5 s. Full video only by default. Screen space.
+- **Overlay rendering:** all overlays are HTML → transparent PNGs via Playwright (cached by content hash), animated with ffmpeg `fade`/`overlay` `enable` windows. Page-space overlays are positioned at source coordinates.
+- **Previews:**
+  - `previewStill(annotation)`: the keyframe at the event, with the overlay composited. Instant; cached.
+  - `previewClip(annotation)`: a 3–5 s 960×540 clip around the event, rendered in a few seconds; cached per annotation hash.
+- **Sidecars:** `full.callouts.srt` (callouts) and VTT transcripts (part 9).
+- **Testable without an LLM:** hand-written annotation files on the fixture take.
+
+*8. Annotations stage (D31, D35–D37)*
+- **Annotation designer** (`annotation-designer` skill, played by the Director by default; D40).
+  - **Inputs:** the accepted take (keyframes, layout snapshots, events), the storyboard's `emphasis` hints, the generated voice-over (script, anchors, word timings), the brief, and the input log.
+  - **Suggests about 2× as many annotations as it enables**, each with:
+    - type, scene, anchor (`mark` or word);
+    - target (element ref from a layout snapshot, or a step target);
+    - text (callouts, chapters), and a one-line reason;
+    - weights (Q7).
+  - **Pre-enables** the recommended set: the best value per noise within the caps.
+  - **Defaults:** spotlight is off unless the value is 5; chapter titles and redactions are off and outside the budget.
+  - **The **Privacy officer** role** (part of the same skill run by default) scans layout snapshots for emails, person names, tokens and IDs, and adds redaction suggestions with the reason "looks like an email".
+  - **Writing rules** in the skill: a callout names *what* to look at, the voice says *why*, and never word for word; no annotation during typing; nothing on top of a callout; don't stack zooms.
+- **Tool `demo_rec_annotations`:**
+  - `suggest` (background; writes `annotations/vN.json`, `basedOn` the VO version);
+  - `get` and `write` (agent revisions);
+  - `import from=vK`, which re-applies the user's manual decisions (toggles, text edits, nudges) where the target and anchor still match, and lists the ones that couldn't be carried over;
+  - `approve` is refused, because only the user approves (as with the storyboard).
+- **Auto-start:** when voice generation + timeline finish, the Director hands over to the designer automatically, and v1 appears in the tab.
+- **Annotations tab:**
+  - one card per suggestion, grouped by scene: type icon, text, reason, weights, a still preview, and "play clip";
+  - **filters** by type and by enabled/suggested;
+  - a **budget meter** ("noise 7.5 / optimum 8 — balanced"; value captured %);
+  - on/off toggles, inline text edit (callout and chapter), ±0.5 s start and duration nudges, a choice between zoom-target candidates;
+  - every save is a new version (like VO inline edits), and the edit is logged as an input;
+  - "Play scene with enabled annotations" (draft clip);
+  - "Send review to agent" with notes, and **Approve**.
+- **Panel routes:** `GET /api/annotations?version=`, `POST /api/annotations-edit` (toggle, text, nudge, target), `POST /api/annotation-preview {id, kind: still|clip}`, `POST /api/review*`, `POST /api/approve {artifact: "annotations"}`.
+
+*9. Render stage (D27, D38)*
+- **Render versions** `render/vN.json`: `{ basedOn: { annotations: N }, kind: draft|final, brand, variants: { subtitles, callouts, logoBug }, outputs, qa }`.
+- **Draft vs final:**
+  - **Draft** works from any annotation version (watermarked "DRAFT", 960×540, fast preset), for a look at the whole thing.
+  - **Final** needs approved annotations and a passing QA gate (part 10), or explicit per-item "confirm & export anyway".
+- **Variants:**
+  - the brand dropdown per render (brands are presentation only and never touch approvals);
+  - subtitles: VTT sidecars always (full and per scene, from word timings); burned-in optional, and when enabled every video exists in both versions;
+  - toggles for callouts and the logo bug;
+  - variant cache key = timeline + annotations + brand + variant options; only missing variants render.
+- **Render tab:**
+  - players with transcript track, downloads, and "open folder";
+  - toggles and the brand dropdown;
+  - the QA report with jump-to-time (part 10);
+  - the render history (draft/final, brand, `basedOn`).
+- **Panel route:** `POST /api/render {kind, brand, variants}`, a background engine job with no agent turn, no LLM and no TTS.
+- **`demo_rec_render`** tool and `/demo render`. The current `demo_rec_edit` keeps working as "voice + timeline + draft".
+
+*10. Deterministic QA (D13, D21) and mechanical auto-fix (D22)* — the **QA reviewer** role (D40), reports only.
+- **Checks:**
+  - `qa/media.ts`: ffmpeg `freezedetect`, `silencedetect`, `blackdetect`.
+  - `qa/values.ts`: every number or name in the final narration must exist in the page text at its anchor (or the nearest snapshot in the scene).
+  - Alerts and console errors in **used** footage.
+  - `qa/drift.ts`: Whisper on the rendered audio vs the timeline, per anchor.
+  - **Annotation checks (new):** a target missing from its snapshot, overlapping annotations, zoom headroom, a callout over a burned-in subtitle, a redaction that doesn't cover its element through the window.
+- **Blocking:** value mismatch, error toast or console error in used footage, anchor drift above 300 ms, a redaction gap. **Warnings:** holds, silences, narrator pauses, filler, annotation overlaps. Output goes to `render/vN.qa.json`, `report.md` and panel flags.
+- **The Director runs the final gate** (D40); blocking items need a user "confirm & export anyway" per item.
+- **Auto-fix (mechanical only):** anchor re-time or move, alignment re-run, hold handling, re-render.
+  - Stored as `render/vN.overrides.json`; the approved script, audio and annotations stay untouched.
+  - Every fix is listed in the report.
+  - Content changes (narration, values, re-takes, storyboard, annotation choices) are always asked.
+
+*11. Confidence-guided review (D23) and voice direction (D29)*
+- **Confidence:**
+  - measured signals → a high/medium/low level with reasons, per storyboard scene, VO section and annotation;
+  - the agent's 1–5 view can only lower the level;
+  - panel badges, "N items need your eyes", lowest-first sorting, jump links, and a guarded "approve high-confidence";
+  - review messages and tool results list low-confidence items first.
+- **Voice direction:**
+  - the Voice over tab gets a Direction panel: stance, tone and length presets, a focus field, free text;
+  - "Draft new version" → the agent rewrites the whole script as vN+1 from the same take → word-level diff → approve → "Generate voice" (cost estimate first, only changed sections synthesized);
+  - every direction is an input-log entry (`kind: nudge`), shown in Project context;
+  - optional "save as default direction" into the brief.
+
+*12. Actor & dependency model document (D40)*
+- **`docs/ACTORS.md`** (see the cross-cutting entry): the vision behind the cast, each actor (responsibility, inputs, outputs, decisions, model profile, failure modes), the dependency model, handoffs, and the background decisions with the alternatives that were rejected.
+- **Per-role model config:** `roles.<role>.model` (default: the session model via its skill; opt-in separate runs, e.g. `roles.qa.mode: "separate"` with a fresh context, `roles.operator` = the improvise chain). Doctor checks each configured role's model capabilities (image input, context size).
+
+**How to test** (per part; each PR carries its own tests)
+- **Part 3:**
+  - state migration on a copy of a keycraft-like fixture project (schema 1 → 2, backup kept, lineage correct);
+  - cascade reset clears exactly the downstream approvals;
+  - the gates refuse out-of-chain work;
+  - `recordInput` from every source; `context` excludes outdated entries;
+  - a property test: no sequence of approvals leaves a downstream approval whose parent isn't the approved upstream version.
+- **Part 4:**
+  - panel smoke tests for every tab and the collapsible Live panel in both layouts (Playwright screenshots at 1400 px and 900 px);
+  - the stage header shows the cascade notice.
+- **Part 5:**
+  - config form round-trip (diff, confirm, validation, shadowing, no secrets);
+  - raw files read-only;
+  - the Project context route lists brief versions, inputs (filters, mark outdated/restore), sources, discovery and lineage;
+  - mark outdated changes what `demo_rec_project context` returns.
+- **Part 6:**
+  - layout snapshots on the fixture: element count cap, hidden and password fields excluded, numbers present, boxes match `getBoundingClientRect` within 1 px;
+  - `boxSettled` differs from `box` on an element that animates after the click;
+  - `emphasis` parse and legacy conversion.
+- **Part 7:**
+  - each annotation type rendered from a hand-written file on the fixture take, checked by pixel probes: blur variance inside the box, outline pixels around it, zoom scale at the hold, spotlight darkening outside, pill at the bottom left;
+  - timing: overlays visible within ±1 frame of the window;
+  - render order: highlight follows the zoom;
+  - preview still/clip caching.
+- **Part 8:**
+  - designer output schema and caps (≤ 2 zooms, 2× ratio, defaults per type, privacy suggestions on fixture PII);
+  - import from vK (carried, dropped with reasons);
+  - the edits route makes new versions;
+  - approval gate;
+  - E2E with a stub model that returns a fixed suggestion set.
+- **Part 9:**
+  - draft renders from unapproved annotations; final refuses until approved and QA passes;
+  - variant cache (only missing variants render);
+  - VTT matches the word timings;
+  - a brand switch makes no model call (stub registry that fails on use).
+- **Part 10:** the injected fixture defects (`?flaky=1` alert, a wrong value in the VO, an uncut spinner, a redaction gap) are all caught; zero blocking items on the clean run; overrides leave the approved hashes unchanged.
+- **Part 11:** confidence signals on injected defects; the agent's view never raises a level; the direction message contains every preset + free text; the cost estimate counts only cache misses.
+- **Visual (manual, keycraft re-recorded after part 6):** annotations suggested → toggled → approved → final render with the neutral brand and one user brand, 2 zooms, callouts, a highlight, and a redaction on a fake email.
 
 **Exit criteria.**
-- QA catches all injected fixture defects, with zero blocking items on the clean run.
-- The neutral brand and one user-built brand both render the full video and the variants.
-- The confidence view surfaces the injected weak items first.
-- Config changes go through diff, confirm and validation.
+- The stage chain holds: every output traces back through `basedOn` to an approved storyboard, and any upstream re-approval resets downstream approvals.
+- The Project context view and `demo_rec_project context` show the same memory, and outdated inputs are skipped by both.
+- On keycraft (re-recorded), the designer's suggestions arrive automatically after the voice. A user toggles and approves them, and a final render with annotations passes QA.
+- QA catches every injected fixture defect, with zero blocking items on the clean run.
+- Config changes go through form → diff → confirm → validation, from the panel and from chat.
 
 ### S6 — Auth, safety hardening, real-app acceptance
 
@@ -726,12 +992,13 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q4 | ~~Default whisper model size~~ → **base.en + onset refinement** (≤ 32 ms) | S4 ✅ |
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |
-| Q7 | Annotation weights: how the noise/value weight and the target optimum are computed (D36) | S5 annotation rewrite |
-| Q8 | Layout snapshot granularity and size limits (which elements, how often, on which page change) (D34) | S5 annotation rewrite |
+| Q7 | ~~Annotation weights and target optimum~~ → designer value 1–5 (+1 for emphasis/VO match), deterministic noise per type × duration, greedy recommended set under caps, optimum = its noise, ±25 % = balanced (§3.6) | S5 plan ✅ |
+| Q8 | ~~Layout snapshot granularity~~ → after each settle, at marks and route changes (≤ 1/500 ms), visible elements only, ≤ 400 per snapshot, no password values (§3.7) | S5 plan ✅ |
 
 ## 9. Definition of done (v1 = S0–S6)
 
-- `/demo new` → approved storyboard → take → approved VO → ElevenLabs voice → `out/scenes/*.mp4`, `out/full.mp4`, `full.callouts.srt`, `report.md`.
+- `/demo new` → approved storyboard → accepted recording → approved VO → ElevenLabs voice → approved annotations → final render (QA passed): `out/render-vN/<variant>/scenes/*.mp4`, `full.mp4`, `full.transcript.vtt`, `full.callouts.srt`, `report.md`, each traceable through `basedOn` to the approved storyboard.
+- The project's memory (brief, inputs, sources, lineage) is visible in Config → Project context and matches what the agent reads.
 - Human input limited to: the brief, `/demo login` once per app, panel approvals/notes.
 - Fixture E2E suite green. One real app accepted.
 - README documents setup, costs, security, and the fallback behavior of the TTS chain.

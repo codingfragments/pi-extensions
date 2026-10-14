@@ -1,6 +1,6 @@
 // demo-recording panel — Annotations tab (S5 part 8, D53–D58): the designer's
 // suggestions per scene as cards (still eager, clip on click), toggles, inline
-// text, ±0.5 s nudges, target choices, a budget meter, filters, an unsaved
+// text, ±0.5 s nudges, target choices, a large preview popup (click the still to play), a budget meter, filters, an unsaved
 // draft with Save / Discard, Re-suggest with instructions, and a low-res scene
 // draft with every enabled annotation.
 import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
@@ -67,11 +67,9 @@ function BudgetMeter({ budget }) {
   </div>`;
 }
 
-function Preview({ version, item }) {
+function Preview({ version, item, onOpen }) {
   const [still, setStill] = useState(null);
   const [updating, setUpdating] = useState(false);
-  const [clip, setClip] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const key = JSON.stringify([
     version,
@@ -87,7 +85,6 @@ function Preview({ version, item }) {
   useEffect(() => {
     let live = true;
     setUpdating(true);
-    setClip(null);
     setErr(null);
     queued(() => post("/api/annotation-preview", { version, id: item.id, kind: "still" })).then(
       (r) => {
@@ -105,8 +102,30 @@ function Preview({ version, item }) {
       live = false;
     };
   }, [key]);
+  if (err) return html`<div class="ann-thumb missing" title=${err}>no preview: ${err}</div>`;
+  return html`<button class=${`ann-thumb ${updating && still ? "updating" : ""}`} disabled=${!still}
+      title="open larger — click the big image to play the clip" aria-label=${`open the preview of ${item.id}`}
+      onClick=${() => still && onOpen({ item, version, still })}>
+    ${still ? html`<img src=${media("project", still)} alt=${`${item.type} preview`} loading="lazy" />` : html`<div class="ann-loading">rendering still…</div>`}
+    ${still ? html`<span class="enlarge" aria-hidden="true">⤢</span>` : null}
+  </button>`;
+}
+
+/** The big preview: the still first; a click on it renders (cached) and plays the clip. */
+function Lightbox({ open, onClose }) {
+  const [clip, setClip] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const { item, version, still } = open;
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   const play = async () => {
+    if (busy || clip) return;
     setBusy(true);
+    setErr(null);
     try {
       const r = await queued(() =>
         post("/api/annotation-preview", { version, id: item.id, kind: "clip" }),
@@ -118,12 +137,25 @@ function Preview({ version, item }) {
       setBusy(false);
     }
   };
-  if (err) return html`<div class="ann-thumb missing" title=${err}>no preview: ${err}</div>`;
-  if (clip)
-    return html`<video class="ann-thumb" src=${media("project", clip)} controls autoplay muted playsinline></video>`;
-  return html`<div class=${`ann-thumb ${updating && still ? "updating" : ""}`}>
-    ${still ? html`<img src=${media("project", still)} alt=${`${item.type} preview`} loading="lazy" />` : html`<div class="ann-loading">rendering still…</div>`}
-    <button class="play" disabled=${busy} title="render and play a short clip around this annotation (640×360, cached)" onClick=${play}>${busy ? "…" : "▶"}</button>
+  return html`<div class="lightbox" role="dialog" aria-modal="true" aria-label=${`${LABEL[item.type]} ${item.id}`}
+      onClick=${(e) => e.target === e.currentTarget && onClose()}>
+    <figure class="lightbox-box">
+      <button class="lightbox-close ghost" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
+      ${
+        clip
+          ? html`<video src=${media("project", clip)} controls autoplay playsinline></video>`
+          : html`<button class="lightbox-still" title="play the clip around this annotation" onClick=${play}>
+              <img src=${media("project", still)} alt=${`${item.type} preview`} />
+              <span class=${`lightbox-play ${busy ? "busy" : ""}`}>${busy ? "rendering clip…" : "▶ play clip"}</span>
+            </button>`
+      }
+      <figcaption>
+        <b>${ICON[item.type]} ${LABEL[item.type]}</b> <span class="mono muted">${item.id}</span>
+        ${item.text ? html` · “${item.text}”` : null}
+        <span class="muted"> · ${anchorLabel(item.anchor)}${item.enabled ? "" : " · off"}</span>
+        ${err ? html`<span class="error"> · ${err}</span>` : null}
+      </figcaption>
+    </figure>
   </div>`;
 }
 
@@ -139,22 +171,23 @@ function TextEdit({ item, onSave }) {
   </div>`;
 }
 
-function AnnotationCard({ item, res, version, edit }) {
+function AnnotationCard({ item, res, version, edit, onOpen }) {
   const problem = res && "problem" in res ? res.problem : null;
   const privacy = item.type === "redact" && (item.reason ?? "").startsWith("privacy:");
   const touched =
     item.origin === "edited" || item.origin === "manual" || (item.edits?.length ?? 0) > 0;
   return html`<article class=${`ann-card ${item.enabled ? "on" : "off"} ${problem ? "problem" : ""}`}>
-    <${Preview} version=${version} item=${item} />
+    <div class="ann-top">
+      <label class="ann-enabled" title=${item.enabled ? "in the render" : "not rendered — tick to use it"}>
+        <input type="checkbox" checked=${item.enabled} onChange=${(e) => edit({ op: "toggle", id: item.id, enabled: e.target.checked })} />
+        enabled
+      </label>
+    </div>
+    <${Preview} version=${version} item=${item} onOpen=${onOpen} />
     <div class="ann-body">
       <div class="row">
         <span class="ann-type" title=${LABEL[item.type]}>${ICON[item.type]} ${LABEL[item.type]}</span>
         <span class="muted small-text mono">${item.id}</span>
-        <span class="grow"></span>
-        <label class="switch" title=${item.enabled ? "on — in the render" : "off — not rendered"}>
-          <input type="checkbox" checked=${item.enabled} onChange=${(e) => edit({ op: "toggle", id: item.id, enabled: e.target.checked })} />
-          <span>${item.enabled ? "on" : "off"}</span>
-        </label>
       </div>
       ${item.type === "callout" || item.type === "chapter" ? html`<${TextEdit} item=${item} onSave=${(text) => edit({ op: "text", id: item.id, text })} />` : null}
       <div class="ann-when small-text">
@@ -262,6 +295,7 @@ export function Annotations({ events, stages }) {
   const [state, setState] = useState("all");
   const [flash, setFlash] = useState(null);
   const [view, setView] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
   // The edit routes answer with the new view; the next reload (bus event) replaces it.
   const d = view ?? data;
   useEffect(() => setView(null), [data]);
@@ -366,7 +400,8 @@ export function Annotations({ events, stages }) {
           <span class="grow"></span>
           <${SceneDraft} version=${d.version} scene=${sc.id} draftKey=${draftKey} />
         </div>
-        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} edit=${edit} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
+        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} edit=${edit} onOpen=${setLightbox} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
       </section>`;
-    })}`;
+    })}
+    ${lightbox ? html`<${Lightbox} open=${lightbox} onClose=${() => setLightbox(null)} />` : null}`;
 }

@@ -816,7 +816,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - **Q7 value bonus:** "+1 for a VO match" means the narration at the anchor *mentions what the item shows* (a content word or number of the target's text, or of the callout). A bare narration anchor is not enough: almost every mark is one, which pushed everything to 5. Spotlights get no bonus.
   - **Recommended set:** value-5 items (must-haves) come first, then value per noise. Pure ratio order filled the half with cheap highlights and left the demo's key zoom off.
   - **Placement:** checked one item at a time, so two zoom candidates for the same moment don't knock each other out.
-  - **Stills:** 960×540 (sharp enough on a card); clips and scene drafts 640×360.
+  - **Previews (user feedback):** a click on a card's still opens a large popup; a click on the image there renders and plays the clip. Stills and clips are 960×540, sharp enough for the popup; scene drafts stay 640×360, inline. The card's on/off switch became one **enabled** checkbox at the top left of the card.
   - **Input pack:** privacy hits are masked; long texts (an assistant's answer) are kept, truncated for display.
   - **Accepting:** refused while the version has unsaved draft changes. The agent then re-renders with `demo_rec_edit action=rerender annotations=N`.
 - **Annotation designer = a skill in the main agent (D52).** `skills/demo-annotations` (Annotation designer + Privacy officer). The agent reads a compact **input pack** from `demo_rec_annotations action=context` and submits suggestions with `action=suggest`; the engine does everything deterministic.

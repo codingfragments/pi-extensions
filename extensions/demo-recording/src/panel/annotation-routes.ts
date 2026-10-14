@@ -37,9 +37,10 @@ export interface AnnotationRouteDeps {
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
 }
 
-/** Card stills at 960×540 (sharp enough for a card), clips and scene drafts at 640×360 (D55). */
+/** Stills and clips at 960×540 (cards and the large preview popup); scene drafts at 640×360 (inline). */
 export const STILL_SIZE = { width: 960, height: 540 };
-export const CLIP_SIZE = { width: 640, height: 360 };
+export const CLIP_SIZE = { width: 960, height: 540 };
+export const SCENE_DRAFT_SIZE = { width: 640, height: 360 };
 
 /** Project-relative path; the panel turns it into a media URL with its token. */
 const media = (projectDir: string, file: string) =>
@@ -278,7 +279,7 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
           const { timeline } = timelineFor(p.dir, file.basedOn.vo);
           const b = await prepareBrand(
             p.dir,
-            { ...cfg, output: CLIP_SIZE },
+            { ...cfg, output: SCENE_DRAFT_SIZE },
             timeline.take,
             cfg.brand,
           );
@@ -290,7 +291,7 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
             brand: b.loaded,
             frame: b.frame,
             fps: cfg.fps,
-            output: CLIP_SIZE,
+            output: SCENE_DRAFT_SIZE,
             cacheDir: path.join(cfg.root, ".cache", "annotation-assets"),
             outDir: path.join(p.dir, "previews", "annotations", "scenes"),
           });

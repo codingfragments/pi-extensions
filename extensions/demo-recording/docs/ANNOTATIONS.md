@@ -157,9 +157,12 @@ of the suggested value is switched on.
   made with, and the **budget meter**.
 - **Filters** by type and by *enabled* / *suggested, off*.
 - **One card per suggestion**, grouped by scene:
-  - a **still** at its peak moment, rendered right away and cached (▶ renders
-    and plays a 640×360 clip around it, with the voice);
-  - type, id and an **on/off** switch;
+  - an **enabled** checkbox at the top left, above the picture;
+  - a **still** at its peak moment, rendered right away and cached. **Click
+    it** to open a large preview; **click the large image** to render and play
+    a clip around the annotation (960×540, with the voice, cached). × or Esc
+    closes it;
+  - type and id;
   - the **text** (callouts, chapters; ≤ 60 characters, live counter);
   - when: its anchor and output time window, with **±½ s nudges** for start
     and length;
@@ -167,12 +170,14 @@ of the suggested value is switched on.
     switches);
   - the reason, value and noise, and tags: **privacy**, **yours** (you changed
     it), **can't place** (with why).
+![The large preview: click a card's still, then the image to play the clip](images/annotations/panel-popup.jpg)
+
 - **▶ Play scene with enabled annotations:** a low-res draft of the scene
   with everything that is on (chapters only appear in the full video).
 
 ![Unsaved changes: the draft bar](images/annotations/panel-draft.jpg)
 
-**Edits are a draft** (D58): every toggle, text edit, nudge or target switch
+**Edits are a draft** (D58): every enabled tick, text edit, nudge or target switch
 applies at once (stills and the budget update), shown as *N unsaved changes*.
 **Save as vN** writes one new version with all of them (each item keeps what
 you changed in its `edits`, and the save is logged in the project's inputs);

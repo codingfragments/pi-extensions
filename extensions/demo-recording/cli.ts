@@ -294,10 +294,6 @@ async function main(argv: string[]): Promise<number> {
         onProgress: (p) => console.log(`[${p.done}/${p.total}] ${p.label}`),
       });
       console.log(editSummary(r));
-      if (r.annotations) {
-        console.log(`annotations v${r.annotations.version}: ${r.annotations.applied} applied`);
-        for (const w of r.annotations.warnings) console.log(`  ! ${w}`);
-      }
       return 0;
     }
     if (sub === "add") {

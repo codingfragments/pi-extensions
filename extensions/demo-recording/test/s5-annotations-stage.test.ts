@@ -431,7 +431,11 @@ test("suggest: places, drops with reasons, adds privacy redactions (off), bonuse
   assert.equal(by["zoom-row"]?.weight?.value, 5);
   assert.match(by["zoom-row"]?.reason ?? "", /emphasis/);
   assert.equal(by["co-emea"]?.weight?.value, 5);
-  assert.equal(by["hl-kpi"]?.weight?.value, 3, "no bonus: the narration doesn't name what a step target shows");
+  assert.equal(
+    by["hl-kpi"]?.weight?.value,
+    3,
+    "no bonus: the narration doesn't name what a step target shows",
+  );
   assert.equal(by["co-kpi"]?.weight?.value, 4, "the narration at m1 mentions “churn”");
   assert.match(by["co-kpi"]?.reason ?? "", /mentions “churn” here/);
   assert.equal(by["sp-row"]?.weight?.value, 4, "spotlights never get the bonus");

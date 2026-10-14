@@ -404,11 +404,10 @@ export function overlayFilters(
     const g = `(1+${m.grow}*(1-(${e})))`;
     chain.push(`scale=w='trunc(${op.w}*${g}/2)*2':h='trunc(${op.h}*${g}/2)*2':eval=frame`);
   }
-  if (F > 0)
-    chain.push(
-      `fade=t=in:st=${f3(S)}:d=${f3(F)}:alpha=1`,
-      `fade=t=out:st=${f3(E - F)}:d=${f3(F)}:alpha=1`,
-    );
+  // Slices (previews) can start inside an op: a fade that began before t = 0 is cut to what's left.
+  if (F > 0 && S + F > 0)
+    chain.push(`fade=t=in:st=${f3(Math.max(0, S))}:d=${f3(S >= 0 ? F : S + F)}:alpha=1`);
+  if (F > 0 && E - F > 0) chain.push(`fade=t=out:st=${f3(E - F)}:d=${f3(F)}:alpha=1`);
   let x = String(op.x);
   let y = String(op.y);
   if (m?.grow) {

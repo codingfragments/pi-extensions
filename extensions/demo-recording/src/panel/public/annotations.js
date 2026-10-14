@@ -67,8 +67,9 @@ function BudgetMeter({ budget }) {
   </div>`;
 }
 
-function Preview({ version, item, draftKey }) {
+function Preview({ version, item }) {
   const [still, setStill] = useState(null);
+  const [updating, setUpdating] = useState(false);
   const [clip, setClip] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -81,19 +82,29 @@ function Preview({ version, item, draftKey }) {
     item.factor,
     item.type,
   ]);
+  // Only this item's content decides the preview (the server caches by content too);
+  // the old still stays visible, dimmed, while the new one renders.
   useEffect(() => {
     let live = true;
-    setStill(null);
+    setUpdating(true);
     setClip(null);
     setErr(null);
     queued(() => post("/api/annotation-preview", { version, id: item.id, kind: "still" })).then(
-      (r) => live && setStill(r.still),
-      (e) => live && setErr(e.message),
+      (r) => {
+        if (!live) return;
+        setStill(r.still);
+        setUpdating(false);
+      },
+      (e) => {
+        if (!live) return;
+        setErr(e.message);
+        setUpdating(false);
+      },
     );
     return () => {
       live = false;
     };
-  }, [key, draftKey]);
+  }, [key]);
   const play = async () => {
     setBusy(true);
     try {
@@ -110,7 +121,7 @@ function Preview({ version, item, draftKey }) {
   if (err) return html`<div class="ann-thumb missing" title=${err}>no preview: ${err}</div>`;
   if (clip)
     return html`<video class="ann-thumb" src=${media("project", clip)} controls autoplay muted playsinline></video>`;
-  return html`<div class="ann-thumb">
+  return html`<div class=${`ann-thumb ${updating && still ? "updating" : ""}`}>
     ${still ? html`<img src=${media("project", still)} alt=${`${item.type} preview`} loading="lazy" />` : html`<div class="ann-loading">rendering still…</div>`}
     <button class="play" disabled=${busy} title="render and play a short clip around this annotation (640×360, cached)" onClick=${play}>${busy ? "…" : "▶"}</button>
   </div>`;
@@ -128,13 +139,13 @@ function TextEdit({ item, onSave }) {
   </div>`;
 }
 
-function AnnotationCard({ item, res, version, draftKey, edit }) {
+function AnnotationCard({ item, res, version, edit }) {
   const problem = res && "problem" in res ? res.problem : null;
   const privacy = item.type === "redact" && (item.reason ?? "").startsWith("privacy:");
   const touched =
     item.origin === "edited" || item.origin === "manual" || (item.edits?.length ?? 0) > 0;
   return html`<article class=${`ann-card ${item.enabled ? "on" : "off"} ${problem ? "problem" : ""}`}>
-    <${Preview} version=${version} item=${item} draftKey=${draftKey} />
+    <${Preview} version=${version} item=${item} />
     <div class="ann-body">
       <div class="row">
         <span class="ann-type" title=${LABEL[item.type]}>${ICON[item.type]} ${LABEL[item.type]}</span>
@@ -355,7 +366,7 @@ export function Annotations({ events, stages }) {
           <span class="grow"></span>
           <${SceneDraft} version=${d.version} scene=${sc.id} draftKey=${draftKey} />
         </div>
-        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} draftKey=${draftKey} edit=${edit} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
+        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} edit=${edit} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
       </section>`;
     })}`;
 }

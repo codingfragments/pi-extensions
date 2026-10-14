@@ -260,8 +260,9 @@ export function filterGraph(job: RenderJob, opts: RenderOpts, audioInputs: strin
     }
     let c = `g${k}raw`;
     lines.push(`${ins}concat=n=${n}:v=1:a=0[${c}]`);
-    const inSeg = (o: { startMs: number }) =>
-      o.startMs >= g.startMs - 60 && o.startMs < g.startMs + g.durMs;
+    // Every op overlapping this segment (an op never spans two segments: all pieces under it are hi).
+    const inSeg = (o: { startMs: number; endMs: number }) =>
+      o.startMs < g.startMs + g.durMs && o.endMs > g.startMs;
     let q = 0;
     const step = () => `g${k}p${q++}`;
     for (const b of (ann?.blurs ?? []).filter(inSeg)) {

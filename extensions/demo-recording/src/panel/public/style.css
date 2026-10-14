@@ -1634,3 +1634,7 @@ button.tiny {
   width: min(640px, 100%);
   border-radius: 8px;
 }
+.ann-thumb.updating img {
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}

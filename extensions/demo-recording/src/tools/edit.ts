@@ -38,6 +38,10 @@ export function editSummary(r: EditResult): string {
     );
   }
   lines.push(`per-scene videos: ${r.outDir}/scenes/`);
+  if (r.annotations) {
+    lines.push(`annotations v${r.annotations.version}: ${r.annotations.applied} burned in`);
+    for (const w of r.annotations.warnings) lines.push(`  ! ${w}`);
+  }
   if (r.timeline.totals.worstDriftMs > 150) {
     lines.push(
       "Narration runs past its moment somewhere: shorten that section's text before the anchor, or move the anchor.",
@@ -72,6 +76,7 @@ export function startEdit(
   rt: Runtime,
   action: "start" | "rerender",
   brand?: string,
+  annotations?: number,
 ): Job<EditResult> {
   const p = rt.requireProject();
   const cfg = rt.getConfig();
@@ -92,7 +97,7 @@ export function startEdit(
             projectDir: p.dir,
             config: cfg,
             timelineVersion,
-            variant: { brand: brand ?? cfg.brand },
+            variant: { brand: brand ?? cfg.brand, ...(annotations ? { annotations } : {}) },
             signal,
             onProgress: progress("re-rendering"),
           })
@@ -142,6 +147,12 @@ export function registerEditTool(pi: ExtensionAPI, rt: Runtime): void {
           description: "default start",
         }),
       ),
+      annotations: Type.Optional(
+        Type.Number({
+          description:
+            "rerender: burn in this annotations version (out/edit-vN/<brand>+aN/, next to the clean render)",
+        }),
+      ),
       brand: Type.Optional(
         Type.String({
           description:
@@ -165,7 +176,11 @@ export function registerEditTool(pi: ExtensionAPI, rt: Runtime): void {
         if (j) j.controller.abort();
         return result(j ? `cancelling ${j.id}` : "no edit running");
       }
-      const job = startEdit(rt, action, params.brand);
+      if (params.annotations !== undefined && action !== "rerender")
+        throw new Error(
+          "annotations go with action=rerender (re-render the latest edit with them)",
+        );
+      const job = startEdit(rt, action, params.brand, params.annotations);
       return result(
         `Edit started (${job.id}). You'll get a [demo-recording] message with the output paths and sync stats — don't poll.`,
         { job: job.id },

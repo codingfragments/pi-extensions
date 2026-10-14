@@ -207,7 +207,8 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
           typeof body.instructions === "string" ? body.instructions.trim().slice(0, 2000) : "";
         const base =
           body.version !== undefined && body.version !== null ? versionOf(body) : undefined;
-        if (readDraft(p.dir)?.base === base)
+        const draft = readDraft(p.dir);
+        if (draft && base !== undefined && draft.base === base)
           throw new Error(
             "save or discard the unsaved changes first — re-suggest keeps saved changes only",
           );

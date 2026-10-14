@@ -12,7 +12,7 @@ import { Type } from "typebox";
 import { analyzeTake, formatAnalysis, readAnalysis } from "../analysis/take.ts";
 import { visionWarning } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
-import { acceptTake, readState } from "../workdir/state.ts";
+import { acceptTake, acceptedTakeId, readState } from "../workdir/state.ts";
 import { type ToolContent, result, text } from "./common.ts";
 
 export interface TakeInfo {
@@ -83,7 +83,7 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
             .map(
               (t) =>
                 `${t.id}: ${t.status}, storyboard v${t.storyboardVersion}${t.durationMs ? `, ${(t.durationMs / 1000).toFixed(1)} s` : ""}` +
-                `${t.id === state.acceptedTake ? " (accepted)" : ""}`,
+                `${t.id === acceptedTakeId(state) ? " (accepted)" : ""}`,
             )
             .join("\n"),
         );

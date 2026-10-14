@@ -13,6 +13,7 @@ import { EventBus } from "../src/bus.ts";
 import { panelRoutes } from "../src/panel/routes.ts";
 import { type PanelHandle, startPanel } from "../src/panel/server.ts";
 import { writeStoryboard } from "../src/storyboard/store.ts";
+import { readInputs } from "../src/workdir/inputs.ts";
 import { appDir, ensureProject, openProject } from "../src/workdir/layout.ts";
 import { readState, requireApproved } from "../src/workdir/state.ts";
 
@@ -128,6 +129,14 @@ test("review → submit sends ONE consolidated message to the agent", async () =
   assert.match(notified[0] ?? "", /02-b \(Search\): CHANGES — "type slower"/);
   assert.ok(events.includes("review.updated") && events.includes("review.submitted"));
   assert.ok(readState(projectDir)?.reviews?.["1"]?.submittedAt);
+  // The submitted review is part of the project's memory (input log).
+  const logged = readInputs(projectDir);
+  assert.equal(logged.length, 1);
+  assert.deepEqual(
+    [logged[0]?.stage, logged[0]?.version, logged[0]?.source, logged[0]?.kind],
+    ["storyboard", 1, "panel", "review"],
+  );
+  assert.match(logged[0]?.text ?? "", /02-b: changes — type slower/);
 });
 
 test("approve flips the gate, sets phase, informs the agent", async () => {

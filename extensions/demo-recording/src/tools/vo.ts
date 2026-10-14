@@ -12,7 +12,7 @@ import { type TakeAnalysis, readAnalysis } from "../analysis/take.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatIssues } from "../vo/script.ts";
 import { readVo, voVersions, writeVo } from "../vo/store.ts";
-import { getReview, readState } from "../workdir/state.ts";
+import { acceptedTakeId, getReview, readState } from "../workdir/state.ts";
 import { result } from "./common.ts";
 import { defaultTake } from "./take.ts";
 
@@ -70,7 +70,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
       const state = readState(p.dir) ?? p.state;
       if (params.action === "template") {
         const take =
-          params.take ?? state.acceptedTake ?? defaultTake(p.dir, state.approved.storyboard)?.id;
+          params.take ?? acceptedTakeId(state) ?? defaultTake(p.dir, state.approved.storyboard)?.id;
         if (!take) throw new Error("no complete take yet");
         const analysis = readAnalysis(path.join(p.dir, "takes", take));
         if (!analysis)
@@ -101,6 +101,11 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         [
           `Stored voice-over v${stored.version} for ${stored.validated.script.take} at ${stored.file}.`,
           formatIssues(stored.validated) || "No issues.",
+          ...(stored.validated.script.take !== acceptedTakeId(readState(p.dir) ?? state)
+            ? [
+                `⚠ ${stored.validated.script.take} is not the accepted recording (${acceptedTakeId(readState(p.dir) ?? state) ?? "none accepted"}): this voice-over can only be approved after \`demo_rec_take accept take=${stored.validated.script.take}\` (the stage chain: storyboard → recording → voice-over).`,
+              ]
+            : []),
           `The user reviews it in the panel (Voice tab): ${panel.url}. Wait for their [demo-panel] feedback; voice synthesis needs their approval.`,
         ].join("\n"),
         { version: stored.version },

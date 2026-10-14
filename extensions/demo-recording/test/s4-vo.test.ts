@@ -19,7 +19,7 @@ import {
 } from "../src/vo/script.ts";
 import { editVoSection, readVo, voVersions, writeVo } from "../src/vo/store.ts";
 import { ensureProject, openProject } from "../src/workdir/layout.ts";
-import { readState, requireApproved } from "../src/workdir/state.ts";
+import { acceptTake, approve, readState, requireApproved } from "../src/workdir/state.ts";
 
 function analysis(take = "take-001"): TakeAnalysis {
   const scene = (
@@ -350,6 +350,21 @@ test("panel: GET vo, per-section review, inline edit, approve gate", async () =>
   assert.deepEqual(voVersions(p.dir), [1, 2]);
 
   assert.throws(() => requireApproved(readState(p.dir) ?? p.state, "vo"));
+  // Stage chain: the voice-over needs an accepted recording, which needs an approved storyboard.
+  const chainless = await post("/api/approve", { artifact: "vo", version: 2 });
+  assert.equal(chainless.status, 400);
+  assert.match(
+    ((await chainless.json()) as { error: string }).error,
+    /approve the recording first/,
+  );
+  fs.mkdirSync(path.join(p.dir, "storyboard"), { recursive: true });
+  fs.writeFileSync(path.join(p.dir, "storyboard", "v1.yaml"), "version: 1\n");
+  fs.writeFileSync(
+    path.join(takeDir, "take.json"),
+    JSON.stringify({ take: "take-001", storyboardVersion: 1 }),
+  );
+  approve(p.dir, "storyboard", 1);
+  acceptTake(p.dir, "take-001");
   assert.equal((await post("/api/approve", { artifact: "vo", version: 2 })).status, 200);
   const state = readState(p.dir);
   assert.ok(state);

@@ -18,6 +18,7 @@ import { brandRoutes } from "./panel/brand-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { readManifest } from "./tts/synthesize.ts";
+import { projectContext } from "./workdir/context.ts";
 import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/layout.ts";
 
 /** The subset of ExtensionAPI the runtime needs (keeps tests and the CLI simple). */
@@ -151,6 +152,28 @@ export class Runtime {
   }
 
   /** Deliver a panel action to the director as a user message. */
+  /**
+   * Put the active project's memory (brief, lineage, active inputs; D42) into
+   * the agent's next turn without starting one — on /demo open and session
+   * restore, so the agent works from the same memory the panel shows.
+   */
+  primeContext(): void {
+    const p = this.activeProject();
+    if (!p || !this.agent?.sendMessage) return;
+    try {
+      this.agent.sendMessage(
+        {
+          customType: "demo-recording-context",
+          content: `[demo-recording] ${projectContext(p.dir, p.slug)}`,
+          display: false,
+        },
+        { triggerTurn: false, deliverAs: "nextTurn" },
+      );
+    } catch (err) {
+      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+    }
+  }
+
   notifyAgent(text: string): void {
     this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
     if (!this.agent) return;

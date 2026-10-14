@@ -639,8 +639,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 1 | Model and config guards, config skill, voice picker | ✅ #33 |
 | 2 | Brands: package format, renderer, tool/skill/commands, Brand tab | ✅ #34, #37, #38 |
 | — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
-| 3 | Stage model + project input log | next |
-| 4 | Control-room shell (stage tabs, Live side panel) | |
+| 3 | Stage model + project input log | ✅ |
+| 4 | Control-room shell (stage tabs, Live side panel) | next |
 | 5 | Config UI (Settings · Brands · Project context) | |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
 | 7 | Annotation rendering (engine) | |
@@ -694,7 +694,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - `annotations` — `annotations/vN.json`.
   - `render` — `render/vN.json` plus outputs.
 - **Versioning:** every version records **`basedOn`** (exactly one parent version). Version numbers count up per stage and are not hierarchical.
-- **`state.json` schema 2:** `stages.<stage> = { approved?: N, latest?: N, stale?: { reason, at } }`, plus `history`. The old `approved.storyboard`, `approved.vo` and `acceptedTake` fields are migrated on first open, with a backup kept as `state.v1.json`.
+- **`state.json` schema 2:** `approved.<stage>` for all five stages (recording = take number) plus `history`. The latest version, its `basedOn` and the stale flags are **computed from the artifacts** (`src/workdir/stages.ts`), never stored, so they can't drift from the files. Schema-1 files are migrated on first read (`acceptedTake` → `approved.recording`, off-chain approvals dropped, submitted reviews copied into the input log), with a backup kept as `state.v1.json`.
 - **Cascade reset (D33).** A new approved upstream version clears the downstream approvals and marks the downstream drafts as *based on an outdated parent*. Nothing is deleted, old versions stay readable, and "import from vN" (annotations, part 8) reuses work. Enforced in the engine:
   - `demo_rec_record` needs an approved storyboard;
   - `demo_rec_tts` needs an approved VO whose `basedOn` take is the accepted recording;
@@ -730,6 +730,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Live control-room panel:**
   - **Layout:** a right-side slide-out (~360 px), which becomes a bottom drawer below ~1100 px. Collapsible: the collapsed rail still shows the current stage, the activity or "waiting for you", and the progress bar.
   - **Contents:** always the log stream, plus a segmented progress bar and a frame preview (latest discovery/recording frame, render thumbnail) when the activity has them.
+  - **Multiple progress rows:** the progress component supports several rows at once, so parallel work (e.g. the parallel discovery lanes in [FUTURE_IDEAS.md](FUTURE_IDEAS.md), or render variants) shows one row per lane under a shared segment.
   - **Per stage:** each stage contributes its own components (e.g. the Recording stage shows scene segments and improvise events; Render shows per-variant progress) and can toggle them.
 - **The old Live tab content** (discovery card, recording progress) moves into the Live panel. Review and Voice become the Storyboard and Voice over tabs, unchanged inside. The Brand tab moves to Config (part 5).
 

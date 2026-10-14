@@ -24,6 +24,7 @@ import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
 import { briefVoice } from "../tts/factory.ts";
+import { recordInput } from "../workdir/inputs.ts";
 import { ensureProject, listProjects, openProject } from "../workdir/layout.ts";
 
 export const ACTIVE_ENTRY = "demo-recording.active";
@@ -105,6 +106,12 @@ async function cmdNew(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
 function cmdDiscover(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: ExtensionCommandContext) {
   const p = rt.requireProject();
   const notes = rest.join(" ").trim();
+  recordInput(p.dir, {
+    stage: "discovery",
+    source: "command",
+    kind: "direction",
+    text: notes ? `/demo discover: ${notes}` : "",
+  });
   pi.sendUserMessage(
     `/skill:demo-recording Discover ${p.app.name} (${p.app.baseUrl}) for demo project "${p.slug}" and propose a storyboard ` +
       `based on brief.md.${notes ? ` Extra notes from me: ${notes}` : ""}`,
@@ -135,6 +142,7 @@ async function cmdOpen(
   const handle = openProject(root, project);
   rt.setActiveProject(handle.slug);
   pi.appendEntry(ACTIVE_ENTRY, { project: handle.slug });
+  rt.primeContext();
   const panel = await rt.ensurePanel();
   report(ctx, `active project: ${handle.slug} (phase: ${handle.state.phase})\npanel: ${panel.url}`);
 }
@@ -146,6 +154,12 @@ function kick(pi: ExtensionAPI, text: string) {
 function cmdVoiceover(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: ExtensionCommandContext) {
   const p = rt.requireProject();
   const notes = rest.join(" ").trim();
+  recordInput(p.dir, {
+    stage: "vo",
+    source: "command",
+    kind: "direction",
+    text: notes ? `/demo voiceover: ${notes}` : "",
+  });
   kick(
     pi,
     `/skill:demo-voiceover Analyze the latest complete take of "${p.slug}" (demo_rec_take analyze), accept it, and write the voice-over ` +

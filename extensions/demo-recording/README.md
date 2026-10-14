@@ -51,6 +51,20 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
   The result message lists per-scene cuts, holds, pauses and any off-sync anchors.
 - **Output:** 1920×1080, 30 fps H.264, AAC, loudness-normalized to −16 LUFS.
 
+### Stages and project memory (S5)
+
+- **Stage chain:** storyboard → recording (take) → voice-over → annotations → render.
+  - Every version is based on exactly one parent version, read from the files themselves.
+  - An approval only goes through when the version chains up to the approved parent.
+  - A new upstream approval resets everything below it; nothing is deleted.
+  - `demo_rec_project status` shows the lineage and flags stale drafts.
+- **Project memory:** `inputs.jsonl` records every directional input:
+  - `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits;
+  - brief versions;
+  - chat directions, sources and assets the agent notes with `demo_rec_project note`.
+
+  Withdrawn directions are marked outdated (never deleted). `demo_rec_project context` returns the brief, the lineage and the active inputs; `/demo open` and a session restore put that context into the agent's next turn.
+
 ### Brands (S5)
 
 Every render uses a **brand package**, which sets:

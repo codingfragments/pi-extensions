@@ -32,6 +32,38 @@ side panel and talks back through `[demo-panel]` messages.
   story. Don't explore by submitting forms.
 - Stay inside the brief's *must avoid* list.
 
+## Stage chain and project memory
+
+Work moves through a **strict chain**: storyboard → recording (take) →
+voice-over → annotations → render.
+- **One parent per version.** Every version is based on exactly one version
+  of the stage before it: a take records its storyboard version, a voice-over
+  names its take.
+- **Approvals chain up.** The engine only accepts an approval when the
+  version chains up to the approved parent. A voice-over can only be approved
+  for the **accepted** take, so `demo_rec_take accept` comes first.
+- **Cascade reset.** A new approved upstream version resets the approvals
+  below it. Nothing is deleted. `demo_rec_project status` shows the lineage
+  and flags stale drafts ("based on storyboard v1; approved is v2").
+
+**The project's memory** lives in the project, not in this chat:
+- **Read it first.** When you (re)open a project, or see a
+  `[demo-recording] # Project context …` message, read
+  `demo_rec_project context`: the brief, the lineage, and every active input
+  (commands, panel reviews, earlier chat directions). Follow it.
+- **Record directions as they come.** When the user gives a project-relevant
+  direction, source or asset in chat ("keep it under 3 minutes", "here's
+  their pricing page", "never show the admin area"), record it right away
+  with `demo_rec_project note text=… kind=direction|source|asset stage=…`,
+  in their words. One input per note. Small talk and one-off questions are
+  not inputs.
+- **Withdrawals.** When the user takes a direction back ("forget the
+  pricing angle"), mark that input outdated:
+  `demo_rec_project mark id=in-NNNN reason=…`. Never re-add it from memory.
+- **Already logged:** `/demo discover` and `/demo voiceover` notes, submitted
+  panel reviews and inline edits are logged automatically. Don't note them
+  again.
+
 ## Discovery method (vision-first)
 
 1. `demo_rec_project status`, then read the brief (`read_brief`). Know the

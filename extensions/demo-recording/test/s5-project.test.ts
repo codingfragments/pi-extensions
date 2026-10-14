@@ -479,6 +479,16 @@ test(
         "live title-card preview",
       );
       await page.locator(".length-picker .chip", { hasText: /^1 min–1:30$/ }).click();
+      await page.locator(".length-picker .sliders input").nth(1).fill("1800");
+      assert.match(
+        (await page.locator(".length-picker small").textContent()) ?? "",
+        /target 1 min–30 min/,
+        "max goes up to 30 min",
+      );
+      assert.equal(
+        await page.locator(".length-picker .chip", { hasText: /^15 min–30 min$/ }).count(),
+        1,
+      );
       await page.locator(".length-picker .sliders input").nth(1).fill("120");
       assert.match(
         (await page.locator(".length-picker small").textContent()) ?? "",

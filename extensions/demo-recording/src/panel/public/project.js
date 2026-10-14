@@ -18,9 +18,11 @@ const LENGTH_PRESETS = [
   [120, 180],
   [180, 300],
   [300, 480],
+  [480, 900],
+  [900, 1800],
 ];
 const LEN_MIN = 15;
-const LEN_MAX = 900;
+const LEN_MAX = 1800; // 30 min
 const LEN_STEP = 15;
 
 /** Seconds → "45 s", "1:30", "3 min". */

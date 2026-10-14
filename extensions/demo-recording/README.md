@@ -16,12 +16,12 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
 1. `/demo new <project> <app-url> [app name]`: creates the project, opens the panel, and starts the **demo-brief** skill (it drafts `brief.md` with you).
 2. `/demo discover [notes]`: the **demo-recording** skill explores the app with `demo_rec_browser`. You can watch it live in the panel: current screen, budget, and a safety feed.
-3. The agent writes a storyboard (`demo_rec_storyboard`). The panel **Review** tab shows scene cards. Mark each scene *Approve / Request changes / Re-run*, add notes, then **Send review to agent**. You get one consolidated `[demo-panel]` message, and the agent writes the next version, with a diff shown.
+3. The agent writes a storyboard (`demo_rec_storyboard`). The panel **Storyboard** tab shows scene cards. Mark each scene *Approve / Request changes / Re-run*, add notes, then **Send review to agent**. You get one consolidated `[demo-panel]` message, and the agent writes the next version, with a diff shown.
 4. **Approve vN** in the panel. This is the only way to approve; the agent cannot.
 5. Ask the agent to record: `demo_rec_record` starts a **background** take of the approved version. The panel shows a per-scene progress bar with ETA, and pi's footer shows the current step. The agent gets a `[demo-recording]` message with the result.
 
 6. After the take, the agent analyzes it (`demo_rec_take`) and writes the voice-over (`demo_rec_vo`, **demo-voiceover** skill). It's written from the actual run and quotes real on-screen values.
-7. The panel **Voice** tab shows each section with a speech-vs-footage timing bar. You can edit inline (each save is a new version), mark sections, send the review, and **Approve**. Approval unlocks the paid voice synthesis.
+7. The panel **Voice over** tab shows each section with a speech-vs-footage timing bar. You can edit inline (each save is a new version), mark sections, send the review, and **Approve**. Approval unlocks the paid voice synthesis.
 8. `demo_rec_tts` generates the voice and `demo_rec_edit` renders it: `projects/<p>/out/edit-vN/scenes/NN-<scene>.mp4`, `full.mp4` and `timeline.json`.
 
 ### Voice-over and edit (S4)
@@ -65,6 +65,17 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
   Withdrawn directions are marked outdated (never deleted). `demo_rec_project context` returns the brief, the lineage and the active inputs; `/demo open` and a session restore put that context into the agent's next turn.
 
+### Panel: the control room (S5)
+
+- **Tabs follow the stages:** Storyboard · Recording · Voice over · Annotations · Render · Config.
+  - **Shared header:** each stage tab shows the lineage (latest version, what it's based on), the approval, a stale flag, what approving another version would reset, and "→ you: …" when the project is waiting for you. A dot on the tab marks the stage that needs you.
+  - **Cascade confirmation:** every approval does a dry run first, and the confirmation lists what the stage chain would reset.
+- **Recording tab:** takes newest first, grouped by storyboard version, with status, duration, analysis state, a keyframe per scene and the raw take as video. *Accept take* is chain-checked. *Request a new take* asks the agent, with optional notes, and the request goes into the input log.
+- **Live panel:** a collapsible right-hand panel; below 1100 px wide it becomes a bottom drawer.
+  - **Contents:** one progress row per running activity (discovery, recording, analysis, voice, render), a frame preview (the live frame of a running take, or the current discovery screen), safety, the project chain and the log.
+  - **Collapsed:** a one-line strip with the stage, the activity or "waiting for you", and a mini progress bar.
+  - **Per tab:** sections can be toggled and are remembered.
+
 ### Brands (S5)
 
 Every render uses a **brand package**, which sets:
@@ -79,9 +90,9 @@ Every render uses a **brand package**, which sets:
 | user brands | `<root>/brands/<name>/`, outside this repo, so company logos never end up in a public package |
 | create | `/demo brand new path/to/brand.zip`: the `demo-brand` skill inspects logos (rendered, luminance-checked) and colors, proposes a mapping, creates the brand, and shows a preview |
 | default | config `brand` (`/demo brand use <name> [--project]`, diff-confirmed) |
-| switch | `/demo brand rerender <name>`, or the panel **Brand** tab: re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
+| switch | `/demo brand rerender <name>`, or the panel **Render** tab (brand dropdown): re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
 
-The Brand tab previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
+The panel **Config → Brands** section previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
 
 Full reference, with every option, the automatic decisions and the render chain: [docs/BRANDS.md](docs/BRANDS.md).
 

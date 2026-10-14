@@ -17,6 +17,7 @@ import { Jobs } from "./jobs.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
+import { stageRoutes } from "./panel/stage-routes.ts";
 import { readManifest } from "./tts/synthesize.ts";
 import { projectContext } from "./workdir/context.ts";
 import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/layout.ts";
@@ -243,12 +244,17 @@ export class Runtime {
         },
       });
       const brand = brandRoutes(this);
+      const stages = stageRoutes({
+        activeProject: () => this.activeProject(),
+        notifyAgent: (text) => this.notifyAgent(text),
+        publish: (type, data, project) => this.bus.publish(type, data, project),
+      });
       this.panelStarting = startPanel({
         bus: this.bus,
         port: this.getConfig().panelPort,
         getState: () => this.snapshot(),
-        get: { ...routes.get, ...brand.get },
-        post: { ...routes.post, ...brand.post },
+        get: { ...routes.get, ...brand.get, ...stages.get },
+        post: { ...routes.post, ...brand.post, ...stages.post },
         media: () => {
           const root = this.getConfig().root;
           const p = this.activeProject();

@@ -1,305 +1,21 @@
-// demo-recording side panel — LIVE + REVIEW (S2). Preact + htm, vendored, no build.
-import {
-  html,
-  render,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "/vendor/preact-htm.module.js";
-
-// The token arrives once via ?token=; keep it in sessionStorage (this tab only)
-// so reloads keep working, and strip it from the visible URL / history.
-const TOKEN_KEY = "demo-rec-token";
-const urlToken = new URLSearchParams(location.search).get("token");
-if (urlToken) sessionStorage.setItem(TOKEN_KEY, urlToken);
-const token = urlToken ?? sessionStorage.getItem(TOKEN_KEY) ?? "";
-if (urlToken) history.replaceState(null, "", location.pathname);
+// demo-recording side panel — the control room (S5 part 4): stage tabs
+// Storyboard · Recording · Voice over · Annotations · Render · Config, each
+// with a shared stage header, plus the collapsible Live panel. Preact + htm,
+// vendored, no build.
+import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
+import { LivePanel } from "./live.js";
+import { Recording } from "./recording.js";
+import { StageHeader, confirmApproval, useStages } from "./stages.js";
 
 const TABS = [
-  { id: "live", label: "Live", ready: true },
-  { id: "review", label: "Review", ready: true },
-  { id: "voice", label: "Voice", ready: true },
-  { id: "brand", label: "Brand", ready: true },
-  { id: "export", label: "Export", ready: false, slice: "S5" },
+  { id: "storyboard", label: "Storyboard", stage: "storyboard" },
+  { id: "recording", label: "Recording", stage: "recording" },
+  { id: "voice", label: "Voice over", stage: "vo" },
+  { id: "annotations", label: "Annotations", stage: "annotations" },
+  { id: "render", label: "Render", stage: "render" },
+  { id: "config", label: "Config", stage: null },
 ];
-
-async function api(path) {
-  const res = await fetch(path, { headers: { authorization: `Bearer ${token}` } });
-  if (res.status === 401)
-    throw new Error(
-      "This panel link has expired (pi restarted). Open the current link from /demo panel.",
-    );
-  if (!res.ok) throw new Error(`${path}: ${res.status}`);
-  return res.json();
-}
-
-async function post(path, body) {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? `${path}: ${res.status}`);
-  return json;
-}
-
-const media = (root, rel) => `/media/${root}/${rel}?token=${token}`;
-const screenUrl = (screen) => {
-  const [session, id] = String(screen).split("/");
-  return media("app", `discovery/${session}/screens/${id}.jpg`);
-};
-
-function useBus() {
-  const [events, setEvents] = useState([]);
-  const [status, setStatus] = useState("connecting");
-  const lastSeq = useRef(0);
-
-  useEffect(() => {
-    let ws;
-    let retry = 500;
-    let stopped = false;
-    const connect = () => {
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${proto}://${location.host}/ws?token=${token}&after=${lastSeq.current}`);
-      ws.onopen = () => {
-        setStatus("live");
-        retry = 500;
-      };
-      ws.onmessage = (msg) => {
-        const event = JSON.parse(msg.data);
-        if (event.seq <= lastSeq.current) return;
-        lastSeq.current = event.seq;
-        setEvents((prev) => [...prev.slice(-999), event]);
-      };
-      ws.onclose = () => {
-        if (stopped) return;
-        setStatus("reconnecting");
-        setTimeout(connect, retry);
-        retry = Math.min(retry * 2, 8000);
-      };
-    };
-    connect();
-    return () => {
-      stopped = true;
-      ws?.close();
-    };
-  }, []);
-  return { events, status };
-}
-
-/** Refetch `path` whenever a bus event whose type matches `re` arrives. */
-function useApi(path, events, re) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const relevant = events.filter((e) => re.test(e.type)).at(-1)?.seq ?? 0;
-  const reload = useCallback(() => {
-    api(path).then(
-      (d) => {
-        setData(d);
-        setError(null);
-      },
-      (e) => setError(String(e)),
-    );
-  }, [path]);
-  // Refetch whenever a relevant bus event arrives (relevant changes).
-  useEffect(() => reload(), [reload, relevant]);
-  return { data, error, reload };
-}
-
-// ---------------- LIVE ----------------
-
-function StatusCard({ state, error }) {
-  if (error) return html`<section class="card error">${error}</section>`;
-  if (!state) return html`<section class="card muted">loading…</section>`;
-  const p = state.project;
-  return html`
-    <section class="card">
-      <h2>${p ? p.slug : "No active project"}</h2>
-      ${
-        p
-          ? html`<dl>
-            <dt>App</dt><dd>${p.app.name} <span class="muted">${p.app.baseUrl}</span></dd>
-            <dt>Phase</dt><dd><span class="pill">${p.state.phase}</span></dd>
-            <dt>Approved</dt><dd>
-              storyboard ${p.state.approved.storyboard ? `v${p.state.approved.storyboard}` : "—"} ·
-              voice-over ${p.state.approved.vo ? `v${p.state.approved.vo}` : "—"}
-            </dd>
-            <dt>Folder</dt><dd class="mono">${p.dir}</dd>
-          </dl>`
-          : html`<p class="muted">Run <code>/demo new</code> or <code>/demo open</code> in pi.</p>`
-      }
-    </section>`;
-}
-
-function DiscoveryCard({ events }) {
-  const look = events.filter((e) => e.type === "discovery.look").at(-1);
-  const opened = events
-    .filter((e) => e.type === "discovery.opened" || e.type === "discovery.closed")
-    .at(-1);
-  const safety = events
-    .filter((e) => e.type === "safety.blocked" || e.type === "safety.mutation")
-    .slice(-6)
-    .reverse();
-  if (!look && !opened) return null;
-  const closed = opened?.type === "discovery.closed";
-  const b = look?.data?.budget;
-  return html`
-    <section class="card discovery">
-      <div class="shot">
-        ${look ? html`<img src=${media("app", look.data.media)} alt="current screen" />` : html`<div class="muted">waiting for first look…</div>`}
-      </div>
-      <div class="side">
-        <h3>Discovery ${closed ? html`<span class="pill muted-pill">closed</span>` : html`<span class="pill">live</span>`}</h3>
-        ${look ? html`<p class="mono small-text">${look.data.screen}<br />${look.data.title}<br /><span class="muted">${look.data.url}</span></p>` : null}
-        ${b ? html`<p class="small-text">screens ${b.screens} · actions ${b.actions} · min ${b.minutes}${b.exhausted ? html` <strong class="warn">exhausted</strong>` : null}</p>` : null}
-        <h3>Safety</h3>
-        ${
-          safety.length
-            ? html`<ul class="safety">${safety.map(
-                (e) => html`<li class=${e.type === "safety.blocked" ? "blocked" : "mutating"}>
-                  <strong>${e.type === "safety.blocked" ? "blocked" : "state change"}</strong> ${e.data.action} ${e.data.name ? `"${e.data.name}"` : ""}
-                  <div class="muted small-text">${e.data.reason}</div>
-                </li>`,
-              )}</ul>`
-            : html`<p class="muted small-text">no state-changing actions so far</p>`
-        }
-      </div>
-    </section>`;
-}
-
-function EventLog({ events }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [events.length]);
-  return html`
-    <section class="card grow">
-      <h3>Activity</h3>
-      <ol class="log" ref=${ref}>
-        ${events.map(
-          (
-            e,
-          ) => html`<li key=${e.seq} class=${e.type.startsWith("safety.") ? e.type.replace(".", "-") : ""}>
-            <time>${new Date(e.at).toLocaleTimeString()}</time>
-            <span class="type">${e.type}</span>
-            ${e.data ? html`<span class="data">${summarize(e.data)}</span>` : null}
-          </li>`,
-        )}
-      </ol>
-    </section>`;
-}
-
-function summarize(data) {
-  if (typeof data.message === "string") return data.message;
-  return Object.entries(data)
-    .filter(([k]) => k !== "budget")
-    .map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : v}`)
-    .join(" ")
-    .slice(0, 300);
-}
-
-const mmss = (ms) =>
-  `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
-
-function SegmentBar({ segments }) {
-  // segments: [{ key, label, weight, done (0..1), state: "done"|"current"|"todo", restarted? }]
-  return html`<div class="segbar">
-    ${segments.map(
-      (
-        s,
-      ) => html`<div key=${s.key} class=${`seg ${s.state}${s.restarted ? " restarted" : ""}`} style=${`flex:${Math.max(0.02, s.weight)}`} title=${s.label}>
-        <div class="fill" style=${`width:${Math.round(s.done * 100)}%`}></div>
-        <span>${s.label}</span>
-      </div>`,
-    )}
-  </div>`;
-}
-
-function RecordingProgress({ events }) {
-  const last = events
-    .filter(
-      (e) => e.type === "take.progress" || e.type === "take.started" || e.type === "take.finished",
-    )
-    .at(-1);
-  if (!last || last.type === "take.started")
-    return last
-      ? html`<section class="card progress"><h3>Recording</h3><p class="muted">starting…</p></section>`
-      : null;
-  if (last.type === "take.finished") {
-    return html`<section class="card progress"><h3>Recording <span class=${`pill ${last.data.status === "done" ? "" : "muted-pill"}`}>${last.data.status}</span></h3><p class="small-text">${last.data.message}</p></section>`;
-  }
-  const p = last.data.progress;
-  const segments = p.scenes.map((s, i) => ({
-    key: s.id,
-    label: `${i + 1}. ${s.title}${s.attempt > 1 ? ` (retry ${s.attempt - 1})` : ""}`,
-    weight: s.weight,
-    done: s.done,
-    state: s.done >= 0.999 ? "done" : i + 1 === p.scene.index ? "current" : "todo",
-    restarted: s.attempt > 1,
-  }));
-  return html`<section class="card progress">
-    <h3>Recording <span class="pill">${Math.round(p.fraction * 100)}%</span> ${p.phase !== "recording" ? html`<span class="muted small-text">${p.phase}</span>` : null}</h3>
-    <${SegmentBar} segments=${segments} />
-    <p class="small-text">scene ${p.scene.index}/${p.scene.total} · step ${p.step.index}/${p.step.total} · ${p.step.label}
-      <span class="muted"> · ${mmss(p.elapsedMs)} elapsed · ~${mmss(p.etaMs)} left</span></p>
-  </section>`;
-}
-
-function DiscoveryProgress({ events }) {
-  const last = events
-    .filter((e) => e.type === "discovery.progress" || e.type === "discovery.opened")
-    .at(-1);
-  if (!last || last.type !== "discovery.progress") return null;
-  // Once a take has started, discovery is over — don't show a stale bar.
-  const takeStarted = events.filter((e) => e.type === "take.started").at(-1);
-  if (takeStarted && takeStarted.seq > last.seq) return null;
-  const p = last.data.progress;
-  const exploreShare = 0.88;
-  const segments =
-    p.mode === "plan"
-      ? [
-          ...p.areas.map((a) => ({
-            key: a.name,
-            label: a.name,
-            weight: exploreShare / p.areas.length,
-            done: a.status === "done" ? 1 : 0,
-            state: a.status,
-          })),
-          {
-            key: "_write",
-            label: "storyboard",
-            weight: 1 - exploreShare,
-            done: p.fraction >= 1 ? 1 : 0,
-            state: p.fraction >= 1 ? "done" : "todo",
-          },
-        ]
-      : [
-          {
-            key: "_budget",
-            label: "budget used (upper bound)",
-            weight: 1,
-            done: p.budgetFraction,
-            state: "current",
-          },
-        ];
-  return html`<section class="card progress">
-    <h3>Discovery <span class="pill">${Math.round(p.fraction * 100)}%</span></h3>
-    <${SegmentBar} segments=${segments} />
-    <p class="small-text">${last.data.message}</p>
-  </section>`;
-}
-
-function Live({ events, state, stateError }) {
-  return html`
-    <${StatusCard} state=${state} error=${stateError} />
-    <${RecordingProgress} events=${events} />
-    <${DiscoveryProgress} events=${events} />
-    <${DiscoveryCard} events=${events} />
-    <${EventLog} events=${events} />`;
-}
 
 // ---------------- REVIEW ----------------
 
@@ -387,7 +103,7 @@ function SceneCard({ scene, index, review, diffKind, readOnly, onReview }) {
     </article>`;
 }
 
-function Review({ events }) {
+function Review({ events, stages }) {
   const [version, setVersion] = useState(null);
   const path = version ? `/api/storyboard?version=${version}` : "/api/storyboard";
   const { data, error, reload } = useApi(path, events, /^(storyboard\.|review\.|project\.)/);
@@ -430,6 +146,7 @@ function Review({ events }) {
   const marked = Object.keys(data.review?.scenes ?? {}).length;
 
   return html`
+    <${StageHeader} stages=${stages} stage="storyboard" />
     <section class="card review-head">
       <div class="row">
         <h2>Storyboard v${data.version}</h2>
@@ -483,8 +200,15 @@ function Review({ events }) {
                   await post("/api/review-note", { version: data.version, note: overall });
                 await post("/api/review-submit", { version: data.version });
               }, "review sent to the agent")}>Send review to agent</button>
-            <button class="primary" disabled=${busy || isApproved} onClick=${() =>
-              confirm(`Approve storyboard v${data.version}? Recording will be unlocked.`) &&
+            <button class="primary" disabled=${busy || isApproved} onClick=${async () =>
+              (
+                await confirmApproval(
+                  "storyboard",
+                  data.version,
+                  `storyboard v${data.version}`,
+                  "Recording will be unlocked.",
+                )
+              ) &&
               run(
                 () => post("/api/approve", { artifact: "storyboard", version: data.version }),
                 `v${data.version} approved`,
@@ -581,7 +305,7 @@ function VoSection({ section, timing, fit, issues, review, readOnly, onReview, o
   </article>`;
 }
 
-function Voice({ events }) {
+function Voice({ events, stages }) {
   const [version, setVersion] = useState(null);
   const path = version ? `/api/vo?version=${version}` : "/api/vo";
   const { data, error, reload } = useApi(path, events, /^(vo\.|review\.|project\.|take\.|tts\.)/);
@@ -626,6 +350,7 @@ function Voice({ events }) {
   const totalSpeech = data.timing.reduce((n, t) => n + t.speechSec, 0);
   const totalFootage = data.timing.reduce((n, t) => n + t.usableSec, 0);
   return html`
+    <${StageHeader} stages=${stages} stage="vo" />
     <section class="card review-head">
       <div class="row">
         <h2>Voice-over v${data.version}</h2>
@@ -674,8 +399,15 @@ function Voice({ events }) {
                   });
                 await post("/api/review-submit", { artifact: "vo", version: data.version });
               }, "review sent to the agent")}>Send review to agent</button>
-            <button class="primary" disabled=${busy || isApproved || hasErrors} title=${hasErrors ? "fix errors first" : ""} onClick=${() =>
-              confirm(`Approve voice-over v${data.version}? Voice synthesis will be unlocked.`) &&
+            <button class="primary" disabled=${busy || isApproved || hasErrors} title=${hasErrors ? "fix errors first" : ""} onClick=${async () =>
+              (
+                await confirmApproval(
+                  "vo",
+                  data.version,
+                  `voice-over v${data.version}`,
+                  "Voice synthesis will be unlocked (uses TTS credits).",
+                )
+              ) &&
               run(
                 () => post("/api/approve", { artifact: "vo", version: data.version }),
                 `v${data.version} approved`,
@@ -912,14 +644,6 @@ function Brand({ events }) {
       say(`default brand: ${selected}`);
       reload();
     });
-  const rerender = () =>
-    run(async () => {
-      if (dirty) return say("save your tweaks first — renders use the saved brand");
-      await post("/api/export-render", { brand: selected });
-      say(`re-rendering with ${selected} — no new voice, takes a minute`);
-    });
-  const running = data.job?.status === "running";
-  const lastProgress = events.filter((e) => e.type === "edit.progress").at(-1);
   return html`
     <section class="card review-head">
       <div class="row">
@@ -961,11 +685,49 @@ function Brand({ events }) {
           <button class="primary" disabled=${busy || !dirty || entry?.builtin} onClick=${save}>Save</button>
         </div>
       </section>
-    </div>
+    </div>`;
+}
+
+// ---------------- RENDER ----------------
+
+/** Render stage (part 9 brings draft/final versions): rendered variants + re-render with a brand. */
+function Render({ events, stages }) {
+  const { data, error, reload } = useApi(
+    "/api/brands",
+    events,
+    /^(brand\.|config\.|edit\.|project\.)/,
+  );
+  const [brand, setBrand] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(null);
+  if (error) return html`<section class="card error">${error}</section>`;
+  if (!data) return html`<section class="card muted">loading…</section>`;
+  const selected = brand ?? data.default;
+  const running = data.job?.status === "running";
+  const lastProgress = events.filter((e) => e.type === "edit.progress").at(-1);
+  const rerender = async () => {
+    setBusy(true);
+    try {
+      await post("/api/export-render", { brand: selected });
+      setFlash(`re-rendering with ${selected} — no new voice, takes a minute`);
+      reload();
+    } catch (e) {
+      setFlash(`⚠ ${e.message}`);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setFlash(null), 6000);
+    }
+  };
+  return html`
+    <${StageHeader} stages=${stages} stage="render" />
     <section class="card">
       <div class="row">
-        <h3>Rendered videos${data.edit ? ` · edit v${data.edit.version}` : ""}</h3><span class="grow"></span>
+        <h2>Rendered videos${data.edit ? ` · edit v${data.edit.version}` : ""}</h2><span class="grow"></span>
+        ${flash ? html`<span class="flash">${flash}</span>` : null}
         ${running ? html`<span class="muted small-text">${lastProgress?.data?.message ?? "rendering…"}</span>` : null}
+        <label class="small-text">brand <select value=${selected} onChange=${(e) => setBrand(e.target.value)}>
+          ${data.brands.filter((b) => !b.error).map((b) => html`<option value=${b.name}>${b.name}${b.name === data.default ? " (default)" : ""}</option>`)}
+        </select></label>
         <button class="primary" disabled=${busy || running || !data.edit} title=${data.edit ? "" : "no edit yet"} onClick=${rerender}>Re-render with ${selected}</button>
       </div>
       ${
@@ -976,7 +738,28 @@ function Brand({ events }) {
             )}</div>`
           : html`<p class="muted small-text">${data.edit ? "No branded render of this edit yet." : "No edit yet — once the voice-over is rendered, the videos show up here."} Re-rendering only redoes the picture: same timeline, same voice, no LLM or TTS.</p>`
       }
+      <p class="muted small-text">Brands are edited under Config → Brands. Draft and final renders with QA arrive in S5 part 9.</p>
     </section>`;
+}
+
+// ---------------- ANNOTATIONS / CONFIG ----------------
+
+function Annotations({ stages }) {
+  return html`
+    <${StageHeader} stages=${stages} stage="annotations" />
+    <section class="card muted">
+      <h2>Annotations</h2>
+      <p>After the voice is generated, the annotation designer suggests zooms, callouts, highlights and more; you toggle, edit and approve them here. This stage arrives in S5 parts 7–8.</p>
+    </section>`;
+}
+
+function Config({ events }) {
+  return html`
+    <section class="card review-head">
+      <div class="row"><h2>Config</h2><span class="grow"></span>
+        <span class="muted small-text">Settings and Project context arrive in S5 part 5 — use <code>/demo config</code> meanwhile.</span></div>
+    </section>
+    <${Brand} events=${events} />`;
 }
 
 // ---------------- APP ----------------
@@ -996,39 +779,66 @@ function ThemeToggle() {
   </button>`;
 }
 
+const LIVE_OPEN_KEY = "demo-rec-live-open";
+
 function App() {
-  const [tab, setTab] = useState("live");
+  const [tab, setTab] = useState("storyboard");
+  const [liveOpen, setLiveOpenState] = useState(localStorage.getItem(LIVE_OPEN_KEY) !== "false");
+  const setLiveOpen = (v) => {
+    localStorage.setItem(LIVE_OPEN_KEY, String(v));
+    setLiveOpenState(v);
+  };
   const { events, status } = useBus();
   const { data: state, error: stateError } = useApi("/api/state", events, /./);
-  // Jump to Review when a new storyboard arrives.
+  const { data: stages } = useStages(events);
+  // Jump to the stage where something new arrived.
   const lastWrite = events.filter((e) => e.type === "storyboard.written").at(-1)?.seq;
   useEffect(() => {
-    if (lastWrite) setTab("review");
+    if (lastWrite) setTab("storyboard");
   }, [lastWrite]);
-  // Jump to Voice when the agent writes a voice-over (not on the user's own inline edits).
   const lastVo = events.filter((e) => e.type === "vo.written" && e.data?.by !== "user").at(-1)?.seq;
   useEffect(() => {
     if (lastVo) setTab("voice");
   }, [lastVo]);
+  const lastTake = events
+    .filter((e) => e.type === "take.finished" || e.type === "take.analyzed")
+    .at(-1)?.seq;
+  useEffect(() => {
+    if (lastTake) setTab("recording");
+  }, [lastTake]);
+  const waiting = stages?.next?.who === "user" ? stages.next.stage : null;
+  const body =
+    tab === "storyboard"
+      ? html`<${Review} events=${events} stages=${stages} />`
+      : tab === "recording"
+        ? html`<${StageHeader} stages=${stages} stage="recording" /><${Recording} events=${events} />`
+        : tab === "voice"
+          ? html`<${Voice} events=${events} stages=${stages} />`
+          : tab === "annotations"
+            ? html`<${Annotations} stages=${stages} />`
+            : tab === "render"
+              ? html`<${Render} events=${events} stages=${stages} />`
+              : html`<${Config} events=${events} />`;
   return html`
     <header class="top">
       <strong>demo-recording</strong>
+      ${state?.project ? html`<span class="muted small-text">${state.project.slug}</span>` : null}
       <nav>
         ${TABS.map(
           (t) => html`<button
-            class=${tab === t.id ? "active" : ""}
-            disabled=${!t.ready}
-            title=${t.ready ? "" : `arrives in slice ${t.slice}`}
+            class=${`${tab === t.id ? "active" : ""} ${waiting && waiting === t.stage ? "waiting" : ""}`}
+            title=${waiting && waiting === t.stage ? `waiting for you: ${stages.next.text}` : ""}
             onClick=${() => setTab(t.id)}
-          >${t.label}</button>`,
+          >${t.label}${waiting && waiting === t.stage ? html` <span class="dot"></span>` : null}</button>`,
         )}
       </nav>
       <${ThemeToggle} />
       <span class=${`conn ${status}`}>${status}</span>
     </header>
-    <main class=${tab}>
-      ${tab === "live" ? html`<${Live} events=${events} state=${state} stateError=${stateError} />` : tab === "voice" ? html`<${Voice} events=${events} />` : tab === "brand" ? html`<${Brand} events=${events} />` : html`<${Review} events=${events} />`}
-    </main>`;
+    <div class=${`shell ${liveOpen ? "live-open" : "live-closed"}`}>
+      <main class=${tab}>${stateError ? html`<section class="card error">${stateError}</section>` : null}${body}</main>
+      <${LivePanel} events=${events} state=${state} stages=${stages} tab=${tab} open=${liveOpen} setOpen=${setLiveOpen} status=${status} />
+    </div>`;
 }
 
 render(html`<${App} />`, document.getElementById("app"));

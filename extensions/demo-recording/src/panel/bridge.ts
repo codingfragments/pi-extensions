@@ -44,9 +44,11 @@ export function reviewMessage(
 
 export function approvalMessage(
   project: string,
-  artifact: "storyboard" | "vo",
+  artifact: "storyboard" | "vo" | "recording",
   version: number,
 ): string {
+  if (artifact === "recording")
+    return `${PANEL_PREFIX} Recording take-${String(version).padStart(3, "0")} for project "${project}" is ACCEPTED by the user (Recording tab). Write the voice-over for this take (demo-voiceover skill).`;
   return artifact === "storyboard"
     ? `${PANEL_PREFIX} Storyboard v${version} for project "${project}" is APPROVED by the user. Recording is unlocked (demo_rec_record).`
     : `${PANEL_PREFIX} Voice-over script v${version} for project "${project}" is APPROVED by the user. Voice synthesis is unlocked.`;

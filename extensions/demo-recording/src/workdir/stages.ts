@@ -235,3 +235,67 @@ export function formatStageStatus(status: StageStatus[]): string {
     })
     .join("\n");
 }
+
+/** Dry run of an approval: what would be reset. Throws like a real approval would. */
+export function previewApproval(
+  projectDir: string,
+  approved: Approvals,
+  stage: Stage,
+  version: number,
+): ApprovalReset[] {
+  const copy: Approvals = { ...approved };
+  checkApprovable(projectDir, copy, stage, version);
+  copy[stage] = version;
+  return cascade(projectDir, copy);
+}
+
+export interface NextStep {
+  /** Who has to act: the user (panel), the agent, or nobody. */
+  who: "user" | "agent" | null;
+  stage: Stage | null;
+  text: string;
+}
+
+/**
+ * What the project is waiting for, walking the chain top-down: the first
+ * stage without an approval either has a fresh draft (the user reviews it)
+ * or none yet (the agent produces it). Annotations/render join the walk once
+ * they exist (S5 parts 8/9); until then an approved voice-over is the end.
+ */
+export function nextStep(
+  projectDir: string,
+  approved: Approvals,
+  opts: { rendered?: boolean } = {},
+): NextStep {
+  const status = stageStatus(projectDir, approved);
+  const byStage = Object.fromEntries(status.map((s) => [s.stage, s])) as Record<Stage, StageStatus>;
+  for (const stage of STAGES) {
+    const s = byStage[stage];
+    if (s.approved !== undefined) continue;
+    if ((stage === "annotations" || stage === "render") && !s.versions.length) break;
+    const fresh = s.latest !== undefined && !s.stale;
+    if (fresh) {
+      const what =
+        stage === "recording"
+          ? `accept ${takeId(s.latest as number)} (Recording tab)`
+          : `review and approve ${versionLabel(stage, s.latest as number)}`;
+      return { who: "user", stage, text: what };
+    }
+    const parent = PARENT[stage];
+    const waiting: Record<Stage, string> = {
+      storyboard: "the agent explores the app and writes the storyboard",
+      recording: `the agent records a take of ${parent && approved[parent] ? versionLabel(parent, approved[parent] as number) : "the storyboard"}`,
+      vo: `the agent writes the voice-over for ${approved.recording ? takeId(approved.recording) : "the take"}`,
+      annotations: "the agent suggests annotations",
+      render: "render the video",
+    };
+    return { who: "agent", stage, text: waiting[stage] };
+  }
+  return opts.rendered
+    ? { who: null, stage: null, text: "rendered — see the Render tab" }
+    : {
+        who: "agent",
+        stage: "vo",
+        text: "voice-over approved — generate the voice and render (demo_rec_tts, demo_rec_edit)",
+      };
+}

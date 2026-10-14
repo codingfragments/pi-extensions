@@ -289,6 +289,31 @@ export function panelRoutes(deps: RouteDeps): {
       },
       approve: (body) => {
         const p = requireProject(deps);
+        if (body.artifact === "recording") {
+          // Accept a take (Recording tab): chain-checked like every approval.
+          const version = intField(body, "version");
+          const { resets } = approveStage(p.dir, "recording", version);
+          const st = readState(p.dir);
+          if (st?.phase === "recording") setPhase(p.dir, "vo-review");
+          const label = versionLabel("recording", version);
+          const resetText = resets.length
+            ? ` — reset: ${resets.map((r) => `${versionLabel(r.stage, r.version)} (${r.reason})`).join("; ")}`
+            : "";
+          deps.bus.publish(
+            "take.accepted",
+            {
+              take: label.replace("recording ", ""),
+              version,
+              resets,
+              message: `${label} accepted${resetText}`,
+            },
+            p.slug,
+          );
+          deps.notifyAgent(
+            `${approvalMessage(p.slug, "recording", version)}${resets.length ? `\nCascade reset (stage chain): ${resets.map((r) => `${versionLabel(r.stage, r.version)} is no longer approved — ${r.reason}`).join("; ")}.` : ""}`,
+          );
+          return { approved: version, resets };
+        }
         const version = intField(body, "version");
         const artifact = artifactField(body);
         let resets: ApprovalReset[] = [];

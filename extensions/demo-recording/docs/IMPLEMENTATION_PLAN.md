@@ -640,8 +640,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 2 | Brands: package format, renderer, tool/skill/commands, Brand tab | ✅ #34, #37, #38 |
 | — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
 | 3 | Stage model + project input log | ✅ |
-| 4 | Control-room shell (stage tabs, Live side panel) | next |
-| 5 | Config UI (Settings · Brands · Project context) | |
+| 4 | Control-room shell (stage tabs, Live side panel) | ✅ |
+| 5 | Config UI (Settings · Brands · Project context) | next |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
 | 7 | Annotation rendering (engine) | |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |

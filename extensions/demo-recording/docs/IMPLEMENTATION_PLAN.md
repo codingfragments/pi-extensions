@@ -666,6 +666,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 10 | Deterministic QA + mechanical auto-fix | |
 | 11 | Confidence-guided review + voice direction | |
 | 12 | Actor & dependency model document, per-role model config | |
+| 13 | **Panel modals** (user backlog): replace the browser's native `alert` / `confirm` / `prompt` with in-panel modal dialogs | backlog |
 
 **Why this order:**
 - **3 first:** the chain and the input log are the backbone every later part writes into.
@@ -884,6 +885,17 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 *12. Actor & dependency model document (D40)*
 - **`docs/ACTORS.md`** (see the cross-cutting entry): the vision behind the cast, each actor (responsibility, inputs, outputs, decisions, model profile, failure modes), the dependency model, handoffs, and the background decisions with the alternatives that were rejected.
 - **Per-role model config:** `roles.<role>.model` (default: the session model via its skill; opt-in separate runs, e.g. `roles.qa.mode: "separate"` with a fresh context, `roles.operator` = the improvise chain). Doctor checks each configured role's model capabilities (image input, context size).
+
+*13. Panel modals (user backlog)* — later in S5
+- **What:** replace every native `alert()`, `confirm()` and `prompt()` in the panel with an in-panel modal, so the dialogs match the Catppuccin themes and can show more than plain text. Today there are 12 call sites: accept, un-accept with its orphan list, brand save and default-brand diffs, project-facts diff, mark outdated, re-record notes, errors.
+- **One component** (`public/modal.js`): `await ask({ title, body, actions })` returning the chosen action (or the entered text). It supports:
+  - a diff view, with additions and removals coloured;
+  - lists (the orphans, the resets);
+  - a reason text field;
+  - a danger style for destructive actions.
+
+  Escape cancels and Enter confirms, focus is trapped, and the dialog is labelled for screen readers.
+- **Tests:** the browser tests answer the modal instead of the native dialog events. The unit test checks the keyboard handling and that cancel resolves to `null`.
 
 **How to test** (per part; each PR carries its own tests)
 - **Part 3:**

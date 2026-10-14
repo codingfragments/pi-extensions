@@ -660,7 +660,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 5a | **Project screen** (D48): a Project tab at the far left — project facts, the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | ✅ |
 | 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | ✅ |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | ✅ |
-| 7 | Annotation rendering (engine) | next |
+| 7 | Annotation rendering (engine) — [docs/ANNOTATIONS.md](ANNOTATIONS.md) | ✅ |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | |
 | 10 | Deterministic QA + mechanical auto-fix | |
@@ -791,24 +791,24 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - `demo-voiceover` keeps `[@mark]` anchors (annotations use them for timing).
 - **Re-record keycraft** after this part, so it gets layout snapshots.
 
-*7. Annotation rendering (engine; D26, D35; spike Q3)*
-- **Input:** `annotations/vN.json` (data contract in §3.6), mapped through the timeline: take time → output time per scene and for the full video.
-- **Annotation types, in render order (see the [spike](spikes/S5-zoom.md)):**
-  - **Redact / blur:** strong box blur of the element's box (page space, before the zoom), for every frame where the element is visible (from layout snapshots).
-  - **Highlight:** rounded outline in the brand accent, 2 px at 1080p (≈ 3.6 px at source), ~70 % opacity, faint glow, ~6 px padding. Drawn in page space before the zoom, so it follows it. Fades with its callout or ~2 s. Skipped when the box is larger than 60 % of the frame.
-  - **Zoom:** `perspective` (cubic, `eval=frame`, `(in-1)/fps`) at source resolution, only inside its window (`enable`).
-    - 1.5× (max 1.8×), 0.6 s ease in so it is fully in **at the event**, hold until the next page change, the next zoom or the scene end, then 0.5 s out;
-    - at most 2 per demo;
-    - scenes with a zoom or page-space overlay keep source resolution until after the zoom; others keep the early scale.
-  - **Spotlight:** dims everything except the box (rounded cut-out, ~55 % dark), 0.3 s in/out. Page space, before the zoom.
-  - **Callout:** fixed bottom-left branded pill (`colors.pill`/`pillText`, ≤ 60 chars), fades in 150 ms before the event, ~2.5 s or until the next callout. Screen space, after the inset.
-  - **Chapter title:** lower-third at a scene start ("2 · Find at-risk accounts"), 2.5 s. Full video only by default. Screen space.
-- **Overlay rendering:** all overlays are HTML → transparent PNGs via Playwright (cached by content hash), animated with ffmpeg `fade`/`overlay` `enable` windows. Page-space overlays are positioned at source coordinates.
-- **Previews:**
-  - `previewStill(annotation)`: the keyframe at the event, with the overlay composited. Instant; cached.
-  - `previewClip(annotation)`: a 3–5 s 960×540 clip around the event, rendered in a few seconds; cached per annotation hash.
-- **Sidecars:** `full.callouts.srt` (callouts) and VTT transcripts (part 9).
-- **Testable without an LLM:** hand-written annotation files on the fixture take.
+*7. Annotation rendering (engine; D26, D35, D49–D51; spike Q3)* — ✅ done; user-facing reference: [ANNOTATIONS.md](ANNOTATIONS.md)
+- **Code:** `src/annotations/` — `types.ts` (format, defaults, motion), `file.ts` (validate, version), `resolve.ts` (anchor → output time through the timeline pieces; target → source px from `step` (settled box), `text`/`role` or `layout` (snapshots), or `box`), `render.ts` (overlay PNGs via Playwright, cached; ffmpeg ops), `apply.ts` (per scene, shifted for the full video), `preview.ts` (clip + still, cached).
+- **Input:** `annotations/vN.json` (§3.6). Anchors: `mark` or `sceneStart`, with `offsetMs`. *VO-word anchors move to part 8.*
+- **Render order:** pieces at source resolution only where a page-space annotation or a zoom is active (segments), then redact → highlight / spotlight → zoom (`perspective`, cubic, `enable`) → scale; the other segments are scaled first. After the brand frame: callout, chapter; then title card and logo bug. Frame counts are identical to a clean render.
+- **Types as built:**
+  - **Redact:** blocks ≥ 16 source px (or ⅓ of the short side) + Gaussian, never faded, anchor → scene end (D51).
+  - **Highlight:** accent outline ~78 %, glow, ~6 px padding, settles from 1.06× (D49); skipped above 60 % of the frame.
+  - **Zoom:** 1.5× default (≤ 1.8×), 0.6 s smoothstep in so it is complete at the anchor, hold (default 3.5 s from the anchor), 0.5 s out; ≤ 2 per demo; factor lowered when the target wouldn't fit; overlapping zooms dropped.
+  - **Spotlight:** 55 % dark outside a rounded cut-out, 0.3 s fades.
+  - **Callout:** bottom-left pill, rises 12 px (D49), one at a time, stacks above a visible chapter.
+  - **Chapter:** lower third, slides in 16 px; full video only (D50).
+  - Page-space types end at the first route change or scroll after the anchor (D50).
+- **Overlays:** single-frame PNG inputs looped in the graph (`loop`), never re-decoded per frame; fades/motion via `fade`, `overlay` `eval=frame` x/y and a per-frame `scale` for the settle.
+- **Previews:** `previewAnnotation` renders a slice of the scene (window ± 1 s, with narration) at output size with only that annotation, and a still at its peak; cached by content hash (2–3 s cold, instant warm). *The low-res variant for panel cards comes with part 8.*
+- **Output:** `out/edit-vN/<brand>+a<N>/` (variant key), never over the clean render.
+- **CLI:** `annotate add|check|preview`, `render --annotations N`.
+- **Sidecars:** `full.callouts.srt` (callouts) and VTT transcripts move to part 9.
+- **Tests:** `test/s5-annotations.test.ts` — validation, versions, time mapping, resolution (settled/step/text/layout/box, warnings, page changes), zoom geometry and easing, segment planning and graph shape, full-video shifting, slicing, and a real render of every type on a synthetic take with pixel probes.
 
 *8. Annotations stage (D31, D35–D37)*
 - **Annotation designer** (`annotation-designer` skill, played by the Director by default; D40).

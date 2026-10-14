@@ -7,6 +7,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readAnalysis } from "../analysis/take.ts";
+import { fullOps, prepareAnnotations, sceneOps, takeGeometry } from "../annotations/apply.ts";
+import { readAnnotations } from "../annotations/file.ts";
 import { type TitleInfo, renderBrandAssets } from "../brand/assets.ts";
 import { resolveBrand } from "../brand/brand.ts";
 import { type Rim, edgeLuminance, resolveRim } from "../brand/rim.ts";
@@ -33,6 +35,8 @@ export interface EditResult {
   rim?: Rim;
   scenes: { id: string; file: string; durationSec: number }[];
   full: { file: string; durationSec: number };
+  /** Burned-in annotations (when the variant has them). */
+  annotations?: { version: number; applied: number; warnings: string[] };
 }
 
 /**
@@ -65,6 +69,8 @@ export function fullAnchorTimes(
 export interface VariantOptions {
   /** Brand package name (default: config.brand). */
   brand?: string;
+  /** Annotation version to burn in (annotations/vN.json); none = a clean render. */
+  annotations?: number;
 }
 
 /** Up to `max` keyframes spread over the take's scenes (for auto brand decisions). */
@@ -81,8 +87,8 @@ export function takeKeyframes(projectDir: string, take: string, max = 6): string
 }
 
 /** Variant folder name: the brand for now (callouts/subtitles join in a later step). */
-export function variantKey(o: { brand: string }): string {
-  return o.brand;
+export function variantKey(o: { brand: string; annotations?: number }): string {
+  return o.annotations ? `${o.brand}+a${o.annotations}` : o.brand;
 }
 
 /** A brief field value, unless it is still a placeholder (`_…_`, `<…>`, TODO). */
@@ -134,6 +140,29 @@ export function titleInfoFor(projectDir: string, config: DemoRecConfig): TitleIn
  * only raw.mp4 + the timeline + voice audio + brand layers. Used after an
  * edit and by the Export tab's brand switch.
  */
+/** Brand assets and the footage frame for a render of `take`. */
+export async function prepareBrand(
+  projectDir: string,
+  config: DemoRecConfig,
+  take: string,
+  brandName: string,
+) {
+  const loaded = resolveBrand(config.root, brandName);
+  const size = config.output;
+  const rim = resolveRim(loaded.brand, size, edgeLuminance(takeKeyframes(projectDir, take)));
+  const assets = await renderBrandAssets(loaded, size, {
+    cacheDir: path.join(config.root, ".cache", "brand-assets"),
+    title: titleInfoFor(projectDir, config),
+    ...(rim ? { rim } : {}),
+  });
+  const frame: RenderBrand = {
+    inset: assets.inset,
+    ...(assets.backdrop ? { backdrop: assets.backdrop } : {}),
+    ...(assets.mask ? { mask: assets.mask } : {}),
+  };
+  return { loaded, size, rim, assets, frame };
+}
+
 export async function renderVariant(o: {
   projectDir: string;
   config: DemoRecConfig;
@@ -149,32 +178,38 @@ export async function renderVariant(o: {
   const raw = path.join(o.projectDir, "takes", timeline.take, "raw.mp4");
   if (!fs.existsSync(raw)) throw new Error(`${timeline.take}/raw.mp4 is missing`);
   const brandName = o.variant?.brand ?? o.config.brand;
-  const loaded = resolveBrand(o.config.root, brandName);
-  const size = o.config.output;
-  const cacheDir = path.join(o.config.root, ".cache", "brand-assets");
-  const rim = resolveRim(
-    loaded.brand,
-    size,
-    edgeLuminance(takeKeyframes(o.projectDir, timeline.take)),
+  const { loaded, size, rim, assets, frame } = await prepareBrand(
+    o.projectDir,
+    o.config,
+    timeline.take,
+    brandName,
   );
-  const assets = await renderBrandAssets(loaded, size, {
-    cacheDir,
-    title: titleInfoFor(o.projectDir, o.config),
-    ...(rim ? { rim } : {}),
+  const annVersion = o.variant?.annotations;
+  const annFile = annVersion ? readAnnotations(o.projectDir, annVersion) : undefined;
+  if (annVersion && !annFile) throw new Error(`annotations v${annVersion} do not exist`);
+  const geo = takeGeometry(o.projectDir, timeline.take);
+  const prepared = annFile
+    ? await prepareAnnotations({
+        projectDir: o.projectDir,
+        timeline,
+        file: annFile,
+        brand: loaded,
+        output: size,
+        footage: frame.backdrop ? frame.inset : { x: 0, y: 0, w: size.width, h: size.height },
+        cacheDir: path.join(o.config.root, ".cache", "annotation-assets"),
+      })
+    : undefined;
+  const variant = variantKey({
+    brand: brandName,
+    ...(annVersion ? { annotations: annVersion } : {}),
   });
-  const frame = {
-    inset: assets.inset,
-    ...(assets.backdrop ? { backdrop: assets.backdrop } : {}),
-    ...(assets.mask ? { mask: assets.mask } : {}),
-  };
-  const variant = variantKey({ brand: brandName });
   const outDir = path.join(o.projectDir, "out", `edit-v${o.timelineVersion}`, variant);
   fs.mkdirSync(path.join(outDir, "scenes"), { recursive: true });
   fs.copyFileSync(
     timelineFile,
     path.join(o.projectDir, "out", `edit-v${o.timelineVersion}`, "timeline.json"),
   );
-  const base = { fps: o.config.fps, width: size.width, height: size.height };
+  const base = { fps: o.config.fps, width: size.width, height: size.height, source: geo.source };
   const total = timeline.scenes.length + 1;
 
   const scenes: EditResult["scenes"] = [];
@@ -186,9 +221,11 @@ export async function renderVariant(o: {
       "scenes",
       `${/^\d+-/.test(sc.id) ? sc.id : `${String(i + 1).padStart(2, "0")}-${sc.id}`}.mp4`,
     );
+    const ops = sceneOps(prepared, sc.id);
     const r = await renderJob(sceneJob(timeline, sc.id, o.projectDir), raw, file, {
       ...base,
       brand: frame,
+      ...(ops ? { annotations: ops } : {}),
     });
     scenes.push({ id: sc.id, file, durationSec: r.durationSec });
   }
@@ -218,9 +255,12 @@ export async function renderVariant(o: {
       : {}),
   };
   const fullFile = path.join(outDir, "full.mp4");
-  const r = await renderJob(fullJob(timeline, o.projectDir, { titleMs }), raw, fullFile, {
+  const fj = fullJob(timeline, o.projectDir, { titleMs });
+  const fops = fullOps(prepared, fj.sceneStart);
+  const r = await renderJob(fj, raw, fullFile, {
     ...base,
     brand: fullBrand,
+    ...(fops ? { annotations: fops } : {}),
   });
   o.onProgress?.({ done: total, total, label: "done" });
   return {
@@ -233,6 +273,15 @@ export async function renderVariant(o: {
     ...(rim ? { rim } : {}),
     scenes,
     full: { file: fullFile, durationSec: r.durationSec },
+    ...(prepared
+      ? {
+          annotations: {
+            version: prepared.version,
+            applied: prepared.resolved.length,
+            warnings: prepared.warnings,
+          },
+        }
+      : {}),
   };
 }
 

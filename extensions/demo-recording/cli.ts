@@ -11,9 +11,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { takeGeometry } from "./src/annotations/apply.ts";
+import { readAnnotations, writeAnnotations } from "./src/annotations/file.ts";
+import { previewAnnotation } from "./src/annotations/preview.ts";
+import { resolveAnnotations } from "./src/annotations/resolve.ts";
 import { EventBus } from "./src/bus.ts";
 import { resolveConfig } from "./src/config.ts";
 import { formatDoctor, runDoctor } from "./src/doctor.ts";
+import { prepareBrand, renderVariant } from "./src/edit/pipeline.ts";
+import type { Timeline } from "./src/edit/timeline.ts";
 import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
 import { runFixtureDemo } from "./src/pipeline/fixture-demo.ts";
@@ -28,6 +34,7 @@ import { takeSummary } from "./src/tools/record.ts";
 import { voiceSummary } from "./src/tools/tts.ts";
 import { listElevenLabsVoices, sortVoices } from "./src/tts/engines.ts";
 import { ensureProject, listProjects, openProject } from "./src/workdir/layout.ts";
+import { listVersions } from "./src/workdir/versioning.ts";
 
 const HELP = `demo-recording engine CLI
 
@@ -48,6 +55,15 @@ Commands:
   record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
+  annotate add --project P --file F        store a hand-written annotation file as the next
+                                           annotations/vN.json (validated)
+  annotate check --project P [--version N] [--edit N]
+                                           resolve annotations against the edit: times, boxes, warnings
+  annotate preview --project P --id ID [--version N] [--edit N] [--brand B]
+                                           render a preview clip + still of one annotation
+  render --project P [--edit N] [--brand B] [--annotations N]
+                                           re-render an edit (scenes + full), optionally with
+                                           annotations burned in → out/edit-vN/<brand>+aN/
 
 Environment: DEMO_REC_ROOT, DEMO_REC_CONFIG, DEMO_REC_PANEL_PORT (see README)`;
 
@@ -237,6 +253,101 @@ async function main(argv: string[]): Promise<number> {
     });
     console.log(`\n${voiceSummary(r.voice)}\n\n${editSummary(r.edit)}`);
     return 0;
+  }
+
+  if (command === "annotate" || command === "render") {
+    const args = command === "render" && sub ? [sub, ...rest] : rest;
+    const { values } = parseArgs({
+      args,
+      options: {
+        project: { type: "string" },
+        file: { type: "string" },
+        version: { type: "string" },
+        edit: { type: "string" },
+        brand: { type: "string" },
+        id: { type: "string" },
+        annotations: { type: "string" },
+      },
+    });
+    if (!values.project) throw new Error("--project is required");
+    const project = openProject(cfg.root, values.project);
+    const editV = values.edit
+      ? Number(values.edit)
+      : listVersions(path.join(project.dir, "edit"), "timeline.v", ".json").at(-1);
+    const timelineFor = () => {
+      if (editV === undefined)
+        throw new Error("this project has no edit yet — run the sync edit first");
+      return JSON.parse(
+        fs.readFileSync(path.join(project.dir, "edit", `timeline.v${editV}.json`), "utf8"),
+      ) as Timeline;
+    };
+    if (command === "render") {
+      if (editV === undefined) throw new Error("this project has no edit yet");
+      const r = await renderVariant({
+        projectDir: project.dir,
+        config: cfg,
+        timelineVersion: editV,
+        variant: {
+          ...(values.brand ? { brand: values.brand } : {}),
+          ...(values.annotations ? { annotations: Number(values.annotations) } : {}),
+        },
+        onProgress: (p) => console.log(`[${p.done}/${p.total}] ${p.label}`),
+      });
+      console.log(editSummary(r));
+      if (r.annotations) {
+        console.log(`annotations v${r.annotations.version}: ${r.annotations.applied} applied`);
+        for (const w of r.annotations.warnings) console.log(`  ! ${w}`);
+      }
+      return 0;
+    }
+    if (sub === "add") {
+      if (!values.file) throw new Error("--file is required");
+      const raw = JSON.parse(fs.readFileSync(values.file, "utf8"));
+      const stored = writeAnnotations(project.dir, raw);
+      console.log(
+        `stored annotations v${stored.version} (${stored.items.length} items, ${stored.items.filter((x) => x.enabled).length} enabled)`,
+      );
+      return 0;
+    }
+    const file = readAnnotations(project.dir, values.version ? Number(values.version) : undefined);
+    if (!file)
+      throw new Error("no annotation file — add one with: annotate add --project P --file F");
+    if (sub === "check") {
+      const timeline = timelineFor();
+      const r = resolveAnnotations(file, {
+        timeline,
+        takeDir: path.join(project.dir, "takes", timeline.take),
+        ...takeGeometry(project.dir, timeline.take),
+      });
+      console.log(`annotations v${file.version} on edit v${editV} (${timeline.take}):`);
+      for (const it of r.items)
+        console.log(
+          `  ${it.id.padEnd(16)} ${it.type.padEnd(9)} ${it.scene}  ${(it.startMs / 1000).toFixed(2)}–${(it.endMs / 1000).toFixed(2)} s${it.box ? `  box ${it.box.x},${it.box.y} ${it.box.w}×${it.box.h} px` : ""}${it.text ? `  "${it.text}"` : ""}`,
+        );
+      for (const w of r.warnings) console.log(`  ! ${w}`);
+      return 0;
+    }
+    if (sub === "preview") {
+      if (!values.id) throw new Error("--id is required");
+      const timeline = timelineFor();
+      const b = await prepareBrand(project.dir, cfg, timeline.take, values.brand ?? cfg.brand);
+      const p = await previewAnnotation({
+        projectDir: project.dir,
+        timeline,
+        file,
+        id: values.id,
+        brand: b.loaded,
+        frame: b.frame,
+        fps: cfg.fps,
+        output: b.size,
+        cacheDir: path.join(cfg.root, ".cache", "annotation-assets"),
+        outDir: path.join(project.dir, "previews", "annotations"),
+      });
+      console.log(`clip:  ${p.clip}\nstill: ${p.still} (at ${(p.peakMs / 1000).toFixed(2)} s)`);
+      for (const w of p.warnings) console.log(`  ! ${w}`);
+      return 0;
+    }
+    throw new Error(`unknown: annotate ${sub ?? ""} — use add, check or preview`);
   }
 
   if (command === "record") {

@@ -1,0 +1,74 @@
+{
+  "basedOn": { "vo": 1 },
+  "take": "take-001",
+  "by": "hand-written example (docs/ANNOTATIONS.md)",
+  "items": [
+    {
+      "id": "ch-dashboard",
+      "type": "chapter",
+      "scene": "01-dashboard",
+      "anchor": { "sceneStart": true },
+      "text": "Where churn hides",
+      "enabled": true
+    },
+    {
+      "id": "hl-churn",
+      "type": "highlight",
+      "scene": "01-dashboard",
+      "anchor": { "mark": "churn-kpi" },
+      "target": { "step": 0 },
+      "enabled": true
+    },
+    {
+      "id": "zoom-emea",
+      "type": "zoom",
+      "scene": "01-dashboard",
+      "anchor": { "mark": "emea-bar" },
+      "target": { "step": 1 },
+      "factor": 1.6,
+      "enabled": true
+    },
+    {
+      "id": "redact-arr",
+      "type": "redact",
+      "scene": "01-dashboard",
+      "anchor": { "sceneStart": true },
+      "target": { "box": { "x": 1345, "y": 351, "w": 103, "h": 197 } },
+      "enabled": true
+    },
+    {
+      "id": "co-grouping",
+      "type": "callout",
+      "scene": "02-search",
+      "anchor": { "mark": "results-visible" },
+      "text": "Grouped by region, first try",
+      "enabled": true
+    },
+    {
+      "id": "sp-emea-row",
+      "type": "spotlight",
+      "scene": "02-search",
+      "anchor": { "mark": "results-visible", "offsetMs": 1400 },
+      "target": { "text": "EMEA", "role": "row" },
+      "durMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "zoom-answer",
+      "type": "zoom",
+      "scene": "03-assistant",
+      "anchor": { "mark": "answer" },
+      "target": { "step": 2 },
+      "factor": 1.4,
+      "enabled": true
+    },
+    {
+      "id": "co-accounts",
+      "type": "callout",
+      "scene": "03-assistant",
+      "anchor": { "mark": "answer", "offsetMs": 600 },
+      "text": "Names the accounts behind it",
+      "enabled": true
+    }
+  ]
+}

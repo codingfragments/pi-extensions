@@ -69,7 +69,13 @@ function parseStep(v: unknown, path: string): Step {
       `must be one of ${STEP_KINDS.join(", ")} (got ${JSON.stringify(kind)})`,
     );
   }
-  const base: { mark?: string; dwell?: number; zoom?: boolean; callout?: string } = {};
+  const base: {
+    mark?: string;
+    dwell?: number;
+    emphasis?: string;
+    zoom?: boolean;
+    callout?: string;
+  } = {};
   const mark = str(v, "mark", path, false);
   if (mark) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(mark))
@@ -90,6 +96,17 @@ function parseStep(v: unknown, path: string): Step {
       );
     base.callout = callout;
   }
+  // emphasis: the director's intent for this moment (D32). Annotations are
+  // chosen later, in the Annotations stage. Legacy zoom/callout flags become hints.
+  const hints: string[] = [];
+  const emphasis = str(v, "emphasis", path, false);
+  if (emphasis) {
+    if (emphasis.length > 200) fail(`${path}.emphasis`, "keep it to one sentence (≤ 200 chars)");
+    hints.push(emphasis);
+  }
+  if (base.zoom) hints.push("suggest a zoom here");
+  if (base.callout) hints.push(`suggested callout: "${base.callout}"`);
+  if (hints.length) base.emphasis = hints.join("; ");
 
   switch (kind) {
     case "goto":
@@ -170,7 +187,7 @@ function parseScene(v: unknown, path: string): Scene {
     title: str(v, "title", path) as string,
     steps: (v.steps as unknown[]).map((s, i) => parseStep(s, `${path}.steps[${i}]`)),
   };
-  for (const key of ["takeaway", "deep_link", "narration"] as const) {
+  for (const key of ["takeaway", "deep_link", "narration", "emphasis"] as const) {
     const value = str(v, key, path, false);
     if (value) scene[key] = value;
   }

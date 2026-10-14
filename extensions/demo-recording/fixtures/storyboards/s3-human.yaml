@@ -9,7 +9,7 @@ scenes:
     title: Where churn hides
     steps:
       - { do: hover, target: { css: '[data-kpi="churn"]' }, mark: churn-kpi, dwell: 1.2s }
-      - { do: hover, target: { css: 'g[data-region="EMEA"] rect' }, mark: emea-bar, dwell: 1.2s, zoom: true }
+      - { do: hover, target: { css: 'g[data-region="EMEA"] rect' }, mark: emea-bar, dwell: 1.2s, emphasis: the EMEA outlier is the story }
   - id: 02-search
     title: Ask in plain language
     deep_link: /search
@@ -17,7 +17,7 @@ scenes:
       - { do: click, target: { role: link, name: Search } }
       - { do: type, target: { role: searchbox, name: Search }, text: churn by region, mark: type-start }
       - { do: press, key: Enter }
-      - { do: wait, for: { css: table.regions }, timeout: 15s, mark: results-visible, callout: Regional breakdown }
+      - { do: wait, for: { css: table.regions }, timeout: 15s, mark: results-visible }
       - { do: hover, target: { css: 'tr[data-region="EMEA"]' }, dwell: 1.2s }
   - id: 03-assistant
     title: Ask why

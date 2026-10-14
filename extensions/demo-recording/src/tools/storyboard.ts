@@ -77,6 +77,14 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
             `would repeat state changes (${u.hazards.map((h) => `${h.scene}: ${h.reason}`).join("; ")}). Add a deep_link.`,
         );
       }
+      // Legacy zoom/callout flags: annotations are chosen in the Annotations stage now (D31/D32).
+      for (const scene of written.storyboard.scenes)
+        scene.steps.forEach((st, i) => {
+          if (st.zoom || st.callout)
+            warnings.push(
+              `${scene.id} step ${i}: zoom:/callout: are legacy — converted into the emphasis hint "${st.emphasis}". Write emphasis: instead; zooms and callouts are chosen in the Annotations stage.`,
+            );
+        });
       // Every "use" finding must be covered by a scene (S5 part 5a).
       const st = readState(p.dir) ?? p.state;
       const findings = listFindings(p.dir, {

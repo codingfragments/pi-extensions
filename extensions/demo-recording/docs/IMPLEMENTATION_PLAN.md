@@ -182,7 +182,7 @@ still parse and become emphasis hints.
 {"t":5000,"type":"idle-start"} {"t":9400,"type":"idle-end"}
 ```
 
-`t` = ms since take start, in screencast time. Idle/loading ranges are first-class
+`t` = ms since take start, in screencast time. Since S5 part 6, a `target-settled` event follows each step that acts on an element: `{"type":"target-settled","scene":…,"step":1,"box":{…},"data":{"moved":true,"target":"button \"Add\"","forMark":"banner-added"}}`. It carries the element's box once the page is quiet (≤ 1.5 s). The mark sits in `data.forMark`, never at the top level, because marks are unique VO anchors. Idle/loading ranges are first-class
 because they are the **preferred cut material**.
 
 ### 3.4 VO script (`vo/script.vN.md`)
@@ -659,8 +659,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 4 | Control room + **branching stages** (D44–D47): stage tabs with input pickers, several accepted versions per stage, working line, orphans, Recording tab, Live side panel, `/demo panel` opens the browser | ✅ |
 | 5a | **Project screen** (D48): a Project tab at the far left — project facts, the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | ✅ |
 | 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | ✅ |
-| 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | next |
-| 7 | Annotation rendering (engine) | |
+| 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | ✅ |
+| 7 | Annotation rendering (engine) | next |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | |
 | 10 | Deterministic QA + mechanical auto-fix | |

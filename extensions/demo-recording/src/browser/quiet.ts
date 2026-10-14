@@ -32,7 +32,9 @@ export async function waitForDomQuiet(
   const script = `new Promise((resolve) => {
     const start = performance.now();
     let last = start;
-    const obs = new MutationObserver(() => { last = performance.now(); });
+    // Our own cursor overlay moves every frame while it drifts: it is never app content.
+    const ours = (n) => { const el = n && (n.nodeType === 1 ? n : n.parentElement); return !!(el && (el.id === "__demo_rec_cursor" || (el.closest && el.closest("#__demo_rec_cursor")))); };
+    const obs = new MutationObserver((recs) => { if (recs.some((r) => !ours(r.target))) last = performance.now(); });
     obs.observe(document, { subtree: true, childList: true, characterData: true, attributes: true });
     const busy = () => [...document.querySelectorAll(${JSON.stringify(BUSY_SELECTOR)})]
       .some((el) => el.id !== "__demo_rec_cursor" && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden");

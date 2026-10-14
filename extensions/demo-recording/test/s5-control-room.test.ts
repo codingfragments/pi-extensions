@@ -355,6 +355,37 @@ test(
       });
       await page.goto(panel.url);
       await page.waitForSelector("aside.live");
+      // Progress bars: one segment per line in the right-hand column.
+      rt.bus.publish(
+        "take.progress",
+        {
+          progress: {
+            fraction: 0.4,
+            phase: "recording",
+            scene: { index: 2, total: 3 },
+            step: { index: 1, total: 4, label: "click" },
+            elapsedMs: 10000,
+            etaMs: 15000,
+            scenes: [0, 1, 2].map((i) => ({
+              id: `s${i}`,
+              title: `Scene ${i}`,
+              weight: 1 / 3,
+              done: i === 0 ? 1 : i === 1 ? 0.5 : 0,
+              attempt: 1,
+            })),
+          },
+          message: "recording 40%",
+        },
+        "p",
+      );
+      await page.waitForSelector("aside.live .segbar");
+      assert.equal(
+        await page.evaluate(
+          `getComputedStyle(document.querySelector("aside.live .segbar")).flexDirection`,
+        ),
+        "column",
+        "stacked in the side column",
+      );
       assert.deepEqual(
         await page.locator("nav.steps button").allTextContents(),
         ["Project", "Storyboard", "Recording", "Voice over", "Annotations", "Render"],

@@ -159,6 +159,7 @@ test("parse: S2 authoring fields and step kinds", () => {
     target: { role: "link", name: "Search" },
     zoom: true,
     callout: "Key step",
+    emphasis: 'suggest a zoom here; suggested callout: "Key step"',
   });
   assert.deepEqual(scene?.steps[1], { do: "scroll", dy: 400 });
   assert.deepEqual(scene?.steps[2], {

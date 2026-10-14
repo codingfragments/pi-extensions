@@ -31,12 +31,13 @@ import { typeHuman } from "../browser/cursor/typing.ts";
 import { installObservers } from "../browser/observers.ts";
 import { waitForDomQuiet } from "../browser/quiet.ts";
 import { type BrowserSession, openSession } from "../browser/session.ts";
-import type { Scene, Step, Storyboard } from "../storyboard/types.ts";
+import type { Scene, Step, Storyboard, Target } from "../storyboard/types.ts";
 import { sleep } from "../util/duration.ts";
 import { type Rng, createRng, randomSeed } from "../util/rng.ts";
 import { createNextNumberedDir } from "../workdir/versioning.ts";
 import { EventLog, type TakeEvent } from "./events.ts";
 import type { Improviser } from "./improvise.ts";
+import { LayoutRecorder, captureLayout } from "./layout.ts";
 import { DEFAULT_DWELL, type ProgressSnapshot, ProgressTracker } from "./progress.ts";
 import { replayHazards } from "./replay-guard.ts";
 import { describeTarget, locate, resolveBox } from "./targets.ts";
@@ -149,6 +150,77 @@ class StepRunner {
   readonly snapshots: Promise<void>[] = [];
   /** Where mark snapshots go (`<take>/dom/<mark>.yaml`). */
   domDir?: string;
+  /** Layout snapshots (S5 part 6): after each step settles and at marks. */
+  layout?: LayoutRecorder;
+  /** Background settle work (layout + settled target boxes); flushed at scene end. */
+  private pending: Promise<void>[] = [];
+
+  /** Wait for the background settle work (bounded), so its events stay inside the scene. */
+  async flush(maxMs = 2000): Promise<void> {
+    const all = this.pending.splice(0);
+    if (!all.length) return;
+    await Promise.race([Promise.all(all), sleep(maxMs)]);
+  }
+
+  private captureLayout(
+    c: RunCtx,
+    reason: "settle" | "mark",
+    fields: { scene?: string; step?: number; mark?: string },
+  ): Promise<void> {
+    const layout = this.layout;
+    if (!layout) return Promise.resolve();
+    return captureLayout(c.page).then((snap) => {
+      if (!snap) return;
+      const t = c.log.toTake(Date.now());
+      if (!layout.allow(reason, t)) return;
+      layout.write({ t, reason, ...fields, ...snap });
+    });
+  }
+
+  /**
+   * After a step, once the page is quiet (≤ 1.5 s): a layout snapshot, and the
+   * step target's box again — elements often move just after an action (a
+   * banner appears, a list re-sorts). Runs in the background; the cursor goes on.
+   */
+  private afterStep(
+    c: RunCtx,
+    scene: string,
+    step: number,
+    target: Target | undefined,
+    box: TakeEvent["box"] | undefined,
+    mark?: string,
+  ): void {
+    if (c.fast || !this.layout) return;
+    this.pending.push(
+      (async () => {
+        await waitForDomQuiet(c.page, 250, 1500);
+        if (target) {
+          const settled = boxOf(
+            await locate(c.page, target)
+              .first()
+              .boundingBox({ timeout: 500 })
+              .catch(() => null),
+          );
+          if (settled) {
+            const moved =
+              !box ||
+              Math.abs(settled.x - box.x) > 2 ||
+              Math.abs(settled.y - box.y) > 2 ||
+              Math.abs(settled.w - box.w) > 2 ||
+              Math.abs(settled.h - box.h) > 2;
+            c.log.log("target-settled", {
+              scene,
+              step,
+              box: settled,
+              // Not a top-level mark: marks are VO anchors and must stay unique per take.
+              data: { moved, target: describeTarget(target), ...(mark ? { forMark: mark } : {}) },
+            });
+          }
+        }
+        await this.captureLayout(c, "settle", { scene, step });
+      })().catch(() => {}),
+    );
+  }
 
   constructor(opts: RecordOptions) {
     this.opts = opts;
@@ -159,6 +231,15 @@ class StepRunner {
     c.log.log(type, fields);
     // Exact on-screen values for the voice-over (D4: DOM as the precision layer).
     // Fire-and-forget so the cursor never waits on it.
+    if (fields.mark && this.layout) {
+      this.pending.push(
+        this.captureLayout(c, "mark", {
+          mark: fields.mark,
+          ...(fields.scene ? { scene: fields.scene } : {}),
+          ...(fields.step !== undefined ? { step: fields.step } : {}),
+        }).catch(() => {}),
+      );
+    }
     if (fields.mark && this.domDir) {
       const file = path.join(this.domDir, `${fields.mark}.yaml`);
       const dir = this.domDir;
@@ -192,6 +273,9 @@ class StepRunner {
   async run(c: RunCtx, step: Step, scene: string, index: number): Promise<void> {
     const at = { scene, step: index };
     const mark = step.mark ? { mark: step.mark } : {};
+    // For the settled-box check after the step (steps that act on a target).
+    let target: Target | undefined;
+    let actedBox: TakeEvent["box"] | undefined;
     switch (step.do) {
       case "goto": {
         await c.page.goto(new URL(step.url, this.opts.baseUrl).toString(), { waitUntil: "load" });
@@ -202,6 +286,8 @@ class StepRunner {
       case "move":
       case "hover": {
         const box = await this.moveTo(c, step.target);
+        target = step.target;
+        actedBox = box;
         this.emit(c, step.do, {
           ...at,
           ...mark,
@@ -212,6 +298,8 @@ class StepRunner {
       }
       case "click": {
         const box = await this.moveTo(c, step.target);
+        target = step.target;
+        actedBox = box;
         this.emit(c, "click", {
           ...at,
           ...mark,
@@ -225,6 +313,8 @@ class StepRunner {
         let box: TakeEvent["box"];
         if (step.target) {
           box = await this.moveTo(c, step.target);
+          target = step.target;
+          actedBox = box;
           this.emit(c, "click", {
             ...at,
             box,
@@ -271,6 +361,8 @@ class StepRunner {
           );
         }
         const box = boxOf(await locator.boundingBox());
+        target = step.for;
+        actedBox = box;
         this.emit(c, "wait-satisfied", {
           ...at,
           ...mark,
@@ -297,6 +389,7 @@ class StepRunner {
         break;
       }
     }
+    this.afterStep(c, scene, index, target, actedBox, step.mark);
     await this.dwell(c, step.dwell ?? DEFAULT_DWELL[step.do]);
   }
 
@@ -462,6 +555,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   const segments: Segment[] = [];
   const runner = new StepRunner(opts);
   runner.domDir = path.join(takeDir, "dom");
+  runner.layout = new LayoutRecorder(takeDir);
   let cursor!: Cursor;
   const startPos: Point = {
     x: Math.round(opts.viewport.width * 0.62),
@@ -613,6 +707,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
             }
             progress.finishStep(k, i);
           }
+          await runner.flush();
           log.log("scene-end", { scene: scene.id });
           report();
           break;
@@ -621,6 +716,8 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
           const message = (err as Error).message;
           // Cut the failed attempt out of the take at its scene-start.
           const cut = startEvent.t;
+          await runner.flush();
+          runner.layout?.discardFrom(cut);
           await endSegment(cut);
           const dropped = log.discardFrom(startEvent);
           fs.appendFileSync(
@@ -647,6 +744,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
       }
     }
     await sleep(TAIL_MS);
+    await runner.flush();
     log.log("take-end");
     await endSegment();
     await Promise.all(runner.snapshots);
@@ -703,6 +801,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   );
   takeMeta.durationMs = durationMs;
   takeMeta.captureStats = stats;
+  takeMeta.layout = { snapshots: runner.layout?.count ?? 0, file: "layout.jsonl" };
   takeMeta.status = "captured";
   writeMeta();
 

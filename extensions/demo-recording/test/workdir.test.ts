@@ -123,10 +123,13 @@ test("state: history, phase, approval gates", () => {
   assert.throws(() => requireApproved(h.state, "storyboard"), /storyboard is not approved yet/);
 
   setPhase(h.dir, "storyboard-review");
+  assert.throws(() => approve(h.dir, "storyboard", 2), /storyboard v2 does not exist/);
+  fs.mkdirSync(path.join(h.dir, "storyboard"), { recursive: true });
+  fs.writeFileSync(path.join(h.dir, "storyboard", "v2.yaml"), "version: 2\n");
   const s = approve(h.dir, "storyboard", 2);
   assert.equal(requireApproved(s, "storyboard"), 2);
-  assert.throws(() => requireApproved(s, "vo"), /vo is not approved yet/);
-  assert.throws(() => approve(h.dir, "vo", 0), /invalid vo version/);
+  assert.throws(() => requireApproved(s, "vo"), /voice-over is not approved yet/);
+  assert.throws(() => approve(h.dir, "vo", 0), /invalid voice-over version/);
 
   updateState(h.dir, "note", undefined, { by: "test" });
   const final = readState(h.dir);

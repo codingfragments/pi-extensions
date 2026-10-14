@@ -10,13 +10,17 @@ import type { EventBus } from "../bus.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
 import { editVoSection, readVo, voVersions } from "../vo/store.ts";
+import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
+import { type ApprovalReset, versionLabel } from "../workdir/stages.ts";
 import {
   type GatedArtifact,
   type SceneReviewStatus,
-  approve,
+  acceptedTakeId,
+  approveStage,
   getReview,
   readState,
+  reviewText,
   setPhase,
   setReviewNote,
   setSceneReview,
@@ -126,7 +130,7 @@ export function panelRoutes(deps: RouteDeps): {
             versions,
             vo: null,
             approved: state.approved.vo ?? null,
-            acceptedTake: state.acceptedTake ?? null,
+            acceptedTake: acceptedTakeId(state) ?? null,
           };
         const v = current.validated;
         return {
@@ -217,6 +221,13 @@ export function panelRoutes(deps: RouteDeps): {
           const sb = readStoryboard(p.dir, version);
           if (!sb) throw new Error(`storyboard v${version} does not exist`);
           const { review } = submitReview(p.dir, version);
+          recordInput(p.dir, {
+            stage: "storyboard",
+            version,
+            source: "panel",
+            kind: "review",
+            text: reviewText(review),
+          });
           deps.bus.publish(
             "review.submitted",
             { artifact, version, message: `storyboard v${version} review sent to the agent` },
@@ -228,6 +239,13 @@ export function panelRoutes(deps: RouteDeps): {
         const vo = readVo(p.dir, version);
         if (!vo) throw new Error(`voice-over v${version} does not exist`);
         const { review } = submitReview(p.dir, version, "vo");
+        recordInput(p.dir, {
+          stage: "vo",
+          version,
+          source: "panel",
+          kind: "review",
+          text: reviewText(review),
+        });
         deps.bus.publish(
           "review.submitted",
           { artifact, version, message: `voice-over v${version} review sent to the agent` },
@@ -250,6 +268,14 @@ export function panelRoutes(deps: RouteDeps): {
         if (typeof section !== "string" || !section) throw new Error('"section" is required');
         if (typeof body.text !== "string") throw new Error('"text" is required');
         const stored = editVoSection(p.dir, version, section, body.text);
+        recordInput(p.dir, {
+          stage: "vo",
+          version: stored.version,
+          source: "panel",
+          kind: "review",
+          text: `edited ${section} inline (v${version} → v${stored.version}): ${body.text.length > 300 ? `${body.text.slice(0, 300)}…` : body.text}`,
+          refs: [`vo/script.v${stored.version}.md`],
+        });
         deps.bus.publish(
           "vo.written",
           {
@@ -265,29 +291,36 @@ export function panelRoutes(deps: RouteDeps): {
         const p = requireProject(deps);
         const version = intField(body, "version");
         const artifact = artifactField(body);
+        let resets: ApprovalReset[] = [];
         if (artifact === "storyboard") {
           if (!readStoryboard(p.dir, version))
             throw new Error(`storyboard v${version} does not exist`);
-          approve(p.dir, "storyboard", version);
+          resets = approveStage(p.dir, "storyboard", version).resets;
           setPhase(p.dir, "recording");
         } else {
           const vo = readVo(p.dir, version);
           if (!vo) throw new Error(`voice-over v${version} does not exist`);
           if (vo.validated.issues.some((i) => i.level === "error"))
             throw new Error(`voice-over v${version} has errors — fix them first`);
-          approve(p.dir, "vo", version);
+          resets = approveStage(p.dir, "vo", version).resets;
           setPhase(p.dir, "voice-edit");
         }
+        const resetText = resets.length
+          ? ` — reset: ${resets.map((r) => `${versionLabel(r.stage, r.version)} (${r.reason})`).join("; ")}`
+          : "";
         deps.bus.publish(
           `${artifact}.approved`,
           {
             version,
-            message: `${artifact === "vo" ? "voice-over" : "storyboard"} v${version} approved`,
+            message: `${artifact === "vo" ? "voice-over" : "storyboard"} v${version} approved${resetText}`,
+            resets,
           },
           p.slug,
         );
-        deps.notifyAgent(approvalMessage(p.slug, artifact, version));
-        return { approved: version };
+        deps.notifyAgent(
+          `${approvalMessage(p.slug, artifact, version)}${resets.length ? `\nCascade reset (stage chain): ${resets.map((r) => `${versionLabel(r.stage, r.version)} is no longer approved — ${r.reason}`).join("; ")}.` : ""}`,
+        );
+        return { approved: version, resets };
       },
     },
   };

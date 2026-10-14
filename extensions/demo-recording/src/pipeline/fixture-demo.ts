@@ -13,7 +13,7 @@ import type { DemoRecConfig } from "../config.ts";
 import { type EditResult, runEdit } from "../edit/pipeline.ts";
 import { serveFixture } from "../fixture/server.ts";
 import { recordTake } from "../recorder/runner.ts";
-import { parseStoryboard } from "../storyboard/parse.ts";
+import { writeStoryboard } from "../storyboard/store.ts";
 import { buildEngines } from "../tts/factory.ts";
 import { type VoiceManifest, renderVoice } from "../tts/synthesize.ts";
 import { writeVo } from "../vo/store.ts";
@@ -70,15 +70,18 @@ export async function runFixtureDemo(
       appName: "Acme Pulse",
       appUrl: fixture.url,
     });
-    const storyboard = parseStoryboard(
+    // Stage chain: store and approve the storyboard the take is based on.
+    const stored = writeStoryboard(
+      project.dir,
       fs.readFileSync(FIXTURE_STORYBOARD, "utf8").replace("start_url: /", "start_url: /?slow=1"),
-      { version: 1 },
     );
+    approve(project.dir, "storyboard", stored.version);
+    const storyboard = stored.storyboard;
     log("recording the fixture take …");
     const take = await recordTake({
       projectDir: project.dir,
       storyboard,
-      storyboardVersion: 1,
+      storyboardVersion: stored.version,
       baseUrl: fixture.url,
       viewport: config.viewport,
       fps: config.fps,

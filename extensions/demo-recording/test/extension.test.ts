@@ -452,3 +452,66 @@ test("S5 brand tool + /demo brand: list, show, duplicate, update (preview option
   assert.match(notes.at(-1)?.msg ?? "", /usage: \/demo brand/);
   await events.get("session_shutdown")?.({}, ctx);
 });
+
+test("S5 project memory: /demo notes and chat notes are logged, context excludes outdated, open/restore prime the agent", async () => {
+  const { tools, commands, messages, entries, events, ctx } = await load({ hasUI: false });
+  const demo = commands.get("demo");
+  const proj = tools.get("demo_rec_project");
+  assert.ok(demo && proj);
+  await demo.handler("new memproj http://127.0.0.1:9/ Acme Pulse", ctx);
+  await demo.handler("discover focus on the churn view, skip settings", ctx);
+  await demo.handler("voiceover evaluator tone, no hype", ctx);
+  await demo.handler("discover", ctx); // no notes → nothing logged
+
+  const noted = textOf(
+    await proj.execute("1", {
+      action: "note",
+      text: "keep the whole demo under 3 minutes",
+      kind: "direction",
+      stage: "storyboard",
+    }),
+  );
+  assert.match(noted, /Recorded in-0003 \(storyboard, direction\)/);
+  await proj.execute("2", {
+    action: "note",
+    text: "pricing page: https://acme.test/pricing",
+    kind: "source",
+    refs: ["https://acme.test/pricing"],
+  });
+  await proj.execute("3", {
+    action: "write_brief",
+    content: "# Demo brief: memproj\n\n- **Goal / key message:** churn in a minute\n",
+  });
+  await assert.rejects(proj.execute("4", { action: "mark", id: "in-0002" }), /needs a reason/);
+  assert.match(
+    textOf(
+      await proj.execute("5", { action: "mark", id: "in-0002", reason: "tone decided later" }),
+    ),
+    /in-0002 marked outdated/,
+  );
+
+  const context = textOf(await proj.execute("6", { action: "context" }));
+  assert.match(context, /churn in a minute/);
+  assert.match(context, /\[discovery\][\s\S]*\/demo discover: focus on the churn view/);
+  assert.match(context, /keep the whole demo under 3 minutes/);
+  assert.match(context, /source\/chat: pricing page.*refs: https:\/\/acme\.test\/pricing/);
+  assert.match(context, /brief v1 saved/);
+  assert.doesNotMatch(context, /evaluator tone/, "outdated input left out");
+  assert.match(context, /4 active, 1 marked outdated/);
+
+  // /demo open primes the next turn with the same memory, without triggering a turn.
+  const before = messages.length;
+  await demo.handler("open memproj", ctx);
+  const primed = messages.slice(before).find((m) => /Project context: memproj/.test(m.text));
+  assert.ok(primed, "context primed on /demo open");
+  assert.deepEqual(primed.options, { triggerTurn: false, deliverAs: "nextTurn" });
+  assert.doesNotMatch(primed.text, /evaluator tone/);
+  await events.get("session_shutdown")?.({}, ctx);
+
+  // Session restore primes it too.
+  const second = await load();
+  second.entries.push(...entries);
+  await second.events.get("session_start")?.({ reason: "resume" }, second.ctx);
+  assert.ok(second.messages.some((m) => /Project context: memproj/.test(m.text)));
+  await second.events.get("session_shutdown")?.({}, second.ctx);
+});

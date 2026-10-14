@@ -28,6 +28,7 @@ import { serveFixture } from "../src/fixture/server.ts";
 import { ffprobe, hasBinary, run } from "../src/media/ffmpeg.ts";
 import { recordTake } from "../src/recorder/runner.ts";
 import { parseStoryboard } from "../src/storyboard/parse.ts";
+import { writeStoryboard } from "../src/storyboard/store.ts";
 import { say } from "../src/tts/engines.ts";
 import { sayAvailable } from "../src/tts/say.ts";
 import { renderVoice, whisperWords } from "../src/tts/synthesize.ts";
@@ -122,6 +123,9 @@ test(
         appName: "Acme Pulse",
         appUrl: fixture.url,
       });
+      // Stage chain: the take is based on an approved, stored storyboard.
+      const sb = writeStoryboard(project.dir, STORYBOARD);
+      approve(project.dir, "storyboard", sb.version);
       const take = await recordTake({
         projectDir: project.dir,
         storyboard: parseStoryboard(STORYBOARD, { version: 1 }),

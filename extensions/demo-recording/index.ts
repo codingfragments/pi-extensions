@@ -45,7 +45,10 @@ export default function (pi: ExtensionAPI) {
         active = (entry.data as { project?: string } | undefined)?.project;
       }
     }
-    if (active) rt.setActiveProject(active);
+    if (active) {
+      rt.setActiveProject(active);
+      rt.primeContext();
+    }
   });
 
   pi.on("session_shutdown", async () => {

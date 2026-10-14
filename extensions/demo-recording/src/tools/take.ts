@@ -88,7 +88,7 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
             .join("\n"),
         );
       }
-      const take = params.take ?? defaultTake(p.dir, state.approved.storyboard)?.id;
+      const take = params.take ?? defaultTake(p.dir, state.line.storyboard)?.id;
       if (!take) throw new Error("no complete take yet — record one with demo_rec_record");
       const takeDir = path.join(p.dir, "takes", take);
       if (!fs.existsSync(path.join(takeDir, "take.json")))

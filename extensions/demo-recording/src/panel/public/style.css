@@ -58,6 +58,8 @@ nav {
   display: flex;
   gap: 4px;
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
 }
 nav button {
   background: none;
@@ -67,6 +69,7 @@ nav button {
   border-radius: 6px;
   cursor: pointer;
   font: inherit;
+  white-space: nowrap;
 }
 nav button.active {
   border-color: var(--line);
@@ -620,4 +623,371 @@ audio {
   color: var(--muted);
   font-size: 0.85em;
   margin-bottom: 4px;
+}
+
+/* ---------- S5 part 4: control room ---------- */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  height: calc(100vh - 49px);
+}
+.shell.live-closed {
+  grid-template-columns: minmax(0, 1fr);
+}
+.shell > main,
+.shell > main.review {
+  height: auto;
+  min-height: 0;
+  overflow: auto;
+}
+.shell.live-closed > main {
+  padding-bottom: 56px;
+}
+nav button.waiting {
+  border-color: color-mix(in srgb, var(--warn) 60%, transparent);
+}
+nav button .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+  vertical-align: middle;
+}
+
+/* stage header */
+.stage-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--inset);
+}
+.stage-head .stage-name {
+  font-weight: 600;
+}
+.stage-head .stage-name::first-letter {
+  text-transform: uppercase;
+}
+.badge.stale {
+  background: color-mix(in srgb, var(--warn) 20%, var(--card));
+  color: var(--warn);
+}
+.stage-head .next {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--chip);
+}
+.stage-head .next.user {
+  background: color-mix(in srgb, var(--warn) 22%, var(--card));
+  color: var(--text);
+}
+
+/* live panel */
+aside.live {
+  border-left: 1px solid var(--line);
+  background: var(--inset);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+  min-height: 0;
+}
+.live-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.live-summary {
+  margin: 0;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.live-summary.attention,
+.live-strip.attention {
+  border-color: color-mix(in srgb, var(--warn) 70%, transparent);
+}
+.live-toggles {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.chip {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.chip.on {
+  background: var(--chip);
+  color: var(--text);
+}
+.live-sec {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.live-sec.grow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+}
+.live-sec h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.live-sec dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+}
+.live-sec dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.prow + .prow {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.prow-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.prow p {
+  margin: 4px 0 0;
+}
+.fail-pill {
+  background: color-mix(in srgb, var(--err) 20%, var(--card));
+  color: var(--err);
+}
+.minibar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--chip);
+  overflow: hidden;
+}
+.minibar > div,
+.minibar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.minibar.strip {
+  width: 120px;
+  flex: none;
+}
+.frame {
+  margin: 0;
+}
+.frame img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+  border: 1px solid var(--line);
+}
+.frame figcaption {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.conn-dot.live {
+  background: var(--ok);
+}
+.conn-dot.reconnecting {
+  background: var(--warn);
+}
+button.ghost {
+  font: inherit;
+  font-size: 12px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+button.ghost:hover {
+  border-color: var(--line);
+  border-radius: 6px;
+}
+
+/* collapsed strip (both layouts) */
+.live-strip {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  font: inherit;
+  color: var(--text);
+  background: var(--inset);
+  border: none;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  z-index: 3;
+  text-align: left;
+}
+.live-strip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* narrow windows: the open panel becomes a bottom drawer */
+@media (max-width: 1100px) {
+  .shell,
+  .shell.live-closed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shell.live-open > main {
+    padding-bottom: calc(45vh + 16px);
+  }
+  aside.live {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 45vh;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 3;
+  }
+}
+
+/* recording tab */
+.group-head {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.card.take.accepted {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
+}
+.card.take h3 {
+  margin: 0;
+}
+.keyframes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.keyframes figure {
+  margin: 0;
+}
+.keyframes img,
+.kf-missing {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.kf-missing {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.keyframes figcaption {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.take-video {
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #000;
+}
+input.note {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--inset);
+  color: var(--text);
+  min-width: 220px;
+}
+
+/* branching stages (D44–D46) */
+.badge.line {
+  background: color-mix(in srgb, var(--accent) 22%, var(--card));
+  color: var(--accent);
+}
+.version-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.input-picker select {
+  margin-left: 6px;
+}
+.card.take.on-line {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* top bar: process steps (stepper) on the left, Config as a separate button on the right */
+nav.steps {
+  align-items: center;
+}
+.step-sep {
+  color: var(--muted);
+  opacity: 0.6;
+  user-select: none;
+}
+.config-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.config-btn:hover,
+.config-btn.active {
+  color: var(--text);
+  background: var(--card);
 }

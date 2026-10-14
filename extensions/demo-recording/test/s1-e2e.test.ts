@@ -73,7 +73,7 @@ test(
       });
 
       // Gate was exercised: storyboard stored as v1 and approved.
-      assert.equal(readState(result.projectDir)?.approved.storyboard, 1);
+      assert.equal(readState(result.projectDir)?.line.storyboard, 1);
 
       const probe = await ffprobe(result.output);
       const v = probe.streams.find((s) => s.codec_type === "video");

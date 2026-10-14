@@ -17,6 +17,7 @@ import { Jobs } from "./jobs.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
+import { stageRoutes } from "./panel/stage-routes.ts";
 import { readManifest } from "./tts/synthesize.ts";
 import { projectContext } from "./workdir/context.ts";
 import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/layout.ts";
@@ -174,6 +175,20 @@ export class Runtime {
     }
   }
 
+  /** A note for the agent's next turn that does not start a turn (e.g. working-line changes). */
+  tellAgent(text: string): void {
+    this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
+    if (!this.agent?.sendMessage) return;
+    try {
+      this.agent.sendMessage(
+        { customType: "demo-recording-note", content: text, display: true },
+        { triggerTurn: false, deliverAs: "nextTurn" },
+      );
+    } catch (err) {
+      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+    }
+  }
+
   notifyAgent(text: string): void {
     this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
     if (!this.agent) return;
@@ -243,12 +258,18 @@ export class Runtime {
         },
       });
       const brand = brandRoutes(this);
+      const stages = stageRoutes({
+        activeProject: () => this.activeProject(),
+        notifyAgent: (text) => this.notifyAgent(text),
+        tellAgent: (text) => this.tellAgent(text),
+        publish: (type, data, project) => this.bus.publish(type, data, project),
+      });
       this.panelStarting = startPanel({
         bus: this.bus,
         port: this.getConfig().panelPort,
         getState: () => this.snapshot(),
-        get: { ...routes.get, ...brand.get },
-        post: { ...routes.post, ...brand.post },
+        get: { ...routes.get, ...brand.get, ...stages.get },
+        post: { ...routes.post, ...brand.post, ...stages.post },
         media: () => {
           const root = this.getConfig().root;
           const p = this.activeProject();

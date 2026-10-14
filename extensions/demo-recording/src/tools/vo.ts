@@ -12,6 +12,7 @@ import { type TakeAnalysis, readAnalysis } from "../analysis/take.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatIssues } from "../vo/script.ts";
 import { readVo, voVersions, writeVo } from "../vo/store.ts";
+import { acceptedVersions } from "../workdir/stages.ts";
 import { acceptedTakeId, getReview, readState } from "../workdir/state.ts";
 import { result } from "./common.ts";
 import { defaultTake } from "./take.ts";
@@ -70,7 +71,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
       const state = readState(p.dir) ?? p.state;
       if (params.action === "template") {
         const take =
-          params.take ?? acceptedTakeId(state) ?? defaultTake(p.dir, state.approved.storyboard)?.id;
+          params.take ?? acceptedTakeId(state) ?? defaultTake(p.dir, state.line.storyboard)?.id;
         if (!take) throw new Error("no complete take yet");
         const analysis = readAnalysis(path.join(p.dir, "takes", take));
         if (!analysis)
@@ -85,7 +86,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
           ([k, r]) => `${k}: ${r.status}${r.note ? ` — "${r.note}"` : ""}`,
         );
         return result(
-          `voice-over v${vo.version} (versions: ${voVersions(p.dir).join(", ")}; approved: ${state.approved.vo ?? "none"})\n` +
+          `voice-over v${vo.version} (versions: ${voVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "vo").join(", ") || "none"}; working line: ${state.line.vo ?? "none"})\n` +
             `${formatIssues(vo.validated)}\n${marks.length ? `review:\n${marks.join("\n")}\n` : ""}---\n${vo.text}`,
         );
       }

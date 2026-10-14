@@ -20,7 +20,7 @@ import {
   recordInput,
 } from "../workdir/inputs.ts";
 import { ensureProject, openProject } from "../workdir/layout.ts";
-import { formatStageStatus, stageStatus } from "../workdir/stages.ts";
+import { acceptedVersions, formatLine, formatStageStatus, stageStatus } from "../workdir/stages.ts";
 import { type Phase, readState } from "../workdir/state.ts";
 import { listVersions, writeNextVersion } from "../workdir/versioning.ts";
 import { result } from "./common.ts";
@@ -56,11 +56,16 @@ export function projectStatus(rt: Runtime): string {
     `folder:  ${p.dir}`,
     `phase:   ${state.phase}`,
     `brief:   ${path.join(p.dir, "brief.md")}`,
-    `storyboard versions: ${versions.length ? versions.map((v) => `v${v}`).join(", ") : "none"}; approved: ${state.approved.storyboard ? `v${state.approved.storyboard}` : "none"}`,
+    `storyboard versions: ${versions.length ? versions.map((v) => `v${v}`).join(", ") : "none"}; accepted: ${
+      acceptedVersions(state.accepted, "storyboard")
+        .map((v) => `v${v}`)
+        .join(", ") || "none"
+    }`,
+    `working line: ${formatLine(state.line)}`,
   ];
   lines.push(
     "stages:",
-    ...formatStageStatus(stageStatus(p.dir, state.approved))
+    ...formatStageStatus(stageStatus(p.dir, state.accepted, state.line))
       .split("\n")
       .map((l) => `  ${l}`),
   );

@@ -32,19 +32,33 @@ side panel and talks back through `[demo-panel]` messages.
   story. Don't explore by submitting forms.
 - Stay inside the brief's *must avoid* list.
 
-## Stage chain and project memory
+## Stages, working line and project memory
 
-Work moves through a **strict chain**: storyboard → recording (take) →
-voice-over → annotations → render.
+Work moves through the stages storyboard → recording (take) → voice-over →
+annotations → render.
 - **One parent per version.** Every version is based on exactly one version
   of the stage before it: a take records its storyboard version, a voice-over
   names its take.
-- **Approvals chain up.** The engine only accepts an approval when the
-  version chains up to the approved parent. A voice-over can only be approved
-  for the **accepted** take, so `demo_rec_take accept` comes first.
-- **Cascade reset.** A new approved upstream version resets the approvals
-  below it. Nothing is deleted. `demo_rec_project status` shows the lineage
-  and flags stale drafts ("based on storyboard v1; approved is v2").
+- **Several accepted versions per stage.** The user may accept two takes of
+  one storyboard and give each its own voice-over. Accepting resets nothing.
+  A version can only be accepted when its parent is accepted.
+- **Un-accepting orphans, it never resets.** Accepted work built on an
+  un-accepted version is flagged **orphaned** and can't be used until it's
+  accepted again.
+- **The working line** is what the user and you are working on, e.g.
+  storyboard v2 → take-006 → voice-over v3. Your tools default to it:
+  - `demo_rec_record` records its storyboard;
+  - `demo_rec_vo template` uses its take;
+  - `demo_rec_tts` / `demo_rec_edit` use its voice-over.
+
+  Pass an explicit version only when the user asks for a different line.
+- **Line changes.** When the user switches the line in the panel, you get a
+  `[demo-panel] … switched the working line …` note: work on the new line
+  from then on. `demo_rec_project status` shows the line and every accepted
+  version with its lineage.
+- **Approval.** You still can't accept or approve anything yourself; the
+  user does it in the panel. `demo_rec_take accept` is the exception: it
+  accepts a take you were explicitly asked to accept.
 
 **The project's memory** lives in the project, not in this chat:
 - **Read it first.** When you (re)open a project, or see a

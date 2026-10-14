@@ -214,6 +214,22 @@ The timeline is timing only: cuts, speed, holds, audio placement and anchors. Zo
 callouts and other overlays live in the annotation version (§3.6); brand, title card
 and variants are applied at render (§3.8).
 
+### 3.5b Project state (`state.json`, schema 3 — S5 part 4)
+
+```json
+{"schema":3,"project":"keycraft","app":"keycraft","phase":"voice-edit",
+ "accepted":{"storyboard":{"2":"2026-10-13T13:50:01Z"},
+             "recording":{"5":"2026-10-13T23:10:00Z","6":"2026-10-14T00:50:12Z"},
+             "vo":{"2":"2026-10-14T01:02:00Z","3":"2026-10-14T01:30:00Z"}},
+ "line":{"storyboard":2,"recording":6,"vo":3},
+ "reviews":{…},"voReviews":{…},"history":[…]}
+```
+
+- **accepted:** several per stage; the value is the acceptance time (the default input is the most recently accepted).
+- **line:** the working line, kept consistent on every change (`normalizeLine`): each selection is usable and built on the line's parent.
+- **orphaned / usable:** computed from `accepted` + lineage, never stored.
+- **Migration:** schema 1 and 2 files migrate on first read (backups `state.v1.json` / `state.v2.json`): approvals become acceptances, the line runs through them.
+
 ### 3.6 Annotations (`annotations/vN.json`, S5 part 7/8)
 
 ```json
@@ -640,8 +656,9 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 2 | Brands: package format, renderer, tool/skill/commands, Brand tab | ✅ #34, #37, #38 |
 | — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
 | 3 | Stage model + project input log | ✅ |
-| 4 | Control-room shell (stage tabs, Live side panel) | next |
-| 5 | Config UI (Settings · Brands · Project context) | |
+| 4 | Control room + **branching stages** (D44–D47): stage tabs with input pickers, several accepted versions per stage, working line, orphans, Recording tab, Live side panel, `/demo panel` opens the browser | ✅ |
+| 5a | **Project screen** (D48): a Project tab at the far left — the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | next |
+| 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
 | 7 | Annotation rendering (engine) | |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |
@@ -694,6 +711,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - `annotations` — `annotations/vN.json`.
   - `render` — `render/vN.json` plus outputs.
 - **Versioning:** every version records **`basedOn`** (exactly one parent version). Version numbers count up per stage and are not hierarchical.
+- **Superseded in part 4 by D44–D47** (state schema 3): `accepted.<stage>.<version> = acceptedAt` (several per stage) and `line.<stage>` (the working line) replace `approved`; cascade reset is gone (accepting resets nothing; un-accepting orphans). The text below describes part 3 as shipped.
 - **`state.json` schema 2:** `approved.<stage>` for all five stages (recording = take number) plus `history`. The latest version, its `basedOn` and the stale flags are **computed from the artifacts** (`src/workdir/stages.ts`), never stored, so they can't drift from the files. Schema-1 files are migrated on first read (`acceptedTake` → `approved.recording`, off-chain approvals dropped, submitted reviews copied into the input log), with a backup kept as `state.v1.json`.
 - **Cascade reset (D33).** A new approved upstream version clears the downstream approvals and marks the downstream drafts as *based on an outdated parent*. Nothing is deleted, old versions stay readable, and "import from vN" (annotations, part 8) reuses work. Enforced in the engine:
   - `demo_rec_record` needs an approved storyboard;
@@ -734,20 +752,31 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - **Per stage:** each stage contributes its own components (e.g. the Recording stage shows scene segments and improvise events; Render shows per-variant progress) and can toggle them.
 - **The old Live tab content** (discovery card, recording progress) moves into the Live panel. Review and Voice become the Storyboard and Voice over tabs, unchanged inside. The Brand tab moves to Config (part 5).
 
-*5. Config UI (D41–D43)*
+*5a. Project screen (D42, D43, D48)* — its own step, the **Project** tab at the far left of the stepper (before Storyboard)
+- **Project facts** (project-only, edited here; stored in the brief / project files, never in `config.json`):
+  - **title** and **subtitle** (title card; the brief's `Title:` plus a new `Subtitle:`);
+  - **persona** (audience / stance) and **depth** — `poc` | `showcase` | `sales` — which steer discovery, storyboard and narration;
+  - **app URL(s) and login**: the base URL plus extra URLs (e.g. admin, docs) and the login state (`/demo login`, last check, which account — never the credentials themselves).
+- **Memory** (what the agent reads via `demo_rec_project context`, D42):
+  - **Brief:** current text, version history (`brief/vN.md`) with a diff to the previous version; editable as today.
+  - **Inputs:** the input log, filterable by stage, kind and source, newest first; each entry links to the version it produced. **Mark outdated / restore** with a reason (D43): never deleted, struck through, skipped by the agent.
+  - **Sources and assets:** `context/` files, web sources with URLs, brand material, files the user handed over.
+  - **Lineage:** the working line plus every accepted version with its lineage and orphan flags (until the map view, [FUTURE_IDEAS](FUTURE_IDEAS.md)).
+- **Findings** — what discovery and the recordings found, in one list (open question Q9: exact sources and format):
+  - *Discovery:* candidate use cases, friction and weaknesses, notable values, safety blocks and state-changing actions, screens visited (sitemap, audit log).
+  - *Recordings:* error toasts / console errors, improvise fallbacks used, resumes and retries, dead time, value mismatches (later: QA flags, part 10).
+  - Each finding links to its evidence (screen, take + time, keyframe) and can be marked "use in the demo" / "ignore".
+- **Routes:** `GET /api/context`, `GET /api/findings`, `POST /api/input-mark {id, outdated, reason}`.
+- **No tool configuration here:** project-scope overrides of tool settings (voice, TTS chain, models, budgets, brand default …) live under ⚙ Config (part 5b). Rule of thumb: *facts about this demo* → Project tab; *how the tool behaves* (globally or for this project) → ⚙ Config.
+
+*5b. Config UI (D41, D48)* — the **⚙ Config** button at the far right of the top bar (done in part 4), separate from the process steps
 - **Settings:**
   - every setting from `CONFIG_DOCS`, grouped, showing the effective value, its source (default / global / project / env), the docs, and whether it's shadowed;
-  - edited through a validated form, always diff-confirmed, with global or project scope;
+  - edited through a validated form, always diff-confirmed, with **global or project scope** (project overrides belong here, not in the Project tab);
   - the raw global and project files are shown **read-only** beside it, with "open in editor" and "reload";
   - API keys: only "set / not set" plus the env-var name, never shown or written.
-- **Brands:** the current Brand tab, moved in.
-- **Project context**, the "memory" of the selected project:
-  - **Brief:** current text, version history (`brief/vN.md`) and a diff to the previous version; editable as today.
-  - **Inputs:** the input log, filterable by stage, kind and source, newest first. Each entry links to the version it produced. **Mark outdated / restore** with a reason (D43): never deleted, struck through, and skipped by the agent.
-  - **Sources and assets:** `context/` files, web sources with URLs, brand material, uploaded files.
-  - **Discovery:** sessions, sitemap, screens and the audit log.
-  - **Lineage:** the stage chain with approved, latest and stale versions, and what a re-approval would reset.
-- **Routes:** `GET /api/config`, `POST /api/config-set {key, value, scope, confirm?}` (two-phase, as `demo_rec_config`), `GET /api/context`, `POST /api/input-mark {id, outdated, reason}`.
+- **Brands:** the current brand editor (already under Config since part 4).
+- **Routes:** `GET /api/config`, `POST /api/config-set {key, value, scope, confirm?}` (two-phase, as `demo_rec_config`).
 
 *6. Recording inputs (D32, D34)*
 - **Layout snapshots** `takes/take-NNN/layout.jsonl` (Q8): positions of visible elements, so annotations can target anything on screen.
@@ -994,6 +1023,7 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |
 | Q7 | ~~Annotation weights and target optimum~~ → designer value 1–5 (+1 for emphasis/VO match), deterministic noise per type × duration, greedy recommended set under caps, optimum = its noise, ±25 % = balanced (§3.6) | S5 plan ✅ |
+| Q9 | Findings: which engine signals count as findings, how the agent records discovery findings (e.g. `demo_rec_project note kind=finding` with evidence refs), dedupe, and the "use / ignore" marking | S5 part 5a (short grill first) |
 | Q8 | ~~Layout snapshot granularity~~ → after each settle, at marks and route changes (≤ 1/500 ms), visible elements only, ≤ 400 per snapshot, no password values (§3.7) | S5 plan ✅ |
 
 ## 9. Definition of done (v1 = S0–S6)

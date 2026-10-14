@@ -12,12 +12,13 @@ import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
 import { editVoSection, readVo, voVersions } from "../vo/store.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
-import { type ApprovalReset, versionLabel } from "../workdir/stages.ts";
+import { acceptedVersions, formatLine, parentOf, versionLabel } from "../workdir/stages.ts";
 import {
   type GatedArtifact,
+  PHASES,
   type SceneReviewStatus,
+  acceptStage,
   acceptedTakeId,
-  approveStage,
   getReview,
   readState,
   reviewText,
@@ -90,7 +91,8 @@ export function panelRoutes(deps: RouteDeps): {
             project: p.slug,
             versions,
             storyboard: null,
-            approved: state.approved.storyboard ?? null,
+            accepted: acceptedVersions(state.accepted, "storyboard"),
+            selected: state.line.storyboard ?? null,
           };
         const prevVersion = versions.filter((v) => v < current.version).at(-1);
         const prev = prevVersion !== undefined ? readStoryboard(p.dir, prevVersion) : undefined;
@@ -101,7 +103,8 @@ export function panelRoutes(deps: RouteDeps): {
           version: current.version,
           storyboard: current.storyboard,
           text: current.text,
-          approved: state.approved.storyboard ?? null,
+          accepted: acceptedVersions(state.accepted, "storyboard"),
+          selected: state.line.storyboard ?? null,
           review: getReview(state, current.version),
           diff: prev ? diffStoryboards(prev.storyboard, current.storyboard) : null,
         };
@@ -109,9 +112,19 @@ export function panelRoutes(deps: RouteDeps): {
       vo: (q) => {
         const p = deps.activeProject();
         if (!p) return { project: null };
-        const versions = voVersions(p.dir);
-        const requested = q.get("version") ? Number(q.get("version")) : undefined;
         const state = readState(p.dir) ?? p.state;
+        // Scoped to one take (the input): ?take=N, else the working line's take.
+        const take = q.get("take") ? Number(q.get("take")) : state.line.recording;
+        const all = voVersions(p.dir);
+        const versions =
+          take !== undefined ? all.filter((v) => parentOf(p.dir, "vo", v) === take) : all;
+        const scope = {
+          input: take ?? null,
+          accepted: acceptedVersions(state.accepted, "vo"),
+          selected: state.line.vo ?? null,
+        };
+        const asked = q.get("version") ? Number(q.get("version")) : undefined;
+        const requested = asked ?? (take !== undefined ? (versions.at(-1) ?? -1) : undefined);
         let current: ReturnType<typeof readVo>;
         try {
           current = readVo(p.dir, requested);
@@ -121,7 +134,7 @@ export function panelRoutes(deps: RouteDeps): {
             versions,
             vo: null,
             error: (err as Error).message,
-            approved: state.approved.vo ?? null,
+            ...scope,
           };
         }
         if (!current)
@@ -129,7 +142,7 @@ export function panelRoutes(deps: RouteDeps): {
             project: p.slug,
             versions,
             vo: null,
-            approved: state.approved.vo ?? null,
+            ...scope,
             acceptedTake: acceptedTakeId(state) ?? null,
           };
         const v = current.validated;
@@ -148,7 +161,7 @@ export function panelRoutes(deps: RouteDeps): {
           })),
           timing: v.timing,
           issues: v.issues,
-          approved: state.approved.vo ?? null,
+          ...scope,
           review: getReview(state, current.version, "vo"),
           audio: deps.audio?.(current.version) ?? null,
           fit: deps.fit?.(current.version) ?? null,
@@ -287,40 +300,47 @@ export function panelRoutes(deps: RouteDeps): {
         );
         return { version: stored.version };
       },
+      /** Accept a version (D44): several per stage; chain-checked; resets nothing. */
       approve: (body) => {
         const p = requireProject(deps);
         const version = intField(body, "version");
-        const artifact = artifactField(body);
-        let resets: ApprovalReset[] = [];
-        if (artifact === "storyboard") {
-          if (!readStoryboard(p.dir, version))
-            throw new Error(`storyboard v${version} does not exist`);
-          resets = approveStage(p.dir, "storyboard", version).resets;
-          setPhase(p.dir, "recording");
-        } else {
+        const artifact = body.artifact ?? "storyboard";
+        if (artifact !== "storyboard" && artifact !== "vo" && artifact !== "recording")
+          throw new Error('"artifact" must be "storyboard", "recording" or "vo"');
+        if (artifact === "storyboard" && !readStoryboard(p.dir, version))
+          throw new Error(`storyboard v${version} does not exist`);
+        if (artifact === "vo") {
           const vo = readVo(p.dir, version);
           if (!vo) throw new Error(`voice-over v${version} does not exist`);
           if (vo.validated.issues.some((i) => i.level === "error"))
             throw new Error(`voice-over v${version} has errors — fix them first`);
-          resets = approveStage(p.dir, "vo", version).resets;
-          setPhase(p.dir, "voice-edit");
         }
-        const resetText = resets.length
-          ? ` — reset: ${resets.map((r) => `${versionLabel(r.stage, r.version)} (${r.reason})`).join("; ")}`
-          : "";
+        const state = acceptStage(p.dir, artifact, version);
+        const onLine = state.line[artifact] === version;
+        if (onLine) {
+          const next =
+            artifact === "storyboard"
+              ? "recording"
+              : artifact === "recording"
+                ? "vo-review"
+                : "voice-edit";
+          if (PHASES.indexOf(next) > PHASES.indexOf(state.phase)) setPhase(p.dir, next);
+        }
+        const label = versionLabel(artifact, version);
         deps.bus.publish(
-          `${artifact}.approved`,
+          artifact === "recording" ? "take.accepted" : `${artifact}.approved`,
           {
             version,
-            message: `${artifact === "vo" ? "voice-over" : "storyboard"} v${version} approved${resetText}`,
-            resets,
+            onLine,
+            line: formatLine(state.line),
+            message: `${label} accepted${onLine ? " (working line)" : ""}`,
           },
           p.slug,
         );
         deps.notifyAgent(
-          `${approvalMessage(p.slug, artifact, version)}${resets.length ? `\nCascade reset (stage chain): ${resets.map((r) => `${versionLabel(r.stage, r.version)} is no longer approved — ${r.reason}`).join("; ")}.` : ""}`,
+          `${approvalMessage(p.slug, artifact, version)}${onLine ? "" : `\nIt is not on the working line (${formatLine(state.line)}); the user can switch to it in the panel.`}`,
         );
-        return { approved: version, resets };
+        return { accepted: version, onLine, line: state.line };
       },
     },
   };

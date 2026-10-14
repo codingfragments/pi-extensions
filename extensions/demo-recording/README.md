@@ -16,12 +16,12 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
 1. `/demo new <project> <app-url> [app name]`: creates the project, opens the panel, and starts the **demo-brief** skill (it drafts `brief.md` with you).
 2. `/demo discover [notes]`: the **demo-recording** skill explores the app with `demo_rec_browser`. You can watch it live in the panel: current screen, budget, and a safety feed.
-3. The agent writes a storyboard (`demo_rec_storyboard`). The panel **Review** tab shows scene cards. Mark each scene *Approve / Request changes / Re-run*, add notes, then **Send review to agent**. You get one consolidated `[demo-panel]` message, and the agent writes the next version, with a diff shown.
+3. The agent writes a storyboard (`demo_rec_storyboard`). The panel **Storyboard** tab shows scene cards. Mark each scene *Approve / Request changes / Re-run*, add notes, then **Send review to agent**. You get one consolidated `[demo-panel]` message, and the agent writes the next version, with a diff shown.
 4. **Approve vN** in the panel. This is the only way to approve; the agent cannot.
 5. Ask the agent to record: `demo_rec_record` starts a **background** take of the approved version. The panel shows a per-scene progress bar with ETA, and pi's footer shows the current step. The agent gets a `[demo-recording]` message with the result.
 
 6. After the take, the agent analyzes it (`demo_rec_take`) and writes the voice-over (`demo_rec_vo`, **demo-voiceover** skill). It's written from the actual run and quotes real on-screen values.
-7. The panel **Voice** tab shows each section with a speech-vs-footage timing bar. You can edit inline (each save is a new version), mark sections, send the review, and **Approve**. Approval unlocks the paid voice synthesis.
+7. The panel **Voice over** tab shows each section with a speech-vs-footage timing bar. You can edit inline (each save is a new version), mark sections, send the review, and **Approve**. Approval unlocks the paid voice synthesis.
 8. `demo_rec_tts` generates the voice and `demo_rec_edit` renders it: `projects/<p>/out/edit-vN/scenes/NN-<scene>.mp4`, `full.mp4` and `timeline.json`.
 
 ### Voice-over and edit (S4)
@@ -51,19 +51,30 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
   The result message lists per-scene cuts, holds, pauses and any off-sync anchors.
 - **Output:** 1920×1080, 30 fps H.264, AAC, loudness-normalized to −16 LUFS.
 
-### Stages and project memory (S5)
+### Stages, working line and project memory (S5)
 
-- **Stage chain:** storyboard → recording (take) → voice-over → annotations → render.
-  - Every version is based on exactly one parent version, read from the files themselves.
-  - An approval only goes through when the version chains up to the approved parent.
-  - A new upstream approval resets everything below it; nothing is deleted.
-  - `demo_rec_project status` shows the lineage and flags stale drafts.
-- **Project memory:** `inputs.jsonl` records every directional input:
-  - `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits;
-  - brief versions;
-  - chat directions, sources and assets the agent notes with `demo_rec_project note`.
+- **Stages:** storyboard → recording (take) → voice-over → annotations → render.
+- **Versions:** every version is based on exactly one parent version, read from the files themselves.
+- **Accepting:** several versions per stage can be accepted, so lines branch. A take of storyboard v2 can get two voice-overs, and two good takes can each get their own. Accepting resets nothing; a version can only be accepted when its parent is accepted.
+- **Un-accepting:** never deletes or resets anything. Accepted versions built on the un-accepted one are flagged **orphaned** and can't be used until it's accepted again.
+- **Working line:** one line per project (e.g. storyboard v2 → take-006 → voice-over v3), shared by the panel and the agent.
+  - **Default per stage:** the most recently accepted version on the line's input.
+  - **Agent tools:** they use the working line unless given an explicit version.
+  - **Status:** `demo_rec_project status` shows it, plus all accepted versions with their lineage.
+- **Project memory:** `inputs.jsonl` records every directional input: `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits, brief versions, and chat directions, sources and assets the agent notes with `demo_rec_project note`. Withdrawn directions are marked outdated, never deleted. `demo_rec_project context` returns the brief, the working line, the lineage and the active inputs; `/demo open` and a session restore put that into the agent's next turn.
 
-  Withdrawn directions are marked outdated (never deleted). `demo_rec_project context` returns the brief, the lineage and the active inputs; `/demo open` and a session restore put that context into the agent's next turn.
+### Panel: the control room (S5)
+
+- **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
+- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps; it holds all configuration, currently the brand editor, with settings coming in S5 part 5b. A **Project** tab at the far left, with the project's memory and findings, arrives in S5 part 5a.
+  - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
+  - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
+  - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).
+- **Recording tab:** the takes of the selected storyboard, newest first, with status, duration, analysis state, a keyframe per scene and the raw take as video. *Request a new take* asks the agent for a take of that storyboard.
+- **Live panel:** a collapsible right-hand panel; below 1100 px wide it becomes a bottom drawer.
+  - **Contents:** one progress row per running activity, a frame preview (the live frame of a running take, or the current discovery screen), safety, the working line and the log.
+  - **Collapsed:** a one-line strip with stage, activity or "waiting for you", and a mini progress bar.
+  - **Per tab:** sections can be toggled and are remembered.
 
 ### Brands (S5)
 
@@ -79,9 +90,9 @@ Every render uses a **brand package**, which sets:
 | user brands | `<root>/brands/<name>/`, outside this repo, so company logos never end up in a public package |
 | create | `/demo brand new path/to/brand.zip`: the `demo-brand` skill inspects logos (rendered, luminance-checked) and colors, proposes a mapping, creates the brand, and shows a preview |
 | default | config `brand` (`/demo brand use <name> [--project]`, diff-confirmed) |
-| switch | `/demo brand rerender <name>`, or the panel **Brand** tab: re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
+| switch | `/demo brand rerender <name>`, or the panel **Render** tab (brand dropdown): re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
 
-The Brand tab previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
+The panel **⚙ Config** brand editor previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
 
 Full reference, with every option, the automatic decisions and the render chain: [docs/BRANDS.md](docs/BRANDS.md).
 
@@ -110,7 +121,7 @@ Full reference, with every option, the automatic decisions and the render chain:
 | `/demo open [<project>]` | sets the active project (persisted in the session) |
 | `/demo status` | root, config sources, phase, approvals, panel URL |
 | `/demo discover [notes]` | start discovery + storyboard (demo-recording skill) |
-| `/demo panel` | starts the side panel and prints its URL (with token) |
+| `/demo panel` | starts the side panel and opens it in your browser (URL with token; `DEMO_REC_NO_OPEN=1` to only print it) |
 | `/demo doctor` | prerequisite check |
 | `/demo brand [list \| use <name> \| new [zip] \| rerender [name]]` | brand packages (S5) |
 | `/demo config`, `/demo voices`, `/demo voiceover`, `/demo render` | settings, voice picker, voice-over, render (S5) |

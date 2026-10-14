@@ -120,7 +120,7 @@ test("writeFileAtomic leaves no temp files", () => {
 test("state: history, phase, approval gates", () => {
   const h = ensureProject(root, { project: "p", appName: "a", appUrl: "https://a.test" });
   assert.equal(h.state.phase, "brief");
-  assert.throws(() => requireApproved(h.state, "storyboard"), /storyboard is not approved yet/);
+  assert.throws(() => requireApproved(h.state, "storyboard"), /storyboard is not accepted yet/);
 
   setPhase(h.dir, "storyboard-review");
   assert.throws(() => approve(h.dir, "storyboard", 2), /storyboard v2 does not exist/);
@@ -128,7 +128,7 @@ test("state: history, phase, approval gates", () => {
   fs.writeFileSync(path.join(h.dir, "storyboard", "v2.yaml"), "version: 2\n");
   const s = approve(h.dir, "storyboard", 2);
   assert.equal(requireApproved(s, "storyboard"), 2);
-  assert.throws(() => requireApproved(s, "vo"), /voice-over is not approved yet/);
+  assert.throws(() => requireApproved(s, "vo"), /voice-over is not accepted yet/);
   assert.throws(() => approve(h.dir, "vo", 0), /invalid voice-over version/);
 
   updateState(h.dir, "note", undefined, { by: "test" });
@@ -137,6 +137,6 @@ test("state: history, phase, approval gates", () => {
   assert.equal(final.phase, "storyboard-review");
   assert.deepEqual(
     final.history.map((e) => e.event),
-    ["project-created", "phase-changed", "approved", "note"],
+    ["project-created", "phase-changed", "accepted", "note"],
   );
 });

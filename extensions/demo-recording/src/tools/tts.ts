@@ -16,7 +16,7 @@ import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
 import { briefVoice, buildEngines } from "../tts/factory.ts";
 import { type VoiceManifest, readManifest, renderVoice, selectEngine } from "../tts/synthesize.ts";
 import { readVo } from "../vo/store.ts";
-import { readState, requireApproved } from "../workdir/state.ts";
+import { readState, requireSelected } from "../workdir/state.ts";
 import { result } from "./common.ts";
 
 export function voiceSummary(m: VoiceManifest): string {
@@ -55,6 +55,11 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
       action: Type.Optional(
         StringEnum(["check", "voices", "start", "status", "cancel"] as const, {
           description: "default start",
+        }),
+      ),
+      version: Type.Optional(
+        Type.Number({
+          description: "start: voice-over version (default: the working line's; must be accepted)",
         }),
       ),
     }),
@@ -120,7 +125,7 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
 
       const p = rt.requireProject();
       const state = readState(p.dir) ?? p.state;
-      const version = requireApproved(state, "vo");
+      const version = requireSelected(p.dir, state, "vo", params.version);
       const vo = readVo(p.dir, version);
       if (!vo) throw new Error(`approved voice-over v${version} is missing on disk`);
       const job = rt.jobs.start<VoiceManifest>(

@@ -15,11 +15,10 @@ import type { Timeline } from "../edit/timeline.ts";
 import { type LayoutSnapshot, readLayout } from "../recorder/layout.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { parseVo } from "../vo/script.ts";
-import { readVo } from "../vo/store.ts";
 import { resolveContext } from "./apply.ts";
 import { readAnnotations, validateAnnotations, writeAnnotations } from "./file.ts";
 import { scanPrivacy } from "./privacy.ts";
-import { resolveAnnotations, takeToSceneMs } from "./resolve.ts";
+import { type ResolvedAnnotation, resolveAnnotations, takeToSceneMs } from "./resolve.ts";
 import {
   type AnnotationFile,
   type AnnotationItem,
@@ -93,13 +92,19 @@ export function emphasisFor(projectDir: string, timeline: Timeline): Emphasis {
       if (st.mark) addTo(e.stepMarks, sc.id, st.mark);
     });
   }
-  const vo = readVo(projectDir, timeline.voVersion);
+  const vo = readVoText(projectDir, timeline.voVersion);
   if (vo) {
-    for (const sec of parseVo(vo.text).sections)
+    for (const sec of parseVo(vo).sections)
       if (sec.scene && sec.kind === "scene")
         for (const seg of sec.segments) if (seg.anchor) addTo(e.voMarks, sec.scene, seg.anchor);
   }
   return e;
+}
+
+/** The VO script text (no validation — the take's analysis isn't needed here). */
+export function readVoText(projectDir: string, version: number): string | undefined {
+  const f = path.join(projectDir, "vo", `script.v${version}.md`);
+  return fs.existsSync(f) ? fs.readFileSync(f, "utf8") : undefined;
 }
 
 export function readTakeStoryboardVersion(projectDir: string, take: string): number | undefined {
@@ -121,6 +126,41 @@ function uniqueId(base: string, taken: Set<string>): string {
   const id = `${base}-${n}`;
   taken.add(id);
   return id;
+}
+
+/**
+ * Can each item be placed on this recording? Resolved one by one, so that
+ * alternatives (two zoom candidates at the same moment) don't knock each
+ * other out — only one of them will be enabled anyway.
+ */
+function placeEach(
+  items: AnnotationItem[],
+  timeline: Timeline,
+  rc: ReturnType<typeof resolveContext>,
+) {
+  const out: ResolvedAnnotation[] = [];
+  const why = new Map<string, string>();
+  for (const it of items) {
+    const r = resolveAnnotations(
+      {
+        version: 0,
+        basedOn: { vo: timeline.voVersion },
+        take: timeline.take,
+        items: [{ ...it, enabled: true }],
+      },
+      rc,
+    );
+    const res = r.items[0];
+    if (res) out.push(res);
+    else
+      why.set(
+        it.id,
+        (r.warnings[0] ?? `${it.id}: not placeable`)
+          .slice(it.id.length + 2)
+          .replace(/ — skipped$/, ""),
+      );
+  }
+  return { items: out, why };
 }
 
 /** Privacy hits as disabled redact suggestions (D54), unless a redaction already covers the element. */
@@ -241,21 +281,11 @@ export function suggestAnnotations(o: {
   // Resolve against the recording: unresolvable fresh suggestions are dropped with the reason.
   const rc = resolveContext(o.projectDir, o.timeline);
   const all = [...kept, ...fresh];
-  const probe = resolveAnnotations(
-    {
-      version: 0,
-      basedOn: { vo: o.timeline.voVersion },
-      take: o.timeline.take,
-      items: all.map((x) => ({ ...x, enabled: true })),
-    },
-    rc,
-  );
+  const probe = placeEach(all, o.timeline, rc);
   const ok = new Set(probe.items.map((r) => r.id));
-  for (const w of probe.warnings) {
-    const id = w.split(":")[0] as string;
-    if (fresh.some((f) => f.id === id) && !ok.has(id))
-      dropped.push({ id, why: w.slice(id.length + 2) });
-    else if (kept.some((k) => k.id === id)) warnings.push(`kept ${w}`);
+  for (const [id, why] of probe.why) {
+    if (fresh.some((f) => f.id === id)) dropped.push({ id, why });
+    else if (kept.some((k) => k.id === id)) warnings.push(`kept ${id}: ${why}`);
   }
   const placed = fresh.filter((f) => ok.has(f.id));
 
@@ -362,24 +392,11 @@ export function importAnnotations(o: {
             : {}),
         },
   );
-  const probe = resolveAnnotations(
-    {
-      version: 0,
-      basedOn: { vo: o.timeline.voVersion },
-      take: o.timeline.take,
-      items: candidates.map((x) => ({ ...x, enabled: true })),
-    },
-    rc,
-  );
+  const probe = placeEach(candidates, o.timeline, rc);
   const ok = new Set(probe.items.map((r) => r.id));
   const notCarried = candidates
     .filter((c) => !ok.has(c.id))
-    .map((c) => ({
-      id: c.id,
-      why: (probe.warnings.find((w) => w.startsWith(`${c.id}:`)) ?? `${c.id}: not placeable`)
-        .slice(c.id.length + 2)
-        .replace(/ — skipped$/, ""),
-    }));
+    .map((c) => ({ id: c.id, why: probe.why.get(c.id) ?? "not placeable" }));
   const carried = candidates.filter((c) => ok.has(c.id));
   let zooms = 0;
   for (const it of carried)

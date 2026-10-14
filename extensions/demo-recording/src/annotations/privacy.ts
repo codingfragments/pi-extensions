@@ -68,14 +68,13 @@ export function detect(text: string): { kind: PrivacyKind; match: string } | und
   const iban = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/.exec(t);
   if (iban && iban[0].replace(/ /g, "").length >= 15) return { kind: "iban", match: iban[0] };
   const card = /\b(?:\d[ -]?){13,19}\b/.exec(t);
-  if (card) {
-    const digits = card[0].replace(/\D/g, "");
-    if (digits.length >= 13 && digits.length <= 19 && luhn(digits))
-      return { kind: "card", match: card[0].trim() };
-  }
-  const phone = /(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)[ .-]?)?\d{2,4}[ .-]\d{3,4}[ .-]\d{3,4}\b/.exec(
-    t,
-  );
+  const cardDigits = card ? card[0].replace(/\D/g, "") : "";
+  const cardLike = cardDigits.length >= 13 && cardDigits.length <= 19;
+  if (card && cardLike && luhn(cardDigits)) return { kind: "card", match: card[0].trim() };
+  // A card-shaped number that fails Luhn is not a phone number either.
+  const phone = cardLike
+    ? null
+    : /(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)[ .-]?)?\d{2,4}[ .-]\d{3,4}[ .-]\d{3,4}\b/.exec(t);
   if (phone && phone[0].replace(/\D/g, "").length >= 9) return { kind: "phone", match: phone[0] };
   // A long opaque token: ≥ 24 chars of mixed letters+digits without spaces (hashes, secrets).
   const opaque = /\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{24,}\b/.exec(t);

@@ -19,10 +19,9 @@ import {
 } from "../recorder/layout.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { parseVo } from "../vo/script.ts";
-import { readVo } from "../vo/store.ts";
-import { readTakeStoryboardVersion } from "./design.ts";
+import { readTakeStoryboardVersion, readVoText } from "./design.ts";
 import { readAnnotations } from "./file.ts";
-import { scanPrivacy } from "./privacy.ts";
+import { detect, mask, scanPrivacy } from "./privacy.ts";
 import { takeToSceneMs } from "./resolve.ts";
 import { MAX_TEXT, MAX_ZOOMS, MAX_ZOOM_FACTOR, userTouched } from "./types.ts";
 import { BASE_NOISE } from "./weights.ts";
@@ -91,8 +90,8 @@ export function annotationContext(o: {
     o.projectDir,
     readTakeStoryboardVersion(o.projectDir, t.take),
   )?.storyboard;
-  const vo = readVo(o.projectDir, t.voVersion);
-  const sections = vo ? parseVo(vo.text).sections : [];
+  const vo = readVoText(o.projectDir, t.voVersion);
+  const sections = vo ? parseVo(vo).sections : [];
   const L: string[] = [];
   L.push(`Annotation input pack — edit v${o.timelineVersion} (${t.take}, VO v${t.voVersion}).`);
   L.push(
@@ -177,10 +176,14 @@ export function annotationContext(o: {
       L.push(
         `on screen at ${m.label} (${sec(takeToSceneMs(sc, m.t))}, snapshot t${snap.t}, ${snap.els.length} elements, ${els.length} shown):`,
       );
-      for (const e of els)
+      for (const e of els) {
+        const raw = (e.text ?? e.name ?? "").trim();
+        const d = detect(raw);
+        const shown = d ? raw.replace(d.match, mask(d.match)) : raw;
         L.push(
-          `  t${snap.t}#${e.id} ${e.role} "${(e.text ?? e.name ?? "").trim()}" ${boxStr(e.box)}`,
+          `  t${snap.t}#${e.id} ${e.role} "${shown}" ${boxStr(e.box)}${d ? ` (privacy: ${d.kind})` : ""}`,
         );
+      }
     }
   }
   const hits = scanPrivacy(snaps);

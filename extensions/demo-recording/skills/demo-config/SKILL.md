@@ -35,6 +35,19 @@ The voice also has its own layer: a project's brief **Voice:** field wins over
 - For interactive use, the user can run `/demo voices` (pick from a list) or
   `/demo config …` themselves.
 
+## In the panel
+
+The user can do the same in the side panel under **⚙ Config → Settings**:
+- every setting with its source and the value in each layer;
+- a Global / This project switch;
+- diff-confirmed Save and reset;
+- the raw files read-only.
+
+When they ask "where do I change X", point them there or offer to do it here
+with `demo_rec_config`. Facts about the demo itself (title, persona, depth,
+length, URLs) are not settings: they live in the panel's **Project** tab (the
+brief).
+
 ## Scope
 
 - **Global** is the default for personal preferences (your voice, engine

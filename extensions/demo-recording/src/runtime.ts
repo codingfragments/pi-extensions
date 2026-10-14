@@ -15,6 +15,7 @@ import type { DiscoverySession } from "./discovery/session.ts";
 import { voiceFit } from "./edit/pipeline.ts";
 import { Jobs } from "./jobs.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
+import { configRoutes } from "./panel/config-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
@@ -270,12 +271,17 @@ export class Runtime {
         publish: (type, data, slug) => this.bus.publish(type, data, slug),
         tellAgent: (text) => this.tellAgent(text),
       });
+      const config = configRoutes({
+        activeProject: () => this.activeProject(),
+        reloadConfig: () => this.getConfig(true),
+        publish: (type, data, slug) => this.bus.publish(type, data, slug),
+      });
       this.panelStarting = startPanel({
         bus: this.bus,
         port: this.getConfig().panelPort,
         getState: () => this.snapshot(),
-        get: { ...routes.get, ...brand.get, ...stages.get, ...project.get },
-        post: { ...routes.post, ...brand.post, ...stages.post, ...project.post },
+        get: { ...routes.get, ...brand.get, ...stages.get, ...project.get, ...config.get },
+        post: { ...routes.post, ...brand.post, ...stages.post, ...project.post, ...config.post },
         media: () => {
           const root = this.getConfig().root;
           const p = this.activeProject();

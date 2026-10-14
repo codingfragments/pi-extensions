@@ -3,6 +3,7 @@
 // with a shared stage header, plus the collapsible Live panel. Preact + htm,
 // vendored, no build.
 import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { Settings } from "./config.js";
 import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
 import { LivePanel } from "./live.js";
 import { Project } from "./project.js";
@@ -735,12 +736,16 @@ function Annotations({ stages }) {
 }
 
 function Config({ events }) {
+  const [view, setView] = useState("settings");
   return html`
-    <section class="card review-head">
-      <div class="row"><h2>Config</h2><span class="grow"></span>
-        <span class="muted small-text">Settings (global and project overrides) arrive in S5 part 5b — use <code>/demo config</code> meanwhile.</span></div>
-    </section>
-    <${Brand} events=${events} />`;
+    <div class="subtabs">${[
+      ["settings", "Settings"],
+      ["brands", "Brands"],
+    ].map(
+      ([id, label]) =>
+        html`<button class=${`chip ${view === id ? "on" : ""}`} onClick=${() => setView(id)}>${label}</button>`,
+    )}</div>
+    ${view === "settings" ? html`<${Settings} events=${events} />` : html`<${Brand} events=${events} />`}`;
 }
 
 // ---------------- APP ----------------

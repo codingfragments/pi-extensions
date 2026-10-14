@@ -15,7 +15,7 @@ import { readStoryboard } from "../storyboard/store.ts";
 import { readManifest } from "../tts/synthesize.ts";
 import { readVo } from "../vo/store.ts";
 import { readApp } from "../workdir/layout.ts";
-import { readState, requireApproved } from "../workdir/state.ts";
+import { readState, requireSelected } from "../workdir/state.ts";
 import { writeNextVersion } from "../workdir/versioning.ts";
 import { type SceneFit, sceneFits } from "./fit.ts";
 import { type RenderBrand, fullJob, renderJob, sceneJob } from "./render.ts";
@@ -110,7 +110,7 @@ export function titleInfoFor(projectDir: string, config: DemoRecConfig): TitleIn
   const pretty = (s: string) => s.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   let storyboardTitle: string | undefined;
   try {
-    storyboardTitle = readStoryboard(projectDir, state?.approved.storyboard)?.storyboard.title;
+    storyboardTitle = readStoryboard(projectDir, state?.line.storyboard)?.storyboard.title;
   } catch {
     storyboardTitle = undefined;
   }
@@ -239,13 +239,15 @@ export async function runEdit(o: {
   config: DemoRecConfig;
   signal?: AbortSignal;
   variant?: VariantOptions;
+  /** Voice-over to edit (default: the working line's). Must be accepted and usable. */
+  voVersion?: number;
   onProgress?: (p: { done: number; total: number; label: string }) => void;
 }): Promise<EditResult> {
   const state = readState(o.projectDir);
   if (!state) throw new Error("project state missing");
-  const voVersion = requireApproved(state, "vo");
+  const voVersion = requireSelected(o.projectDir, state, "vo", o.voVersion);
   const vo = readVo(o.projectDir, voVersion);
-  if (!vo) throw new Error(`approved voice-over v${voVersion} is missing`);
+  if (!vo) throw new Error(`voice-over v${voVersion} is missing`);
   const manifest = readManifest(o.projectDir, voVersion);
   if (!manifest)
     throw new Error(`no voice for voice-over v${voVersion} yet — run demo_rec_tts first`);

@@ -5,7 +5,7 @@
  * Deliberately exercises the real workdir contract and the approval gate: the
  * hand-written storyboard is stored as the next version (or reuses the latest
  * if identical), approved explicitly with `by: cli`, and recording goes through
- * `requireApproved`.
+ * `requireSelected`.
  */
 
 import fs from "node:fs";
@@ -18,7 +18,7 @@ import { type TakeResult, recordTake } from "../recorder/runner.ts";
 import { parseStoryboard } from "../storyboard/parse.ts";
 import { sayToWav } from "../tts/say.ts";
 import { ensureProject } from "../workdir/layout.ts";
-import { approve, readState, requireApproved } from "../workdir/state.ts";
+import { approve, readState, requireSelected } from "../workdir/state.ts";
 import { latestVersion, writeNextVersion } from "../workdir/versioning.ts";
 
 export interface S1Options {
@@ -66,13 +66,13 @@ export async function runS1(opts: S1Options): Promise<S1Result> {
   });
 
   const version = storeStoryboard(project.dir, text);
-  if (readState(project.dir)?.approved.storyboard !== version) {
+  if (readState(project.dir)?.line.storyboard !== version) {
     approve(project.dir, "storyboard", version);
     log(`storyboard v${version} approved (by cli: S1 walking skeleton)`);
   }
   const state = readState(project.dir);
   if (!state) throw new Error("project state missing");
-  const approvedVersion = requireApproved(state, "storyboard");
+  const approvedVersion = requireSelected(project.dir, state, "storyboard");
 
   log(`recording take of storyboard v${approvedVersion} …`);
   const take = await recordTake({

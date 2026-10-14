@@ -312,7 +312,7 @@ test("panel: GET vo, per-section review, inline edit, approve gate", async () =>
   assert.equal(vo.take, "take-001");
   assert.equal(vo.sections.length, 5);
   assert.match(vo.sections[3].spoken, /14\.2%/, "bindings resolved for display");
-  assert.equal(vo.approved, null);
+  assert.deepEqual([vo.accepted, vo.selected], [[], null]);
 
   assert.equal(
     (
@@ -355,7 +355,7 @@ test("panel: GET vo, per-section review, inline edit, approve gate", async () =>
   assert.equal(chainless.status, 400);
   assert.match(
     ((await chainless.json()) as { error: string }).error,
-    /approve the recording first/,
+    /based on recording take-001, which is not accepted — accept that recording first/,
   );
   fs.mkdirSync(path.join(p.dir, "storyboard"), { recursive: true });
   fs.writeFileSync(path.join(p.dir, "storyboard", "v1.yaml"), "version: 1\n");

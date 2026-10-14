@@ -214,6 +214,22 @@ The timeline is timing only: cuts, speed, holds, audio placement and anchors. Zo
 callouts and other overlays live in the annotation version (§3.6); brand, title card
 and variants are applied at render (§3.8).
 
+### 3.5b Project state (`state.json`, schema 3 — S5 part 4)
+
+```json
+{"schema":3,"project":"keycraft","app":"keycraft","phase":"voice-edit",
+ "accepted":{"storyboard":{"2":"2026-10-13T13:50:01Z"},
+             "recording":{"5":"2026-10-13T23:10:00Z","6":"2026-10-14T00:50:12Z"},
+             "vo":{"2":"2026-10-14T01:02:00Z","3":"2026-10-14T01:30:00Z"}},
+ "line":{"storyboard":2,"recording":6,"vo":3},
+ "reviews":{…},"voReviews":{…},"history":[…]}
+```
+
+- **accepted:** several per stage; the value is the acceptance time (the default input is the most recently accepted).
+- **line:** the working line, kept consistent on every change (`normalizeLine`): each selection is usable and built on the line's parent.
+- **orphaned / usable:** computed from `accepted` + lineage, never stored.
+- **Migration:** schema 1 and 2 files migrate on first read (backups `state.v1.json` / `state.v2.json`): approvals become acceptances, the line runs through them.
+
 ### 3.6 Annotations (`annotations/vN.json`, S5 part 7/8)
 
 ```json
@@ -640,7 +656,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 2 | Brands: package format, renderer, tool/skill/commands, Brand tab | ✅ #34, #37, #38 |
 | — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
 | 3 | Stage model + project input log | ✅ |
-| 4 | Control-room shell (stage tabs, Live side panel) | ✅ |
+| 4 | Control room + **branching stages** (D44–D47): stage tabs with input pickers, several accepted versions per stage, working line, orphans, Recording tab, Live side panel, `/demo panel` opens the browser | ✅ |
 | 5 | Config UI (Settings · Brands · Project context) | next |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
 | 7 | Annotation rendering (engine) | |
@@ -694,6 +710,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - `annotations` — `annotations/vN.json`.
   - `render` — `render/vN.json` plus outputs.
 - **Versioning:** every version records **`basedOn`** (exactly one parent version). Version numbers count up per stage and are not hierarchical.
+- **Superseded in part 4 by D44–D47** (state schema 3): `accepted.<stage>.<version> = acceptedAt` (several per stage) and `line.<stage>` (the working line) replace `approved`; cascade reset is gone (accepting resets nothing; un-accepting orphans). The text below describes part 3 as shipped.
 - **`state.json` schema 2:** `approved.<stage>` for all five stages (recording = take number) plus `history`. The latest version, its `basedOn` and the stale flags are **computed from the artifacts** (`src/workdir/stages.ts`), never stored, so they can't drift from the files. Schema-1 files are migrated on first read (`acceptedTake` → `approved.recording`, off-chain approvals dropped, submitted reviews copied into the input log), with a backup kept as `state.v1.json`.
 - **Cascade reset (D33).** A new approved upstream version clears the downstream approvals and marks the downstream drafts as *based on an outdated parent*. Nothing is deleted, old versions stay readable, and "import from vN" (annotations, part 8) reuses work. Enforced in the engine:
   - `demo_rec_record` needs an approved storyboard;

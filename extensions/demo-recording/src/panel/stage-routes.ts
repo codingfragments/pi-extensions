@@ -15,20 +15,28 @@ import {
   PARENT,
   STAGE_LABEL,
   type Stage,
+  acceptedVersions,
+  formatLine,
+  isAccepted,
   isStage,
+  isUsable,
   nextStep,
-  previewApproval,
+  orphanReason,
+  orphansIfUnaccepted,
+  parentOf,
   stageStatus,
   takeNumber,
   versionLabel,
 } from "../workdir/stages.ts";
-import { readState } from "../workdir/state.ts";
+import { readState, selectStage, unacceptStage } from "../workdir/state.ts";
 import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export interface StageRouteDeps {
   activeProject: () => ProjectHandle | undefined;
   notifyAgent: (text: string) => void;
+  /** Note for the agent's next turn without starting one. */
+  tellAgent: (text: string) => void;
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
 }
 
@@ -109,6 +117,21 @@ function versionField(stage: Stage, body: Record<string, unknown>): number {
   throw new Error('"version" must be a positive integer (or "take": "take-NNN")');
 }
 
+/** Lineage label of an accepted version: "take-006 · storyboard v2". */
+function lineageLabel(projectDir: string, stage: Stage, v: number): string {
+  const parts = [versionLabel(stage, v).replace(/^recording /, "")];
+  let s: Stage = stage;
+  let n: number | undefined = v;
+  while (PARENT[s] && n !== undefined) {
+    const parent = PARENT[s] as Stage;
+    n = parentOf(projectDir, s, n);
+    if (n === undefined) break;
+    parts.push(versionLabel(parent, n).replace(/^recording /, ""));
+    s = parent;
+  }
+  return parts.join(" · ");
+}
+
 export function stageRoutes(deps: StageRouteDeps): {
   get: Record<string, GetRoute>;
   post: Record<string, PostRoute>;
@@ -120,7 +143,7 @@ export function stageRoutes(deps: StageRouteDeps): {
   };
   return {
     get: {
-      /** Lineage for every stage tab header + what the project waits for. */
+      /** Every stage: versions, accepted (with orphan flags), working line, inputs to pick from, next step. */
       stages: () => {
         const p = deps.activeProject();
         if (!p) return { project: null };
@@ -128,35 +151,44 @@ export function stageRoutes(deps: StageRouteDeps): {
         return {
           project: p.slug,
           phase: state.phase,
-          stages: stageStatus(p.dir, state.approved).map((s) => ({
-            ...s,
-            label: STAGE_LABEL[s.stage],
-            parent: PARENT[s.stage] ?? null,
-            // Downstream approvals that a different approval here would put at risk.
-            downstreamApproved: Object.entries(state.approved)
-              .filter(
-                ([k]) =>
-                  isStage(k) &&
-                  STAGE_LABEL[k as Stage] &&
-                  k !== s.stage &&
-                  isDownstream(s.stage, k as Stage),
-              )
-              .map(([k, v]) => versionLabel(k as Stage, v as number)),
-          })),
-          next: nextStep(p.dir, state.approved, { rendered: hasRender(p.dir) }),
+          line: state.line,
+          lineText: formatLine(state.line),
+          stages: stageStatus(p.dir, state.accepted, state.line).map((s) => {
+            const parent = PARENT[s.stage];
+            return {
+              ...s,
+              label: STAGE_LABEL[s.stage],
+              parent: parent ?? null,
+              // Inputs for this stage's picker: accepted, usable versions of the parent stage.
+              inputs: parent
+                ? acceptedVersions(state.accepted, parent)
+                    .filter((v) => isUsable(p.dir, state.accepted, parent, v))
+                    .map((v) => ({
+                      version: v,
+                      label: lineageLabel(p.dir, parent, v),
+                      at: state.accepted[parent]?.[String(v)] ?? null,
+                    }))
+                    .sort((a, b) => ((b.at ?? "") < (a.at ?? "") ? -1 : 1))
+                : [],
+            };
+          }),
+          next: nextStep(p.dir, state.accepted, state.line, { rendered: hasRender(p.dir) }),
         };
       },
-      /** Recording tab: every take, newest first, with analysis state and keyframes. */
-      recordings: () => {
+      /** Recording tab: the takes of one storyboard version (?storyboard=N, default the working line's). */
+      recordings: (q) => {
         const p = deps.activeProject();
         if (!p) return { project: null };
         const state = readState(p.dir) ?? p.state;
+        const sb = q.get("storyboard") ? Number(q.get("storyboard")) : state.line.storyboard;
         const takes = listTakes(p.dir)
+          .filter((t) => sb === undefined || t.storyboardVersion === sb)
           .reverse()
           .map((t) => {
             const n = takeNumber(t.id) as number;
             const dir = path.join(p.dir, "takes", t.id);
             const analysis = readAnalysis(dir);
+            const orphaned = orphanReason(p.dir, state.accepted, "recording", n);
             return {
               id: t.id,
               version: n,
@@ -165,9 +197,10 @@ export function stageRoutes(deps: StageRouteDeps): {
               durationMs: t.durationMs ?? null,
               startedAt: t.startedAt ?? null,
               analyzed: !!analysis,
-              accepted: state.approved.recording === n,
-              onApprovedStoryboard: t.storyboardVersion === state.approved.storyboard,
-              hasVideo: fs.existsSync(path.join(dir, "raw.mp4")),
+              accepted: isAccepted(state.accepted, "recording", n),
+              acceptedAt: state.accepted.recording?.[String(n)] ?? null,
+              orphaned: orphaned ?? null,
+              onLine: state.line.recording === n,
               video: fs.existsSync(path.join(dir, "raw.mp4"))
                 ? rel(p.dir, path.join(dir, "raw.mp4"))
                 : null,
@@ -189,8 +222,8 @@ export function stageRoutes(deps: StageRouteDeps): {
           });
         return {
           project: p.slug,
-          approvedStoryboard: state.approved.storyboard ?? null,
-          accepted: state.approved.recording ?? null,
+          storyboard: sb ?? null,
+          storyboardUsable: sb !== undefined && isUsable(p.dir, state.accepted, "storyboard", sb),
           takes,
         };
       },
@@ -201,23 +234,61 @@ export function stageRoutes(deps: StageRouteDeps): {
       },
     },
     post: {
-      /** Dry run: which approvals a new approval would reset (the cascade warning). */
-      "approve-preview": (body) => {
+      /** What un-accepting would orphan (D45) — shown in the confirmation. */
+      "unaccept-preview": (body) => {
         const p = requireProject();
         const stage = stageField(body);
         const version = versionField(stage, body);
         const state = readState(p.dir) ?? p.state;
-        const resets = previewApproval(p.dir, state.approved, stage, version);
-        return { resets: resets.map((r) => ({ ...r, label: versionLabel(r.stage, r.version) })) };
+        if (!isAccepted(state.accepted, stage, version))
+          throw new Error(`${versionLabel(stage, version)} is not accepted`);
+        return { orphans: orphansIfUnaccepted(p.dir, state.accepted, stage, version) };
       },
-      /** Ask the agent for a new take (recording is an agent job: it needs the improvise model). */
+      unaccept: (body) => {
+        const p = requireProject();
+        const stage = stageField(body);
+        const version = versionField(stage, body);
+        const { state, orphaned } = unacceptStage(p.dir, stage, version);
+        const label = versionLabel(stage, version);
+        deps.publish(
+          "stage.unaccepted",
+          {
+            stage,
+            version,
+            orphaned,
+            message: `${label} un-accepted${orphaned.length ? ` — orphaned: ${orphaned.map((o) => o.label).join(", ")}` : ""}`,
+          },
+          p.slug,
+        );
+        deps.tellAgent(
+          `${PANEL_PREFIX} The user UN-ACCEPTED ${label} in project "${p.slug}"${orphaned.length ? `; built on it and now orphaned (not usable until it is accepted again): ${orphaned.map((o) => o.label).join(", ")}` : ""}. Working line: ${formatLine(state.line)}.`,
+        );
+        return { orphaned, line: state.line };
+      },
+      /** Put a version on the working line (ancestors follow, descendants re-pick) — D46. */
+      select: (body) => {
+        const p = requireProject();
+        const stage = stageField(body);
+        const version = versionField(stage, body);
+        const state = selectStage(p.dir, stage, version);
+        deps.publish(
+          "line.changed",
+          { stage, version, line: state.line, message: `working line: ${formatLine(state.line)}` },
+          p.slug,
+        );
+        deps.tellAgent(
+          `${PANEL_PREFIX} The user switched the working line of "${p.slug}" to: ${formatLine(state.line)}. Work on this line from now on (tools default to it).`,
+        );
+        return { line: state.line, lineText: formatLine(state.line) };
+      },
+      /** Ask the agent for a new take of a storyboard (default: the working line's). Recording needs the improvise model, so it is an agent job. */
       rerecord: (body) => {
         const p = requireProject();
         const state = readState(p.dir) ?? p.state;
-        const sb = state.approved.storyboard;
-        if (!sb)
+        const sb = typeof body.storyboard === "number" ? body.storyboard : state.line.storyboard;
+        if (sb === undefined || !isUsable(p.dir, state.accepted, "storyboard", sb))
           throw new Error(
-            "approve a storyboard first — a take is always based on the approved storyboard",
+            "accept a storyboard first — a take is always recorded from an accepted storyboard",
           );
         const note = typeof body.note === "string" ? body.note.trim() : "";
         recordInput(p.dir, {
@@ -225,27 +296,18 @@ export function stageRoutes(deps: StageRouteDeps): {
           version: sb,
           source: "panel",
           kind: "direction",
-          text: `re-record requested${note ? `: ${note}` : ""}`,
+          text: `re-record requested for storyboard v${sb}${note ? `: ${note}` : ""}`,
         });
         deps.notifyAgent(
-          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}. Record it with demo_rec_record (then analyze it; the user accepts the take in the Recording tab).`,
+          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}. Record it with demo_rec_record storyboard=${sb} (then analyze it; the user accepts takes in the Recording tab).`,
         );
         deps.publish(
           "recording.requested",
           { storyboard: sb, message: `new take of storyboard v${sb} requested` },
           p.slug,
         );
-        return { requested: true };
+        return { requested: true, storyboard: sb };
       },
     },
   };
-}
-
-function isDownstream(of: Stage, s: Stage): boolean {
-  let cur: Stage | undefined = s;
-  while (cur) {
-    cur = PARENT[cur];
-    if (cur === of) return true;
-  }
-  return false;
 }

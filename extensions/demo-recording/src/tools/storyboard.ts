@@ -12,6 +12,7 @@ import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatDiff, storyboardTargets } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions, writeStoryboard } from "../storyboard/store.ts";
+import { acceptedVersions } from "../workdir/stages.ts";
 import { getReview, readState, setPhase } from "../workdir/state.ts";
 import { result } from "./common.ts";
 
@@ -44,7 +45,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
           ([id, r]) => `${id}: ${r.status}${r.note ? ` — "${r.note}"` : ""}`,
         );
         return result(
-          `storyboard v${sb.version} (versions: ${storyboardVersions(p.dir).join(", ")}; approved: ${state.approved.storyboard ?? "none"})\n` +
+          `storyboard v${sb.version} (versions: ${storyboardVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "storyboard").join(", ") || "none"}; working line: ${state.line.storyboard ?? "none"})\n` +
             `${marks.length ? `review:\n${marks.join("\n")}\n` : ""}---\n${sb.text}`,
         );
       }

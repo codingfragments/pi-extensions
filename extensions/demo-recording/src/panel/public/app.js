@@ -6,7 +6,7 @@ import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js"
 import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
 import { LivePanel } from "./live.js";
 import { Recording } from "./recording.js";
-import { StageHeader, confirmApproval, useStages } from "./stages.js";
+import { StageHeader, VersionActions, stageOf, useStages } from "./stages.js";
 
 const TABS = [
   { id: "storyboard", label: "Storyboard", stage: "storyboard" },
@@ -121,7 +121,7 @@ function Review({ events, stages }) {
 
   const latest = data.versions.at(-1);
   const readOnly = data.version !== latest;
-  const isApproved = data.approved === data.version;
+  const mark = (v) => `${data.accepted?.includes(v) ? " ✓" : ""}${v === data.selected ? " ●" : ""}`;
   const diffKind = (id) => {
     if (!data.diff) return null;
     if (data.diff.added.includes(id)) return "new";
@@ -150,11 +150,12 @@ function Review({ events, stages }) {
     <section class="card review-head">
       <div class="row">
         <h2>Storyboard v${data.version}</h2>
-        ${isApproved ? html`<span class="badge approved">approved</span>` : null}
         ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
-        <select value=${data.version} onChange=${(e) => setVersion(Number(e.target.value))}>
-          ${data.versions.map((v) => html`<option value=${v}>v${v}${v === data.approved ? " ✓" : ""}</option>`)}
+        <select value=${data.version} title="✓ accepted · ● working line" onChange=${(e) => setVersion(Number(e.target.value))}>
+          ${data.versions.map((v) => html`<option value=${v}>v${v}${mark(v)}</option>`)}
         </select>
+        <span class="grow"></span>
+        <${VersionActions} stages=${stages} stage="storyboard" version=${data.version} unlocks="Takes can be recorded from it." onDone=${reload} />
       </div>
       ${data.storyboard.summary ? html`<p>${data.storyboard.summary}</p>` : null}
       ${
@@ -200,21 +201,6 @@ function Review({ events, stages }) {
                   await post("/api/review-note", { version: data.version, note: overall });
                 await post("/api/review-submit", { version: data.version });
               }, "review sent to the agent")}>Send review to agent</button>
-            <button class="primary" disabled=${busy || isApproved} onClick=${async () =>
-              (
-                await confirmApproval(
-                  "storyboard",
-                  data.version,
-                  `storyboard v${data.version}`,
-                  "Recording will be unlocked.",
-                )
-              ) &&
-              run(
-                () => post("/api/approve", { artifact: "storyboard", version: data.version }),
-                `v${data.version} approved`,
-              )}>
-              ${isApproved ? "Approved" : `Approve v${data.version}`}
-            </button>
           </div>
         </section>`
     }`;
@@ -307,22 +293,30 @@ function VoSection({ section, timing, fit, issues, review, readOnly, onReview, o
 
 function Voice({ events, stages }) {
   const [version, setVersion] = useState(null);
-  const path = version ? `/api/vo?version=${version}` : "/api/vo";
+  const input = stageOf(stages, "vo")?.input;
+  useEffect(() => setVersion(null), [input]);
+  const q = [input !== undefined ? `take=${input}` : "", version ? `version=${version}` : ""]
+    .filter(Boolean)
+    .join("&");
+  const path = `/api/vo${q ? `?${q}` : ""}`;
   const { data, error, reload } = useApi(path, events, /^(vo\.|review\.|project\.|take\.|tts\.)/);
   const [overall, setOverall] = useState("");
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
   useEffect(() => setOverall(data?.review?.note ?? ""), [data?.version, data?.review?.note]);
-  if (error) return html`<section class="card error">${error}</section>`;
-  if (!data) return html`<section class="card muted">loading…</section>`;
+  // Keep the stage header (with its input picker) visible whatever the content does.
+  const head = html`<${StageHeader} stages=${stages} stage="vo" />`;
+  if (error) return html`${head}<section class="card error">${error}</section>`;
+  if (!data) return html`${head}<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
-  if (data.error) return html`<section class="card error">${data.error}</section>`;
+  if (data.error) return html`${head}<section class="card error">${data.error}</section>`;
   if (!data.sections) {
-    return html`<section class="card muted">No voice-over yet. After a take is recorded, ask the agent to write the voice-over; it appears here.</section>`;
+    return html`<${StageHeader} stages=${stages} stage="vo" />
+      <section class="card muted">${input !== undefined ? `No voice-over for take-${String(input).padStart(3, "0")} yet — ask the agent to write one (/demo voiceover); it appears here.` : "Accept a take first (Recording tab); its voice-overs show up here."}</section>`;
   }
   const latest = data.versions.at(-1);
   const readOnly = data.version !== latest;
-  const isApproved = data.approved === data.version;
+  const mark = (v) => `${data.accepted?.includes(v) ? " ✓" : ""}${v === data.selected ? " ●" : ""}`;
   const hasErrors = data.issues.some((i) => i.level === "error");
   const run = async (fn, ok) => {
     setBusy(true);
@@ -356,11 +350,12 @@ function Voice({ events, stages }) {
         <h2>Voice-over v${data.version}</h2>
         <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
         ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
-        ${isApproved ? html`<span class="badge approved">approved</span>` : null}
         ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
-        <select value=${data.version} onChange=${(e) => setVersion(Number(e.target.value))}>
-          ${data.versions.map((v) => html`<option value=${v}>v${v}${v === data.approved ? " ✓" : ""}</option>`)}
+        <select value=${data.version} title="✓ accepted · ● working line" onChange=${(e) => setVersion(Number(e.target.value))}>
+          ${data.versions.map((v) => html`<option value=${v}>v${v}${mark(v)}</option>`)}
         </select>
+        <${VersionActions} stages=${stages} stage="vo" version=${data.version} disabled=${hasErrors} disabledWhy=${hasErrors ? "fix the errors first" : ""}
+          unlocks="Voice synthesis is unlocked for it (uses TTS credits)." onDone=${reload} />
       </div>
     </section>
     <div class="scenes">
@@ -399,21 +394,6 @@ function Voice({ events, stages }) {
                   });
                 await post("/api/review-submit", { artifact: "vo", version: data.version });
               }, "review sent to the agent")}>Send review to agent</button>
-            <button class="primary" disabled=${busy || isApproved || hasErrors} title=${hasErrors ? "fix errors first" : ""} onClick=${async () =>
-              (
-                await confirmApproval(
-                  "vo",
-                  data.version,
-                  `voice-over v${data.version}`,
-                  "Voice synthesis will be unlocked (uses TTS credits).",
-                )
-              ) &&
-              run(
-                () => post("/api/approve", { artifact: "vo", version: data.version }),
-                `v${data.version} approved`,
-              )}>
-              ${isApproved ? "Approved" : `Approve v${data.version}`}
-            </button>
           </div>
         </section>`
     }`;
@@ -811,7 +791,7 @@ function App() {
     tab === "storyboard"
       ? html`<${Review} events=${events} stages=${stages} />`
       : tab === "recording"
-        ? html`<${StageHeader} stages=${stages} stage="recording" /><${Recording} events=${events} />`
+        ? html`<${Recording} events=${events} stages=${stages} />`
         : tab === "voice"
           ? html`<${Voice} events=${events} stages=${stages} />`
           : tab === "annotations"

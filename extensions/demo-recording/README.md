@@ -51,29 +51,29 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
   The result message lists per-scene cuts, holds, pauses and any off-sync anchors.
 - **Output:** 1920×1080, 30 fps H.264, AAC, loudness-normalized to −16 LUFS.
 
-### Stages and project memory (S5)
+### Stages, working line and project memory (S5)
 
-- **Stage chain:** storyboard → recording (take) → voice-over → annotations → render.
-  - Every version is based on exactly one parent version, read from the files themselves.
-  - An approval only goes through when the version chains up to the approved parent.
-  - A new upstream approval resets everything below it; nothing is deleted.
-  - `demo_rec_project status` shows the lineage and flags stale drafts.
-- **Project memory:** `inputs.jsonl` records every directional input:
-  - `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits;
-  - brief versions;
-  - chat directions, sources and assets the agent notes with `demo_rec_project note`.
-
-  Withdrawn directions are marked outdated (never deleted). `demo_rec_project context` returns the brief, the lineage and the active inputs; `/demo open` and a session restore put that context into the agent's next turn.
+- **Stages:** storyboard → recording (take) → voice-over → annotations → render.
+- **Versions:** every version is based on exactly one parent version, read from the files themselves.
+- **Accepting:** several versions per stage can be accepted, so lines branch. A take of storyboard v2 can get two voice-overs, and two good takes can each get their own. Accepting resets nothing; a version can only be accepted when its parent is accepted.
+- **Un-accepting:** never deletes or resets anything. Accepted versions built on the un-accepted one are flagged **orphaned** and can't be used until it's accepted again.
+- **Working line:** one line per project (e.g. storyboard v2 → take-006 → voice-over v3), shared by the panel and the agent.
+  - **Default per stage:** the most recently accepted version on the line's input.
+  - **Agent tools:** they use the working line unless given an explicit version.
+  - **Status:** `demo_rec_project status` shows it, plus all accepted versions with their lineage.
+- **Project memory:** `inputs.jsonl` records every directional input: `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits, brief versions, and chat directions, sources and assets the agent notes with `demo_rec_project note`. Withdrawn directions are marked outdated, never deleted. `demo_rec_project context` returns the brief, the working line, the lineage and the active inputs; `/demo open` and a session restore put that into the agent's next turn.
 
 ### Panel: the control room (S5)
 
+- **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
 - **Tabs follow the stages:** Storyboard · Recording · Voice over · Annotations · Render · Config.
-  - **Shared header:** each stage tab shows the lineage (latest version, what it's based on), the approval, a stale flag, what approving another version would reset, and "→ you: …" when the project is waiting for you. A dot on the tab marks the stage that needs you.
-  - **Cascade confirmation:** every approval does a dry run first, and the confirmation lists what the stage chain would reset.
-- **Recording tab:** takes newest first, grouped by storyboard version, with status, duration, analysis state, a keyframe per scene and the raw take as video. *Accept take* is chain-checked. *Request a new take* asks the agent, with optional notes, and the request goes into the input log.
+  - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
+  - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
+  - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).
+- **Recording tab:** the takes of the selected storyboard, newest first, with status, duration, analysis state, a keyframe per scene and the raw take as video. *Request a new take* asks the agent for a take of that storyboard.
 - **Live panel:** a collapsible right-hand panel; below 1100 px wide it becomes a bottom drawer.
-  - **Contents:** one progress row per running activity (discovery, recording, analysis, voice, render), a frame preview (the live frame of a running take, or the current discovery screen), safety, the project chain and the log.
-  - **Collapsed:** a one-line strip with the stage, the activity or "waiting for you", and a mini progress bar.
+  - **Contents:** one progress row per running activity, a frame preview (the live frame of a running take, or the current discovery screen), safety, the working line and the log.
+  - **Collapsed:** a one-line strip with stage, activity or "waiting for you", and a mini progress bar.
   - **Per tab:** sections can be toggled and are remembered.
 
 ### Brands (S5)
@@ -121,7 +121,7 @@ Full reference, with every option, the automatic decisions and the render chain:
 | `/demo open [<project>]` | sets the active project (persisted in the session) |
 | `/demo status` | root, config sources, phase, approvals, panel URL |
 | `/demo discover [notes]` | start discovery + storyboard (demo-recording skill) |
-| `/demo panel` | starts the side panel and prints its URL (with token) |
+| `/demo panel` | starts the side panel and opens it in your browser (URL with token; `DEMO_REC_NO_OPEN=1` to only print it) |
 | `/demo doctor` | prerequisite check |
 | `/demo brand [list \| use <name> \| new [zip] \| rerender [name]]` | brand packages (S5) |
 | `/demo config`, `/demo voices`, `/demo voiceover`, `/demo render` | settings, voice picker, voice-over, render (S5) |

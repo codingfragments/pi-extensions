@@ -16,9 +16,10 @@ import { resolveConfig } from "../src/config.ts";
 import { hasBinary } from "../src/media/ffmpeg.ts";
 import { liveFrame, localize } from "../src/panel/stage-routes.ts";
 import { Runtime } from "../src/runtime.ts";
+import { browserCommand, canOpenBrowser } from "../src/util/open.ts";
 import { readInputs } from "../src/workdir/inputs.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
-import { nextStep, previewApproval } from "../src/workdir/stages.ts";
+import { nextStep } from "../src/workdir/stages.ts";
 import { acceptTake, approve, readState } from "../src/workdir/state.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
@@ -123,53 +124,34 @@ function runtime() {
   }));
 }
 
-test("nextStep walks the chain: user reviews fresh drafts, the agent produces missing ones", () => {
+const line = (dir: string) => readState(dir)?.line ?? {};
+const acc = (dir: string) => readState(dir)?.accepted ?? {};
+
+test("nextStep walks the working line: the user accepts drafts, the agent produces missing ones", () => {
   const dir = fixtureProject();
-  assert.deepEqual(nextStep(dir, {}), {
+  assert.deepEqual(nextStep(dir, acc(dir), line(dir)), {
     who: "user",
     stage: "storyboard",
-    text: "review and approve storyboard v2",
+    text: "review and accept storyboard v2",
   });
   approve(dir, "storyboard", 2);
-  assert.deepEqual(nextStep(dir, readState(dir)?.approved ?? {}), {
+  assert.deepEqual(nextStep(dir, acc(dir), line(dir)), {
     who: "user",
     stage: "recording",
-    text: "accept take-003 (Recording tab)",
+    text: "accept a take of storyboard v2 (e.g. take-003)",
   });
   acceptTake(dir, "take-002");
-  assert.equal(
-    nextStep(dir, readState(dir)?.approved ?? {}).text,
-    "review and approve voice-over v1",
-  );
+  assert.equal(nextStep(dir, acc(dir), line(dir)).text, "review and accept voice-over v1");
   approve(dir, "vo", 1);
-  assert.match(nextStep(dir, readState(dir)?.approved ?? {}).text, /generate the voice and render/);
-  assert.equal(nextStep(dir, readState(dir)?.approved ?? {}, { rendered: true }).who, null);
-  // A storyboard v3 without takes: the agent records.
-  fs.writeFileSync(path.join(dir, "storyboard", "v3.yaml"), "version: 3\n");
-  approve(dir, "storyboard", 3);
-  assert.deepEqual(nextStep(dir, readState(dir)?.approved ?? {}), {
+  assert.match(nextStep(dir, acc(dir), line(dir)).text, /generate the voice and render/);
+  assert.equal(nextStep(dir, acc(dir), line(dir), { rendered: true }).who, null);
+  // take-003 accepted → it becomes the line, no VO on it yet: the agent writes one.
+  acceptTake(dir, "take-003");
+  assert.deepEqual(nextStep(dir, acc(dir), line(dir)), {
     who: "agent",
-    stage: "recording",
-    text: "the agent records a take of storyboard v3",
+    stage: "vo",
+    text: "the agent writes the voice-over for take-003",
   });
-});
-
-test("previewApproval lists resets without changing anything", () => {
-  const dir = fixtureProject();
-  approve(dir, "storyboard", 2);
-  acceptTake(dir, "take-002");
-  approve(dir, "vo", 1);
-  const before = fs.readFileSync(path.join(dir, "state.json"), "utf8");
-  const resets = previewApproval(dir, readState(dir)?.approved ?? {}, "recording", 3);
-  assert.deepEqual(
-    resets.map((r) => [r.stage, r.version]),
-    [["vo", 1]],
-  );
-  assert.equal(fs.readFileSync(path.join(dir, "state.json"), "utf8"), before);
-  assert.throws(
-    () => previewApproval(dir, readState(dir)?.approved ?? {}, "recording", 1),
-    /based on storyboard v1, but storyboard v2 is approved/,
-  );
 });
 
 test("localize re-anchors moved paths; liveFrame finds the newest fresh frame", () => {
@@ -194,14 +176,29 @@ test("localize re-anchors moved paths; liveFrame finds the newest fresh frame", 
   assert.equal(liveFrame(dir), null, "a stale frames/ folder (crashed take) is not 'live'");
 });
 
-test("panel routes: stages, recordings, approve-preview, accept a take, rerecord", async () => {
+test("browser opener: per-platform command, disabled in CI / headless / by env", () => {
+  assert.deepEqual(browserCommand("darwin").args("http://x"), ["http://x"]);
+  assert.equal(browserCommand("darwin").cmd, "open");
+  assert.equal(browserCommand("linux").cmd, "xdg-open");
+  assert.equal(browserCommand("win32").cmd, "cmd");
+  assert.equal(canOpenBrowser({}, "darwin"), true);
+  assert.equal(canOpenBrowser({ DEMO_REC_NO_OPEN: "1" }, "darwin"), false);
+  assert.equal(canOpenBrowser({ CI: "true" }, "darwin"), false);
+  assert.equal(canOpenBrowser({}, "linux"), false, "no display, nothing to open");
+  assert.equal(canOpenBrowser({ DISPLAY: ":0" }, "linux"), true);
+});
+
+test("panel routes: stages with inputs, recordings per storyboard, accept several, un-accept → orphans, select, rerecord, VO per take", async () => {
   const dir = fixtureProject();
   approve(dir, "storyboard", 2);
   acceptTake(dir, "take-002");
   approve(dir, "vo", 1);
   const rt = runtime();
   const notified: string[] = [];
-  (rt as unknown as { notifyAgent: (t: string) => void }).notifyAgent = (t) => notified.push(t);
+  const told: string[] = [];
+  const r = rt as unknown as { notifyAgent: (t: string) => void; tellAgent: (t: string) => void };
+  r.notifyAgent = (t) => notified.push(t);
+  r.tellAgent = (t) => told.push(t);
   rt.setActiveProject("p");
   const panel = await rt.ensurePanel();
   const base = `http://127.0.0.1:${panel.port}`;
@@ -209,86 +206,123 @@ test("panel routes: stages, recordings, approve-preview, accept a take, rerecord
   const get = async (n: string) =>
     (await (await fetch(`${base}/api/${n}`, { headers: auth })).json()) as Record<string, unknown>;
   const post = async (n: string, body: unknown) => {
-    const r = await fetch(`${base}/api/${n}`, {
+    const res = await fetch(`${base}/api/${n}`, {
       method: "POST",
       headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    return { status: r.status, json: (await r.json()) as Record<string, unknown> };
+    return { status: res.status, json: (await res.json()) as Record<string, unknown> };
+  };
+  type St = {
+    stage: string;
+    inputs: { version: number; label: string }[];
+    input?: number;
+    selected?: number;
+    accepted: { version: number; orphaned?: string }[];
   };
   try {
-    const st = (await get("stages")) as {
-      stages: { stage: string; approved?: number; downstreamApproved: string[]; stale?: string }[];
-      next: { who: string };
-    };
-    const rec = st.stages.find((s) => s.stage === "recording");
-    assert.equal(rec?.approved, 2);
-    assert.deepEqual(rec?.downstreamApproved, ["voice-over v1"]);
-    assert.deepEqual(st.stages.find((s) => s.stage === "storyboard")?.downstreamApproved, [
-      "recording take-002",
-      "voice-over v1",
+    let st = (await get("stages")) as { stages: St[]; lineText: string };
+    assert.equal(st.lineText, "storyboard v2 → recording take-002 → voice-over v1");
+    const vo = st.stages.find((s) => s.stage === "vo");
+    assert.deepEqual(vo?.inputs, [
+      {
+        version: 2,
+        label: "take-002 · storyboard v2",
+        at: (vo?.inputs[0] as unknown as { at: string }).at,
+      },
     ]);
 
-    const recs = (await get("recordings")) as {
+    const recs = (await get("recordings?storyboard=2")) as {
+      storyboard: number;
       takes: {
         id: string;
         accepted: boolean;
-        onApprovedStoryboard: boolean;
-        analyzed: boolean;
+        onLine: boolean;
         scenes: { keyframe: string | null }[];
       }[];
     };
     assert.deepEqual(
       recs.takes.map((t) => t.id),
-      ["take-003", "take-002", "take-001"],
-      "newest first",
+      ["take-003", "take-002"],
+      "only takes of storyboard v2, newest first",
     );
-    const t2 = recs.takes[1];
-    assert.ok(t2?.accepted && t2.analyzed && t2.onApprovedStoryboard);
     assert.equal(
-      t2?.scenes[0]?.keyframe,
+      recs.takes[1]?.scenes[0]?.keyframe,
       "takes/take-002/analysis/keyframes/01-a/k1.jpg",
       "foreign path re-anchored",
     );
-    assert.equal(recs.takes[2]?.onApprovedStoryboard, false);
-    const img = await fetch(
-      `${base}/media/project/${t2?.scenes[0]?.keyframe}?token=${panel.token}`,
-    );
-    assert.equal(img.status, 200);
-    await img.arrayBuffer();
-
-    const pre = await post("approve-preview", { artifact: "recording", version: 3 });
     assert.deepEqual(
-      (pre.json.resets as { label: string }[]).map((r) => r.label),
-      ["voice-over v1"],
+      ((await get("recordings?storyboard=1")) as { takes: { id: string }[] }).takes.map(
+        (t) => t.id,
+      ),
+      ["take-001"],
     );
-    assert.equal(
-      (await post("approve-preview", { artifact: "recording", version: 1 })).status,
-      400,
-    );
-    assert.equal((await post("approve-preview", { artifact: "nope", version: 1 })).status, 400);
 
-    const acc = await post("approve", { artifact: "recording", version: 3 });
-    assert.equal(acc.status, 200);
-    assert.deepEqual(
-      (acc.json.resets as { stage: string }[]).map((r) => r.stage),
-      ["vo"],
-    );
-    assert.deepEqual(readState(dir)?.approved, { storyboard: 2, recording: 3 });
-    assert.match(
-      notified.at(-1) ?? "",
-      /take-003 .* ACCEPTED[\s\S]*Cascade reset[\s\S]*voice-over v1 is no longer approved/,
-    );
+    // Accept a second take: nothing reset, it becomes the line (latest decision); its VO slot is empty.
+    const a3 = await post("approve", { artifact: "recording", version: 3 });
+    assert.equal(a3.status, 200);
+    assert.equal(a3.json.onLine, true);
+    assert.deepEqual(readState(dir)?.line, { storyboard: 2, recording: 3 });
+    assert.ok(readState(dir)?.accepted.vo?.["1"], "vo v1 stays accepted");
+    assert.match(notified.at(-1) ?? "", /take-003 .* ACCEPTED/);
     assert.equal(
       (await post("approve", { artifact: "recording", version: 1 })).status,
       400,
-      "off-chain take refused",
+      "take-001's storyboard isn't accepted",
     );
 
-    const rr = await post("rerecord", { note: "slower typing" });
+    // Select take-002 again: its VO comes back on the line; the agent is told without a turn.
+    const sel = await post("select", { artifact: "recording", version: 2 });
+    assert.equal(sel.json.lineText, "storyboard v2 → recording take-002 → voice-over v1");
+    assert.match(told.at(-1) ?? "", /switched the working line .* take-002 → voice-over v1/);
+
+    // VO tab is scoped to a take.
+    const vo2 = (await get("vo?take=2")) as { versions: number[]; input: number };
+    assert.deepEqual([vo2.versions, vo2.input], [[1], 2]);
+    assert.deepEqual(
+      ((await get("vo?take=3")) as { versions: number[]; vo: unknown }).versions,
+      [],
+    );
+
+    // Un-accept take-002: preview lists the orphan, then it happens; line re-picks take-003.
+    const pre = await post("unaccept-preview", { artifact: "recording", version: 2 });
+    assert.deepEqual(
+      (pre.json.orphans as { label: string }[]).map((o) => o.label),
+      ["voice-over v1"],
+    );
+    const un = await post("unaccept", { artifact: "recording", version: 2 });
+    assert.deepEqual(
+      (un.json.orphaned as { label: string }[]).map((o) => o.label),
+      ["voice-over v1"],
+    );
+    assert.deepEqual(readState(dir)?.line, { storyboard: 2, recording: 3 });
+    st = (await get("stages")) as { stages: St[]; lineText: string };
+    assert.match(
+      st.stages.find((s) => s.stage === "vo")?.accepted[0]?.orphaned ?? "",
+      /take-002 is not accepted/,
+    );
+    assert.equal(
+      (await post("select", { artifact: "vo", version: 1 })).status,
+      400,
+      "orphans can't be selected",
+    );
+    assert.match(told.at(-1) ?? "", /UN-ACCEPTED recording take-002 .* orphaned .* voice-over v1/);
+
+    const rr = await post("rerecord", { storyboard: 2, note: "slower typing" });
     assert.equal(rr.status, 200);
-    assert.match(notified.at(-1) ?? "", /new take of storyboard v2 .* notes: "slower typing"/);
-    assert.equal(readInputs(dir).at(-1)?.text, "re-record requested: slower typing");
+    assert.match(
+      notified.at(-1) ?? "",
+      /new take of storyboard v2 .* storyboard=2 .*|new take of storyboard v2 .* notes: "slower typing"/,
+    );
+    assert.equal(
+      readInputs(dir).at(-1)?.text,
+      "re-record requested for storyboard v2: slower typing",
+    );
+    assert.equal(
+      (await post("rerecord", { storyboard: 1 })).status,
+      400,
+      "storyboard v1 isn't accepted",
+    );
     assert.deepEqual((await get("live-frame")).frame, null);
   } finally {
     await rt.shutdown();
@@ -296,7 +330,7 @@ test("panel routes: stages, recordings, approve-preview, accept a take, rerecord
 });
 
 test(
-  "control room in the browser: every tab, Live collapse/drawer, cascade warning on accept",
+  "control room in the browser: input pickers, accept several, work on this, un-accept warning, Live drawer",
   { skip: noBrowser },
   async () => {
     const dir = fixtureProject();
@@ -312,6 +346,13 @@ test(
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
+      const dialogs: string[] = [];
+      let answer = true;
+      page.on("dialog", async (d) => {
+        dialogs.push(d.message());
+        if (answer) await d.accept();
+        else await d.dismiss();
+      });
       await page.goto(panel.url);
       await page.waitForSelector("aside.live");
       for (const tab of [
@@ -323,42 +364,66 @@ test(
         "Config",
       ]) {
         await page.locator("nav button", { hasText: tab }).first().click();
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(250);
       }
       await page.locator("nav button", { hasText: "Recording" }).first().click();
       await page.waitForSelector(".card.take");
       assert.equal(
-        await page.locator(".stage-head .stage-name").first().textContent(),
-        "recording",
+        await page.locator(".card.take").count(),
+        2,
+        "takes of the selected storyboard only",
       );
       assert.match(
-        (await page.locator(".stage-head").first().textContent()) ?? "",
-        /approved take-002/,
+        (await page.locator(".input-picker").first().textContent()) ?? "",
+        /storyboard v2/,
       );
-      assert.equal(await page.locator(".card.take").count(), 3);
-      assert.equal(await page.locator(".keyframes img").count(), 1);
 
-      // Accept take-003: the dry run lists the voice-over reset; cancel keeps everything.
-      const dialogs: string[] = [];
-      page.once("dialog", async (d) => {
-        dialogs.push(d.message());
-        await d.dismiss();
-      });
+      // Accept take-003 as well: both accepted, take-003 becomes the working line.
       await page
         .locator(".card.take", { hasText: "take-003" })
-        .getByRole("button", { name: "Accept take" })
+        .getByRole("button", { name: /^Accept/ })
         .click();
-      await page.waitForTimeout(400);
-      assert.match(dialogs[0] ?? "", /Approve take-003\?[\s\S]*resets[\s\S]*voice-over v1/);
-      assert.equal(readState(dir)?.approved.recording, 2, "cancelled: nothing changed");
+      await page.waitForTimeout(600);
+      assert.match(dialogs.at(-1) ?? "", /Accept take-003\?[\s\S]*resets nothing/);
+      assert.deepEqual(Object.keys(readState(dir)?.accepted.recording ?? {}).sort(), ["2", "3"]);
+      assert.equal(readState(dir)?.line.recording, 3);
+      // Work on take-002 again.
+      await page
+        .locator(".card.take", { hasText: "take-002" })
+        .getByRole("button", { name: "Work on this" })
+        .click();
+      await page.waitForTimeout(600);
+      assert.equal(readState(dir)?.line.recording, 2);
+      assert.equal(readState(dir)?.line.vo, 1);
 
-      // Live panel: collapse → strip; preference persists over a reload.
+      // Voice over tab: input picker lists both accepted takes with lineage.
+      await page.locator("nav button", { hasText: "Voice over" }).first().click();
+      await page.waitForTimeout(500);
+      const options = await page.locator(".input-picker select option").allTextContents();
+      assert.ok(
+        options.some((o) => /take-002 · storyboard v2/.test(o)) &&
+          options.some((o) => /take-003 · storyboard v2/.test(o)),
+        options.join(" | "),
+      );
+
+      // Un-accept take-002 from the Recording tab: cancel first — the dialog names the orphan.
+      await page.locator("nav button", { hasText: "Recording" }).first().click();
+      await page.waitForTimeout(400);
+      answer = false;
+      await page
+        .locator(".card.take", { hasText: "take-002" })
+        .getByRole("button", { name: "Un-accept" })
+        .click();
+      await page.waitForTimeout(500);
+      assert.match(dialogs.at(-1) ?? "", /Un-accept take-002\?[\s\S]*orphaned[\s\S]*voice-over v1/);
+      assert.ok(readState(dir)?.accepted.recording?.["2"], "cancelled: still accepted");
+      answer = true;
+
+      // Live panel: collapse → strip; persists; narrow window → bottom drawer.
       await page.getByRole("button", { name: "▼ collapse" }).click();
       await page.waitForSelector(".live-strip");
       await page.reload();
       await page.waitForSelector(".live-strip");
-      assert.equal(await page.locator("aside.live").count(), 0);
-      // Narrow window: the open panel is a bottom drawer.
       await page.setViewportSize({ width: 900, height: 900 });
       await page.locator(".live-strip").click();
       await page.waitForSelector("aside.live");
@@ -366,9 +431,6 @@ test(
         `(() => { const cs = getComputedStyle(document.querySelector("aside.live")); return { position: cs.position, bottom: cs.bottom }; })()`,
       );
       assert.deepEqual(pos, { position: "fixed", bottom: "0px" });
-      // Per-tab section toggles persist.
-      await page.locator(".live-toggles .chip", { hasText: "Log" }).click();
-      assert.equal(await page.locator(".live-sec h3", { hasText: "Log" }).count(), 0);
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

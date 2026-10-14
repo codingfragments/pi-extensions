@@ -90,7 +90,8 @@ test("GET /api/storyboard returns the latest version with review state", async (
   assert.equal(data.version, 1);
   assert.deepEqual(data.versions, [1]);
   assert.equal(data.storyboard.scenes.length, 2);
-  assert.equal(data.approved, null);
+  assert.deepEqual(data.accepted, []);
+  assert.equal(data.selected, null);
   assert.deepEqual(data.review, { scenes: {} });
   assert.equal(data.diff, null);
 });
@@ -185,7 +186,7 @@ test("POST security: Bearer header only, JSON only", async () => {
   });
   assert.equal(broken.status, 400);
   assert.equal((await post("/api/nope", {})).status, 404);
-  assert.equal(readState(projectDir)?.approved.storyboard, undefined, "nothing got approved");
+  assert.deepEqual(readState(projectDir)?.accepted, {}, "nothing got accepted");
 });
 
 test("media: token required, scoped to roots, no traversal, image types only", async () => {

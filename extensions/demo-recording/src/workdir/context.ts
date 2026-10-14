@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { formatInputs, readInputs } from "./inputs.ts";
-import { formatStageStatus, stageStatus } from "./stages.ts";
+import { formatLine, formatStageStatus, stageStatus } from "./stages.ts";
 import { readState } from "./state.ts";
 import { listVersions } from "./versioning.ts";
 
@@ -36,7 +36,8 @@ export function projectContext(projectDir: string, slug: string): string {
       : brief,
     "",
     "## Stages (lineage)",
-    formatStageStatus(stageStatus(projectDir, state.approved)),
+    `working line: ${formatLine(state.line)}`,
+    formatStageStatus(stageStatus(projectDir, state.accepted, state.line)),
     "",
     `## Inputs (${active.length} active${all.length > active.length ? `, ${all.length - active.length} marked outdated and left out` : ""}; newest first)`,
     formatInputs(active),

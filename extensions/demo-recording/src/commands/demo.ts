@@ -24,8 +24,10 @@ import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
 import { briefVoice } from "../tts/factory.ts";
+import { openInBrowser } from "../util/open.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import { ensureProject, listProjects, openProject } from "../workdir/layout.ts";
+import { formatLine } from "../workdir/stages.ts";
 
 export const ACTIVE_ENTRY = "demo-recording.active";
 const SUBCOMMANDS = [
@@ -51,7 +53,7 @@ const USAGE = [
   "/demo voices                                    list your ElevenLabs voices and pick one",
   "/demo brand [list | use <name> [--project] | new [zip/folder] | rerender [name]]  brand packages",
   "/demo config [show [prefix] | set <key> <value> [--project] | unset <key> [--project]]",
-  "/demo panel                                     start/show the side panel URL",
+  "/demo panel                                     start the side panel, open it in your browser",
   "/demo doctor                                    check prerequisites",
 ].join("\n");
 
@@ -342,7 +344,7 @@ function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
     lines.push(
       `project: ${p.slug} (app: ${p.app.name}, ${p.app.baseUrl})`,
       `phase:   ${p.state.phase}`,
-      `approved: storyboard ${p.state.approved.storyboard ?? "—"} · vo ${p.state.approved.vo ?? "—"}`,
+      `working line: ${formatLine(p.state.line)}`,
     );
   } else {
     lines.push("project: none active — /demo new or /demo open");
@@ -401,7 +403,11 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return await cmdBrand(pi, rt, rest, ctx);
           case "panel": {
             const panel = await rt.ensurePanel();
-            return report(ctx, `demo panel: ${panel.url}`);
+            const opened = openInBrowser(panel.url);
+            return report(
+              ctx,
+              `demo panel: ${panel.url}${opened ? "\n(opened in your browser)" : ""}`,
+            );
           }
           case "doctor": {
             const results = await runDoctor(rt.getConfig(true), {

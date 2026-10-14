@@ -12,14 +12,27 @@ import { afterEach, beforeEach, test } from "node:test";
 import { projectContext } from "../src/workdir/context.ts";
 import { formatInputs, markInput, readInputs, recordInput } from "../src/workdir/inputs.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
-import { STAGES, type Stage, parentOf, stageStatus, stageVersions } from "../src/workdir/stages.ts";
 import {
+  STAGES,
+  type Stage,
+  acceptedVersions,
+  formatLine,
+  formatStageStatus,
+  isUsable,
+  orphanReason,
+  parentOf,
+  stageStatus,
+  stageVersions,
+} from "../src/workdir/stages.ts";
+import {
+  type ProjectState,
   acceptTake,
-  acceptedTakeId,
   approve,
-  approveStage,
   readState,
+  requireSelected,
+  selectStage,
   setPhase,
+  unacceptStage,
 } from "../src/workdir/state.ts";
 
 let root: string;
@@ -85,93 +98,164 @@ test("lineage is read from the artifacts themselves", () => {
   assert.equal(parentOf(dir, "vo", 9), undefined);
 });
 
-test("approvals must chain up; a new upstream approval resets what no longer chains (cascade)", () => {
+test("accept several versions; accepting resets nothing; the working line follows the latest decision", () => {
+  const dir = project();
+  art.storyboard(dir, 1);
+  art.storyboard(dir, 2);
+  art.take(dir, 1, 1);
+  art.take(dir, 2, 2);
+  art.take(dir, 3, 2);
+  art.vo(dir, 1, 2);
+  art.vo(dir, 2, 3);
+  assert.throws(() => acceptTake(dir, "take-002"), /based on storyboard v2, which is not accepted/);
+  assert.throws(() => approve(dir, "storyboard", 9), /storyboard v9 does not exist/);
+  approve(dir, "storyboard", 1);
+  approve(dir, "storyboard", 2);
+  let st = readState(dir) as ProjectState;
+  assert.deepEqual(
+    acceptedVersions(st.accepted, "storyboard"),
+    [1, 2],
+    "both storyboards accepted",
+  );
+  assert.equal(st.line.storyboard, 2, "the most recent acceptance is the working line");
+  setPhase(dir, "recording");
+  acceptTake(dir, "take-002");
+  acceptTake(dir, "take-003");
+  approve(dir, "vo", 1); // on take-002 — not on the line (take-003 is)
+  st = readState(dir) as ProjectState;
+  assert.deepEqual(acceptedVersions(st.accepted, "recording"), [2, 3]);
+  assert.deepEqual(
+    st.line,
+    { storyboard: 2, recording: 3 },
+    "vo v1 is accepted, but not on take-003's line",
+  );
+  approve(dir, "vo", 2);
+  st = readState(dir) as ProjectState;
+  assert.deepEqual(st.line, { storyboard: 2, recording: 3, vo: 2 });
+  assert.equal(st.phase, "vo-review", "accepting a take on the line moves recording → vo-review");
+  assert.equal(
+    st.history.filter((h: { event: string }) => h.event === "approval-reset").length,
+    0,
+    "nothing is ever reset",
+  );
+
+  // Switch the working line to take-002: its accepted VO follows.
+  selectStage(dir, "recording", 2);
+  assert.deepEqual(readState(dir)?.line, { storyboard: 2, recording: 2, vo: 1 });
+  assert.equal(requireSelected(dir, readState(dir) as ProjectState, "vo"), 1);
+  // Selecting take-001 needs it accepted; then the line moves up to storyboard v1.
+  assert.throws(() => selectStage(dir, "recording", 1), /take-001 is not accepted/);
+  acceptTake(dir, "take-001");
+  selectStage(dir, "recording", 1);
+  assert.deepEqual(
+    readState(dir)?.line,
+    { storyboard: 1, recording: 1 },
+    "ancestors follow, no VO on take-001",
+  );
+  assert.throws(
+    () => requireSelected(dir, readState(dir) as ProjectState, "vo"),
+    /no accepted voice-over on the working line/,
+  );
+  assert.equal(
+    requireSelected(dir, readState(dir) as ProjectState, "vo", 2),
+    2,
+    "an explicit usable version is allowed",
+  );
+});
+
+test("un-accept: children stay accepted but become orphaned (not usable), the line re-picks", () => {
   const dir = project();
   art.storyboard(dir, 1);
   art.take(dir, 1, 1);
-  art.vo(dir, 1, 1);
-  assert.throws(() => acceptTake(dir, "take-001"), /approve the storyboard first/);
-  assert.throws(() => approve(dir, "storyboard", 3), /storyboard v3 does not exist/);
-  approve(dir, "storyboard", 1);
-  setPhase(dir, "recording");
-  assert.throws(() => approve(dir, "vo", 1), /approve the recording first/);
-  acceptTake(dir, "take-001");
-  assert.equal(readState(dir)?.phase, "vo-review");
-  assert.equal(acceptedTakeId(readState(dir) as never), "take-001");
-  approve(dir, "vo", 1);
-  setPhase(dir, "voice-edit");
-
-  // A VO based on another take can't be approved while take-001 is accepted.
   art.take(dir, 2, 1);
-  art.vo(dir, 2, 2);
-  assert.throws(
-    () => approve(dir, "vo", 2),
-    /voice-over v2 is based on recording take-002, but recording take-001 is approved/,
-  );
-
-  // Re-approving the same storyboard resets nothing.
-  assert.deepEqual(approveStage(dir, "storyboard", 1).resets, []);
-
-  // A new storyboard version: the recording (based on v1) and the VO below it are reset.
-  art.storyboard(dir, 2);
-  const { state, resets } = approveStage(dir, "storyboard", 2);
-  assert.deepEqual(
-    resets.map((r) => [r.stage, r.version]),
-    [
-      ["recording", 1],
-      ["vo", 1],
-    ],
-  );
-  assert.match(resets[0]?.reason ?? "", /based on storyboard v1, but storyboard v2 is approved/);
-  assert.match(resets[1]?.reason ?? "", /recording is no longer approved/);
-  assert.deepEqual(state.approved, { storyboard: 2 });
-  assert.equal(state.phase, "recording", "phase moves back to the first stage that needs work");
-  const ev = state.history.filter((h) => h.event === "approval-reset");
-  assert.equal(ev.length, 2);
-  assert.equal(ev[0]?.detail?.because, "storyboard v2");
-
-  // Going back to v1 is allowed; the old recording is then approvable again (nothing was deleted).
+  art.vo(dir, 1, 1);
   approve(dir, "storyboard", 1);
   acceptTake(dir, "take-002");
-  approve(dir, "vo", 2);
-  assert.deepEqual(readState(dir)?.approved, { storyboard: 1, recording: 2, vo: 2 });
+  acceptTake(dir, "take-001");
+  approve(dir, "vo", 1);
+  assert.deepEqual(readState(dir)?.line, { storyboard: 1, recording: 1, vo: 1 });
+  const { state, orphaned } = unacceptStage(dir, "recording", 1);
+  assert.deepEqual(
+    orphaned.map((o) => o.label),
+    ["voice-over v1"],
+  );
+  assert.deepEqual(acceptedVersions(state.accepted, "vo"), [1], "the VO keeps its own acceptance");
+  assert.match(
+    orphanReason(dir, state.accepted, "vo", 1) ?? "",
+    /recording take-001 is not accepted/,
+  );
+  assert.deepEqual(
+    state.line,
+    { storyboard: 1, recording: 2 },
+    "line re-picks take-002; the orphaned VO is not selectable",
+  );
+  assert.throws(
+    () => selectStage(dir, "vo", 1),
+    /can't be used: recording take-001 is not accepted/,
+  );
+  assert.throws(() => requireSelected(dir, state, "vo", 1), /can't be used/);
+  assert.throws(() => unacceptStage(dir, "recording", 1), /not accepted/);
+  // Accepting the take again revives the VO (nothing was lost).
+  acceptTake(dir, "take-001");
+  assert.equal(orphanReason(dir, readState(dir)?.accepted ?? {}, "vo", 1), undefined);
+  assert.deepEqual(readState(dir)?.line, { storyboard: 1, recording: 1, vo: 1 });
 });
 
-test("stage status flags stale drafts (latest not based on the approved parent)", () => {
+test("stage status: accepted with lineage and orphan flags, versions on the working line's input", () => {
   const dir = project();
   art.storyboard(dir, 1);
   art.storyboard(dir, 2);
   art.take(dir, 1, 1);
+  art.take(dir, 2, 2);
   art.vo(dir, 1, 1);
+  approve(dir, "storyboard", 1);
+  acceptTake(dir, "take-001");
+  approve(dir, "vo", 1);
+  unacceptStage(dir, "storyboard", 1);
   approve(dir, "storyboard", 2);
-  const st = Object.fromEntries(
-    stageStatus(dir, readState(dir)?.approved ?? {}).map((s) => [s.stage, s]),
+  const s = readState(dir) as ProjectState;
+  const st = Object.fromEntries(stageStatus(dir, s.accepted, s.line).map((x) => [x.stage, x]));
+  assert.deepEqual(
+    st.recording?.accepted.map((a) => [a.version, a.basedOn, a.orphaned]),
+    [[1, 1, "storyboard v1 is not accepted"]],
   );
-  assert.equal(st.storyboard?.stale, undefined);
-  assert.match(st.recording?.stale ?? "", /based on storyboard v1; approved is storyboard v2/);
-  assert.match(st.vo?.stale ?? "", /no approved recording/);
-  assert.equal(st.annotations?.versions.length, 0);
+  assert.deepEqual(st.vo?.accepted[0]?.orphaned, "storyboard v1 is not accepted");
+  assert.equal(st.recording?.input, 2);
+  assert.deepEqual(st.recording?.onInput, [2], "versions built on the selected input");
+  assert.equal(st.recording?.selected, undefined);
+  assert.match(
+    formatStageStatus(stageStatus(dir, s.accepted, s.line)),
+    /take-001 \(on v1\) ⚠ orphaned/,
+  );
+  assert.equal(formatLine(s.line), "storyboard v2");
 });
 
-test("invariant: no sequence of approvals leaves a downstream approval off its approved parent", () => {
-  // Seeded random graphs and approval sequences.
-  let seed = 7;
+test("invariant: the working line is always usable and consistent; orphans are never on it", () => {
+  let seed = 11;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) % 2 ** 31;
     return seed % n;
+  };
+  const PARENTS: Record<Stage, Stage | undefined> = {
+    storyboard: undefined,
+    recording: "storyboard",
+    vo: "recording",
+    annotations: "vo",
+    render: "annotations",
   };
   for (let round = 0; round < 25; round++) {
     const dir = fs.mkdtempSync(path.join(root, "r-"));
     fs.writeFileSync(
       path.join(dir, "state.json"),
       JSON.stringify({
-        schema: 2,
+        schema: 3,
         project: "r",
         app: "a",
         phase: "brief",
         createdAt: "x",
         updatedAt: "x",
-        approved: {},
+        accepted: {},
+        line: {},
         history: [],
       }),
     );
@@ -181,34 +265,38 @@ test("invariant: no sequence of approvals leaves a downstream approval off its a
     for (let v = 1; v <= n.vo; v++) art.vo(dir, v, 1 + rnd(n.recording));
     for (let v = 1; v <= n.annotations; v++) art.json(dir, "annotations", v, 1 + rnd(n.vo));
     for (let v = 1; v <= n.render; v++) art.json(dir, "render", v, 1 + rnd(n.annotations));
-    for (let step = 0; step < 40; step++) {
+    for (let step = 0; step < 60; step++) {
       const stage = STAGES[rnd(STAGES.length)] as Stage;
+      const v = 1 + rnd(n[stage]);
+      const op = rnd(3);
       try {
-        approve(dir, stage, 1 + rnd(n[stage]));
+        if (op === 0) approve(dir, stage, v);
+        else if (op === 1) unacceptStage(dir, stage, v);
+        else selectStage(dir, stage, v);
       } catch {
-        // refused approvals are fine; the invariant must still hold
+        // refused operations are fine; the invariant must still hold
       }
-      const a = readState(dir)?.approved ?? {};
-      for (const s of STAGES) {
-        const parent = {
-          storyboard: undefined,
-          recording: "storyboard",
-          vo: "recording",
-          annotations: "vo",
-          render: "annotations",
-        }[s] as Stage | undefined;
-        if (!parent || a[s] === undefined) continue;
-        assert.equal(
-          parentOf(dir, s, a[s] as number),
-          a[parent],
-          `round ${round} step ${step}: ${s} v${a[s]} off its parent`,
+      const s = readState(dir) as ProjectState;
+      for (const st of STAGES) {
+        const sel = s.line[st];
+        if (sel === undefined) continue;
+        assert.ok(
+          isUsable(dir, s.accepted, st, sel),
+          `round ${round} step ${step}: ${st} v${sel} on the line but not usable`,
         );
+        const parent = PARENTS[st];
+        if (parent)
+          assert.equal(
+            parentOf(dir, st, sel),
+            s.line[parent],
+            `round ${round} step ${step}: ${st} v${sel} off its line parent`,
+          );
       }
     }
   }
 });
 
-test("schema 1 → 2 migration: backup, accepted take → recording, inconsistent approvals dropped, reviews → input log", () => {
+test("migration: schema 1 → 3 (backup, accepted take, reviews → input log) and schema 2 → 3", () => {
   const dir = project();
   art.storyboard(dir, 1);
   art.take(dir, 1, 1);
@@ -222,7 +310,7 @@ test("schema 1 → 2 migration: backup, accepted take → recording, inconsisten
     phase: "voice-edit",
     createdAt: "2026-10-01T00:00:00.000Z",
     updatedAt: "2026-10-01T00:00:00.000Z",
-    approved: { storyboard: 1, vo: 1 }, // vo v1 is based on take-001, but take-002 is accepted
+    approved: { storyboard: 1, vo: 1 }, // vo v1 is on take-001, but take-002 is accepted
     acceptedTake: "take-002",
     reviews: {
       "1": {
@@ -235,45 +323,79 @@ test("schema 1 → 2 migration: backup, accepted take → recording, inconsisten
     history: [{ at: "2026-10-01T00:00:00.000Z", event: "project-created" }],
   };
   fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(v1));
-  const s = readState(dir);
-  assert.ok(s);
-  assert.equal(s.schema, 2);
-  assert.deepEqual(
-    s.approved,
-    { storyboard: 1, recording: 2 },
-    "the off-chain VO approval is dropped",
+  const s = readState(dir) as ProjectState;
+  assert.equal(s.schema, 3);
+  assert.deepEqual(Object.fromEntries(STAGES.map((st) => [st, acceptedVersions(s.accepted, st)])), {
+    storyboard: [1],
+    recording: [2],
+    vo: [1],
+    annotations: [],
+    render: [],
+  });
+  assert.match(
+    orphanReason(dir, s.accepted, "vo", 1) ?? "",
+    /take-001 is not accepted/,
+    "kept, flagged — not silently dropped",
   );
-  assert.equal((s as unknown as { acceptedTake?: string }).acceptedTake, undefined);
+  assert.deepEqual(s.line, { storyboard: 1, recording: 2 });
   assert.ok(fs.existsSync(path.join(dir, "state.v1.json")));
-  const mig = s.history.at(-1);
-  assert.equal(mig?.event, "state-migrated");
-  assert.equal((mig?.detail?.resets as unknown[]).length, 1);
-  assert.equal(
-    JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8")).schema,
-    2,
-    "persisted",
-  );
+  assert.equal(s.history.at(-1)?.event, "state-migrated");
   const inputs = readInputs(dir);
   assert.equal(inputs.length, 1, "only submitted reviews become inputs");
-  assert.deepEqual(
-    {
-      stage: inputs[0]?.stage,
-      version: inputs[0]?.version,
-      source: inputs[0]?.source,
-      kind: inputs[0]?.kind,
-      at: inputs[0]?.at,
-    },
-    {
-      stage: "storyboard",
-      version: 1,
-      source: "panel",
-      kind: "review",
-      at: "2026-10-02T10:00:00.000Z",
-    },
-  );
   assert.equal(inputs[0]?.text, "01-a: changes — slower\noverall: calmer");
   readState(dir);
   assert.equal(readInputs(dir).length, 1, "migration runs once");
+
+  // Schema 2 (keycraft after part 3): approvals → acceptances, line through them.
+  const dir2 = fs.mkdtempSync(path.join(root, "v2-"));
+  art.storyboard(dir2, 2);
+  art.take(dir2, 6, 2);
+  art.vo(dir2, 3, 6);
+  art.take(dir2, 5, 2);
+  // keycraft's real history: VO v3 approved, then cascade-reset when take-005 was approved, then take-006 again.
+  const history = [
+    { at: "2026-10-13T10:00:00.000Z", event: "approved", detail: { artifact: "vo", version: 3 } },
+    {
+      at: "2026-10-14T11:00:00.000Z",
+      event: "approval-reset",
+      detail: { stage: "vo", version: 3, reason: "x", because: "recording take-005" },
+    },
+    {
+      at: "2026-10-14T11:00:00.000Z",
+      event: "approved",
+      detail: { artifact: "recording", version: 5 },
+    },
+    {
+      at: "2026-10-14T11:01:00.000Z",
+      event: "approved",
+      detail: { artifact: "recording", version: 6 },
+    },
+  ];
+  fs.writeFileSync(
+    path.join(dir2, "state.json"),
+    JSON.stringify({
+      ...v1,
+      schema: 2,
+      approved: { storyboard: 2, recording: 6 },
+      acceptedTake: undefined,
+      history,
+    }),
+  );
+  const s2 = readState(dir2) as ProjectState;
+  assert.equal(s2.schema, 3);
+  assert.equal(
+    s2.accepted.vo?.["3"],
+    "2026-10-13T10:00:00.000Z",
+    "cascade-reset approval restored with its original time",
+  );
+  assert.deepEqual(s2.line, { storyboard: 2, recording: 6, vo: 3 });
+  assert.deepEqual(s2.history.at(-1)?.detail?.restored, ["voice-over v3"]);
+  assert.ok(fs.existsSync(path.join(dir2, "state.v2.json")));
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dir2, "state.json"), "utf8")).schema,
+    3,
+    "persisted",
+  );
 });
 
 test("input log: append-only, mark outdated / restore, torn lines, validation", () => {
@@ -351,7 +473,8 @@ test("project context: brief, lineage, active inputs only", () => {
   markInput(dir, gone?.id as string, true, "login is out of scope");
   const ctx = projectContext(dir, "p");
   assert.match(ctx, /churn is visible in a minute/);
-  assert.match(ctx, /storyboard\s+1 version\(s\), latest v1; approved v1/);
+  assert.match(ctx, /working line: storyboard v1/);
+  assert.match(ctx, /storyboard\s+1 version\(s\), latest v1; accepted: v1; working line: v1/);
   assert.match(ctx, /keep scene 2 under 20 s/);
   assert.doesNotMatch(ctx, /add a login scene/);
   assert.match(ctx, /1 active, 1 marked outdated and left out/);

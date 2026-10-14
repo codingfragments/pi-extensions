@@ -668,7 +668,9 @@ nav button .dot {
 }
 .stage-head .stage-name {
   font-weight: 600;
-  text-transform: capitalize;
+}
+.stage-head .stage-name::first-letter {
+  text-transform: uppercase;
 }
 .badge.stale {
   background: color-mix(in srgb, var(--warn) 20%, var(--card));
@@ -945,4 +947,21 @@ input.note {
   background: var(--inset);
   color: var(--text);
   min-width: 220px;
+}
+
+/* branching stages (D44–D46) */
+.badge.line {
+  background: color-mix(in srgb, var(--accent) 22%, var(--card));
+  color: var(--accent);
+}
+.version-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.input-picker select {
+  margin-left: 6px;
+}
+.card.take.on-line {
+  box-shadow: inset 3px 0 0 var(--accent);
 }

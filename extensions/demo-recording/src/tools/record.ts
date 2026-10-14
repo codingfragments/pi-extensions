@@ -17,7 +17,7 @@ import { type TakeResult, recordTake } from "../recorder/runner.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { appDir } from "../workdir/layout.ts";
-import { readState, requireApproved, setPhase } from "../workdir/state.ts";
+import { readState, requireSelected, setPhase } from "../workdir/state.ts";
 import { result } from "./common.ts";
 
 /** One line of audience/goal context from brief.md for the improviser. */
@@ -77,6 +77,12 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
         Type.Boolean({ description: "Show the browser while recording (default headless)" }),
       ),
       seed: Type.Optional(Type.Number({ description: "RNG seed for reproducible motion/typing" })),
+      storyboard: Type.Optional(
+        Type.Number({
+          description:
+            "storyboard version to record (default: the working line's; must be accepted)",
+        }),
+      ),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
@@ -96,7 +102,7 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
 
       const p = rt.requireProject();
       const state = readState(p.dir) ?? p.state;
-      const version = requireApproved(state, "storyboard");
+      const version = requireSelected(p.dir, state, "storyboard", params.storyboard);
       const sb = readStoryboard(p.dir, version);
       if (!sb) throw new Error(`approved storyboard v${version} is missing on disk`);
       const cfg = rt.getConfig();

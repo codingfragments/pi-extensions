@@ -175,6 +175,20 @@ export class Runtime {
     }
   }
 
+  /** A note for the agent's next turn that does not start a turn (e.g. working-line changes). */
+  tellAgent(text: string): void {
+    this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
+    if (!this.agent?.sendMessage) return;
+    try {
+      this.agent.sendMessage(
+        { customType: "demo-recording-note", content: text, display: true },
+        { triggerTurn: false, deliverAs: "nextTurn" },
+      );
+    } catch (err) {
+      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+    }
+  }
+
   notifyAgent(text: string): void {
     this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
     if (!this.agent) return;
@@ -247,6 +261,7 @@ export class Runtime {
       const stages = stageRoutes({
         activeProject: () => this.activeProject(),
         notifyAgent: (text) => this.notifyAgent(text),
+        tellAgent: (text) => this.tellAgent(text),
         publish: (type, data, project) => this.bus.publish(type, data, project),
       });
       this.panelStarting = startPanel({

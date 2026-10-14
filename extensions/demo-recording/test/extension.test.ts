@@ -202,7 +202,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
   assert.match(textOf(written), /01-a: no screen thumbnail/);
   assert.match(
     textOf(await sbTool.execute("7", { action: "get" })),
-    /storyboard v1 .*approved: none/,
+    /storyboard v1 .*accepted: none; working line: none/,
   );
   const status = textOf(await project.execute("8", { action: "status" }));
   assert.match(status, /phase: {3}storyboard-review/);
@@ -211,7 +211,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
   assert.ok(record);
   await assert.rejects(
     record.execute("9", {}),
-    /storyboard is not approved yet.*approve it in the demo panel/,
+    /no accepted storyboard on the working line .* accept one in the demo panel first/,
   );
   await events.get("session_shutdown")?.({}, ctx);
 });

@@ -218,13 +218,7 @@ function Project({ state, stages }) {
   return html`<dl class="small-text">
     <dt>Project</dt><dd><strong>${p.slug}</strong> · ${p.app.name}</dd>
     <dt>Phase</dt><dd><span class="pill">${p.state.phase}</span></dd>
-    <dt>Chain</dt><dd>${(stages?.stages ?? [])
-      .filter((s) => s.versions.length)
-      .map(
-        (s) =>
-          `${s.label} ${s.approved ? (s.stage === "recording" ? `take-${String(s.approved).padStart(3, "0")}` : `v${s.approved}`) : "—"}`,
-      )
-      .join(" → ")}</dd>
+    <dt>Working line</dt><dd>${stages?.lineText ?? "—"}</dd>
     <dt>Folder</dt><dd class="mono">${p.dir}</dd>
   </dl>`;
 }

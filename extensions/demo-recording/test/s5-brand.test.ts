@@ -15,6 +15,7 @@ import {
   logoBugHeight,
   logoBugPosition,
   renderBrandAssets,
+  titleLogoCss,
 } from "../src/brand/assets.ts";
 import { contrast, listBrands, parseBrand, resolveBrand } from "../src/brand/brand.ts";
 import {
@@ -88,6 +89,22 @@ test("parseBrand rejects bad values and warns on low contrast", () => {
     low.warnings.some((w) => /contrast/i.test(w)),
     low.warnings.join("; "),
   );
+});
+
+test("title.logoPosition: validated, defaults to inline, drives the title-card CSS", () => {
+  assert.equal(parseBrand({}, "x", "/tmp").brand.title.logoPosition, "inline");
+  assert.equal(
+    parseBrand({ title: { logoPosition: "top-left" } }, "x", "/tmp").brand.title.logoPosition,
+    "top-left",
+  );
+  assert.throws(
+    () => parseBrand({ title: { logoPosition: "middle" } }, "x", "/tmp"),
+    /title\.logoPosition/,
+  );
+  assert.match(titleLogoCss("inline", 1), /margin-bottom/);
+  assert.doesNotMatch(titleLogoCss("inline", 1), /position:absolute/);
+  assert.match(titleLogoCss("top-left", 1), /position:absolute;left:150px;top:96px/);
+  assert.match(titleLogoCss("bottom-right", 1), /right:150px;bottom:96px/);
 });
 
 test("insetBox centers the footage and keeps the aspect ratio", () => {

@@ -19,6 +19,10 @@ outside this repo. Format: see `src/brand/brand.ts`.
 └── backdrop.png      # optional 1920×1080 backdrop image
 ```
 
+The title card's logo placement is `title.logoPosition`: `inline` (default,
+above the app name), `top-left`, `top-right`, `bottom-left`, `bottom-right`
+(pinned to a corner at the card's safe margin) or `none`.
+
 In inset mode the logo bug sits in the backdrop margin, aligned with the
 footage edge, and shrinks to fit (min 20 px). The light logo only has
 guaranteed contrast there. Full-bleed brands put it inside the footage corner.

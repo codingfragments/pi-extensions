@@ -23,6 +23,16 @@ export const BUILTIN_DIR = path.join(
   "brands",
 );
 
+export const TITLE_LOGO_POSITIONS = [
+  "inline",
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right",
+  "none",
+] as const;
+export type TitleLogoPosition = (typeof TITLE_LOGO_POSITIONS)[number];
+
 export interface Brand {
   name: string;
   displayName: string;
@@ -40,7 +50,17 @@ export interface Brand {
   };
   font: { family: string; weight: number; file?: string };
   frame: { mode: "inset" | "fullbleed"; inset: number; radius: number; shadow: number };
-  title: { enabled: boolean; durationMs: number; dissolveMs: number };
+  title: {
+    enabled: boolean;
+    durationMs: number;
+    dissolveMs: number;
+    /**
+     * Where the logo sits on the title card: "inline" (above the app name,
+     * the default), one of the four corners at the card's safe margin, or
+     * "none" to leave it off the card.
+     */
+    logoPosition: TitleLogoPosition;
+  };
   logo: { light?: string; dark?: string };
   logoBug: {
     enabled: boolean;
@@ -70,7 +90,7 @@ export const DEFAULT_BRAND: Omit<Brand, "name" | "displayName"> = {
   },
   font: { family: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", weight: 600 },
   frame: { mode: "inset", inset: 0.92, radius: 18, shadow: 0.45 },
-  title: { enabled: true, durationMs: 2500, dissolveMs: 800 },
+  title: { enabled: true, durationMs: 2500, dissolveMs: 800, logoPosition: "inline" },
   logo: {},
   logoBug: { enabled: false, position: "bottom-right", opacity: 0.7, heightPx: 34 },
 };
@@ -150,6 +170,8 @@ export function parseBrand(
     fail("title.durationMs", "must be 1000..8000");
   if (typeof title.dissolveMs !== "number" || title.dissolveMs < 0 || title.dissolveMs > 3000)
     fail("title.dissolveMs", "must be 0..3000");
+  if (!TITLE_LOGO_POSITIONS.includes(title.logoPosition))
+    fail("title.logoPosition", `must be ${TITLE_LOGO_POSITIONS.join("|")}`);
   const logo = sub("logo", {}) as Brand["logo"];
   for (const k of ["light", "dark"] as const) {
     const f = logo[k];

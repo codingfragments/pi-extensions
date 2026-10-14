@@ -160,6 +160,17 @@ export function maskHtml(l: LoadedBrand, box: InsetBox): string {
 div{width:100%;height:100%;background:#fff;border-radius:${l.brand.frame.radius}px}</style></head><body><div></div></body></html>`;
 }
 
+/** CSS for the title-card logo: inline above the app name, or pinned to a corner. */
+export function titleLogoCss(pos: Brand["title"]["logoPosition"], s: number): string {
+  const h = `height:${Math.round(64 * s)}px;display:block`;
+  if (pos === "inline") return `${h};margin-bottom:${Math.round(56 * s)}px`;
+  const x = Math.round(150 * s);
+  const y = Math.round(96 * s);
+  const horiz = pos.endsWith("left") ? `left:${x}px` : `right:${x}px`;
+  const vert = pos.startsWith("top") ? `top:${y}px` : `bottom:${y}px`;
+  return `position:absolute;${horiz};${vert};${h}`;
+}
+
 export function titleHtml(
   l: LoadedBrand,
   size: { width: number; height: number },
@@ -172,13 +183,13 @@ export function titleHtml(
 html,body{width:${size.width}px;height:${size.height}px;overflow:hidden}
 body{${backgroundCss(l)};color:${b.colors.text};display:flex;align-items:center}
 .wrap{margin-left:${Math.round(150 * s)}px;max-width:${Math.round(1300 * s)}px}
-.logo{height:${Math.round(64 * s)}px;margin-bottom:${Math.round(56 * s)}px;display:block}
+.logo{${titleLogoCss(b.title.logoPosition, s)}}
 .app{font-size:${Math.round(30 * s)}px;letter-spacing:.08em;text-transform:uppercase;color:${b.colors.muted};font-weight:${b.font.weight}}
 .rule{width:${Math.round(84 * s)}px;height:${Math.max(3, Math.round(5 * s))}px;background:${b.colors.accent};border-radius:3px;margin:${Math.round(26 * s)}px 0 ${Math.round(30 * s)}px}
 .title{font-size:${Math.round(76 * s)}px;line-height:1.08;font-weight:${Math.max(600, b.font.weight)};letter-spacing:-.01em}
 .date{margin-top:${Math.round(40 * s)}px;font-size:${Math.round(26 * s)}px;color:${b.colors.muted}}
 </style></head><body><div class="wrap">
-${logo ? `<img class="logo" src="${dataUri(logo)}">` : ""}
+${logo && b.title.logoPosition !== "none" ? `<img class="logo" src="${dataUri(logo)}">` : ""}
 <div class="app">${esc(info.app)}</div><div class="rule"></div>
 <div class="title">${esc(info.title)}</div>
 <div class="date">${esc(info.date)}</div></div></body></html>`;
@@ -198,6 +209,8 @@ function hashOf(l: LoadedBrand, parts: unknown): string {
     const p = path.join(l.dir, f);
     if (fs.statSync(p).isFile()) h.update(f).update(fs.readFileSync(p));
   }
+  // Layout changes in the HTML templates must invalidate cached PNGs too.
+  h.update(titleHtml.toString()).update(titleLogoCss.toString()).update(logoBugHtml.toString());
   h.update(JSON.stringify(parts));
   return h.digest("hex").slice(0, 20);
 }

@@ -764,6 +764,13 @@ const BRAND_FIELDS = [
     max: 2000,
     step: 100,
   },
+  {
+    group: "Title card",
+    path: "title.logoPosition",
+    label: "Logo",
+    type: "select",
+    options: ["inline", "top-left", "top-right", "bottom-left", "bottom-right", "none"],
+  },
   { group: "Logo bug", path: "logoBug.enabled", label: "Show", type: "bool" },
   {
     group: "Logo bug",

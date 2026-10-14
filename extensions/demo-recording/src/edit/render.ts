@@ -11,6 +11,13 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+  type RenderAnnotations,
+  blurFilters,
+  hasPageOps,
+  overlayFilters,
+  zoomFilter,
+} from "../annotations/render.ts";
 import { ffmpeg, ffprobe } from "../media/ffmpeg.ts";
 import type { Piece } from "./sync.ts";
 import type { FullItem, Timeline } from "./timeline.ts";
@@ -36,6 +43,8 @@ export interface RenderJob {
   video: VideoPiece[];
   audio: AudioClip[];
   durationMs: number;
+  /** Output start of each scene (ms) — to place annotations in the full video. */
+  sceneStart?: Record<string, number>;
 }
 
 const pieceDur = (p: Piece) => ("src" in p ? (p.src[1] - p.src[0]) / p.speed : p.freeze.dur);
@@ -56,7 +65,7 @@ export function sceneJob(t: Timeline, sceneId: string, projectDir: string): Rend
         at: a.at,
       }))
     : [];
-  return { video, audio, durationMs: sc.durationMs };
+  return { video, audio, durationMs: sc.durationMs, sceneStart: { [sceneId]: 0 } };
 }
 
 export function fullJob(
@@ -66,6 +75,7 @@ export function fullJob(
 ): RenderJob {
   const video: VideoPiece[] = [];
   const audio: AudioClip[] = [];
+  const sceneStart: Record<string, number> = {};
   let at = 0;
   // A title card covers the start: make sure the video opens on a held frame long
   // enough for it (the intro card if there is one, else a silent hold).
@@ -95,11 +105,12 @@ export function fullJob(
       continue;
     }
     const job = sceneJob(t, item.id, projectDir);
+    sceneStart[item.id] = at;
     video.push(...job.video);
     for (const a of job.audio) audio.push({ ...a, at: at + a.at });
     at += job.durationMs;
   }
-  return { video, audio, durationMs: at };
+  return { video, audio, durationMs: at, sceneStart };
 }
 
 /** Frame counts per piece from cumulative output time (no drift). */
@@ -130,7 +141,55 @@ export interface RenderOpts {
   width: number;
   height: number;
   brand?: RenderBrand;
+  /** Annotations in this job's output time (annotations/render.ts). */
+  annotations?: RenderAnnotations;
+  /** Capture size (needed for zoom). */
+  source?: { w: number; h: number };
 }
+
+/** A run of consecutive pieces rendered the same way. hi = source resolution (page ops/zoom). */
+export interface Segment {
+  first: number;
+  last: number;
+  hi: boolean;
+  startMs: number;
+  durMs: number;
+}
+
+/**
+ * Group pieces: a piece overlapping a page-space annotation or a zoom window is
+ * processed at source resolution; everything else is scaled first (cheap).
+ */
+export function planSegments(
+  counts: number[],
+  fps: number,
+  ann: RenderAnnotations | undefined,
+): Segment[] {
+  const windows =
+    ann && hasPageOps(ann)
+      ? [...ann.page, ...ann.blurs, ...ann.zooms].map(
+          (o) => [o.startMs - 50, o.endMs + 50] as const,
+        )
+      : [];
+  const segs: Segment[] = [];
+  let frames = 0;
+  counts.forEach((n, i) => {
+    const s = (frames * 1000) / fps;
+    const e = ((frames + n) * 1000) / fps;
+    frames += n;
+    const hi = windows.some(([a, b]) => a < e && b > s);
+    const prev = segs.at(-1);
+    if (prev && prev.hi === hi) {
+      prev.last = i;
+      prev.durMs = e - prev.startMs;
+    } else segs.push({ first: i, last: i, hi, startMs: s, durMs: e - s });
+  });
+  return segs;
+}
+
+/** Annotation PNG inputs (single frames, looped in the graph), after the brand images. */
+export const annotationInputs = (ann: RenderAnnotations | undefined): string[] =>
+  ann ? [...ann.page, ...ann.screen].map((o) => o.file) : [];
 
 /** Image inputs (looped stills) after the audio inputs, in this order. */
 export function imageInputs(
@@ -156,10 +215,18 @@ export function filterGraph(job: RenderJob, opts: RenderOpts, audioInputs: strin
   const fh = framed ? (brand as RenderBrand).inset.h : opts.height;
   const counts = frameCounts(job.video, fps);
   const live = job.video.map((p, i) => ({ p, n: counts[i] as number })).filter((x) => x.n > 0);
+  const ann = opts.annotations;
+  const segs = planSegments(
+    live.map((x) => x.n),
+    fps,
+    ann,
+  );
+  const hiPiece = (i: number) => segs.some((g) => g.hi && i >= g.first && i <= g.last);
   const lines: string[] = [];
   lines.push(`[0:v]split=${live.length}${live.map((_, i) => `[s${i}]`).join("")}`);
-  const scale = `scale=${fw}:${fh}:flags=lanczos,setsar=1`;
+  const scaleTo = `scale=${fw}:${fh}:flags=lanczos,setsar=1`;
   live.forEach(({ p, n }, i) => {
+    const scale = hiPiece(i) ? "setsar=1" : scaleTo;
     const sec = (ms: number) => (ms / 1000).toFixed(4);
     const head = p.src
       ? `[s${i}]trim=start=${sec(p.src[0])}:end=${sec(p.src[1])},setpts=(PTS-STARTPTS)/${(p.speed ?? 1).toFixed(4)}`
@@ -172,8 +239,62 @@ export function filterGraph(job: RenderJob, opts: RenderOpts, audioInputs: strin
   const D = (job.durationMs / 1000).toFixed(3);
   const images = imageInputs(brand);
   const imgIdx = (key: string) => 1 + audioInputs.length + images.findIndex((x) => x.key === key);
-  let cur = framed || brand?.title || brand?.logoBug ? "vcat" : "vout";
-  lines.push(`${live.map((_, i) => `[v${i}]`).join("")}concat=n=${live.length}:v=1:a=0[${cur}]`);
+  const annBase = 1 + audioInputs.length + images.length;
+  const pageOps = ann?.page ?? [];
+  const screenOps = ann?.screen ?? [];
+  /** Annotation image j as a looped stream long enough for `untilS` seconds. */
+  const annImage = (j: number, untilS: number) =>
+    `[${annBase + j}:v]loop=loop=${Math.ceil((untilS + 0.2) * fps)}:size=1:start=0,setpts=N/${fps}/TB,`;
+  const hasScreen = screenOps.length > 0;
+  let cur = framed || brand?.title || brand?.logoBug || hasScreen ? "vcat" : "vout";
+  // Segments: low = concat of pre-scaled pieces; hi = concat at source res → page ops → zoom → scale.
+  segs.forEach((g, k) => {
+    const ins = live
+      .slice(g.first, g.last + 1)
+      .map((_, i) => `[v${g.first + i}]`)
+      .join("");
+    const n = g.last - g.first + 1;
+    if (!g.hi) {
+      lines.push(`${ins}concat=n=${n}:v=1:a=0[g${k}]`);
+      return;
+    }
+    let c = `g${k}raw`;
+    lines.push(`${ins}concat=n=${n}:v=1:a=0[${c}]`);
+    const inSeg = (o: { startMs: number }) =>
+      o.startMs >= g.startMs - 60 && o.startMs < g.startMs + g.durMs;
+    let q = 0;
+    const step = () => `g${k}p${q++}`;
+    for (const b of (ann?.blurs ?? []).filter(inSeg)) {
+      const nx = step();
+      lines.push(...blurFilters(b, c, nx, g.startMs, `g${k}b${q}`));
+      c = nx;
+    }
+    pageOps.forEach((o, j) => {
+      if (!inSeg(o)) return;
+      const nx = step();
+      lines.push(
+        ...overlayFilters(
+          o,
+          annImage(j, (o.endMs - g.startMs) / 1000),
+          c,
+          nx,
+          g.startMs,
+          `g${k}o${j}`,
+        ),
+      );
+      c = nx;
+    });
+    for (const z of (ann?.zooms ?? []).filter(inSeg)) {
+      if (!opts.source) throw new Error("render: zoom needs the source size");
+      const nx = step();
+      lines.push(
+        `[${c}]${zoomFilter({ ...z, startMs: z.startMs - g.startMs, endMs: z.endMs - g.startMs }, opts.source, fps)}[${nx}]`,
+      );
+      c = nx;
+    }
+    lines.push(`[${c}]${scaleTo},format=yuv420p[g${k}]`);
+  });
+  lines.push(`${segs.map((_, k) => `[g${k}]`).join("")}concat=n=${segs.length}:v=1:a=0[${cur}]`);
   if (brand && framed) {
     const b = brand.inset;
     lines.push(`[${imgIdx("mask")}:v]format=gray,scale=${b.w}:${b.h},setsar=1[mask]`);
@@ -182,9 +303,22 @@ export function filterGraph(job: RenderJob, opts: RenderOpts, audioInputs: strin
     lines.push(
       `[${imgIdx("backdrop")}:v]scale=${opts.width}:${opts.height},setsar=1,format=yuv420p,fps=${fps}[bg]`,
     );
-    const next = brand.title || brand.logoBug ? "vframed" : "vout";
+    const next = brand.title || brand.logoBug || hasScreen ? "vframed" : "vout";
     lines.push(`[bg][vrnd]overlay=${b.x}:${b.y}:shortest=1:format=auto,format=yuv420p[${next}]`);
     cur = next;
+  }
+  if (hasScreen) {
+    let c = cur;
+    screenOps.forEach((o, i) => {
+      const j = pageOps.length + i;
+      const nx =
+        i === screenOps.length - 1 ? (brand?.title || brand?.logoBug ? "vann" : "vout") : `sc${i}`;
+      lines.push(...overlayFilters(o, annImage(j, o.endMs / 1000), c, nx, 0, `so${i}`));
+      c = nx;
+    });
+    cur = c;
+    if (cur !== "vout") lines.push(`[${cur}]format=yuv420p[vann2]`);
+    if (cur !== "vout") cur = "vann2";
   }
   if (brand?.title) {
     const t = brand.title;
@@ -252,6 +386,7 @@ export async function renderJob(
         "-i",
         im.file,
       ]),
+      ...annotationInputs(opts.annotations).flatMap((f) => ["-i", f]),
       "-/filter_complex", // value read from a file (ffmpeg ≥ 7)
       script,
       "-map",

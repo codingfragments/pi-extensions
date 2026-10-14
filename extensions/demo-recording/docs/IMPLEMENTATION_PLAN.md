@@ -524,6 +524,14 @@ actually needs their attention: a branded look, selective zoom, step callouts,
 subtitles and variants, deterministic QA with blocking rules, confidence-guided
 review, and conversational config. Decisions D21–D28 come from the S5 grill.
 
+> **Restructure pending (D30–D40, annotation grill).** Parts 1–2 and the Q3 spike are done. The remaining parts move to the new stage chain Storyboard → Recording → Voice over → Annotations → Render:
+> - Annotations become their own phase (suggest ~2×, enable the top half, review, approve).
+> - Recording adds layout snapshots.
+> - The panel gets stage tabs and the Live control-room side panel.
+> - The Export tab becomes the Render stage.
+>
+> Parts 3–6 below still describe the pre-grill design and will be rewritten before implementation.
+
 **Deliverables**
 
 *1. Model and config guards (first: they help testing right away)*
@@ -694,6 +702,12 @@ real GPU rendering, behind a flag, reusing everything else.
     - discovery budgets.
   - **Never** reads, writes or prints API keys (environment only). It can tell the user which env var to export, and that pi must be restarted for it to take effect.
 - **Panel theme** (user request): [Catppuccin](https://catppuccin.com/palette) **Macchiato** (dark, default) and **Latte** (light), switchable from a toggle in the panel header. The choice is stored in `localStorage` and defaults to Macchiato regardless of the OS setting. The panel CSS already uses custom properties (`--bg`, `--card`, `--text`, `--accent`, `--ok`, `--warn`, `--err`, …), so this means two `[data-theme]` variable sets mapped to Catppuccin colors (base/mantle/surface0/text/subtext0/blue/green/yellow/red), plus status colors checked for contrast in both flavors. Scope: panel only; the fixture app and rendered videos are unaffected. Lands with the next panel-heavy slice (S3 progress bars).
+- **Actor & dependency model document** (user request, *for a later stage*): a dedicated design doc (planned as `docs/ACTORS.md`) that describes in detail:
+  - **the vision behind the cast** (D40): why work is split into roles, what each role optimizes for, and how this mirrors a real production crew (director, researcher, writer, operator, cutter, designer, QA, privacy);
+  - **each actor:** responsibility, inputs, outputs and artifacts, the stage(s) it acts in, its tools, the decisions it may take alone vs. needs the Director or the user for, its model profile (default skill on the session model vs. opt-in separate run, required capabilities such as image input or context size), and its failure modes;
+  - **the dependency model** (D30/D33): the stage chain with its parent links, global per-stage version counters, approval gates, cascade reset, "import from vN", and which artifact each stage reads from which upstream version;
+  - **handoffs:** what the Director passes to each role and gets back, what is persisted vs. kept in context, and how roles report to the panel (Live control room, D39);
+  - **background decisions:** the alternatives considered in the grills (independent stages, full version tree, carry-over vs. reset, every-actor-separate vs. personas), and why they were rejected.
 - **Packaging.** Runtime deps (`playwright`, `ws`, `yaml`) go in `dependencies`. Pi core packages + `typebox` go in `peerDependencies: "*"`. The Chromium download is a doctor-guided step. ffmpeg and uv are documented system prerequisites.
 
 ## 8. Open questions (to resolve inside the slices)
@@ -706,6 +720,8 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q4 | ~~Default whisper model size~~ → **base.en + onset refinement** (≤ 32 ms) | S4 ✅ |
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |
+| Q7 | Annotation weights: how the noise/value weight and the target optimum are computed (D36) | S5 annotation rewrite |
+| Q8 | Layout snapshot granularity and size limits (which elements, how often, on which page change) (D34) | S5 annotation rewrite |
 
 ## 9. Definition of done (v1 = S0–S6)
 

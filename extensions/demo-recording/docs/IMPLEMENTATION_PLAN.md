@@ -537,7 +537,14 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
 - **Voice list:** `demo_rec_tts voices` shows name, id and category for each voice, with a pick → free `check` flow.
 - Convenience commands: `/demo voiceover`, `/demo render`.
 
-*2. Brands (D24, D25)*
+*2. Brands (D24, D25)* — ✅ done
+- **Status:**
+  - `src/brand/{brand,assets,manage}.ts`, `brands/neutral/`;
+  - the `demo_rec_brand` tool, `/demo brand list|use|new|rerender`, the `demo-brand` skill;
+  - the panel Brand tab (live preview with unsaved tweaks, diff-confirmed save, save as copy, set default, re-render with brand plus playable variants);
+  - `renderVariant` writes `out/edit-vN/<brand>/`.
+
+  The logo bug stays in the backdrop margin (shrunk to fit) in inset mode, because the light logo is only guaranteed contrast there.
 - **Brand package format:** `brand.json` (colors: bg/backdrop/accent/text/muted, font, inset %, corner radius, shadow, logo bug on/off + position/opacity, title layout) plus `logo-light.svg|png`, `logo-dark.svg|png`, and an optional backdrop image or gradient. Validated on load.
 - The **neutral brand ships in the extension** (`brands/neutral/`). User brands live in `~/DemoRecordings/brands/<name>/`.
 - The **`demo-brand` skill** and `/demo brand new`: explain what's needed, take a zip or folder, extract and normalize (SVG/PNG logos, contrast checks on colors, font fallback) into a package. Then `/demo brand use <name>`, `list`, and config `brand` for the default; a project or app can override.

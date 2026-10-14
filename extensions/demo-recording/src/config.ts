@@ -51,6 +51,8 @@ export interface DemoRecConfig {
   };
   /** Word-timing alignment for engines without provider timings (S4, Q4). */
   align: { model: string };
+  /** Brand package used for rendering (S5): built-in `neutral` or a user brand in <root>/brands/. */
+  brand: string;
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
@@ -95,6 +97,7 @@ export function defaultConfig(home: string): DemoRecConfig {
       say: {},
     },
     align: { model: "base.en" },
+    brand: "neutral",
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
   };
@@ -258,6 +261,14 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
     }
     cfg.align.model = al.model;
   }
+  if (raw.brand !== undefined) {
+    if (typeof raw.brand !== "string" || !/^[a-z0-9][a-z0-9-]{0,40}$/.test(raw.brand)) {
+      throw new Error(
+        'demo-recording config: "brand" must be a brand name like "neutral" (lowercase, digits, dashes)',
+      );
+    }
+    cfg.brand = raw.brand;
+  }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {
     if (b.discoveryScreens !== undefined)
@@ -316,6 +327,10 @@ export function resolveConfig(input: ResolveInput = {}): DemoRecConfig {
       .map((m) => m.trim())
       .filter(Boolean);
     envSources.push("DEMO_REC_IMPROVISE_MODELS");
+  }
+  if (env.DEMO_REC_BRAND) {
+    cfg.brand = env.DEMO_REC_BRAND.trim();
+    envSources.push("DEMO_REC_BRAND");
   }
   if (env.DEMO_REC_VOICE) {
     cfg.voiceName = env.DEMO_REC_VOICE;

@@ -20,6 +20,7 @@ const TABS = [
   { id: "live", label: "Live", ready: true },
   { id: "review", label: "Review", ready: true },
   { id: "voice", label: "Voice", ready: true },
+  { id: "brand", label: "Brand", ready: true },
   { id: "export", label: "Export", ready: false, slice: "S5" },
 ];
 
@@ -504,13 +505,25 @@ const KIND_LABEL = {
   scene: "scene",
 };
 
-function TimingBar({ timing }) {
+function TimingBar({ timing, fit }) {
   if (!timing) return null;
+  // After the voice exists: REAL narration length vs the rendered scene; before: an estimate from word count.
+  if (fit && fit.voiceSec !== null) {
+    const pct = Math.min(100, Math.round((fit.voiceSec / Math.max(0.1, timing.usableSec)) * 100));
+    const cls = fit.level === "warn" ? "over" : fit.level === "info" ? "under" : "ok";
+    return html`<div class="timing-wrap">
+      <div class="timing" title="real voice length vs usable footage (dead time removed)">
+        <div class=${`bar ${cls}`}><div style=${`width:${pct}%`}></div></div>
+        <span class="small-text"><strong>${fit.voiceSec.toFixed(1)}s voice</strong> (real) / ${timing.usableSec}s footage → scene ${fit.sceneSec.toFixed(1)}s</span>
+      </div>
+      <p class=${`fit ${fit.level}`}>${fit.message}</p>
+    </div>`;
+  }
   const pct = Math.min(100, Math.round((timing.speechSec / Math.max(0.1, timing.usableSec)) * 100));
   const cls = timing.ratio > 1.35 ? "over" : timing.ratio < 0.35 ? "under" : "ok";
-  return html`<div class="timing" title="speech vs usable footage (dead time removed)">
+  return html`<div class="timing" title="estimated speech (from word count) vs usable footage">
     <div class=${`bar ${cls}`}><div style=${`width:${pct}%`}></div></div>
-    <span class="small-text">${timing.speechSec}s speech / ${timing.usableSec}s footage${timing.ratio > 1.35 ? " — frames will be frozen" : ""}</span>
+    <span class="small-text">~${timing.speechSec}s speech (estimate) / ${timing.usableSec}s footage${timing.ratio > 1.35 ? " — frames will be held" : ""}</span>
   </div>`;
 }
 
@@ -519,7 +532,7 @@ function Spoken({ text }) {
   return html`<p class="spoken">${text.split(ANCHOR_SPLIT).map((part) => (ANCHOR_SPLIT.test(part) ? html`<span class="mark">${part.slice(1, -1)}</span>` : part))}</p>`;
 }
 
-function VoSection({ section, timing, issues, review, readOnly, onReview, onEdit, audio }) {
+function VoSection({ section, timing, fit, issues, review, readOnly, onReview, onEdit, audio }) {
   const r = review?.scenes?.[section.key];
   const [draft, setDraft] = useState(section.written);
   const [note, setNote] = useState(r?.note ?? "");
@@ -536,7 +549,7 @@ function VoSection({ section, timing, issues, review, readOnly, onReview, onEdit
         <h3 class="title">${section.key}</h3>
         <span class="badge">${KIND_LABEL[section.kind]}</span>
       </header>
-      ${section.kind === "scene" ? html`<${TimingBar} timing=${timing} />` : null}
+      ${section.kind === "scene" ? html`<${TimingBar} timing=${timing} fit=${fit} />` : null}
       ${
         editing
           ? html`<textarea class="vo-edit" value=${draft} onInput=${(e) => setDraft(e.target.value)}></textarea>
@@ -616,7 +629,8 @@ function Voice({ events }) {
     <section class="card review-head">
       <div class="row">
         <h2>Voice-over v${data.version}</h2>
-        <span class="muted small-text">for ${data.take} · ${totalSpeech.toFixed(0)}s speech / ${totalFootage.toFixed(0)}s footage</span>
+        <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
+        ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
         ${isApproved ? html`<span class="badge approved">approved</span>` : null}
         ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
         <select value=${data.version} onChange=${(e) => setVersion(Number(e.target.value))}>
@@ -630,12 +644,13 @@ function Voice({ events }) {
           key=${`${data.version}-${s.key}`}
           section=${s}
           timing=${data.timing.find((t) => t.section === s.key)}
-          issues=${data.issues.filter((i) => i.section === s.key)}
+          issues=${data.issues.filter((i) => i.section === s.key && !(data.fit && /of speech for ~/.test(i.message)))}
           review=${data.review}
           readOnly=${readOnly}
           onReview=${onReview}
           onEdit=${onEdit}
           audio=${data.audio?.[s.key] ? media("project", data.audio[s.key]) : null}
+          fit=${data.fit?.find((f) => f.scene === s.key) ?? null}
         />`,
       )}
     </div>
@@ -670,6 +685,275 @@ function Voice({ events }) {
           </div>
         </section>`
     }`;
+}
+
+// ---------------- BRAND ----------------
+
+/** Get/set a dotted path ("colors.accent") in a plain object. */
+const getPath = (o, p) => p.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
+function setPath(o, p, v) {
+  const keys = p.split(".");
+  const out = { ...o };
+  let cur = out;
+  for (const k of keys.slice(0, -1)) {
+    cur[k] = { ...(cur[k] ?? {}) };
+    cur = cur[k];
+  }
+  cur[keys.at(-1)] = v;
+  return out;
+}
+
+const BRAND_FIELDS = [
+  { group: "Colors", path: "colors.backdrop", label: "Backdrop", type: "color" },
+  { group: "Colors", path: "colors.backdropTo", label: "Backdrop (to)", type: "color" },
+  { group: "Colors", path: "colors.accent", label: "Accent", type: "color" },
+  { group: "Colors", path: "colors.text", label: "Text", type: "color" },
+  { group: "Colors", path: "colors.muted", label: "Muted", type: "color" },
+  { group: "Colors", path: "colors.pill", label: "Callout pill", type: "hex" },
+  { group: "Colors", path: "colors.pillText", label: "Pill text", type: "color" },
+  {
+    group: "Frame",
+    path: "frame.mode",
+    label: "Mode",
+    type: "select",
+    options: ["inset", "fullbleed"],
+  },
+  {
+    group: "Frame",
+    path: "frame.inset",
+    label: "Inset",
+    type: "range",
+    min: 0.8,
+    max: 1,
+    step: 0.01,
+  },
+  {
+    group: "Frame",
+    path: "frame.radius",
+    label: "Corner radius",
+    type: "range",
+    min: 0,
+    max: 40,
+    step: 1,
+  },
+  {
+    group: "Frame",
+    path: "frame.shadow",
+    label: "Shadow",
+    type: "range",
+    min: 0,
+    max: 1,
+    step: 0.05,
+  },
+  { group: "Title card", path: "title.enabled", label: "Show", type: "bool" },
+  {
+    group: "Title card",
+    path: "title.durationMs",
+    label: "Hold (ms)",
+    type: "range",
+    min: 1000,
+    max: 5000,
+    step: 100,
+  },
+  {
+    group: "Title card",
+    path: "title.dissolveMs",
+    label: "Dissolve (ms)",
+    type: "range",
+    min: 0,
+    max: 2000,
+    step: 100,
+  },
+  { group: "Logo bug", path: "logoBug.enabled", label: "Show", type: "bool" },
+  {
+    group: "Logo bug",
+    path: "logoBug.position",
+    label: "Corner",
+    type: "select",
+    options: ["bottom-right", "bottom-left", "top-right", "top-left"],
+  },
+  {
+    group: "Logo bug",
+    path: "logoBug.opacity",
+    label: "Opacity",
+    type: "range",
+    min: 0.2,
+    max: 1,
+    step: 0.05,
+  },
+  {
+    group: "Logo bug",
+    path: "logoBug.heightPx",
+    label: "Height (px)",
+    type: "range",
+    min: 16,
+    max: 80,
+    step: 2,
+  },
+];
+
+function BrandField({ f, value, onChange, disabled }) {
+  const input =
+    f.type === "color"
+      ? html`<input type="color" value=${String(value ?? "#000000").slice(0, 7)} disabled=${disabled} onInput=${(e) => onChange(e.target.value)} />
+          <code class="small-text">${value}</code>`
+      : f.type === "hex"
+        ? html`<input type="text" class="hex" value=${value ?? ""} disabled=${disabled} onChange=${(e) => onChange(e.target.value.trim())} />
+            <span class="swatch" style=${`background:${value}`}></span>`
+        : f.type === "bool"
+          ? html`<input type="checkbox" checked=${!!value} disabled=${disabled} onChange=${(e) => onChange(e.target.checked)} />`
+          : f.type === "select"
+            ? html`<select value=${value} disabled=${disabled} onChange=${(e) => onChange(e.target.value)}>${f.options.map((o) => html`<option value=${o}>${o}</option>`)}</select>`
+            : html`<input type="range" min=${f.min} max=${f.max} step=${f.step} value=${value} disabled=${disabled} onInput=${(e) => onChange(Number(e.target.value))} />
+                <code class="small-text">${value}</code>`;
+  return html`<label class="brand-field"><span>${f.label}</span>${input}</label>`;
+}
+
+function Brand({ events }) {
+  const { data, error, reload } = useApi(
+    "/api/brands",
+    events,
+    /^(brand\.|config\.|edit\.|project\.)/,
+  );
+  const [name, setName] = useState(null);
+  const [patch, setPatch] = useState({});
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(null);
+  const selected = name ?? data?.default;
+  const entry = data?.brands.find((b) => b.name === selected);
+  const dirty = Object.keys(patch).length > 0;
+  const say = (m) => {
+    setFlash(m);
+    setTimeout(() => setFlash(null), 6000);
+  };
+  const run = async (fn) => {
+    setBusy(true);
+    try {
+      return await fn();
+    } catch (e) {
+      say(`⚠ ${e.message}`);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const refresh = (p = patch) =>
+    run(async () => setPreview(await post("/api/brand-preview", { name: selected, patch: p })));
+  // Preview when the brand changes (not on every tweak — rendering takes ~1 s).
+  useEffect(() => {
+    if (selected) {
+      setPatch({});
+      refresh({});
+    }
+  }, [selected]);
+  if (error) return html`<section class="card error">${error}</section>`;
+  if (!data) return html`<section class="card muted">loading…</section>`;
+  const value = (p) =>
+    getPath(patch, p) !== undefined ? getPath(patch, p) : getPath(entry?.brand, p);
+  const groups = [...new Set(BRAND_FIELDS.map((f) => f.group))];
+  const save = () =>
+    run(async () => {
+      const plan = await post("/api/brand-save", { name: selected, patch });
+      if (
+        !confirm(
+          `Save brand "${selected}"?\n\n${plan.diff}${plan.warnings?.length ? `\n\nwarnings:\n- ${plan.warnings.join("\n- ")}` : ""}`,
+        )
+      )
+        return;
+      await post("/api/brand-save", { name: selected, patch, confirm: true });
+      setPatch({});
+      say(`saved ${selected}`);
+      reload();
+    });
+  const duplicate = () =>
+    run(async () => {
+      const to = prompt("Name for the copy (lowercase, digits, dashes):", `${selected}-custom`);
+      if (!to) return;
+      await post("/api/brand-duplicate", { name: selected, to });
+      if (dirty) await post("/api/brand-save", { name: to, patch, confirm: true });
+      setName(to);
+      say(`created ${to}${dirty ? " with your tweaks" : ""}`);
+      reload();
+    });
+  const makeDefault = (scope) =>
+    run(async () => {
+      const plan = await post("/api/brand-use", { name: selected, scope });
+      if (
+        !confirm(
+          `Set the default brand (${scope})?\n\n${plan.diff}${plan.shadowedBy ? `\n\n⚠ overridden by ${plan.shadowedBy}` : ""}`,
+        )
+      )
+        return;
+      await post("/api/brand-use", { name: selected, scope, confirm: true });
+      say(`default brand: ${selected}`);
+      reload();
+    });
+  const rerender = () =>
+    run(async () => {
+      if (dirty) return say("save your tweaks first — renders use the saved brand");
+      await post("/api/export-render", { brand: selected });
+      say(`re-rendering with ${selected} — no new voice, takes a minute`);
+    });
+  const running = data.job?.status === "running";
+  const lastProgress = events.filter((e) => e.type === "edit.progress").at(-1);
+  return html`
+    <section class="card review-head">
+      <div class="row">
+        <h2>Brand</h2>
+        <select value=${selected} onChange=${(e) => setName(e.target.value)}>
+          ${data.brands.map((b) => html`<option value=${b.name}>${b.name}${b.builtin ? " (built-in)" : ""}${b.name === data.default ? " ✓ default" : ""}</option>`)}
+        </select>
+        ${entry?.error ? html`<span class="badge changed">invalid: ${entry.error}</span>` : null}
+        <span class="grow"></span>
+        ${flash ? html`<span class="flash">${flash}</span>` : null}
+        <button disabled=${busy || selected === data.default} onClick=${() => makeDefault("global")}>Set as default</button>
+        <button disabled=${busy || !data.project} title=${data.project ? `writes projects/${data.project}/config.json` : "no active project"} onClick=${() => makeDefault("project")}>Default for this project</button>
+      </div>
+      <p class="muted small-text">New brand from your logos/colors: ask the agent (<code>/demo brand new path/to/brand.zip</code>). User brands live in ${data.userDir}.</p>
+    </section>
+    <div class="brand-grid">
+      <section class="card brand-preview">
+        <div class="row"><h3>Preview</h3><span class="grow"></span>
+          <button disabled=${busy} onClick=${() => refresh()}>${busy ? "rendering…" : dirty ? "Preview tweaks" : "Refresh"}</button></div>
+        ${preview?.title ? html`<img src=${`${preview.title}&token=${token}`} alt="title card" />` : null}
+        ${preview?.framed ? html`<img src=${`${preview.framed}&token=${token}`} alt="framed sample frame" />` : html`<p class="muted">rendering…</p>`}
+        ${preview?.warnings?.length ? html`<ul class="issues">${preview.warnings.map((w) => html`<li class="warn">${w}</li>`)}</ul>` : null}
+      </section>
+      <section class="card brand-form">
+        ${entry?.builtin ? html`<p class="muted small-text">Built-in brands are read-only: tweak, then <b>Save as copy</b>.</p>` : null}
+        ${groups.map(
+          (g) => html`<fieldset><legend>${g}</legend>
+            ${BRAND_FIELDS.filter((f) => f.group === g).map(
+              (
+                f,
+              ) => html`<${BrandField} f=${f} value=${value(f.path)} disabled=${busy || !entry?.brand}
+                onChange=${(v) => setPatch((p) => setPath(p, f.path, v))} />`,
+            )}</fieldset>`,
+        )}
+        <div class="row">
+          <span class="muted small-text">${dirty ? "unsaved tweaks" : "no changes"}</span><span class="grow"></span>
+          <button disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
+          <button disabled=${busy} onClick=${duplicate}>Save as copy…</button>
+          <button class="primary" disabled=${busy || !dirty || entry?.builtin} onClick=${save}>Save</button>
+        </div>
+      </section>
+    </div>
+    <section class="card">
+      <div class="row">
+        <h3>Rendered videos${data.edit ? ` · edit v${data.edit.version}` : ""}</h3><span class="grow"></span>
+        ${running ? html`<span class="muted small-text">${lastProgress?.data?.message ?? "rendering…"}</span>` : null}
+        <button class="primary" disabled=${busy || running || !data.edit} title=${data.edit ? "" : "no edit yet"} onClick=${rerender}>Re-render with ${selected}</button>
+      </div>
+      ${
+        data.edit?.variants.length
+          ? html`<div class="variants">${data.edit.variants.map(
+              (v) =>
+                html`<figure><figcaption>${v.name}</figcaption><video controls preload="metadata" src=${`${media("project", v.full)}&v=${Math.round(v.mtime)}`}></video></figure>`,
+            )}</div>`
+          : html`<p class="muted small-text">${data.edit ? "No branded render of this edit yet." : "No edit yet — once the voice-over is rendered, the videos show up here."} Re-rendering only redoes the picture: same timeline, same voice, no LLM or TTS.</p>`
+      }
+    </section>`;
 }
 
 // ---------------- APP ----------------
@@ -720,7 +1004,7 @@ function App() {
       <span class=${`conn ${status}`}>${status}</span>
     </header>
     <main class=${tab}>
-      ${tab === "live" ? html`<${Live} events=${events} state=${state} stateError=${stateError} />` : tab === "voice" ? html`<${Voice} events=${events} />` : html`<${Review} events=${events} />`}
+      ${tab === "live" ? html`<${Live} events=${events} state=${state} stateError=${stateError} />` : tab === "voice" ? html`<${Voice} events=${events} />` : tab === "brand" ? html`<${Brand} events=${events} />` : html`<${Review} events=${events} />`}
     </main>`;
 }
 

@@ -51,6 +51,24 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
   The result message lists per-scene cuts, holds, pauses and any off-sync anchors.
 - **Output:** 1920×1080, 30 fps H.264, AAC, loudness-normalized to −16 LUFS.
 
+### Brands (S5)
+
+Every render uses a **brand package**, which sets:
+- the footage inset on a backdrop (rounded corners, soft shadow);
+- a title card (app, demo title, date) that dissolves into the first frame;
+- the callout colors;
+- an optional logo bug in the backdrop margin.
+
+| | |
+|---|---|
+| built-in | `neutral` (dark slate, soft-blue accent, no logo) |
+| user brands | `<root>/brands/<name>/`, outside this repo, so company logos never end up in a public package |
+| create | `/demo brand new path/to/brand.zip`: the `demo-brand` skill inspects logos (rendered, luminance-checked) and colors, proposes a mapping, creates the brand, and shows a preview |
+| default | config `brand` (`/demo brand use <name> [--project]`, diff-confirmed) |
+| switch | `/demo brand rerender <name>`, or the panel **Brand** tab: re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
+
+The Brand tab previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
+
 ### Recording (S3)
 
 - **Motion:** curved paths with a natural speed profile (slow start, fast middle, slow landing), occasional overshoot-and-correct, and a small hand drift while dwelling. Seeded per take, so it can be reproduced.
@@ -78,6 +96,8 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 | `/demo discover [notes]` | start discovery + storyboard (demo-recording skill) |
 | `/demo panel` | starts the side panel and prints its URL (with token) |
 | `/demo doctor` | prerequisite check |
+| `/demo brand [list \| use <name> \| new [zip] \| rerender [name]]` | brand packages (S5) |
+| `/demo config`, `/demo voices`, `/demo voiceover`, `/demo render` | settings, voice picker, voice-over, render (S5) |
 
 Engine CLI (no model needed):
 

@@ -28,6 +28,8 @@ import type { GetRoute, PostRoute } from "./server.ts";
 export interface RouteDeps {
   /** Per-section audio files for a VO version (filled in once TTS exists). */
   audio?: (version: number) => unknown;
+  /** Real-voice fit per scene for a VO version (after TTS). */
+  fit?: (version: number) => unknown;
   bus: EventBus;
   activeProject: () => ProjectHandle | undefined;
   /** Current discovery session dir + id, if one is open. */
@@ -145,6 +147,7 @@ export function panelRoutes(deps: RouteDeps): {
           approved: state.approved.vo ?? null,
           review: getReview(state, current.version, "vo"),
           audio: deps.audio?.(current.version) ?? null,
+          fit: deps.fit?.(current.version) ?? null,
         };
       },
       discovery: () => {

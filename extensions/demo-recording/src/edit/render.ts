@@ -59,10 +59,29 @@ export function sceneJob(t: Timeline, sceneId: string, projectDir: string): Rend
   return { video, audio, durationMs: sc.durationMs };
 }
 
-export function fullJob(t: Timeline, projectDir: string): RenderJob {
+export function fullJob(
+  t: Timeline,
+  projectDir: string,
+  opts: { titleMs?: number } = {},
+): RenderJob {
   const video: VideoPiece[] = [];
   const audio: AudioClip[] = [];
   let at = 0;
+  // A title card covers the start: make sure the video opens on a held frame long
+  // enough for it (the intro card if there is one, else a silent hold).
+  const first = t.full[0];
+  const firstScene = t.scenes.find(
+    (s) => s.id === (t.full.find((x) => x.type === "scene") as { id: string } | undefined)?.id,
+  );
+  const introMs = first?.type === "card" && first.kind === "intro" ? first.durationMs : 0;
+  if (opts.titleMs && introMs < opts.titleMs && firstScene) {
+    const hold = Math.round(opts.titleMs - introMs);
+    const startFrame =
+      (firstScene.pieces.find((p) => "src" in p) as { src: [number, number] } | undefined)
+        ?.src[0] ?? 0;
+    video.push({ hold: first?.type === "card" ? first.holdAt : startFrame, durMs: hold });
+    at += hold;
+  }
   for (const item of t.full as FullItem[]) {
     if (item.type === "card") {
       video.push({ hold: item.holdAt, durMs: item.durationMs });
@@ -96,17 +115,50 @@ export function frameCounts(pieces: VideoPiece[], fps: number): number[] {
   });
 }
 
-export function filterGraph(
-  job: RenderJob,
-  opts: { fps: number; width: number; height: number },
-  audioInputs: string[],
-): string {
-  const { fps, width, height } = opts;
+/** Brand layers for one render (from brand/assets.ts). */
+export interface RenderBrand {
+  inset: { x: number; y: number; w: number; h: number };
+  backdrop?: string;
+  mask?: string;
+  /** Title card over the start (full video only). */
+  title?: { file: string; durationMs: number; dissolveMs: number };
+  logoBug?: { file: string; x: number; y: number; opacity: number; fromMs: number };
+}
+
+export interface RenderOpts {
+  fps: number;
+  width: number;
+  height: number;
+  brand?: RenderBrand;
+}
+
+/** Image inputs (looped stills) after the audio inputs, in this order. */
+export function imageInputs(
+  brand: RenderBrand | undefined,
+): { key: "backdrop" | "mask" | "title" | "bug"; file: string }[] {
+  if (!brand) return [];
+  const out: { key: "backdrop" | "mask" | "title" | "bug"; file: string }[] = [];
+  if (brand.backdrop && brand.mask) {
+    out.push({ key: "backdrop", file: brand.backdrop });
+    out.push({ key: "mask", file: brand.mask });
+  }
+  if (brand.title) out.push({ key: "title", file: brand.title.file });
+  if (brand.logoBug) out.push({ key: "bug", file: brand.logoBug.file });
+  return out;
+}
+
+export function filterGraph(job: RenderJob, opts: RenderOpts, audioInputs: string[]): string {
+  const { fps } = opts;
+  const brand = opts.brand;
+  const framed = !!(brand?.backdrop && brand.mask);
+  // Footage size: the inset box when framed (one scaling pass), else full frame.
+  const fw = framed ? (brand as RenderBrand).inset.w : opts.width;
+  const fh = framed ? (brand as RenderBrand).inset.h : opts.height;
   const counts = frameCounts(job.video, fps);
   const live = job.video.map((p, i) => ({ p, n: counts[i] as number })).filter((x) => x.n > 0);
   const lines: string[] = [];
   lines.push(`[0:v]split=${live.length}${live.map((_, i) => `[s${i}]`).join("")}`);
-  const scale = `scale=${width}:${height}:flags=lanczos,setsar=1`;
+  const scale = `scale=${fw}:${fh}:flags=lanczos,setsar=1`;
   live.forEach(({ p, n }, i) => {
     const sec = (ms: number) => (ms / 1000).toFixed(4);
     const head = p.src
@@ -117,8 +169,43 @@ export function filterGraph(
       `${head},${scale},fps=${fps},tpad=stop_mode=clone:stop_duration=${((n + 2) / fps).toFixed(3)},trim=end_frame=${n},setpts=PTS-STARTPTS[v${i}]`,
     );
   });
-  lines.push(`${live.map((_, i) => `[v${i}]`).join("")}concat=n=${live.length}:v=1:a=0[vout]`);
   const D = (job.durationMs / 1000).toFixed(3);
+  const images = imageInputs(brand);
+  const imgIdx = (key: string) => 1 + audioInputs.length + images.findIndex((x) => x.key === key);
+  let cur = framed || brand?.title || brand?.logoBug ? "vcat" : "vout";
+  lines.push(`${live.map((_, i) => `[v${i}]`).join("")}concat=n=${live.length}:v=1:a=0[${cur}]`);
+  if (brand && framed) {
+    const b = brand.inset;
+    lines.push(`[${imgIdx("mask")}:v]format=gray,scale=${b.w}:${b.h},setsar=1[mask]`);
+    lines.push(`[${cur}]format=yuva420p[vfa]`);
+    lines.push("[vfa][mask]alphamerge[vrnd]");
+    lines.push(
+      `[${imgIdx("backdrop")}:v]scale=${opts.width}:${opts.height},setsar=1,format=yuv420p,fps=${fps}[bg]`,
+    );
+    const next = brand.title || brand.logoBug ? "vframed" : "vout";
+    lines.push(`[bg][vrnd]overlay=${b.x}:${b.y}:shortest=1:format=auto,format=yuv420p[${next}]`);
+    cur = next;
+  }
+  if (brand?.title) {
+    const t = brand.title;
+    const next = brand.logoBug ? "vtitled" : "vout";
+    lines.push(
+      `[${imgIdx("title")}:v]scale=${opts.width}:${opts.height},setsar=1,format=yuva420p,fps=${fps},` +
+        `fade=t=out:st=${(t.durationMs / 1000).toFixed(3)}:d=${(t.dissolveMs / 1000).toFixed(3)}:alpha=1[title]`,
+    );
+    lines.push(`[${cur}][title]overlay=0:0:eof_action=pass:format=auto,format=yuv420p[${next}]`);
+    cur = next;
+  }
+  if (brand?.logoBug) {
+    const l = brand.logoBug;
+    const from = (l.fromMs / 1000).toFixed(3);
+    lines.push(
+      `[${imgIdx("bug")}:v]format=yuva420p,colorchannelmixer=aa=${l.opacity.toFixed(2)},fps=${fps},fade=t=in:st=${from}:d=0.5:alpha=1[bug]`,
+    );
+    lines.push(
+      `[${cur}][bug]overlay=${l.x}:${l.y}:enable='gte(t,${from})':format=auto,format=yuv420p[vout]`,
+    );
+  }
   if (!job.audio.length) {
     lines.push(`anullsrc=r=48000:cl=mono,atrim=duration=${D}[aout]`);
   } else {
@@ -140,10 +227,12 @@ export async function renderJob(
   job: RenderJob,
   rawVideo: string,
   out: string,
-  opts: { fps: number; width: number; height: number },
+  opts: RenderOpts,
 ): Promise<{ ms: number; durationSec: number }> {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const audioInputs = [...new Set(job.audio.map((a) => a.file))];
+  const images = imageInputs(opts.brand);
+  const D = (job.durationMs / 1000).toFixed(3);
   const script = `${out}.filter.txt`;
   fs.writeFileSync(script, filterGraph(job, opts, audioInputs));
   try {
@@ -151,6 +240,18 @@ export async function renderJob(
       "-i",
       rawVideo,
       ...audioInputs.flatMap((f) => ["-i", f]),
+      ...images.flatMap((im) => [
+        "-loop",
+        "1",
+        "-framerate",
+        String(opts.fps),
+        "-t",
+        im.key === "title" && opts.brand?.title
+          ? ((opts.brand.title.durationMs + opts.brand.title.dissolveMs) / 1000 + 0.1).toFixed(3)
+          : D,
+        "-i",
+        im.file,
+      ]),
       "-/filter_complex", // value read from a file (ffmpeg ≥ 7)
       script,
       "-map",
@@ -172,7 +273,7 @@ export async function renderJob(
       "-b:a",
       "192k",
       "-t",
-      (job.durationMs / 1000).toFixed(3),
+      D,
       "-movflags",
       "+faststart",
       out,

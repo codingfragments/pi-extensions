@@ -13,8 +13,11 @@ import path from "node:path";
 import { test } from "node:test";
 import { dropSilentWords, envelope, refineOnsets } from "../src/align/onset.ts";
 import { analyzeTake } from "../src/analysis/take.ts";
+import { insetBox, renderBrandAssets } from "../src/brand/assets.ts";
+import { resolveBrand } from "../src/brand/brand.ts";
+import { createBrand } from "../src/brand/manage.ts";
 import { resolveConfig } from "../src/config.ts";
-import { fullAnchorTimes, runEdit } from "../src/edit/pipeline.ts";
+import { fullAnchorTimes, renderVariant, runEdit, titleInfoFor } from "../src/edit/pipeline.ts";
 import { serveFixture } from "../src/fixture/server.ts";
 import { ffprobe, hasBinary, run } from "../src/media/ffmpeg.ts";
 import { recordTake } from "../src/recorder/runner.ts";
@@ -67,9 +70,16 @@ Two steps, and the regional problem is obvious.
 `;
 
 type Box = { x: number; y: number; w: number; h: number };
-async function crop(video: string, sec: number, box: Box, scale: number): Promise<Buffer> {
+/** Crop a viewport-space box out of a rendered frame (footage inset at `off` with `scale`). */
+async function crop(
+  video: string,
+  sec: number,
+  box: Box,
+  scale: number,
+  off = { x: 0, y: 0 },
+): Promise<Buffer> {
   const out = path.join(os.tmpdir(), `demo-rec-e2e4-${process.pid}-${sec}.gray`);
-  const c = `crop=${Math.round(box.w * scale)}:${Math.round(box.h * scale)}:${Math.round(box.x * scale)}:${Math.round(box.y * scale)}`;
+  const c = `crop=${Math.round(box.w * scale)}:${Math.round(box.h * scale)}:${Math.round(off.x + box.x * scale)}:${Math.round(off.y + box.y * scale)}`;
   await run("ffmpeg", [
     "-v",
     "error",
@@ -157,13 +167,18 @@ test(
       );
 
       // ---- sync, measured on screen: results box empty before the anchor, filled after
-      const anchors = fullAnchorTimes(edit.timeline);
+      // Default brand (neutral): title card over the intro, footage inset on the backdrop.
+      const brand = resolveBrand(root, config.brand).brand;
+      const titleMs = brand.title.enabled ? brand.title.durationMs + brand.title.dissolveMs : 0;
+      const inset = insetBox(brand, config.output);
+      assert.equal(edit.brand, "neutral");
+      const anchors = fullAnchorTimes(edit.timeline, { titleMs });
       const results = anchors.find((a) => a.mark === "results-visible");
       const box = search.marks.find((m) => m.mark === "results-visible")?.box;
       assert.ok(results && box);
-      const scale = config.output.width / config.viewport.width;
-      const before = await crop(edit.full.file, (results.out - 150) / 1000, box, scale);
-      const after = await crop(edit.full.file, (results.out + 150) / 1000, box, scale);
+      const scale = inset.w / config.viewport.width;
+      const before = await crop(edit.full.file, (results.out - 150) / 1000, box, scale, inset);
+      const after = await crop(edit.full.file, (results.out + 150) / 1000, box, scale, inset);
       assert.ok(
         diff(before, after) > 8,
         `results appear within ±150 ms of the anchor on screen (diff ${diff(before, after).toFixed(1)})`,
@@ -230,6 +245,73 @@ test(
       }
       console.log(
         `S4 E2E sync: ${errors.join(", ")}; full ${probe.duration.toFixed(1)} s; cut ${edit.timeline.totals.cutMs} ms`,
+      );
+
+      // Brand switch (D27): re-render the same timeline with another brand —
+      // no new timeline, no TTS; same length, logo bug in the corner.
+      const src = fs.mkdtempSync(path.join(os.tmpdir(), "demo-rec-e2e4-brand-"));
+      fs.writeFileSync(
+        path.join(src, "logo.svg"),
+        '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" rx="8" fill="#ffffff"/></svg>',
+      );
+      createBrand(root, {
+        name: "acme",
+        source: src,
+        logoLight: "logo.svg",
+        settings: { colors: { accent: "#ff8800" }, logoBug: { enabled: true, opacity: 1 } },
+      });
+      const timelines = () =>
+        fs.readdirSync(path.join(project.dir, "edit")).filter((f) => f.startsWith("timeline.v"));
+      const timelinesBefore = timelines();
+      const variant = await renderVariant({
+        projectDir: project.dir,
+        config,
+        timelineVersion: edit.version,
+        variant: { brand: "acme" },
+      });
+      assert.deepEqual(timelines(), timelinesBefore, "no new timeline");
+      assert.equal(variant.outDir, path.join(project.dir, "out", `edit-v${edit.version}`, "acme"));
+      assert.ok(
+        Math.abs(variant.full.durationSec - probe.duration) < 0.1,
+        `same length (${variant.full.durationSec} vs ${probe.duration})`,
+      );
+      assert.ok(fs.existsSync(edit.full.file), "the neutral variant stays");
+      const assets = await renderBrandAssets(resolveBrand(root, "acme"), config.output, {
+        cacheDir: path.join(root, ".cache", "brand-assets"),
+        title: titleInfoFor(project.dir, config),
+      });
+      const bug = assets.logoBug;
+      assert.ok(bug, "acme has a logo bug");
+      const region = async (file: string) => {
+        const out = path.join(os.tmpdir(), `demo-rec-e2e4-${process.pid}-bug.gray`);
+        await run("ffmpeg", [
+          "-v",
+          "error",
+          "-y",
+          "-ss",
+          "8",
+          "-i",
+          file,
+          "-frames:v",
+          "1",
+          "-vf",
+          `crop=${bug.w}:${bug.h}:${bug.x}:${bug.y},format=gray`,
+          "-f",
+          "rawvideo",
+          out,
+        ]);
+        const b = fs.readFileSync(out);
+        fs.rmSync(out, { force: true });
+        return b;
+      };
+      const [plain, bugged] = [await region(edit.full.file), await region(variant.full.file)];
+      // The white logo replaces whatever was there (backdrop or footage edge) on most pixels.
+      const changed =
+        plain.reduce((n, v, k) => n + (Math.abs(v - (bugged[k] as number)) > 40 ? 1 : 0), 0) /
+        plain.length;
+      assert.ok(
+        changed > 0.3,
+        `logo bug visible at ${bug.x},${bug.y} (${(changed * 100).toFixed(0)}% of its box changed)`,
       );
     } finally {
       await fixture.close();

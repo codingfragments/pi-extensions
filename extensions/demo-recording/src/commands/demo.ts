@@ -9,6 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { listBrands, resolveBrand } from "../brand/brand.ts";
 import {
   type Scope,
   applyChange,
@@ -47,6 +48,7 @@ const USAGE = [
   "/demo voiceover [notes…]                        analyze the latest take and write the voice-over",
   "/demo render                                    check the voice, synthesize, and render the edit",
   "/demo voices                                    list your ElevenLabs voices and pick one",
+  "/demo brand [list | use <name> [--project] | new [zip/folder] | rerender [name]]  brand packages",
   "/demo config [show [prefix] | set <key> <value> [--project] | unset <key> [--project]]",
   "/demo panel                                     start/show the side panel URL",
   "/demo doctor                                    check prerequisites",
@@ -254,6 +256,70 @@ async function cmdConfig(rt: Runtime, rest: string[], ctx: ExtensionCommandConte
   );
 }
 
+async function cmdBrand(
+  pi: ExtensionAPI,
+  rt: Runtime,
+  rest: string[],
+  ctx: ExtensionCommandContext,
+) {
+  const [op, name, ...more] = rest;
+  const cfg = rt.getConfig();
+  if (!op || op === "list") {
+    const lines = listBrands(cfg.root).map(
+      (b) =>
+        `${b.name === cfg.brand ? "▶" : " "} ${b.name}${b.builtin ? " (built-in)" : ""}${b.error ? `  ✖ ${b.error}` : ""}`,
+    );
+    return report(
+      ctx,
+      `${lines.join("\n")}\n\ndefault: ${cfg.brand} · /demo brand new [zip|folder] to create one`,
+    );
+  }
+  if (op === "new") {
+    kick(
+      pi,
+      `/skill:demo-brand Create a new brand package for my demos${name ? ` from ${[name, ...more].join(" ")}` : ""}. Explain what you need, inspect the material, propose the mapping and colors, create it, and show me the preview.`,
+    );
+    return report(ctx, "brand creation started");
+  }
+  if (op === "rerender") {
+    const p = rt.requireProject();
+    kick(
+      pi,
+      `Re-render the latest edit of "${p.slug}" with brand "${name ?? cfg.brand}" (demo_rec_edit action rerender — no new voice, no LLM changes) and tell me the output path.`,
+    );
+    return report(ctx, `re-render with brand ${name ?? cfg.brand} requested`);
+  }
+  if (op === "use") {
+    if (!name) return report(ctx, "/demo brand use <name> [--project]", "warning");
+    resolveBrand(cfg.root, name);
+    const change = planChange(
+      configFiles(rt),
+      more.includes("--project") ? "project" : "global",
+      "brand",
+      name,
+      { env: process.env, home: os.homedir() },
+    );
+    if (ctx.hasUI && !(await ctx.ui.confirm("Set default brand?", formatChange(change))))
+      return report(ctx, "not written");
+    if (!ctx.hasUI)
+      return report(
+        ctx,
+        `${formatChange(change)}\n(no UI to confirm — use the demo_rec_brand tool)`,
+      );
+    applyChange(change);
+    rt.getConfig(true);
+    return report(
+      ctx,
+      `default brand: ${name} (${change.scope}) — re-render with /demo brand rerender`,
+    );
+  }
+  return report(
+    ctx,
+    "usage: /demo brand [list | use <name> [--project] | new [zip/folder] | rerender [name]]",
+    "warning",
+  );
+}
+
 function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
   const cfg = rt.getConfig();
   const p = rt.activeProject();
@@ -317,6 +383,8 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return await cmdVoices(rt, ctx);
           case "config":
             return await cmdConfig(rt, rest, ctx);
+          case "brand":
+            return await cmdBrand(pi, rt, rest, ctx);
           case "panel": {
             const panel = await rt.ensurePanel();
             return report(ctx, `demo panel: ${panel.url}`);

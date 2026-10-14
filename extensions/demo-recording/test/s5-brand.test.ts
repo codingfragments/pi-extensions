@@ -30,6 +30,19 @@ import {
 import { fullAnchorTimes } from "../src/edit/pipeline.ts";
 import { filterGraph, fullJob, imageInputs } from "../src/edit/render.ts";
 import type { Timeline } from "../src/edit/timeline.ts";
+import { hasBinary } from "../src/media/ffmpeg.ts";
+
+async function chromiumAvailable(): Promise<boolean> {
+  try {
+    const { chromium } = await import("playwright");
+    return fs.existsSync(chromium.executablePath());
+  } catch {
+    return false;
+  }
+}
+// Rendering logo previews/assets needs Chromium (and ffprobe); CI has neither.
+const skip =
+  !((await chromiumAvailable()) && hasBinary("ffmpeg")) && "needs Playwright Chromium + ffmpeg";
 
 const tmp = (p: string) => fs.mkdtempSync(path.join(os.tmpdir(), p));
 const SIZE = { width: 1920, height: 1080 };
@@ -97,7 +110,7 @@ test("extractColors normalizes and ranks hex codes", () => {
   ]);
 });
 
-test("brand from material: inspect, create, diff-first update, duplicate", async () => {
+test("brand from material: inspect, create, diff-first update, duplicate", { skip }, async () => {
   const root = tmp("demo-rec-brandroot-");
   const src = brandMaterial();
   const inv = await inspectSource(src, path.join(root, "inspect"));

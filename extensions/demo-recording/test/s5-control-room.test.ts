@@ -355,17 +355,17 @@ test(
       });
       await page.goto(panel.url);
       await page.waitForSelector("aside.live");
-      for (const tab of [
-        "Storyboard",
-        "Recording",
-        "Voice over",
-        "Annotations",
-        "Render",
-        "Config",
-      ]) {
+      assert.deepEqual(
+        await page.locator("nav.steps button").allTextContents(),
+        ["Storyboard", "Recording", "Voice over", "Annotations", "Render"],
+        "only process steps in the stepper",
+      );
+      for (const tab of ["Storyboard", "Recording", "Voice over", "Annotations", "Render"]) {
         await page.locator("nav button", { hasText: tab }).first().click();
         await page.waitForTimeout(250);
       }
+      await page.locator("button.config-btn").click();
+      await page.waitForSelector(".brand-grid");
       await page.locator("nav button", { hasText: "Recording" }).first().click();
       await page.waitForSelector(".card.take");
       assert.equal(

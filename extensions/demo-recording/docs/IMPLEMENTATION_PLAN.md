@@ -657,7 +657,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
 | 3 | Stage model + project input log | ✅ |
 | 4 | Control room + **branching stages** (D44–D47): stage tabs with input pickers, several accepted versions per stage, working line, orphans, Recording tab, Live side panel, `/demo panel` opens the browser | ✅ |
-| 5 | Config UI (Settings · Brands · Project context) | next |
+| 5a | **Project screen** (D48): a Project tab at the far left — the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | next |
+| 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
 | 7 | Annotation rendering (engine) | |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |
@@ -751,20 +752,27 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - **Per stage:** each stage contributes its own components (e.g. the Recording stage shows scene segments and improvise events; Render shows per-variant progress) and can toggle them.
 - **The old Live tab content** (discovery card, recording progress) moves into the Live panel. Review and Voice become the Storyboard and Voice over tabs, unchanged inside. The Brand tab moves to Config (part 5).
 
-*5. Config UI (D41–D43)*
+*5a. Project screen (D42, D43, D48)* — its own step, the **Project** tab at the far left of the stepper (before Storyboard)
+- **Memory** (what the agent reads via `demo_rec_project context`, D42):
+  - **Brief:** current text, version history (`brief/vN.md`) with a diff to the previous version; editable as today.
+  - **Inputs:** the input log, filterable by stage, kind and source, newest first; each entry links to the version it produced. **Mark outdated / restore** with a reason (D43): never deleted, struck through, skipped by the agent.
+  - **Sources and assets:** `context/` files, web sources with URLs, brand material, files the user handed over.
+  - **Lineage:** the working line plus every accepted version with its lineage and orphan flags (until the map view, [FUTURE_IDEAS](FUTURE_IDEAS.md)).
+- **Findings** — what discovery and the recordings found, in one list (open question Q9: exact sources and format):
+  - *Discovery:* candidate use cases, friction and weaknesses, notable values, safety blocks and state-changing actions, screens visited (sitemap, audit log).
+  - *Recordings:* error toasts / console errors, improvise fallbacks used, resumes and retries, dead time, value mismatches (later: QA flags, part 10).
+  - Each finding links to its evidence (screen, take + time, keyframe) and can be marked "use in the demo" / "ignore".
+- **Routes:** `GET /api/context`, `GET /api/findings`, `POST /api/input-mark {id, outdated, reason}`.
+- **No configuration here:** project-level config overrides live under ⚙ Config (part 5b).
+
+*5b. Config UI (D41, D48)* — the **⚙ Config** button at the far right of the top bar (done in part 4), separate from the process steps
 - **Settings:**
   - every setting from `CONFIG_DOCS`, grouped, showing the effective value, its source (default / global / project / env), the docs, and whether it's shadowed;
-  - edited through a validated form, always diff-confirmed, with global or project scope;
+  - edited through a validated form, always diff-confirmed, with **global or project scope** (project overrides belong here, not in the Project tab);
   - the raw global and project files are shown **read-only** beside it, with "open in editor" and "reload";
   - API keys: only "set / not set" plus the env-var name, never shown or written.
-- **Brands:** the current Brand tab, moved in.
-- **Project context**, the "memory" of the selected project:
-  - **Brief:** current text, version history (`brief/vN.md`) and a diff to the previous version; editable as today.
-  - **Inputs:** the input log, filterable by stage, kind and source, newest first. Each entry links to the version it produced. **Mark outdated / restore** with a reason (D43): never deleted, struck through, and skipped by the agent.
-  - **Sources and assets:** `context/` files, web sources with URLs, brand material, uploaded files.
-  - **Discovery:** sessions, sitemap, screens and the audit log.
-  - **Lineage:** the stage chain with approved, latest and stale versions, and what a re-approval would reset.
-- **Routes:** `GET /api/config`, `POST /api/config-set {key, value, scope, confirm?}` (two-phase, as `demo_rec_config`), `GET /api/context`, `POST /api/input-mark {id, outdated, reason}`.
+- **Brands:** the current brand editor (already under Config since part 4).
+- **Routes:** `GET /api/config`, `POST /api/config-set {key, value, scope, confirm?}` (two-phase, as `demo_rec_config`).
 
 *6. Recording inputs (D32, D34)*
 - **Layout snapshots** `takes/take-NNN/layout.jsonl` (Q8): positions of visible elements, so annotations can target anything on screen.
@@ -1011,6 +1019,7 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S6 |
 | Q7 | ~~Annotation weights and target optimum~~ → designer value 1–5 (+1 for emphasis/VO match), deterministic noise per type × duration, greedy recommended set under caps, optimum = its noise, ±25 % = balanced (§3.6) | S5 plan ✅ |
+| Q9 | Findings: which engine signals count as findings, how the agent records discovery findings (e.g. `demo_rec_project note kind=finding` with evidence refs), dedupe, and the "use / ignore" marking | S5 part 5a (short grill first) |
 | Q8 | ~~Layout snapshot granularity~~ → after each settle, at marks and route changes (≤ 1/500 ms), visible elements only, ≤ 400 per snapshot, no password values (§3.7) | S5 plan ✅ |
 
 ## 9. Definition of done (v1 = S0–S6)

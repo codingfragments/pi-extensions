@@ -66,7 +66,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 ### Panel: the control room (S5)
 
 - **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
-- **Tabs follow the stages:** Storyboard · Recording · Voice over · Annotations · Render · Config.
+- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps; it holds all configuration, currently the brand editor, with settings coming in S5 part 5b. A **Project** tab at the far left, with the project's memory and findings, arrives in S5 part 5a.
   - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
   - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
   - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).
@@ -92,7 +92,7 @@ Every render uses a **brand package**, which sets:
 | default | config `brand` (`/demo brand use <name> [--project]`, diff-confirmed) |
 | switch | `/demo brand rerender <name>`, or the panel **Render** tab (brand dropdown): re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
 
-The panel **Config → Brands** section previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
+The panel **⚙ Config** brand editor previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
 
 Full reference, with every option, the automatic decisions and the render chain: [docs/BRANDS.md](docs/BRANDS.md).
 

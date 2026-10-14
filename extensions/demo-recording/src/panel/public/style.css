@@ -965,3 +965,29 @@ input.note {
 .card.take.on-line {
   box-shadow: inset 3px 0 0 var(--accent);
 }
+
+/* top bar: process steps (stepper) on the left, Config as a separate button on the right */
+nav.steps {
+  align-items: center;
+}
+.step-sep {
+  color: var(--muted);
+  opacity: 0.6;
+  user-select: none;
+}
+.config-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.config-btn:hover,
+.config-btn.active {
+  color: var(--text);
+  background: var(--card);
+}

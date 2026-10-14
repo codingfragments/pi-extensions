@@ -14,7 +14,6 @@ const TABS = [
   { id: "voice", label: "Voice over", stage: "vo" },
   { id: "annotations", label: "Annotations", stage: "annotations" },
   { id: "render", label: "Render", stage: "render" },
-  { id: "config", label: "Config", stage: null },
 ];
 
 // ---------------- REVIEW ----------------
@@ -737,7 +736,7 @@ function Config({ events }) {
   return html`
     <section class="card review-head">
       <div class="row"><h2>Config</h2><span class="grow"></span>
-        <span class="muted small-text">Settings and Project context arrive in S5 part 5 — use <code>/demo config</code> meanwhile.</span></div>
+        <span class="muted small-text">Settings (global and project overrides) arrive in S5 part 5b — use <code>/demo config</code> meanwhile.</span></div>
     </section>
     <${Brand} events=${events} />`;
 }
@@ -803,15 +802,19 @@ function App() {
     <header class="top">
       <strong>demo-recording</strong>
       ${state?.project ? html`<span class="muted small-text">${state.project.slug}</span>` : null}
-      <nav>
+      <nav class="steps" aria-label="process steps">
         ${TABS.map(
-          (t) => html`<button
+          (
+            t,
+            i,
+          ) => html`${i ? html`<span class="step-sep" aria-hidden="true">›</span>` : null}<button
             class=${`${tab === t.id ? "active" : ""} ${waiting && waiting === t.stage ? "waiting" : ""}`}
             title=${waiting && waiting === t.stage ? `waiting for you: ${stages.next.text}` : ""}
             onClick=${() => setTab(t.id)}
           >${t.label}${waiting && waiting === t.stage ? html` <span class="dot"></span>` : null}</button>`,
         )}
       </nav>
+      <button class=${`config-btn ${tab === "config" ? "active" : ""}`} title="Settings and brands (not a process step)" onClick=${() => setTab("config")}>⚙ Config</button>
       <${ThemeToggle} />
       <span class=${`conn ${status}`}>${status}</span>
     </header>

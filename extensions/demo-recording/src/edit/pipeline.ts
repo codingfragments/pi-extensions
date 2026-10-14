@@ -122,9 +122,11 @@ export function titleInfoFor(projectDir: string, config: DemoRecConfig): TitleIn
     pretty(path.basename(projectDir));
   const appName = app?.name ?? pretty(state?.app ?? "Demo");
   const date = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  return sameText(title, appName)
+  const subtitle = briefField(brief, "Subtitle");
+  const base = sameText(title, appName)
     ? { app: "", title: appName, date }
     : { app: appName, title, date };
+  return subtitle ? { ...base, subtitle } : base;
 }
 
 /**

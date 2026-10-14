@@ -63,10 +63,31 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
   - **Status:** `demo_rec_project status` shows it, plus all accepted versions with their lineage.
 - **Project memory:** `inputs.jsonl` records every directional input: `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits, brief versions, and chat directions, sources and assets the agent notes with `demo_rec_project note`. Withdrawn directions are marked outdated, never deleted. `demo_rec_project context` returns the brief, the working line, the lineage and the active inputs; `/demo open` and a session restore put that into the agent's next turn.
 
+### Project tab (S5)
+
+The first step, with three views:
+
+- **Facts:** title, subtitle, persona, **depth** (poc / showcase / sales), stance, target length (min–max), goal, app URL and extra URLs, plus the login state (never its contents).
+  - **Storage:** the facts are fields of `brief.md`. Each save shows the diff and writes a new brief version; `Audience:` in older briefs is read as Persona.
+  - **Depth defaults:** depth sets the default stance and length:
+
+    | Depth | Stance | Length |
+    |---|---|---|
+    | poc | evaluator | 3–5 min |
+    | showcase | teacher | 2–3 min |
+    | sales | champion | 60–90 s |
+
+  - **Not here:** tool settings, including project-only overrides, live under ⚙ Config.
+- **Findings:** one list from two sources.
+  - **Agent findings** come from discovery and analysis (`demo_rec_project finding` with evidence: strength, weakness, friction, value, use case, length).
+  - **Engine findings** are detected: error toasts, improvise fallbacks, retries, dead time, blocked and state-changing discovery actions, and the edited length vs. the target.
+  - **States:** each finding is **auto** (the director decides), **use** (always in the recording *and* the narration; storyboard scenes list the findings they cover, and uncovered *use* findings produce a warning) or **ignore** (never brought up). Evidence shows as thumbnails.
+- **Memory:** the working line, the brief with versions and diffs, the input log (mark outdated / restore), and sources and assets.
+
 ### Panel: the control room (S5)
 
 - **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
-- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps; it holds all configuration, currently the brand editor, with settings coming in S5 part 5b. A **Project** tab at the far left, with the project's memory and findings, arrives in S5 part 5a.
+- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps; it holds all configuration, currently the brand editor, with settings coming in S5 part 5b. The **Project** tab at the far left is step one (see below).
   - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
   - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
   - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).

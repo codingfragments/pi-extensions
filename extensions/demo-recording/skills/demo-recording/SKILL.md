@@ -80,8 +80,11 @@ annotations → render.
 
 ## Discovery method (vision-first)
 
-1. `demo_rec_project status`, then read the brief (`read_brief`). Know the
-   audience, stance and goal before you click anything.
+1. `demo_rec_project status`, then read the brief (`read_brief`) or
+   `demo_rec_project context`. Know the persona, **depth** (poc / showcase /
+   sales, see the demo-brief skill's depth table), stance, target length and
+   goal before you click anything. Depth decides what to look for: poc = go
+   deep and capture weaknesses, showcase = breadth, sales = a few outcome flows.
 2. `demo_rec_browser open`. The screenshot is the source of truth. The aria
    digest gives exact values and the `{role, name}` targets to use.
 3. **Declare your plan.** Right after the first look, call
@@ -104,6 +107,24 @@ annotations → render.
 8. **Every target in the storyboard must have worked during discovery.** If
    you clicked it with `act`, it's verified. The storyboard write warns about
    targets you never saw.
+9. **Record findings as you go.** Whenever something is notable, call
+   `demo_rec_project finding` with:
+   - **kind:** strength, weakness, friction, value, use-case or length;
+   - **evidence:** `screen:<id from the look>`, a URL, or later
+     `take:take-006@71.5`.
+   One finding per observation, in a sentence the user can judge without
+   context. The engine adds its own findings (errors, fallbacks, retries, dead
+   time, blocked or state-changing actions).
+10. **Length check.** Estimate the demo's length from the planned scenes. If
+    it is clearly outside the brief's target length (or the depth default),
+    say so and record a `length` finding with a `suggestion` (a new min–max,
+    or which scenes to cut or add).
+11. **Respect the marks.** The user marks findings in the Project tab:
+    - **use:** must appear in the recording *and* the narration. List the
+      finding's id in the covering scene's `findings:`. The storyboard write
+      warns about uncovered *use* findings.
+    - **auto:** your call.
+    - **ignore:** never bring it up.
 
 ## What makes a good demo storyboard
 
@@ -151,6 +172,7 @@ scenes:
     narration_outline:
       - churn KPI looks harmless at 3.1%
       - the chart shows EMEA at 14.2%
+    findings: [f-0003]            # findings this scene covers (every "use" finding must be covered)
     steps:
       - { do: hover, target: { css: '[data-kpi="churn"]' }, mark: churn-kpi, dwell: 1.2s }
       - { do: hover, target: { text: EMEA }, mark: emea-bar, dwell: 1.4s, zoom: true }

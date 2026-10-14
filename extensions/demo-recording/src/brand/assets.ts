@@ -26,6 +26,8 @@ export interface InsetBox {
 export interface TitleInfo {
   app: string;
   title: string;
+  /** Optional second line under the title (brief `Subtitle:`). */
+  subtitle?: string;
   date: string;
 }
 
@@ -205,11 +207,13 @@ body{${backgroundCss(l)};color:${b.colors.text};display:flex;align-items:center}
 .app{font-size:${Math.round(30 * s)}px;letter-spacing:.08em;text-transform:uppercase;color:${b.colors.muted};font-weight:${b.font.weight}}
 .rule{width:${Math.round(84 * s)}px;height:${Math.max(3, Math.round(5 * s))}px;background:${b.colors.accent};border-radius:3px;margin:${Math.round(26 * s)}px 0 ${Math.round(30 * s)}px}
 .title{font-size:${Math.round(76 * s)}px;line-height:1.08;font-weight:${Math.max(600, b.font.weight)};letter-spacing:-.01em}
+.subtitle{margin-top:${Math.round(18 * s)}px;font-size:${Math.round(36 * s)}px;line-height:1.2;color:${b.colors.muted};font-weight:${Math.min(500, b.font.weight)}}
 .date{margin-top:${Math.round(40 * s)}px;font-size:${Math.round(26 * s)}px;color:${b.colors.muted}}
 </style></head><body><div class="wrap">
 ${logo && b.title.logoPosition !== "none" ? `<img class="logo" src="${dataUri(logo)}">` : ""}
 ${info.app ? `<div class="app">${esc(info.app)}</div>` : ""}<div class="rule"></div>
 <div class="title">${esc(info.title)}</div>
+${info.subtitle ? `<div class="subtitle">${esc(info.subtitle)}</div>` : ""}
 <div class="date">${esc(info.date)}</div></div></body></html>`;
 }
 

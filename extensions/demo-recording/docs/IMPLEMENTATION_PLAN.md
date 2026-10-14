@@ -657,8 +657,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | — | Spike Q3: zoom rendering | ✅ #35 ([spike](spikes/S5-zoom.md)) |
 | 3 | Stage model + project input log | ✅ |
 | 4 | Control room + **branching stages** (D44–D47): stage tabs with input pickers, several accepted versions per stage, working line, orphans, Recording tab, Live side panel, `/demo panel` opens the browser | ✅ |
-| 5a | **Project screen** (D48): a Project tab at the far left — the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | next |
-| 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | |
+| 5a | **Project screen** (D48): a Project tab at the far left — project facts, the project's memory (brief, inputs, sources, lineage) and its findings from discovery and recordings | ✅ |
+| 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | next |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | |
 | 7 | Annotation rendering (engine) | |
 | 8 | Annotations stage (designer, tab, review, approve, import) | |
@@ -1045,7 +1045,7 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
 | Q6 | First real app for acceptance | before S7 |
 | Q7 | ~~Annotation weights and target optimum~~ → designer value 1–5 (+1 for emphasis/VO match), deterministic noise per type × duration, greedy recommended set under caps, optimum = its noise, ±25 % = balanced (§3.6) | S5 plan ✅ |
-| Q9 | Findings: which engine signals count as findings, how the agent records discovery findings (e.g. `demo_rec_project note kind=finding` with evidence refs), dedupe, and the "use / ignore" marking | S5 part 5a (short grill first) |
+| Q9 | ~~Findings~~ → engine findings computed (errors, fallbacks, retries, dead time ≥ 5 s, blocked / state-changing discovery actions, edited length vs. target; deduped across takes, stable ids) + agent findings via `demo_rec_project finding` with evidence; states **auto / use / ignore** (use = must be in the recording *and* the narration, scenes list covered ids in `findings:`); depth poc/showcase/sales sets stance + length defaults and steers discovery, narration and annotations | S5 part 5a ✅ |
 | Q8 | ~~Layout snapshot granularity~~ → after each settle, at marks and route changes (≤ 1/500 ms), visible elements only, ≤ 400 per snapshot, no password values (§3.7) | S5 plan ✅ |
 
 ## 9. Definition of done (v1 = S0–S7; S6 lanes opt-in, S8 optional)

@@ -357,8 +357,8 @@ test(
       await page.waitForSelector("aside.live");
       assert.deepEqual(
         await page.locator("nav.steps button").allTextContents(),
-        ["Storyboard", "Recording", "Voice over", "Annotations", "Render"],
-        "only process steps in the stepper",
+        ["Project", "Storyboard", "Recording", "Voice over", "Annotations", "Render"],
+        "Project + the process steps; Config is separate",
       );
       for (const tab of ["Storyboard", "Recording", "Voice over", "Annotations", "Render"]) {
         await page.locator("nav button", { hasText: tab }).first().click();

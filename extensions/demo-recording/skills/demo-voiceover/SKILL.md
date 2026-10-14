@@ -33,7 +33,15 @@ clock.
 
 - **First person, expert guide.** You're a practitioner showing a colleague
   something worth their time: "I'll ask it directly", not "the user can".
-- **The stance comes from the brief:**
+- **Depth sets the register** (brief `Depth:`; see the demo-brief skill):
+  - **poc:** facts, numbers, honest limits.
+  - **showcase:** feature-forward, neutral.
+  - **sales:** the persona's pain → outcome, a call to action in `_outro`.
+
+  **USE findings** (see `demo_rec_project context`) must be said in the
+  narration of the scene that covers them. **IGNORE findings** are never
+  mentioned.
+- **The stance comes from the brief** (or the depth default):
   - **Champion:** outcomes first, confident, no hedging. Still concrete, never
     salesy.
   - **Evaluator:** strengths *and* limits. Name friction plainly ("the

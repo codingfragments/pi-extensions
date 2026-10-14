@@ -991,3 +991,104 @@ nav.steps {
   color: var(--text);
   background: var(--card);
 }
+
+/* Project tab (S5 part 5a) */
+.subtabs {
+  display: flex;
+  gap: 6px;
+}
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px 18px;
+  margin: 10px 0;
+}
+.facts-grid label {
+  display: grid;
+  gap: 3px;
+}
+.facts-grid label > span:first-child {
+  font-size: 12px;
+  color: var(--muted);
+}
+.facts-grid input,
+.facts-grid select {
+  font: inherit;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--inset);
+  color: var(--text);
+}
+.facts-grid .readonly {
+  padding: 5px 0;
+}
+ul.findings,
+ul.inputs,
+ul.sources {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+li.finding {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  align-items: start;
+}
+li.finding.use {
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+li.finding.ignore {
+  opacity: 0.55;
+}
+.f-icon {
+  font-size: 18px;
+  text-align: center;
+}
+.f-media {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.f-media img {
+  height: 64px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.f-state {
+  display: flex;
+  gap: 4px;
+}
+button.st.on.use {
+  background: color-mix(in srgb, var(--ok) 25%, var(--card));
+}
+button.st.on.ignore {
+  background: var(--chip);
+}
+button.st.on.auto {
+  background: color-mix(in srgb, var(--accent) 20%, var(--card));
+}
+ul.inputs li {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  align-items: baseline;
+}
+ul.inputs li.outdated .i-text {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+pre.brief-text {
+  white-space: pre-wrap;
+  max-height: 420px;
+  overflow: auto;
+  background: var(--inset);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}

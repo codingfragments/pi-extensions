@@ -252,6 +252,7 @@ export const LIVE_SECTIONS = [
 
 /** What each tab shows in the Live panel by default (the user can toggle per tab). */
 export const LIVE_DEFAULTS = {
+  project: ["progress", "project", "log"],
   storyboard: ["progress", "preview", "safety", "project", "log"],
   recording: ["progress", "preview", "project", "log"],
   voice: ["progress", "project", "log"],

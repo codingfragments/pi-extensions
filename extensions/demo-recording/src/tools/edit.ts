@@ -22,7 +22,7 @@ function latestTimeline(projectDir: string): number {
 export function editSummary(r: EditResult): string {
   const t = r.timeline.totals;
   const lines = [
-    `Rendered edit v${r.version} (brand ${r.brand}): full video ${r.full.durationSec.toFixed(1)} s (${r.full.file}).`,
+    `Rendered edit v${r.version} (brand ${r.brand}${r.rim ? `, footage rim ${r.rim.color} (${r.rim.reason})` : ""}): full video ${r.full.durationSec.toFixed(1)} s (${r.full.file}).`,
     `edits: ${(t.cutMs / 1000).toFixed(1)} s cut, ${(t.frozenMs / 1000).toFixed(1)} s held, narration pauses ${(t.silenceMs / 1000).toFixed(1)} s; worst anchor drift ${t.worstDriftMs} ms.`,
   ];
   for (const s of r.timeline.scenes) {

@@ -229,9 +229,13 @@ export function parseStoryboard(text: string, opts: { version?: number } = {}): 
 
   const app = str(raw, "app", "(root)", false);
   const summary = str(raw, "summary", "(root)", false);
+  const title = str(raw, "title", "(root)", false);
+  if (title && title.length > 60)
+    fail("title", `must be ≤ 60 characters (title card), got ${title.length}`);
   return {
     version: version as number,
     ...(app ? { app } : {}),
+    ...(title ? { title } : {}),
     ...(summary ? { summary } : {}),
     start_url: str(raw, "start_url", "(root)") as string,
     scenes,

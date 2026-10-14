@@ -377,3 +377,78 @@ test("S5 config tool: two-phase write (diff first), project scope; /demo voiceov
   );
   await events.get("session_shutdown")?.({}, ctx);
 });
+
+test("S5 brand tool + /demo brand: list, show, duplicate, update (preview optional), two-phase use, new/rerender kick-offs", async () => {
+  const { tools, commands, sent, events, ctx, notes } = await load({ hasUI: false });
+  const brand = tools.get("demo_rec_brand");
+  assert.ok(brand);
+  assert.match(
+    textOf(await brand.execute("1", { action: "list" })),
+    /▶ neutral \(built-in\)[\s\S]*default brand: neutral/,
+  );
+  assert.match(
+    textOf(await brand.execute("2", { action: "show", name: "neutral" })),
+    /"inset": 0\.92/,
+  );
+  await assert.rejects(brand.execute("3", { action: "show" }), /show needs name/);
+  await assert.rejects(
+    brand.execute("4", { action: "update", name: "neutral", settings: '{"frame":{"radius":4}}' }),
+    /built in/,
+  );
+
+  assert.match(
+    textOf(await brand.execute("5", { action: "duplicate", name: "neutral", to: "mine" })),
+    /Duplicated into "mine"/,
+  );
+  // Update writes even when no preview can be rendered (e.g. no Chromium); preview failure is reported, not thrown.
+  const updated = textOf(
+    await brand.execute("6", {
+      action: "update",
+      name: "mine",
+      settings: '{"colors":{"accent":"#ff8800"}}',
+    }),
+  );
+  assert.match(updated, /Updated "mine"/);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "brands", "mine", "brand.json"), "utf8")).colors
+      .accent,
+    "#ff8800",
+  );
+  await assert.rejects(
+    brand.execute("7", { action: "update", name: "mine", settings: "{not json" }),
+    /settings must be JSON/,
+  );
+
+  const cfgFile = path.join(root, "no-config.json");
+  assert.match(
+    textOf(await brand.execute("8", { action: "use", name: "mine" })),
+    /NOT written yet[\s\S]*brand/,
+  );
+  assert.ok(!fs.existsSync(cfgFile));
+  await brand.execute("9", { action: "use", name: "mine", confirm: true });
+  assert.equal(JSON.parse(fs.readFileSync(cfgFile, "utf8")).brand, "mine");
+  await assert.rejects(brand.execute("10", { action: "use", name: "missing" }), /missing/);
+
+  const demo = commands.get("demo");
+  assert.ok(demo);
+  await demo.handler("brand", ctx);
+  assert.match(notes.at(-1)?.msg ?? "", /▶ mine[\s\S]*default: mine/);
+  await demo.handler("brand new ~/Downloads/acme.zip", ctx);
+  assert.match(sent.at(-1)?.text ?? "", /^\/skill:demo-brand .*from ~\/Downloads\/acme\.zip/);
+  await demo.handler("brand use neutral", ctx);
+  assert.match(notes.at(-1)?.msg ?? "", /no UI to confirm/);
+  assert.equal(
+    JSON.parse(fs.readFileSync(cfgFile, "utf8")).brand,
+    "mine",
+    "nothing written without confirmation",
+  );
+  await demo.handler("new brandproj http://127.0.0.1:9/ Acme Pulse", ctx);
+  await demo.handler("brand rerender neutral", ctx);
+  assert.match(
+    sent.at(-1)?.text ?? "",
+    /Re-render the latest edit of "brandproj" with brand "neutral".*rerender/,
+  );
+  await demo.handler("brand frobnicate", ctx);
+  assert.match(notes.at(-1)?.msg ?? "", /usage: \/demo brand/);
+  await events.get("session_shutdown")?.({}, ctx);
+});

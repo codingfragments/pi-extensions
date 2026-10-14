@@ -9,7 +9,9 @@ import path from "node:path";
 import { readAnalysis } from "../analysis/take.ts";
 import { type TitleInfo, renderBrandAssets } from "../brand/assets.ts";
 import { resolveBrand } from "../brand/brand.ts";
+import { type Rim, edgeLuminance, resolveRim } from "../brand/rim.ts";
 import type { DemoRecConfig } from "../config.ts";
+import { readStoryboard } from "../storyboard/store.ts";
 import { readManifest } from "../tts/synthesize.ts";
 import { readVo } from "../vo/store.ts";
 import { readApp } from "../workdir/layout.ts";
@@ -27,6 +29,8 @@ export interface EditResult {
   outDir: string;
   variant: string;
   brand: string;
+  /** Rim drawn around the footage (brand frame.border), if any. */
+  rim?: Rim;
   scenes: { id: string; file: string; durationSec: number }[];
   full: { file: string; durationSec: number };
 }
@@ -63,31 +67,64 @@ export interface VariantOptions {
   brand?: string;
 }
 
+/** Up to `max` keyframes spread over the take's scenes (for auto brand decisions). */
+export function takeKeyframes(projectDir: string, take: string, max = 6): string[] {
+  const a = readAnalysis(path.join(projectDir, "takes", take));
+  const all = (a?.scenes ?? [])
+    .flatMap((s) => s.keyframes.map((k) => k.file))
+    .filter((f) => fs.existsSync(f));
+  if (all.length <= max) return all;
+  return Array.from(
+    { length: max },
+    (_, i) => all[Math.round((i * (all.length - 1)) / (max - 1))] as string,
+  );
+}
+
 /** Variant folder name: the brand for now (callouts/subtitles join in a later step). */
 export function variantKey(o: { brand: string }): string {
   return o.brand;
 }
 
-/** Title card text: app name, the brief's Title (or the project name), month + year. */
+/** A brief field value, unless it is still a placeholder (`_…_`, `<…>`, TODO). */
+function briefField(brief: string, label: string): string | undefined {
+  const v = new RegExp(`\\*\\*${label}[^*]*:?\\*\\*:?[ \\t]*(.+)`, "i").exec(brief)?.[1]?.trim();
+  if (!v || /^_.*_$/.test(v) || /^<.*>$/.test(v) || /\btodo\b/i.test(v)) return undefined;
+  return v;
+}
+
+const sameText = (a: string, b: string) =>
+  a.toLowerCase().replace(/[^a-z0-9]/g, "") === b.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Title card text. Title fallback chain:
+ *   brief **Title:** → storyboard `title:` (approved version, else latest) →
+ *   the brief's goal when it is short (≤ 60 chars) → the project name.
+ * When the title would just repeat the app name, the card shows one line
+ * (`title` = the app name, `app` empty) instead of "KEYCRAFT / Keycraft".
+ */
 export function titleInfoFor(projectDir: string, config: DemoRecConfig): TitleInfo {
   const state = readState(projectDir);
   const app = state ? readApp(config.root, state.app) : undefined;
   const briefFile = path.join(projectDir, "brief.md");
   const brief = fs.existsSync(briefFile) ? fs.readFileSync(briefFile, "utf8") : "";
-  const field = /\*\*Title:?\*\*:?\s*(.+)/i.exec(brief)?.[1]?.trim();
-  const heading = /^#\s*Demo brief:\s*(.+)$/im.exec(brief)?.[1]?.trim();
   const pretty = (s: string) => s.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  let storyboardTitle: string | undefined;
+  try {
+    storyboardTitle = readStoryboard(projectDir, state?.approved.storyboard)?.storyboard.title;
+  } catch {
+    storyboardTitle = undefined;
+  }
+  const goal = briefField(brief, "Goal");
   const title =
-    field && !/todo/i.test(field)
-      ? field
-      : heading
-        ? pretty(heading)
-        : pretty(path.basename(projectDir));
-  return {
-    app: app?.name ?? pretty(state?.app ?? "Demo"),
-    title,
-    date: new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-  };
+    briefField(brief, "Title") ??
+    storyboardTitle ??
+    (goal && goal.length <= 60 ? goal : undefined) ??
+    pretty(path.basename(projectDir));
+  const appName = app?.name ?? pretty(state?.app ?? "Demo");
+  const date = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return sameText(title, appName)
+    ? { app: "", title: appName, date }
+    : { app: appName, title, date };
 }
 
 /**
@@ -113,9 +150,15 @@ export async function renderVariant(o: {
   const loaded = resolveBrand(o.config.root, brandName);
   const size = o.config.output;
   const cacheDir = path.join(o.config.root, ".cache", "brand-assets");
+  const rim = resolveRim(
+    loaded.brand,
+    size,
+    edgeLuminance(takeKeyframes(o.projectDir, timeline.take)),
+  );
   const assets = await renderBrandAssets(loaded, size, {
     cacheDir,
     title: titleInfoFor(o.projectDir, o.config),
+    ...(rim ? { rim } : {}),
   });
   const frame = {
     inset: assets.inset,
@@ -185,6 +228,7 @@ export async function renderVariant(o: {
     outDir,
     variant,
     brand: brandName,
+    ...(rim ? { rim } : {}),
     scenes,
     full: { file: fullFile, durationSec: r.durationSec },
   };

@@ -14,6 +14,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Brand, LoadedBrand } from "./brand.ts";
+import type { Rim } from "./rim.ts";
 
 export interface InsetBox {
   x: number;
@@ -37,6 +38,8 @@ export interface BrandAssets {
   mask?: string;
   title?: string;
   logoBug?: { file: string; x: number; y: number; w: number; h: number; opacity: number };
+  /** The rim drawn into the backdrop, if any. */
+  rim?: Rim;
 }
 
 /**
@@ -94,20 +97,20 @@ export function insetBox(brand: Brand, size: { width: number; height: number }):
   return { x: even((size.width - w) / 2), y: even((size.height - h) / 2), w, h };
 }
 
+const DATA_MIME: Record<string, string> = {
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+};
+
 function dataUri(file: string): string {
-  const ext = path.extname(file).toLowerCase();
-  const mime =
-    ext === ".svg"
-      ? "image/svg+xml"
-      : ext === ".png"
-        ? "image/png"
-        : ext === ".jpg" || ext === ".jpeg"
-          ? "image/jpeg"
-          : ext === ".woff2"
-            ? "font/woff2"
-            : ext === ".ttf"
-              ? "font/ttf"
-              : "font/otf";
+  const mime = DATA_MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream";
   return `data:${mime};base64,${fs.readFileSync(file).toString("base64")}`;
 }
 
@@ -144,6 +147,7 @@ export function backdropHtml(
   l: LoadedBrand,
   size: { width: number; height: number },
   box: InsetBox,
+  rim?: Rim,
 ): string {
   const b = l.brand;
   const shadow = b.frame.shadow;
@@ -152,7 +156,21 @@ html,body{width:${size.width}px;height:${size.height}px;overflow:hidden}
 body{${backgroundCss(l)}}
 .plate{position:absolute;left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px;border-radius:${b.frame.radius}px;
 background:${b.colors.backdrop};box-shadow:0 ${Math.round(28 * shadow)}px ${Math.round(80 * shadow)}px rgba(0,0,0,${(0.55 * shadow).toFixed(2)}),0 2px 6px rgba(0,0,0,${(0.35 * shadow).toFixed(2)});}
-</style></head><body><div class="plate"></div></body></html>`;
+${rimCss(l, box, rim)}
+</style></head><body><div class="plate"></div>${rim ? '<div class="rim"></div>' : ""}</body></html>`;
+}
+
+/**
+ * The rim sits just outside the footage box (its inner edge 0.5 px under the
+ * footage, so the antialiased mask corners blend into it with no gap), with
+ * the outer radius grown by its width so it follows the corner exactly.
+ */
+function rimCss(l: LoadedBrand, box: InsetBox, rim: Rim | undefined): string {
+  if (!rim) return "";
+  const w = rim.widthPx;
+  const r = l.brand.frame.radius;
+  return `.rim{position:absolute;box-sizing:border-box;left:${box.x - w}px;top:${box.y - w}px;width:${box.w + 2 * w}px;height:${box.h + 2 * w}px;
+border:${w + 0.5}px solid ${rim.color};border-radius:${r + w}px;}`;
 }
 
 export function maskHtml(l: LoadedBrand, box: InsetBox): string {
@@ -190,7 +208,7 @@ body{${backgroundCss(l)};color:${b.colors.text};display:flex;align-items:center}
 .date{margin-top:${Math.round(40 * s)}px;font-size:${Math.round(26 * s)}px;color:${b.colors.muted}}
 </style></head><body><div class="wrap">
 ${logo && b.title.logoPosition !== "none" ? `<img class="logo" src="${dataUri(logo)}">` : ""}
-<div class="app">${esc(info.app)}</div><div class="rule"></div>
+${info.app ? `<div class="app">${esc(info.app)}</div>` : ""}<div class="rule"></div>
 <div class="title">${esc(info.title)}</div>
 <div class="date">${esc(info.date)}</div></div></body></html>`;
 }
@@ -211,6 +229,7 @@ function hashOf(l: LoadedBrand, parts: unknown): string {
   }
   // Layout changes in the HTML templates must invalidate cached PNGs too.
   h.update(titleHtml.toString()).update(titleLogoCss.toString()).update(logoBugHtml.toString());
+  h.update(backdropHtml.toString()).update(rimCss.toString()).update(maskHtml.toString());
   h.update(JSON.stringify(parts));
   return h.digest("hex").slice(0, 20);
 }
@@ -218,7 +237,14 @@ function hashOf(l: LoadedBrand, parts: unknown): string {
 export async function renderBrandAssets(
   l: LoadedBrand,
   size: { width: number; height: number },
-  opts: { cacheDir: string; title?: TitleInfo; withTitle?: boolean; withLogoBug?: boolean },
+  opts: {
+    cacheDir: string;
+    title?: TitleInfo;
+    withTitle?: boolean;
+    withLogoBug?: boolean;
+    /** Resolved rim for this render (see brand/rim.ts); omitted = no rim. */
+    rim?: Rim;
+  },
 ): Promise<BrandAssets> {
   const box = insetBox(l.brand, size);
   const wantTitle = (opts.withTitle ?? true) && l.brand.title.enabled && !!opts.title;
@@ -226,9 +252,20 @@ export async function renderBrandAssets(
   const bugHeight = logoBugHeight(l.brand, box, size);
   const dir = path.join(
     opts.cacheDir,
-    hashOf(l, { size, title: wantTitle ? opts.title : null, wantBug, bugHeight }),
+    hashOf(l, {
+      size,
+      title: wantTitle ? opts.title : null,
+      wantBug,
+      bugHeight,
+      rim: opts.rim ?? null,
+    }),
   );
-  const out: BrandAssets = { brand: l.brand, size, inset: box };
+  const out: BrandAssets = {
+    brand: l.brand,
+    size,
+    inset: box,
+    ...(opts.rim && l.brand.frame.mode === "inset" ? { rim: opts.rim } : {}),
+  };
   const files = {
     backdrop: path.join(dir, "backdrop.png"),
     mask: path.join(dir, "mask.png"),
@@ -263,7 +300,7 @@ export async function renderBrandAssets(
         await page.close();
       };
       if (inset) {
-        await shot(backdropHtml(l, size, box), size.width, size.height, files.backdrop);
+        await shot(backdropHtml(l, size, box, opts.rim), size.width, size.height, files.backdrop);
         await shot(maskHtml(l, box), box.w, box.h, files.mask);
       }
       if (wantTitle && opts.title)

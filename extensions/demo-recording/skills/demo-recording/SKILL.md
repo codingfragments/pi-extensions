@@ -93,6 +93,7 @@ side panel and talks back through `[demo-panel]` messages.
 ## Storyboard format
 
 ```yaml
+title: What KeyCraft gets right # title card text, ≤ 60 chars (used if the brief has no Title)
 summary: >-
   One paragraph: what this demo shows, for whom, and the key message.
 start_url: /

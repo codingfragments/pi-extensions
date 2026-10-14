@@ -36,6 +36,7 @@ told you.
 
 - **App:** <name>
 - **URL:** <base url>
+- **Title:** <short demo title for the video's title card, ≤ 60 chars; ask for one, or propose one from the goal>
 - **Audience:** <who watches, what they already know>
 - **Stance:** champion | evaluator | teacher
 - **Goal / key message:** <the one thing the viewer should believe afterwards>

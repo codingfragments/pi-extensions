@@ -553,6 +553,12 @@ review, and conversational config. Decisions D21–D28 come from the S5 grill.
   - `renderVariant` writes `out/edit-vN/<brand>/`.
 
   The logo bug stays in the backdrop margin (shrunk to fit) in inset mode, because the light logo is only guaranteed contrast there.
+- **Follow-ups:**
+  - footage rim (`frame.border`, `"auto"` = drawn only when the footage edge blends into the backdrop, judged from the take's keyframes);
+  - title fallback chain (brief `Title:` → storyboard `title:` → short goal → project name; no app/title duplicate);
+  - validation for `font.weight` and the logo-bug fields.
+
+  Full reference: [docs/BRANDS.md](BRANDS.md).
 - **Brand package format:** `brand.json` (colors: bg/backdrop/accent/text/muted, font, inset %, corner radius, shadow, logo bug on/off + position/opacity, title layout) plus `logo-light.svg|png`, `logo-dark.svg|png`, and an optional backdrop image or gradient. Validated on load.
 - The **neutral brand ships in the extension** (`brands/neutral/`). User brands live in `~/DemoRecordings/brands/<name>/`.
 - The **`demo-brand` skill** and `/demo brand new`: explain what's needed, take a zip or folder, extract and normalize (SVG/PNG logos, contrast checks on colors, font fallback) into a package. Then `/demo brand use <name>`, `list`, and config `brand` for the default; a project or app can override.

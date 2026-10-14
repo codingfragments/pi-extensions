@@ -18,6 +18,7 @@ import {
   resolveBrand,
   userBrandsDir,
 } from "./brand.ts";
+import { edgeLuminance, resolveRim } from "./rim.ts";
 
 export interface InventoryFile {
   rel: string;
@@ -338,10 +339,16 @@ export async function renderBrandPreview(
     keyframe?: string;
   },
 ): Promise<BrandPreview> {
+  const rim = resolveRim(
+    loaded.brand,
+    opts.size,
+    opts.keyframe ? edgeLuminance([opts.keyframe]) : undefined,
+  );
   const assets: BrandAssets = await renderBrandAssets(loaded, opts.size, {
     cacheDir: opts.cacheDir,
     title: opts.title,
     withLogoBug: true,
+    ...(rim ? { rim } : {}),
   });
   const box = insetBox(loaded.brand, opts.size);
   const c = loaded.brand.colors;

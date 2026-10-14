@@ -62,3 +62,8 @@ re-render (`demo_rec_edit action: rerender`): no LLM, no voice generation.
   first.
 - The panel's **Brand** tab previews and tweaks the same fields.
 - Keep logo bugs subtle: `opacity` 0.5–0.8, `heightPx` 28–40, bottom-right.
+- Footage rim (`frame.border`): leave `color: "auto"` unless the brand wants
+  a visible colored edge. Auto draws a faint rim only when the app's edge
+  blends into the backdrop. `width: 0` turns it off.
+- Every option, range and automatic rule: `docs/BRANDS.md` in the extension
+  (relative to this skill: `../../docs/BRANDS.md`).

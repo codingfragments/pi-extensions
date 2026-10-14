@@ -49,7 +49,19 @@ export interface Brand {
     pillText: string;
   };
   font: { family: string; weight: number; file?: string };
-  frame: { mode: "inset" | "fullbleed"; inset: number; radius: number; shadow: number };
+  frame: {
+    mode: "inset" | "fullbleed";
+    inset: number;
+    radius: number;
+    shadow: number;
+    /**
+     * Rim around the inset footage, outside it (never covers app pixels).
+     * width: px at 1080p (scaled with the output), 0 = off. color: hex (alpha
+     * allowed) or "auto" = only when the footage edge and the backdrop are
+     * too similar, light on dark backdrops, dark on light ones.
+     */
+    border: { width: number; color: string };
+  };
   title: {
     enabled: boolean;
     durationMs: number;
@@ -89,7 +101,13 @@ export const DEFAULT_BRAND: Omit<Brand, "name" | "displayName"> = {
     pillText: "#f2f4f8",
   },
   font: { family: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", weight: 600 },
-  frame: { mode: "inset", inset: 0.92, radius: 18, shadow: 0.45 },
+  frame: {
+    mode: "inset",
+    inset: 0.92,
+    radius: 18,
+    shadow: 0.45,
+    border: { width: 1.5, color: "auto" },
+  },
   title: { enabled: true, durationMs: 2500, dissolveMs: 800, logoPosition: "inline" },
   logo: {},
   logoBug: { enabled: false, position: "bottom-right", opacity: 0.7, heightPx: 34 },
@@ -153,6 +171,8 @@ export function parseBrand(
   const font = sub("font", DEFAULT_BRAND.font as unknown as Obj) as unknown as Brand["font"];
   if (typeof font.family !== "string" || !font.family.trim())
     fail("font.family", "must be a string");
+  if (typeof font.weight !== "number" || font.weight < 100 || font.weight > 900)
+    fail("font.weight", "must be 100..900");
   if (font.file && !fs.existsSync(path.join(dir, font.file)))
     fail("font.file", `${font.file} not found in the package`);
   const frame = sub("frame", DEFAULT_BRAND.frame as unknown as Obj) as unknown as Brand["frame"];
@@ -164,6 +184,23 @@ export function parseBrand(
     fail("frame.radius", "must be 0..60 px");
   if (typeof frame.shadow !== "number" || frame.shadow < 0 || frame.shadow > 1)
     fail("frame.shadow", "must be 0..1");
+  const rawBorder = (raw.frame as Obj | undefined)?.border;
+  if (rawBorder !== undefined && !isObj(rawBorder))
+    fail("frame.border", "must be an object like {width, color}");
+  frame.border = {
+    ...DEFAULT_BRAND.frame.border,
+    ...((rawBorder as Obj | undefined) ?? {}),
+  } as Brand["frame"]["border"];
+  if (typeof frame.border.width !== "number" || frame.border.width < 0 || frame.border.width > 6)
+    fail("frame.border.width", "must be 0..6 px (at 1080p)");
+  if (
+    typeof frame.border.color !== "string" ||
+    (frame.border.color !== "auto" && !HEX.test(frame.border.color))
+  )
+    fail(
+      "frame.border.color",
+      `must be "auto" or a hex color like #FFFFFF22 (got ${JSON.stringify(frame.border.color)})`,
+    );
   const title = sub("title", DEFAULT_BRAND.title as unknown as Obj) as unknown as Brand["title"];
   if (typeof title.enabled !== "boolean") fail("title.enabled", "must be true/false");
   if (typeof title.durationMs !== "number" || title.durationMs < 1000 || title.durationMs > 8000)
@@ -191,6 +228,11 @@ export function parseBrand(
   ) as unknown as Brand["logoBug"];
   if (!["top-left", "top-right", "bottom-left", "bottom-right"].includes(logoBug.position))
     fail("logoBug.position", "must be top-left|top-right|bottom-left|bottom-right");
+  if (typeof logoBug.enabled !== "boolean") fail("logoBug.enabled", "must be true/false");
+  if (typeof logoBug.opacity !== "number" || logoBug.opacity < 0.1 || logoBug.opacity > 1)
+    fail("logoBug.opacity", "must be 0.1..1");
+  if (typeof logoBug.heightPx !== "number" || logoBug.heightPx < 12 || logoBug.heightPx > 120)
+    fail("logoBug.heightPx", "must be 12..120 px (at 1080p)");
   if (logoBug.enabled && !logo.light && !logo.dark)
     warnings.push("logoBug.enabled but the brand has no logo: no bug is drawn");
   const backdropImage = typeof raw.backdropImage === "string" ? raw.backdropImage : undefined;

@@ -10,9 +10,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { renderBrandAssets } from "../src/brand/assets.ts";
-import { resolveBrand } from "../src/brand/brand.ts";
+import { backdropHtml, insetBox, renderBrandAssets } from "../src/brand/assets.ts";
+import { luminance, parseBrand, resolveBrand } from "../src/brand/brand.ts";
 import { createBrand, materializeSource } from "../src/brand/manage.ts";
+import { edgeLuminance, resolveRim } from "../src/brand/rim.ts";
 import { EventBus } from "../src/bus.ts";
 import { resolveConfig } from "../src/config.ts";
 import { titleInfoFor } from "../src/edit/pipeline.ts";
@@ -334,5 +335,124 @@ test(
       diff / a.length > 0.02,
       `title glyphs differ with the brand font (${((diff / a.length) * 100).toFixed(1)}% of pixels)`,
     );
+  },
+);
+
+test("footage rim: defaults, validation, auto decision, scaling", () => {
+  const n = resolveBrand(root, "neutral").brand;
+  assert.deepEqual(n.frame.border, { width: 1.5, color: "auto" });
+  assert.throws(
+    () => parseBrand({ frame: { border: { width: 9 } } }, "x", root),
+    /frame\.border\.width/,
+  );
+  assert.throws(
+    () => parseBrand({ frame: { border: { color: "white" } } }, "x", root),
+    /frame\.border\.color/,
+  );
+  assert.deepEqual(
+    parseBrand({ frame: { border: { width: 2 } } }, "x", root).brand.frame.border,
+    { width: 2, color: "auto" },
+    "partial border keeps defaults",
+  );
+
+  const fhd = { width: 1920, height: 1080 };
+  // keycraft-like dark app (#1e1e2e) on the dark neutral backdrop → light rim.
+  const dark = resolveRim(n, fhd, luminance("#1e1e2e"));
+  assert.equal(dark?.color, "#ffffff1f");
+  assert.equal(dark?.widthPx, 1.5);
+  assert.match(dark?.reason ?? "", /contrast/);
+  // A bright SaaS app already stands out → no rim.
+  assert.equal(resolveRim(n, fhd, luminance("#f4f5f8")), undefined);
+  // Unknown footage → the (faint) rim is drawn.
+  assert.match(resolveRim(n, fhd, undefined)?.reason ?? "", /footage unknown/);
+  // Light backdrop + light app → dark rim.
+  const light = { ...n, colors: { ...n.colors, backdrop: "#eef0f4", backdropTo: "#ffffff" } };
+  assert.equal(resolveRim(light, fhd, luminance("#f8f8fa"))?.color, "#00000026");
+  // Explicit color always draws; width scales with the output; 0 / fullbleed = off.
+  const fixed = { ...n, frame: { ...n.frame, border: { width: 2, color: "#632ca6aa" } } };
+  assert.deepEqual(resolveRim(fixed, { width: 3840, height: 2160 }, luminance("#ffffff")), {
+    color: "#632ca6aa",
+    widthPx: 4,
+    reason: "brand color",
+  });
+  assert.equal(
+    resolveRim(
+      { ...n, frame: { ...n.frame, border: { width: 0, color: "auto" } } },
+      fhd,
+      undefined,
+    ),
+    undefined,
+  );
+  assert.equal(
+    resolveRim({ ...n, frame: { ...n.frame, mode: "fullbleed" } }, fhd, undefined),
+    undefined,
+  );
+});
+
+test("footage rim: drawn outside the footage box, following the corner radius", () => {
+  const l = resolveBrand(root, "neutral");
+  const box = insetBox(l.brand, { width: 1920, height: 1080 });
+  const html = backdropHtml(l, { width: 1920, height: 1080 }, box, {
+    color: "#ffffff1f",
+    widthPx: 1.5,
+    reason: "t",
+  });
+  assert.match(
+    html,
+    new RegExp(
+      `left:${box.x - 1.5}px;top:${box.y - 1.5}px;width:${box.w + 3}px;height:${box.h + 3}px`,
+    ),
+  );
+  assert.match(html, /border:2px solid #ffffff1f;border-radius:19\.5px/);
+  assert.doesNotMatch(backdropHtml(l, { width: 1920, height: 1080 }, box), /class="rim"/);
+});
+
+test(
+  "footage rim: rendered pixels sit just outside the footage, edge luminance read from frames",
+  { skip: noRender },
+  async () => {
+    const l = resolveBrand(root, "neutral");
+    const size = { width: 1920, height: 1080 };
+    const cacheDir = path.join(root, "cache");
+    const rim = { color: "#ffffff80", widthPx: 3, reason: "test" };
+    const [plain, rimmed] = [
+      await renderBrandAssets(l, size, { cacheDir }),
+      await renderBrandAssets(l, size, { cacheDir, rim }),
+    ];
+    assert.notEqual(plain.backdrop, rimmed.backdrop, "rim is part of the cache key");
+    assert.deepEqual(rimmed.rim, rim);
+    const box = rimmed.inset;
+    const yMid = Math.round(box.y + box.h / 2);
+    const lum = (png: string, x: number) => (pixel(png, x, yMid)[0] as number) + 0;
+    // Two pixels left of the footage box: brighter with the rim; well outside: unchanged.
+    assert.ok(
+      lum(rimmed.backdrop as string, box.x - 2) > lum(plain.backdrop as string, box.x - 2) + 30,
+      "rim visible next to the footage",
+    );
+    assert.ok(
+      Math.abs(
+        lum(rimmed.backdrop as string, box.x - 12) - lum(plain.backdrop as string, box.x - 12),
+      ) <= 2,
+      "nothing drawn further out",
+    );
+
+    // edgeLuminance: a white frame with a black border reads as dark at the edge.
+    const f = path.join(root, "frame.png");
+    execFileSync("ffmpeg", [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=white:s=640x360",
+      "-vf",
+      "pad=680:400:20:20:black",
+      "-frames:v",
+      "1",
+      f,
+    ]);
+    const edge = edgeLuminance([f]);
+    assert.ok(edge !== undefined && edge < 0.05, `edge luminance ${edge}`);
+    assert.equal(edgeLuminance([path.join(root, "missing.png")]), undefined);
   },
 );

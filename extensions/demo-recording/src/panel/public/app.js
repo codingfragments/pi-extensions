@@ -745,6 +745,22 @@ const BRAND_FIELDS = [
     max: 1,
     step: 0.05,
   },
+  {
+    group: "Frame",
+    path: "frame.border.width",
+    label: "Rim width (px)",
+    type: "range",
+    min: 0,
+    max: 4,
+    step: 0.5,
+  },
+  {
+    group: "Frame",
+    path: "frame.border.color",
+    label: "Rim color",
+    type: "hex",
+    placeholder: "auto | #RRGGBBAA",
+  },
   { group: "Title card", path: "title.enabled", label: "Show", type: "bool" },
   {
     group: "Title card",
@@ -805,7 +821,7 @@ function BrandField({ f, value, onChange, disabled }) {
       ? html`<input type="color" value=${String(value ?? "#000000").slice(0, 7)} disabled=${disabled} onInput=${(e) => onChange(e.target.value)} />
           <code class="small-text">${value}</code>`
       : f.type === "hex"
-        ? html`<input type="text" class="hex" value=${value ?? ""} disabled=${disabled} onChange=${(e) => onChange(e.target.value.trim())} />
+        ? html`<input type="text" class="hex" value=${value ?? ""} placeholder=${f.placeholder ?? ""} disabled=${disabled} onChange=${(e) => onChange(e.target.value.trim())} />
             <span class="swatch" style=${`background:${value}`}></span>`
         : f.type === "bool"
           ? html`<input type="checkbox" checked=${!!value} disabled=${disabled} onChange=${(e) => onChange(e.target.checked)} />`

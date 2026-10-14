@@ -54,7 +54,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 ### Brands (S5)
 
 Every render uses a **brand package**, which sets:
-- the footage inset on a backdrop (rounded corners, soft shadow);
+- the footage inset on a backdrop (rounded corners, soft shadow, an automatic rim when the app blends into the backdrop);
 - a title card (app, demo title, date) that dissolves into the first frame;
 - the callout colors;
 - an optional logo bug in the backdrop margin.
@@ -68,6 +68,8 @@ Every render uses a **brand package**, which sets:
 | switch | `/demo brand rerender <name>`, or the panel **Brand** tab: re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
 
 The Brand tab previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
+
+Full reference, with every option, the automatic decisions and the render chain: [docs/BRANDS.md](docs/BRANDS.md).
 
 ### Recording (S3)
 

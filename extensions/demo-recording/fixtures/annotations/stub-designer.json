@@ -1,5 +1,5 @@
 {
-  "about": "What a designer run returns for the fixture-demo project (s3-human storyboard): demo_rec_annotations action=suggest input. Used by tests and the docs; no model involved.",
+  "about": "What a designer run returns for the fixture-demo project (s3-human storyboard): demo_rec_annotations action=suggest input, no model involved. Targets are { step } or { text, role } so they resolve on ANY recording of the fixture; layout refs (t<ms>#e<n>) only exist in the take they come from.",
   "suggestions": [
     {
       "id": "zoom-emea-bar",
@@ -7,7 +7,7 @@
       "scene": "01-dashboard",
       "anchor": { "mark": "emea-bar" },
       "target": { "step": 1 },
-      "alternatives": [{ "layout": "t1386#e29" }],
+      "alternatives": [{ "text": "14.2%", "role": "text" }],
       "factor": 1.6,
       "value": 5,
       "reason": "the outlier bar is the story of the scene and small in the frame"
@@ -17,7 +17,7 @@
       "type": "highlight",
       "scene": "01-dashboard",
       "anchor": { "mark": "churn-kpi" },
-      "target": { "layout": "t1386#e13" },
+      "target": { "text": "3.1%" },
       "value": 3,
       "reason": "the voice reads the headline number"
     },
@@ -53,7 +53,7 @@
       "type": "highlight",
       "scene": "02-search",
       "anchor": { "mark": "results-visible", "offsetMs": 1200 },
-      "target": { "layout": "t13107#e21" },
+      "target": { "text": "EMEA", "role": "row" },
       "value": 4,
       "reason": "the row the narration lands on"
     },
@@ -62,7 +62,7 @@
       "type": "spotlight",
       "scene": "02-search",
       "anchor": { "mark": "results-visible", "offsetMs": 1200 },
-      "target": { "layout": "t13107#e21" },
+      "target": { "text": "EMEA", "role": "row" },
       "durMs": 2200,
       "value": 4,
       "reason": "alternative to the highlight: dims the other regions"
@@ -81,8 +81,8 @@
       "type": "zoom",
       "scene": "02-search",
       "anchor": { "mark": "results-visible", "offsetMs": 800 },
-      "target": { "layout": "t13107#e23" },
-      "alternatives": [{ "layout": "t13107#e21" }],
+      "target": { "text": "14.2%", "role": "cell" },
+      "alternatives": [{ "text": "EMEA", "role": "row" }],
       "factor": 1.5,
       "value": 3,
       "reason": "the number the voice reads"
@@ -92,7 +92,7 @@
       "type": "zoom",
       "scene": "03-assistant",
       "anchor": { "mark": "answer" },
-      "target": { "layout": "t23113#e7" },
+      "target": { "text": "EMEA is the outlier" },
       "factor": 1.4,
       "value": 4,
       "reason": "the answer text is small; it names the accounts"
@@ -111,7 +111,7 @@
       "type": "highlight",
       "scene": "03-assistant",
       "anchor": { "word": "Litware" },
-      "target": { "layout": "t23113#e7" },
+      "target": { "text": "EMEA is the outlier" },
       "value": 3,
       "reason": "as the voice names Litware Bank"
     }

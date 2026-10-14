@@ -706,3 +706,22 @@ test("word anchors resolve in a real file through the manifest", () => {
   // word 12 at 3.0 s of section audio, played from 0.5 s → 3.5 s
   assert.equal(r.items[0]?.atMs, 3500);
 });
+
+test("the fixture's stub designer file works on any recording: no take-specific layout refs", () => {
+  const f = JSON.parse(
+    fs.readFileSync(
+      path.join(import.meta.dirname, "..", "fixtures", "annotations", "stub-designer.json"),
+      "utf8",
+    ),
+  ) as { suggestions: Record<string, unknown>[] };
+  assert.ok(f.suggestions.length >= 10);
+  for (const s of f.suggestions) {
+    const targets = [s.target, ...((s.alternatives as unknown[]) ?? [])].filter(Boolean) as Record<
+      string,
+      unknown
+    >[];
+    for (const t of targets)
+      assert.ok(!("layout" in t), `${s.id}: layout refs (t<ms>#e<n>) only exist in one take`);
+    assert.doesNotThrow(() => toSuggestion(s));
+  }
+});

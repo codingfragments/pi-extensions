@@ -115,6 +115,7 @@ const PAGE = `<!doctype html><html><head><style>
   <div id="slot"></div>
   <button id="add" onclick="document.getElementById('slot').innerHTML='<div id=banner>Saved!</div>'">Add banner</button>
   <div id="total">Total: 42 accounts</div>
+  <div id="answer">EMEA is the outlier: 14.2% gross churn over 90 days across 341 accounts, versus 2.4% in North America. Four of the five high-risk accounts sit in EMEA, led by Litware Bank ($310K ARR, health 47) and Northwind Traders ($182K ARR, health 41).</div>
   <label>Email <input id="email" type="email" value="jane@example.com"></label>
   <label>Password <input id="pw" type="password" value="hunter2"></label>
   <input id="otp" autocomplete="one-time-code" value="123456">
@@ -140,6 +141,10 @@ test(
       const texts = snap.els.map((e) => e.text ?? e.name ?? "");
       assert.ok(texts.includes("Orders"), "heading");
       assert.ok(texts.includes("Total: 42 accounts"), "numbers with their text");
+      // A long paragraph (a finished assistant answer, ~250 chars) is kept, cut to 200 — not dropped.
+      const answer = snap.els.find((e) => (e.text ?? "").startsWith("EMEA is the outlier"));
+      assert.ok(answer, "long texts stay in the snapshot");
+      assert.equal(answer?.text?.length, 200);
       assert.ok(snap.els.some((e) => e.role === "button" && e.text === "Add banner"));
       assert.ok(
         snap.els.some((e) => e.role === "img" && e.name === "Revenue chart"),

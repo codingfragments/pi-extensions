@@ -9,7 +9,8 @@
  * cursor never waits for it.
  *
  * What: elements intersecting the viewport that are visible (not hidden, not
- * transparent): elements with their own text (≤ 200 chars), interactive roles,
+ * transparent): elements with their own text (cut to 200 chars — a long
+ * paragraph such as an assistant's answer is kept, shortened), interactive roles,
  * table cells and rows, headings, images with alt text, inputs (their value
  * only when not a password / credential / one-time-code field). At most 400
  * per snapshot — larger boxes and interactive elements first. Boxes are CSS px
@@ -90,7 +91,7 @@ export const LAYOUT_SCRIPT = `(() => {
     const isInput = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
     const alt = el.tagName === "IMG" ? (el.getAttribute("alt") || "").trim() : "";
     const label = (el.getAttribute("aria-label") || "").trim();
-    const keep = INTERACTIVE.has(role) || role === "heading" || role === "cell" || role === "columnheader" || role === "row" || (text && text.length <= 200) || alt || isInput;
+    const keep = INTERACTIVE.has(role) || role === "heading" || role === "cell" || role === "columnheader" || role === "row" || !!text || alt || isInput;
     if (!keep) continue;
     const r = el.getBoundingClientRect();
     if (!visible(el, r)) continue;

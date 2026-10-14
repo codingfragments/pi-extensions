@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
-  if (savedCfg === undefined) delete process.env.DEMO_REC_CONFIG;
+  if (savedCfg === undefined) Reflect.deleteProperty(process.env, "DEMO_REC_CONFIG");
   else process.env.DEMO_REC_CONFIG = savedCfg;
 });
 

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
 import { Runtime } from "./src/runtime.ts";
+import { registerAnnotationsTool } from "./src/tools/annotations.ts";
 import { registerBrandTool } from "./src/tools/brand.ts";
 import { registerBrowserTool } from "./src/tools/browser.ts";
 import { registerConfigTool } from "./src/tools/config.ts";
@@ -66,4 +67,5 @@ export default function (pi: ExtensionAPI) {
   registerEditTool(pi, rt);
   registerConfigTool(pi, rt);
   registerBrandTool(pi, rt);
+  registerAnnotationsTool(pi, rt);
 }

@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { takeGeometry } from "./src/annotations/apply.ts";
+import { resolveContext } from "./src/annotations/apply.ts";
 import { readAnnotations, writeAnnotations } from "./src/annotations/file.ts";
 import { previewAnnotation } from "./src/annotations/preview.ts";
 import { resolveAnnotations } from "./src/annotations/resolve.ts";
@@ -314,11 +314,7 @@ async function main(argv: string[]): Promise<number> {
       throw new Error("no annotation file — add one with: annotate add --project P --file F");
     if (sub === "check") {
       const timeline = timelineFor();
-      const r = resolveAnnotations(file, {
-        timeline,
-        takeDir: path.join(project.dir, "takes", timeline.take),
-        ...takeGeometry(project.dir, timeline.take),
-      });
+      const r = resolveAnnotations(file, resolveContext(project.dir, timeline));
       console.log(`annotations v${file.version} on edit v${editV} (${timeline.take}):`);
       for (const it of r.items)
         console.log(

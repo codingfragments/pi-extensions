@@ -53,6 +53,8 @@ export interface DemoRecConfig {
   align: { model: string };
   /** Brand package used for rendering (S5): built-in `neutral` or a user brand in <root>/brands/. */
   brand: string;
+  /** Annotations stage (S5 part 8): suggest automatically after the sync edit (D53). */
+  annotations: { autoSuggest: boolean };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
@@ -98,6 +100,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     },
     align: { model: "base.en" },
     brand: "neutral",
+    annotations: { autoSuggest: true },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
   };
@@ -268,6 +271,14 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       );
     }
     cfg.brand = raw.brand;
+  }
+  const an = raw.annotations as Record<string, unknown> | undefined;
+  if (an !== undefined) {
+    if (an.autoSuggest !== undefined) {
+      if (typeof an.autoSuggest !== "boolean")
+        throw new Error('demo-recording config: "annotations.autoSuggest" must be true or false');
+      cfg.annotations.autoSuggest = an.autoSuggest;
+    }
   }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {

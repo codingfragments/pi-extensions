@@ -6,6 +6,7 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { annotationVersions, readAnnotations } from "../annotations/file.ts";
 import { resolveBrand } from "../brand/brand.ts";
 import { type EditResult, renderVariant, runEdit } from "../edit/pipeline.ts";
 import type { Job } from "../jobs.ts";
@@ -43,6 +44,27 @@ export function editSummary(r: EditResult): string {
     );
   }
   return lines.join("\n");
+}
+
+/**
+ * D53: after a new sync edit whose voice-over has no annotations yet, hand
+ * over to the Annotation designer (unless `annotations.autoSuggest` is off).
+ */
+export function autoSuggestNote(
+  projectDir: string,
+  enabled: boolean,
+  action: "start" | "rerender",
+  r: EditResult,
+): string {
+  if (!enabled || action !== "start") return "";
+  const has = annotationVersions(projectDir).some(
+    (v) => readAnnotations(projectDir, v)?.basedOn.vo === r.timeline.voVersion,
+  );
+  if (has) return "";
+  return (
+    "\n\nNext — Annotations (automatic, config annotations.autoSuggest): load the demo-annotations skill, read " +
+    "demo_rec_annotations action=context and submit suggestions with action=suggest. Then tell the user v1 is waiting in the panel's Annotations tab."
+  );
 }
 
 /** Start an edit (new timeline) or a re-render of the latest timeline as a background job. */
@@ -97,7 +119,10 @@ export function startEdit(
         p.slug,
       );
       rt.setStatus(undefined, true);
-      if (j.result) rt.reportToAgent(`[demo-recording] ${editSummary(j.result)}`);
+      if (j.result)
+        rt.reportToAgent(
+          `[demo-recording] ${editSummary(j.result)}${autoSuggestNote(p.dir, cfg.annotations.autoSuggest, action, j.result)}`,
+        );
       else rt.reportToAgent(`[demo-recording] Edit ${j.status}: ${j.error ?? "unknown error"}`);
     },
   );

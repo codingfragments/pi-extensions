@@ -12,7 +12,7 @@ import type { RenderBrand, RenderJob, VideoPiece } from "../edit/render.ts";
 import { renderJob, sceneJob } from "../edit/render.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { ffmpeg } from "../media/ffmpeg.ts";
-import { takeGeometry } from "./apply.ts";
+import { resolveContext } from "./apply.ts";
 import { type RenderAnnotations, buildRenderAnnotations } from "./render.ts";
 import { resolveAnnotations } from "./resolve.ts";
 import type { AnnotationFile } from "./types.ts";
@@ -82,12 +82,9 @@ export async function previewAnnotation(o: {
 }): Promise<AnnotationPreview> {
   const item = o.file.items.find((x) => x.id === o.id);
   if (!item) throw new Error(`annotation ${o.id} is not in v${o.file.version}`);
-  const takeDir = path.join(o.projectDir, "takes", o.timeline.take);
-  const geo = takeGeometry(o.projectDir, o.timeline.take);
-  const r = resolveAnnotations(
-    { ...o.file, items: [{ ...item, enabled: true }] },
-    { timeline: o.timeline, takeDir, ...geo },
-  );
+  const geo = resolveContext(o.projectDir, o.timeline);
+  const takeDir = geo.takeDir;
+  const r = resolveAnnotations({ ...o.file, items: [{ ...item, enabled: true }] }, geo);
   const res = r.items[0];
   if (!res) throw new Error(`annotation ${o.id} can't be placed: ${r.warnings.join("; ")}`);
   const footage = o.frame.backdrop

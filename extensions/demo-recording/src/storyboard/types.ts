@@ -20,9 +20,15 @@ interface StepBase {
   mark?: string;
   /** Pause after the step completes (ms). */
   dwell?: number;
-  /** Auto-zoom on this step's target in the final render (S5, D14: opt-in). */
+  /**
+   * The director's intent for this moment, free text (S5 part 6, D32), e.g.
+   * "the EMEA outlier is the story". Annotations are chosen later, in the
+   * Annotations stage; this is only a hint for the annotation designer.
+   */
+  emphasis?: string;
+  /** @deprecated Legacy flag (D14): parsed and converted into an `emphasis` hint ("suggest a zoom here"). */
   zoom?: boolean;
-  /** Step callout caption in the final render (S5, D14). */
+  /** @deprecated Legacy flag (D14): parsed and converted into an `emphasis` hint (suggested callout text). */
   callout?: string;
 }
 
@@ -56,6 +62,8 @@ export interface Scene {
   id: string;
   title: string;
   takeaway?: string;
+  /** The director's intent for the whole scene (D32), e.g. "show that search is name-only". */
+  emphasis?: string;
   deep_link?: string;
   /** Discovery screenshot id (`<session>/sNNN`) used as the scene thumbnail in the panel. */
   screen?: string;

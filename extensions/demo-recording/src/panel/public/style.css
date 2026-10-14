@@ -1354,3 +1354,13 @@ pre.raw {
   border-radius: 8px;
   font-size: 14px;
 }
+
+/* storyboard emphasis hints (S5 part 6) */
+p.emphasis {
+  margin: 4px 0;
+  color: var(--mauve);
+  font-size: 14px;
+}
+.flag.emphasis {
+  color: var(--mauve);
+}

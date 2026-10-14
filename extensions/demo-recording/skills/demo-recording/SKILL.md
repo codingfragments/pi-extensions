@@ -143,9 +143,13 @@ annotations → render.
 - **Marks** (`mark: results-visible`) name the moments the voice-over will
   sync to: put one on every payoff (results appear, value revealed, answer
   streamed).
-- **Zoom** (`zoom: true`) only on the 1–2 moments per demo where small text
-  *is* the point. **Callouts** (`callout: "…"`, ≤ 60 chars) mark important
-  steps. They are not narration.
+- **Emphasis, not annotations.** Mark the moment that matters with
+  `emphasis: "<why this moment matters>"` on the step (or the scene), e.g.
+  `emphasis: the EMEA outlier is the story`. Don't decide zooms or callouts
+  here: the Annotation designer chooses them after the voice-over, from the
+  recording, your emphasis hints and what is actually said. The old `zoom:` and
+  `callout:` flags still parse, but they become hints and the storyboard write
+  warns about them.
 - **Nondeterministic inputs** (chat questions, searches against live data):
   use an `improvise` step. Its `prompt` describes what to invent from the live
   screen (e.g. "a sharp follow-up question naming the top account"). A fast
@@ -175,7 +179,7 @@ scenes:
     findings: [f-0003]            # findings this scene covers (every "use" finding must be covered)
     steps:
       - { do: hover, target: { css: '[data-kpi="churn"]' }, mark: churn-kpi, dwell: 1.2s }
-      - { do: hover, target: { text: EMEA }, mark: emea-bar, dwell: 1.4s, zoom: true }
+      - { do: hover, target: { text: EMEA }, mark: emea-bar, dwell: 1.4s, emphasis: the EMEA outlier is the story }
   - id: 02-search
     title: Ask in plain language
     takeaway: NL search gets the grouping right first try
@@ -186,7 +190,7 @@ scenes:
       - { do: click, target: { role: link, name: Search } }
       - { do: type, target: { role: searchbox, name: Search }, text: churn by region, mark: type-start }
       - { do: press, key: Enter }
-      - { do: wait, for: { css: table.regions }, timeout: 15s, mark: results-visible, callout: Regional breakdown }
+      - { do: wait, for: { css: table.regions }, timeout: 15s, mark: results-visible }
       - { do: hover, target: { role: row, name: "EMEA 14.2% 341" }, dwell: 1.5s }
 ```
 
@@ -194,7 +198,7 @@ scenes:
 `type {target?, text, clear?}`, `press {key}`,
 `wait {for: target | {ms}, timeout}`, `scroll {target | dy}`, `pause {ms}`,
 `improvise {kind: type, target, prompt, max_chars, submit, fallback?, vision?}`.
-**Shared flags:** `mark`, `dwell`, `zoom`, `callout`.
+**Shared flags:** `mark`, `dwell`, `emphasis`. A scene can carry its own `emphasis` too. The recorder logs a layout snapshot after every step and at every mark (`takes/take-NNN/layout.jsonl`), so later stages can point at anything on screen. You don't need to plan for that.
 **Targets:** prefer `{role, name}` exactly as the aria digest shows them. Fall
 back to `{text}`, `{label}`, and `{css}` last.
 

@@ -70,6 +70,7 @@ function SceneCard({ scene, index, review, diffKind, readOnly, onReview }) {
           ${diffKind ? html`<span class=${`badge ${diffKind}`}>${diffKind}</span>` : null}
         </header>
         ${scene.takeaway ? html`<p class="takeaway">${scene.takeaway}</p>` : null}
+        ${scene.emphasis ? html`<p class="emphasis" title="the director's intent — annotations are chosen later, in the Annotations stage">✦ ${scene.emphasis}</p>` : null}
         ${
           scene.narration_outline?.length
             ? html`<ul class="outline">${scene.narration_outline.map((o) => html`<li>${o}</li>`)}</ul>`
@@ -80,8 +81,7 @@ function SceneCard({ scene, index, review, diffKind, readOnly, onReview }) {
             (s) => html`<li>
               ${stepLabel(s)}
               ${s.mark ? html` <span class="mark">@${s.mark}</span>` : null}
-              ${s.zoom ? html` <span class="flag">zoom</span>` : null}
-              ${s.callout ? html` <span class="flag">“${s.callout}”</span>` : null}
+              ${s.emphasis ? html` <span class="flag emphasis" title="emphasis — a hint for the annotation designer">✦ ${s.emphasis}</span>` : null}
             </li>`,
           )}
         </ol>

@@ -128,6 +128,17 @@ The panel **⚙ Config** brand editor previews tweaks (colors, inset, corners, s
 
 Full reference, with every option, the automatic decisions and the render chain: [docs/BRANDS.md](docs/BRANDS.md).
 
+### Recording inputs for annotations (S5)
+
+- **Layout snapshots:** every take writes `takes/take-NNN/layout.jsonl`, the positions of the visible elements. They're captured after each step once the page is quiet, and at every mark, in the background, so the cursor never waits.
+  - **Contents:** the text (≤ 200 chars), role, accessible name and box (CSS px) of each element. Covers headings, cells and rows, buttons and links, inputs, and images by alt text.
+  - **Limits:** at most 400 elements per snapshot, and at most one after-step snapshot per 500 ms.
+  - **Never captured:** password, one-time-code and credential values, hidden elements, and the cursor overlay.
+  - **Cost:** about 3–4 KB per snapshot; a 22 s fixture take has 15.
+- **Settled targets:** after each step that acts on an element, a `target-settled` event logs that element's box again once the page has settled, with `moved: true` when it shifted (a banner appeared, a list re-sorted). Highlights then use where the element really is.
+- **`emphasis:`** on a step or scene is the director's intent ("the EMEA outlier is the story"). It's only a hint: the Annotation designer chooses zooms and callouts later. Old `zoom:` / `callout:` flags still parse, become emphasis hints, and produce a warning on storyboard write.
+- **Recording tab:** each take card shows how many layout snapshots it has. Takes recorded before this change have none, so re-record a project to get them.
+
 ### Recording (S3)
 
 - **Motion:** curved paths with a natural speed profile (slow start, fast middle, slow landing), occasional overshoot-and-correct, and a small hand drift while dwelling. Seeded per take, so it can be reproduced.

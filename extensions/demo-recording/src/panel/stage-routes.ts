@@ -197,6 +197,19 @@ export function stageRoutes(deps: StageRouteDeps): {
               durationMs: t.durationMs ?? null,
               startedAt: t.startedAt ?? null,
               analyzed: !!analysis,
+              layoutSnapshots: (() => {
+                try {
+                  return (
+                    (
+                      JSON.parse(fs.readFileSync(path.join(dir, "take.json"), "utf8")) as {
+                        layout?: { snapshots?: number };
+                      }
+                    ).layout?.snapshots ?? null
+                  );
+                } catch {
+                  return null;
+                }
+              })(),
               accepted: isAccepted(state.accepted, "recording", n),
               acceptedAt: state.accepted.recording?.[String(n)] ?? null,
               orphaned: orphaned ?? null,

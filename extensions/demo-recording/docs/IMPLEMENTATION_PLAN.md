@@ -730,6 +730,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Live control-room panel:**
   - **Layout:** a right-side slide-out (~360 px), which becomes a bottom drawer below ~1100 px. Collapsible: the collapsed rail still shows the current stage, the activity or "waiting for you", and the progress bar.
   - **Contents:** always the log stream, plus a segmented progress bar and a frame preview (latest discovery/recording frame, render thumbnail) when the activity has them.
+  - **Multiple progress rows:** the progress component supports several rows at once, so parallel work (e.g. the parallel discovery lanes in [FUTURE_IDEAS.md](FUTURE_IDEAS.md), or render variants) shows one row per lane under a shared segment.
   - **Per stage:** each stage contributes its own components (e.g. the Recording stage shows scene segments and improvise events; Render shows per-variant progress) and can toggle them.
 - **The old Live tab content** (discovery card, recording progress) moves into the Live panel. Review and Voice become the Storyboard and Voice over tabs, unchanged inside. The Brand tab moves to Config (part 5).
 

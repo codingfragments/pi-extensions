@@ -689,6 +689,8 @@ nav button .dot {
 
 /* live panel */
 aside.live {
+  container-type: inline-size;
+  container-name: live;
   border-left: 1px solid var(--line);
   background: var(--inset);
   display: flex;
@@ -1363,4 +1365,22 @@ p.emphasis {
 }
 .flag.emphasis {
   color: var(--mauve);
+}
+
+/* Live panel as a right-hand column: one segment per line, so labels stay readable.
+   (The wide bottom drawer keeps the horizontal bar.) */
+@container live (max-width: 600px) {
+  .segbar {
+    flex-direction: column;
+    height: auto;
+    gap: 3px;
+  }
+  .segbar .seg {
+    flex: none !important;
+    height: 24px;
+    min-width: 0;
+  }
+  .segbar .seg span {
+    line-height: 20px;
+  }
 }

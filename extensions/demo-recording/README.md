@@ -10,7 +10,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 4. **Voice, edit, export.** ElevenLabs (custom voice) with OpenAI/Kokoro fallbacks, an audio-led edit, selective zoom, step callouts, and a title card. Per-scene videos plus one combined video.
 
 - Decisions: [docs/VISION.md](docs/VISION.md)
-- Implementation plan (vertical slices S0–S7): [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
+- Implementation plan (vertical slices S0–S8): [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
 
 ## Workflow in pi (S2)
 

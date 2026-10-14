@@ -78,7 +78,7 @@ extensions/demo-recording/
 │   │   ├── safety.ts           denylist, mutation classifier, audit log, policy
 │   │   └── capture/
 │   │       ├── screencast.ts   CDP Page.startScreencast → frames/ + index
-│   │       └── native-macos.ts (S7) ScreenCaptureKit / avfoundation
+│   │       └── native-macos.ts (S8) ScreenCaptureKit / avfoundation
 │   ├── storyboard/  schema.ts (typebox)  validate.ts  diff.ts
 │   ├── recorder/    runner.ts  steps/*.ts  improvise.ts  resume.ts  split.ts
 │   ├── vo/          anchors.ts  script.ts
@@ -367,7 +367,7 @@ A pure approval of everything flips the gate directly. The message just informs 
 | Language/runtime | TypeScript via jiti (no build) | Same as the rest of the repo |
 | Browser automation | `playwright` (Chromium) | Already in root devDeps. `npx playwright install chromium` is checked by doctor |
 | Human mouse paths | own cubic-arc + min-jerk trajectory (`cursor/motion.ts`) | ghost-cursor was tried in S3; its sparse point table produced visible corners. The visible cursor is our own overlay, animated on `requestAnimationFrame` |
-| Capture | CDP `Page.startScreencast` | JPEG q≈92, frame-acked. OS capture in S7 |
+| Capture | CDP `Page.startScreencast` | JPEG q≈92, frame-acked. OS capture in S8 |
 | Video processing | ffmpeg (Homebrew) | libx264 for masters, `h264_videotoolbox` optional for fast previews |
 | Overlays/title cards | HTML templates → PNG via the same Playwright (`omitBackground`) | No new deps. Brandable later. No Remotion (license) |
 | Panel | `node:http` + `ws` + Preact + htm (vendored ESM) | No bundler. Works offline. Bound to 127.0.0.1 with a random token |
@@ -387,7 +387,7 @@ A pure approval of everything flips the gate directly. The message just informs 
 ## 6. Vertical slices
 
 Every slice lists **Purpose**, **Deliverables**, **How to test**, and **Exit criteria**.
-A slice is done only when its exit criteria pass on the fixture app. From S6 on,
+A slice is done only when its exit criteria pass on the fixture app. From S7 on,
 they must also pass on one real app.
 
 ### S0 — Skeleton, workdir, fixture, panel "hello" ✅ done
@@ -516,7 +516,7 @@ schema-valid storyboard for the fixture app through the panel, with no hand-edit
 >
 > **Q5 resolved:** `anthropic/claude-haiku-4-5` (text-only, ~0.84 s median) → `openai/gpt-5.4-mini` (minimal reasoning, ~1.05 s). Benchmark below.
 >
-> **Deferred:** session-expiry detection → S6 (needs the login probe); frame-retention policy → S4.
+> **Deferred:** session-expiry detection → S7 (needs the login probe); frame-retention policy → S4.
 >
 > **Cursor tuning (after user review: "a tiny bit jerky; mainly the jiggle when stationary"):**
 > - ghost-cursor's sparse point table was replaced by a dense, gentle C-arc (both control points on one side).
@@ -931,7 +931,29 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - QA catches every injected fixture defect, with zero blocking items on the clean run.
 - Config changes go through form → diff → confirm → validation, from the panel and from chat.
 
-### S6 — Auth, safety hardening, real-app acceptance
+### S6 — Parallel discovery lanes *(user request; opt-in, `discovery.lanes`)*
+
+**Purpose.** Shorten discovery on larger apps. After a short serial identification
+phase, explore the candidate flows in parallel lanes and merge what they find.
+
+**Deliverables**
+- **Flow:** serial identification (sitemap + candidate use cases, as today) → fan out N explorer lanes, each a Researcher instance running as a subagent with one candidate flow → the Director merges the lane findings (duplicates, naming, ordering) and writes the storyboard.
+- **Per lane:** its own browser context that shares the app login; its own budget slice (screens, actions, minutes), enforced per lane; its own folder `discovery/<session>/lanes/<k>/` with screens and an audit log. It returns a **structured finding**: verified targets, values, demo-worthiness and friction, in the same format as the Project tab's findings (S5 part 5a).
+- **Browser tool:** lane-scoped `demo_rec_browser` sessions (`session=lane-2`).
+- **Safety:** lanes are read-only by default; state-changing flows (cart, settings, chat) stay in the serial phase or get per-lane test accounts.
+- **Live control room:** one progress row per lane under the shared identification segment, with a frame preview per lane. The progress component already supports several rows (S5 part 4).
+- **Cost and models:** cost scales with the number of lanes, so it's opt-in via `discovery.lanes` (default 1 = today's serial discovery). Lanes need an image-capable model; doctor checks this.
+
+**How to test**
+- Fixture with ≥ 3 independent flows: 3 lanes find the same targets and values as the serial run. Budgets are enforced per lane, and a state-changing action in a read-only lane is blocked.
+- Merge: duplicate findings across lanes collapse into one, with both lanes as evidence.
+- **Measure:** wall-clock of serial vs. 3 lanes on a larger real app; expected about 2× faster on long discoveries. keycraft's serial discovery took ~6 min, mostly model turns at ~5–15 s per action.
+
+**Exit criteria.** With `discovery.lanes: 3` a discovery on a multi-flow app is
+measurably faster, yields a storyboard of the same quality (reviewed in the
+panel), and never runs a state-changing action in a read-only lane.
+
+### S7 — Auth, safety hardening, real-app acceptance
 
 **Purpose.** Leave the fixture: log into real apps, survive real-world SPAs, and
 prove the whole flow on one of your actual targets.
@@ -953,7 +975,7 @@ and notes as human input. No secrets leak in artifacts or logs.
 
 ---
 
-### S7 — Native OS-capture backend (optional, `--cursor=native`, macOS)
+### S8 — Native OS-capture backend (optional, `--cursor=native`, macOS)
 
 **Purpose.** A higher-fidelity mode for hero recordings: the real OS cursor and
 real GPU rendering, behind a flag, reusing everything else.
@@ -1021,12 +1043,12 @@ real GPU rendering, behind a flag, reusing everything else.
 | Q3 | ~~Zoom rendering: ffmpeg expressions vs Node frame compositing~~ → resolved: ffmpeg `perspective` at source res inside zoom windows ([spike](spikes/S5-zoom.md)) | S5 spike ✅ |
 | Q4 | ~~Default whisper model size~~ → **base.en + onset refinement** (≤ 32 ms) | S4 ✅ |
 | Q5 | ~~Improvise model default~~ → **claude-haiku-4-5 → gpt-5.4-mini**, text-only by default | S3 ✅ |
-| Q6 | First real app for acceptance | before S6 |
+| Q6 | First real app for acceptance | before S7 |
 | Q7 | ~~Annotation weights and target optimum~~ → designer value 1–5 (+1 for emphasis/VO match), deterministic noise per type × duration, greedy recommended set under caps, optimum = its noise, ±25 % = balanced (§3.6) | S5 plan ✅ |
 | Q9 | Findings: which engine signals count as findings, how the agent records discovery findings (e.g. `demo_rec_project note kind=finding` with evidence refs), dedupe, and the "use / ignore" marking | S5 part 5a (short grill first) |
 | Q8 | ~~Layout snapshot granularity~~ → after each settle, at marks and route changes (≤ 1/500 ms), visible elements only, ≤ 400 per snapshot, no password values (§3.7) | S5 plan ✅ |
 
-## 9. Definition of done (v1 = S0–S6)
+## 9. Definition of done (v1 = S0–S7; S6 lanes opt-in, S8 optional)
 
 - `/demo new` → approved storyboard → accepted recording → approved VO → ElevenLabs voice → approved annotations → final render (QA passed): `out/render-vN/<variant>/scenes/*.mp4`, `full.mp4`, `full.transcript.vtt`, `full.callouts.srt`, `report.md`, each traceable through `basedOn` to the approved storyboard.
 - The project's memory (brief, inputs, sources, lineage) is visible in Config → Project context and matches what the agent reads.

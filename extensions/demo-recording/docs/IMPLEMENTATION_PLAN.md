@@ -666,7 +666,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 10 | Deterministic QA + mechanical auto-fix | |
 | 11 | Confidence-guided review + voice direction | |
 | 12 | Actor & dependency model document, per-role model config | |
-| 13 | **Panel modals** (user backlog): replace the browser's native `alert` / `confirm` / `prompt` with in-panel modal dialogs | backlog |
+| 13 | **Panel modals + cost warnings** (user backlog): in-panel modal dialogs instead of native `alert` / `confirm` / `prompt`, plus a warning before any action that may start a paid AI step (LLM, improvise model, TTS) | backlog |
 
 **Why this order:**
 - **3 first:** the chain and the input log are the backbone every later part writes into.
@@ -886,7 +886,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **`docs/ACTORS.md`** (see the cross-cutting entry): the vision behind the cast, each actor (responsibility, inputs, outputs, decisions, model profile, failure modes), the dependency model, handoffs, and the background decisions with the alternatives that were rejected.
 - **Per-role model config:** `roles.<role>.model` (default: the session model via its skill; opt-in separate runs, e.g. `roles.qa.mode: "separate"` with a fresh context, `roles.operator` = the improvise chain). Doctor checks each configured role's model capabilities (image input, context size).
 
-*13. Panel modals (user backlog)* — later in S5
+*13. Panel modals + cost warnings (user backlog)* — later in S5
 - **What:** replace every native `alert()`, `confirm()` and `prompt()` in the panel with an in-panel modal, so the dialogs match the Catppuccin themes and can show more than plain text. Today there are 12 call sites: accept, un-accept with its orphan list, brand save and default-brand diffs, project-facts diff, mark outdated, re-record notes, errors.
 - **One component** (`public/modal.js`): `await ask({ title, body, actions })` returning the chosen action (or the entered text). It supports:
   - a diff view, with additions and removals coloured;
@@ -895,6 +895,17 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - a danger style for destructive actions.
 
   Escape cancels and Enter confirms, focus is trapped, and the dialog is labelled for screen readers.
+- **Cost warnings** (user request): every panel action that may (re)start a potentially expensive AI step asks first, in the same modal.
+  - **Which actions:**
+    - an **LLM turn**: Send review to agent; accepting a storyboard, take or voice-over (the agent continues); Request a new take; annotation suggestions and voice direction later;
+    - the **improvise model** during a take;
+    - **TTS**: accepting a voice-over, "Generate voice", and voice direction re-renders.
+
+    Local work stays silent: re-render with a brand, previews, renders, and facts/finding/line changes.
+  - **Contents:** what will run (the role and model, e.g. "Director on the session model", "Operator: claude-haiku-4-5 → gpt-5.4-mini", "ElevenLabs eleven_v4, voice Stefan_trained") and an estimate where one is possible: TTS characters to synthesize vs. sections served from the cache, the number of improvise steps, images sent to the model. Unknowns are marked "can't estimate".
+  - **Engine:** each such route declares its cost class. A dry run `POST /api/estimate {action, …}` returns `{ classes: ["llm","tts"], what, estimate }`, using the TTS cache lookup the voice tool already has (`demo_rec_tts check`).
+  - **Choice:** "Run" / "Cancel", plus an optional "don't ask again this session" per action type. TTS always asks, because it spends credits directly.
+  - **Tests:** every route that triggers an agent turn or TTS has a cost class (a test fails for an unclassified one); the estimate counts only cache misses; local actions show no warning.
 - **Tests:** the browser tests answer the modal instead of the native dialog events. The unit test checks the keyboard handling and that cancel resolves to `null`.
 
 **How to test** (per part; each PR carries its own tests)

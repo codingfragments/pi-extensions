@@ -485,6 +485,10 @@ test("re-suggest: the user's added/edited/toggled items are kept as they are; th
     ],
   });
   assert.deepEqual(r.kept.sort(), ["co-emea", "co-kpi", "rd-email-1"]);
+  assert.ok(
+    r.dropped.some((d) => d.id === "co-emea" && /user's version/.test(d.why)),
+    "same id as a kept item → the user's version wins",
+  );
   const v3 = readAnnotations(dir, r.version);
   const by = Object.fromEntries((v3?.items ?? []).map((x) => [x.id, x]));
   assert.equal(by["co-emea"]?.text, "EMEA: 14.2 %", "the user's text survives");

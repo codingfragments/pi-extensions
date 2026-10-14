@@ -250,13 +250,14 @@ export function suggestAnnotations(o: {
     if (
       kept.some(
         (k) =>
-          k.type === sg.type &&
-          k.scene === sg.scene &&
-          sameAnchor(k.anchor, sg.anchor) &&
-          sameTarget(k.target, sg.target),
+          (sg.id !== undefined && k.id === sg.id) ||
+          (k.type === sg.type &&
+            k.scene === sg.scene &&
+            sameAnchor(k.anchor, sg.anchor) &&
+            sameTarget(k.target, sg.target)),
       )
     )
-      return void dropped.push({ id: label, why: "the user already has this one (kept)" });
+      return void dropped.push({ id: label, why: "the user's version of this one is kept" });
     let id: string;
     if (sg.id && !taken.has(sg.id)) {
       id = sg.id;

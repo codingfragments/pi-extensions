@@ -12,6 +12,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { resolveContext } from "./src/annotations/apply.ts";
+import { annotationContext } from "./src/annotations/context.ts";
+import {
+  formatDesignReport,
+  formatImportReport,
+  importAnnotations,
+  suggestAnnotations,
+} from "./src/annotations/design.ts";
 import { readAnnotations, writeAnnotations } from "./src/annotations/file.ts";
 import { previewAnnotation } from "./src/annotations/preview.ts";
 import { resolveAnnotations } from "./src/annotations/resolve.ts";
@@ -29,6 +36,7 @@ import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
+import { toSuggestion } from "./src/tools/annotations.ts";
 import { editSummary } from "./src/tools/edit.ts";
 import { takeSummary } from "./src/tools/record.ts";
 import { voiceSummary } from "./src/tools/tts.ts";
@@ -55,6 +63,12 @@ Commands:
   record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
+  annotate context --project P [--base N] [--instructions T]
+                                           the Annotation designer's input pack for the latest edit
+  annotate suggest --project P --file F [--base N] [--instructions T]
+                                           what the designer's suggest does, from a suggestions file
+                                           (e.g. fixtures/annotations/stub-designer.json; no model)
+  annotate import --project P --from N     carry what still matches from vN onto the latest edit
   annotate add --project P --file F        store a hand-written annotation file as the next
                                            annotations/vN.json (validated)
   annotate check --project P [--version N] [--edit N]
@@ -267,6 +281,9 @@ async function main(argv: string[]): Promise<number> {
         brand: { type: "string" },
         id: { type: "string" },
         annotations: { type: "string" },
+        base: { type: "string" },
+        from: { type: "string" },
+        instructions: { type: "string" },
       },
     });
     if (!values.project) throw new Error("--project is required");
@@ -294,6 +311,49 @@ async function main(argv: string[]): Promise<number> {
         onProgress: (p) => console.log(`[${p.done}/${p.total}] ${p.label}`),
       });
       console.log(editSummary(r));
+      return 0;
+    }
+    if (sub === "context") {
+      console.log(
+        annotationContext({
+          projectDir: project.dir,
+          timeline: timelineFor(),
+          timelineVersion: editV as number,
+          ...(values.base ? { base: Number(values.base) } : {}),
+          ...(values.instructions ? { instructions: values.instructions } : {}),
+        }),
+      );
+      return 0;
+    }
+    if (sub === "suggest") {
+      // What the designer's demo_rec_annotations action=suggest does, from a file (no model).
+      if (!values.file)
+        throw new Error("--file is required (e.g. fixtures/annotations/stub-designer.json)");
+      const raw = JSON.parse(fs.readFileSync(values.file, "utf8")) as
+        | { suggestions?: Record<string, unknown>[] }
+        | Record<string, unknown>[];
+      const list = Array.isArray(raw) ? raw : (raw.suggestions ?? []);
+      const r = suggestAnnotations({
+        projectDir: project.dir,
+        timeline: timelineFor(),
+        suggestions: list.map((x) => toSuggestion(x)),
+        ...(values.base ? { base: Number(values.base) } : {}),
+        ...(values.instructions ? { instructions: values.instructions } : {}),
+      });
+      console.log(formatDesignReport(r));
+      return 0;
+    }
+    if (sub === "import") {
+      if (!values.from) throw new Error("--from is required");
+      console.log(
+        formatImportReport(
+          importAnnotations({
+            projectDir: project.dir,
+            timeline: timelineFor(),
+            from: Number(values.from),
+          }),
+        ),
+      );
       return 0;
     }
     if (sub === "add") {
@@ -339,7 +399,9 @@ async function main(argv: string[]): Promise<number> {
       for (const w of p.warnings) console.log(`  ! ${w}`);
       return 0;
     }
-    throw new Error(`unknown: annotate ${sub ?? ""} — use add, check or preview`);
+    throw new Error(
+      `unknown: annotate ${sub ?? ""} — use context, suggest, import, add, check or preview`,
+    );
   }
 
   if (command === "record") {

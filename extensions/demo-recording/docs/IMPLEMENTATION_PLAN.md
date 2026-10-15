@@ -1061,7 +1061,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
      - the densest tabs (Render, Annotations, Voice over);
      - the Project first-run;
      - the vocabulary pass;
-     - Config.
+     - Config, **with a search bar** (user request): filter every setting by key, label, docs text and current value, across the groups and both scopes, with matches highlighted and the groups that have none collapsed; focus it with `/` (and Cmd/Ctrl+K), clear it with Escape. It fits the interaction language and keyboard bars below.
 - **Design quality is half of this part, not a footnote.** The spec has a **design-system section**, and the slices deliver it:
   1. **Foundations first** (the first slice, before any screen is reworked; everything after builds on it, and part 13's dialog is restyled to match):
      - **tokens:** a type scale, a spacing scale on a 4/8 px grid, a radius scale, elevation, and semantic status colours (ok, warn, error, info, accent) that pass AA on every surface in **both** themes;

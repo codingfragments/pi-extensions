@@ -40,6 +40,7 @@ export default function (pi: ExtensionAPI) {
   }));
 
   pi.on("session_start", async (_event, ctx) => {
+    rt.bindModels((ctx as { modelRegistry?: unknown }).modelRegistry);
     // Restore the active project from the session's custom entries.
     let active: string | undefined;
     for (const entry of ctx.sessionManager.getEntries()) {

@@ -1,0 +1,34 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef store fill:#fff,stroke:#8a8a99,color:#333
+
+  panel{{"Panel in your browser<br/>tabs · Live · log"}}:::human
+
+  subgraph E["Engine (the extension process)"]
+    direction TB
+    srv["Panel server<br/>token · HTTP · WebSocket"]:::engine
+    routes["Routes<br/>review · stages · annotations<br/>render · voice · config · project"]:::engine
+    subgraph W["what a route can do"]
+      direction LR
+      st[("state.json · versions<br/>inputs.jsonl")]:::store
+      jobs["Jobs<br/>record · tts · edit<br/>render · design"]:::engine
+      bridge["Agent bridge"]:::engine
+    end
+    bus[("Event bus<br/>ring of 500 events<br/>one message per event")]:::store
+  end
+
+  dir("Director<br/>(the pi session)"):::model
+
+  panel -- "GET views · POST actions" --> srv
+  srv --> routes
+  routes -- "accept · marks · config<br/>(no model)" --> st
+  routes -- "generate · render<br/>re-suggest" --> jobs
+  routes -- "review sent · approvals" --> bridge
+  jobs -- "events" --> bus
+  jobs -- "result" --> bridge
+  bus -- "WebSocket: live events" --> srv
+  srv -- "views and events" --> panel
+  bridge -- "notifyAgent: a user message, starts a turn<br/>reportToAgent: a job result, starts a turn<br/>tellAgent: a note for the next turn, no turn" --> dir
+  dir -- "tool calls" --> routes

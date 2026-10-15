@@ -1,0 +1,34 @@
+sequenceDiagram
+  autonumber
+  actor You
+  participant Panel as Panel (browser)
+  participant Eng as Engine
+  participant Dir as Director (model)
+  participant Tool as Scripts: TTS, Whisper, ffmpeg
+
+  You->>Panel: accept voice-over v2
+  Panel->>Eng: POST approve
+  Eng->>Eng: record the acceptance
+  Eng-->>Dir: [demo-panel] voice-over v2 APPROVED (a turn)
+  Dir-->>You: "ready to generate the voice: use the panel button"
+  You->>Panel: Generate voice & render
+  Panel->>Eng: POST vo-generate (no confirm)
+  Eng->>Eng: estimate the cost
+  Eng-->>Panel: estimate popup
+  You->>Panel: Generate
+  Panel->>Eng: POST vo-generate (confirm)
+  Eng-->>Dir: quiet note: started from the panel
+  Eng->>Tool: TTS job: ElevenLabs, Whisper timings
+  Tool-->>Eng: audio and word timings
+  Eng->>Tool: edit job: ffmpeg draft render
+  Tool-->>Eng: timeline v2 and draft
+  Eng-->>Panel: events to the Live log and progress
+  Eng-->>Dir: edit report (a turn)
+  alt a model is set for the Annotation designer
+    Eng->>Eng: design job: one call
+    Eng-->>Dir: quiet note: annotations v1 suggested by model X
+  else the role has no model
+    Dir->>Eng: demo_rec_annotations context, then suggest
+  end
+  Eng-->>Panel: annotations v1
+  You->>Panel: toggle, edit, accept

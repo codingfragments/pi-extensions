@@ -1000,9 +1000,23 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - every direction is an input-log entry (`kind: nudge`), shown in Project context;
   - optional "save as default direction" into the brief.
 
-*12. Actor & dependency model document (D40)*
-- **`docs/ACTORS.md`** (see the cross-cutting entry): the vision behind the cast, each actor (responsibility, inputs, outputs, decisions, model profile, failure modes), the dependency model, handoffs, and the background decisions with the alternatives that were rejected.
-- **Per-role model config:** `roles.<role>.model` (default: the session model via its skill; opt-in separate runs, e.g. `roles.qa.mode: "separate"` with a fresh context, `roles.operator` = the improvise chain). Doctor checks each configured role's model capabilities (image input, context size).
+*12. Actor & dependency model document (D40) and the architecture and flow documentation* — ✅ done (D85–D90); user-facing: [ACTORS.md](ACTORS.md), [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Documentation:**
+  - `docs/ARCHITECTURE.md`: the idea, the principles with their reasons, the system context, the four kinds of hands (human / model / engine / script) with the handover rules, the end-to-end flow, the stage loop, the stage chain and working line, the media pipeline and the file layout, the panel / event bus / agent bridge, a session end to end, where models are used and who pays, configuration and safety, a decision map.
+  - `docs/ACTORS.md`: the vision behind the cast, each actor (responsibility, inputs, outputs, tools, what it decides alone vs. asks, model profile, failure modes), handovers, dependencies, which model plays which role, the separate designer run, failure modes at a glance, and the background decisions with the alternatives we rejected.
+  - **Nine diagrams** as Mermaid sources in `docs/diagrams/*.mmd`, rendered to PNG + SVG in `docs/images/architecture/` by `scripts/render-diagrams.ts` (Mermaid downloaded once, run in Playwright's Chromium; no new dependency). One legend everywhere: orange human, purple model, blue engine, green script.
+  - `test/docs-architecture.test.ts`: every source has its images, every image is shown, every link and heading anchor resolves, every role and setting named in the doc exists in the code.
+- **`roles.annotationDesigner.model`** (one `provider/id` or an ordered chain; env `DEMO_REC_ANNOTATION_MODEL`): the **Annotation designer as a separate model call** (D85–D90):
+  - `src/annotations/designer-run.ts`: the system prompt assembled from `skills/demo-annotations/SKILL.md` + an output format, the input pack, one call, parse and check, a **dry run** of the suggest engine, **one repair round**, then one stored version.
+  - `src/tools/designer.ts`: the `design` engine job, events (`design.progress`, `design.finished`, `annotations.updated`), a **quiet note** to the Director, and the **fallback to the agent turn**; hooked into the edit's auto-suggest and the panel's (Re-)suggest.
+  - `Runtime.modelAccess` is remembered from pi's model registry (session start and `/demo` commands).
+  - The config rejects roles that can't run separately and says why (`operator` → `improvise.models`, `qa`/`cutter` → engine roles, …).
+  - Doctor: a **roles** line and a check of the designer's chain (found, credentials, context ≥ 64k). Config tab: the key in *Models*.
+  - `suggestAnnotations` got `dryRun`; `toSuggestion` moved to `src/annotations/suggestion.ts`.
+  - `test/s5-designer-run.test.ts` (a fake model: prompt source, parsing, repair, fallback chain, re-suggest, the job, the panel route, doctor, config); the synthetic project moved to `test/helpers/annotation-project.ts`.
+- **Plan as written:**
+- `docs/ACTORS.md` (see the cross-cutting entry): the vision behind the cast, each actor (responsibility, inputs, outputs, decisions, model profile, failure modes), the dependency model, handoffs, and the background decisions with the alternatives that were rejected.
+- **Per-role model config:** `roles.<role>.model` (default: the session model via its skill; opt-in separate runs). *Scoped down in the grill: only the Annotation designer; the Operator stays `improvise.*`; QA stays an engine role.*
 
 *13. Panel modals + cost warnings (user backlog)* — later in S5
 - **What:** replace every native `alert()`, `confirm()` and `prompt()` in the panel with an in-panel modal, so the dialogs match the Catppuccin themes and can show more than plain text. Today there are 12 call sites: accept, un-accept with its orphan list, brand save and default-brand diffs, project-facts diff, mark outdated, re-record notes, errors.
@@ -1028,6 +1042,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 
 *14. User guide + control room 101 (user backlog)* — after part 13, once the panel stages are complete
 - **What (user request):** complete documentation of the whole process and of the panel as a control room, written for a first-time user, not for developers.
+- **Builds on part 12:** [ARCHITECTURE.md](ARCHITECTURE.md) and [ACTORS.md](ACTORS.md) are the developer-level map (flow, principles, cast, diagrams). The guide and the 101 reuse their diagrams and legend (human orange, model purple, engine blue, script green) but are written for a first-time user.
 - **`docs/GUIDE.md` (the process):**
   - what the tool does and doesn't do;
   - the stage chain (Project → Storyboard → Recording → Voice over → Annotations → Render) with what goes in, what comes out, who decides (agent or you), what it costs (model, TTS) and how long it takes;
@@ -1188,7 +1203,7 @@ real GPU rendering, behind a flag, reusing everything else.
     - discovery budgets.
   - **Never** reads, writes or prints API keys (environment only). It can tell the user which env var to export, and that pi must be restarted for it to take effect.
 - **Panel theme** (user request): [Catppuccin](https://catppuccin.com/palette) **Macchiato** (dark, default) and **Latte** (light), switchable from a toggle in the panel header. The choice is stored in `localStorage` and defaults to Macchiato regardless of the OS setting. The panel CSS already uses custom properties (`--bg`, `--card`, `--text`, `--accent`, `--ok`, `--warn`, `--err`, …), so this means two `[data-theme]` variable sets mapped to Catppuccin colors (base/mantle/surface0/text/subtext0/blue/green/yellow/red), plus status colors checked for contrast in both flavors. Scope: panel only; the fixture app and rendered videos are unaffected. Lands with the next panel-heavy slice (S3 progress bars).
-- **Actor & dependency model document** (user request, *for a later stage*): a dedicated design doc (planned as `docs/ACTORS.md`) that describes in detail:
+- **Actor & dependency model document** (user request) — ✅ done in part 12: [ACTORS.md](ACTORS.md) and [ARCHITECTURE.md](ARCHITECTURE.md). The original request, for reference: a dedicated design doc that describes in detail:
   - **the vision behind the cast** (D40): why work is split into roles, what each role optimizes for, and how this mirrors a real production crew (director, researcher, writer, operator, cutter, designer, QA, privacy);
   - **each actor:** responsibility, inputs, outputs and artifacts, the stage(s) it acts in, its tools, the decisions it may take alone vs. needs the Director or the user for, its model profile (default skill on the session model vs. opt-in separate run, required capabilities such as image input or context size), and its failure modes;
   - **the dependency model** (D30/D33): the stage chain with its parent links, global per-stage version counters, approval gates, cascade reset, "import from vN", and which artifact each stage reads from which upstream version;

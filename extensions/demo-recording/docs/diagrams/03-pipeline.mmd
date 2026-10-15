@@ -1,0 +1,43 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef script fill:#d9f2dd,stroke:#2e8b57,color:#0d3b22
+
+  subgraph r1["1 · Brief and discovery"]
+    direction LR
+    b1("Draft the brief<br/>skill demo-brief"):::model --> b2("Explore the app<br/>vision-first"):::model --> b3["Safety net<br/>denylist · audit log"]:::engine
+    b2 -.-> b4[["Playwright<br/>browser session"]]:::script
+  end
+  subgraph r2["2 · Storyboard"]
+    direction LR
+    s1("Write scenes, steps,<br/>emphasis hints"):::model --> s2["Validate · confidence<br/>unseen targets"]:::engine --> s3{{"You approve<br/>per scene"}}:::human
+  end
+  subgraph r3["3 · Recording"]
+    direction LR
+    t1["Take job<br/>one continuous take"]:::engine --> t2[["Chromium · CDP screencast<br/>ffmpeg encode"]]:::script
+    t1 -.-> t3("Operator<br/>improvised inputs"):::model
+    t2 --> t4["Analysis<br/>marks · idle · toasts · keyframes"]:::engine --> t5{{"You accept the take"}}:::human
+  end
+  subgraph r4["4 · Voice-over"]
+    direction LR
+    v1("Write the script<br/>from the actual run"):::model --> v2["Validate<br/>anchors · values on the page"]:::engine --> v3{{"You approve<br/>(or give a direction)"}}:::human
+  end
+  subgraph r5["5 · Voice and sync edit"]
+    direction LR
+    e1["Estimate<br/>cached vs billed"]:::engine --> e2{{"You confirm"}}:::human --> e3[["TTS · Whisper timings"]]:::script --> e4["Audio-led edit<br/>timeline · draft render"]:::engine
+  end
+  subgraph r6["6 · Annotations"]
+    direction LR
+    a1("Annotation designer<br/>session or separate model"):::model --> a2["Place · weigh · privacy scan<br/>enable the best half"]:::engine --> a3{{"You toggle,<br/>edit, accept"}}:::human
+  end
+  subgraph r7["7 · Render and deliver"]
+    direction LR
+    d1["Render job<br/>brand · variants"]:::engine --> d2[["ffmpeg"]]:::script --> d3["QA<br/>values · drift · footage"]:::engine --> d4{{"You fix or confirm,<br/>then accept the final"}}:::human
+  end
+  r1 --> r2
+  r2 --> r3
+  r3 --> r4
+  r4 --> r5
+  r5 --> r6
+  r6 --> r7

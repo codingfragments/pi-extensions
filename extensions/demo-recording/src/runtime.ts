@@ -23,6 +23,8 @@ import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
+import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
+import { startDesigner } from "./tools/designer.ts";
 import { readManifest } from "./tts/synthesize.ts";
 import { MAX_EVENT_TEXT, capText, firstLine } from "./util/events.ts";
 import { projectContext } from "./workdir/context.ts";
@@ -154,6 +156,14 @@ export class Runtime {
     const p = this.activeProject();
     if (!p) throw new Error("no active demo project — run /demo new or /demo open first");
     return p;
+  }
+
+  /** pi's model access (for separate role runs, S5 part 12), remembered from the session. */
+  modelAccess: ModelAccess | undefined;
+
+  bindModels(registry: unknown): void {
+    if (registry && typeof (registry as { complete?: unknown }).complete === "function")
+      this.modelAccess = modelAccessFrom(registry as Parameters<typeof modelAccessFrom>[0]);
   }
 
   /** Remember the latest UI context (for footer status from background jobs). */
@@ -310,6 +320,7 @@ export class Runtime {
         getConfig: () => this.getConfig(),
         notifyAgent: (text) => this.notifyAgent(text),
         publish: (type, data, slug) => this.bus.publish(type, data, slug),
+        designer: (o) => !!startDesigner(this, { ...o, trigger: "panel" }).job,
       });
       const renders = renderRoutes(this);
       const voice = voiceRoutes(this);

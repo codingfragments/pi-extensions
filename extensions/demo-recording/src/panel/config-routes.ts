@@ -46,7 +46,7 @@ export const SETTING_GROUPS: { id: string; label: string; match: (key: string) =
   {
     id: "models",
     label: "Models",
-    match: (k) => k.startsWith("improvise.") || k.startsWith("align."),
+    match: (k) => k.startsWith("improvise.") || k.startsWith("align.") || k.startsWith("roles."),
   },
   {
     id: "recording",
@@ -109,7 +109,8 @@ const SECTION_NAMES: Record<string, string> = {
   openai: "OpenAI",
   kokoro: "Kokoro",
   say: "macOS say",
-  improvise: "Improvise",
+  improvise: "Operator",
+  annotationDesigner: "Annotation designer",
   viewport: "Viewport",
   capture: "Capture",
   output: "Output",
@@ -143,6 +144,7 @@ const PRIORITY = [
   "tts.elevenlabs.model",
   "tts.elevenlabs.fallbackModel",
   "improvise.models",
+  "roles.annotationDesigner.model",
   "brand",
   "output.width",
   "output.height",

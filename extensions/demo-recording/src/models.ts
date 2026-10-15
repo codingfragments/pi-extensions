@@ -66,3 +66,26 @@ export function improviseModelStatus(
     return { spec, ok: true, reason: "available" };
   });
 }
+
+export interface RoleModelStatus extends ImproviseModelStatus {
+  /** Context window in tokens, when pi knows it. */
+  contextWindow?: number;
+}
+
+/** Model chain of a separate role run: found + authenticated, with its context window (S5 part 12). */
+export function roleModelStatus(specs: string[], registry: RegistryLike): RoleModelStatus[] {
+  const base = improviseModelStatus(specs, registry);
+  return base.map((b) => {
+    let cw: number | undefined;
+    try {
+      const { provider, id } = parseModelSpec(b.spec);
+      cw = (registry.find(provider, id) as { contextWindow?: number } | undefined)?.contextWindow;
+    } catch {
+      // a malformed spec is already reported
+    }
+    return cw ? { ...b, contextWindow: cw } : b;
+  });
+}
+
+/** A separate designer run sends the whole input pack in one message: ≥ 64k context. */
+export const MIN_ROLE_CONTEXT = 64_000;

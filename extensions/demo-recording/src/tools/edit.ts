@@ -19,6 +19,7 @@ import type { Runtime } from "../runtime.ts";
 import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { latestVersion } from "../workdir/versioning.ts";
 import { result } from "./common.ts";
+import { startDesigner } from "./designer.ts";
 
 function latestTimeline(projectDir: string): number {
   const v = latestVersion(path.join(projectDir, "edit"), "timeline.v", ".json");
@@ -83,17 +84,25 @@ export const editJobSummary = (r: EditJobResult) =>
  * D53: after a new sync edit whose voice-over has no annotations yet, hand
  * over to the Annotation designer (unless `annotations.autoSuggest` is off).
  */
+export function autoSuggestPending(
+  projectDir: string,
+  enabled: boolean,
+  action: "start" | "rerender",
+  r: { timeline: Timeline },
+): boolean {
+  if (!enabled || action !== "start") return false;
+  return !annotationVersions(projectDir).some(
+    (v) => readAnnotations(projectDir, v)?.basedOn.vo === r.timeline.voVersion,
+  );
+}
+
 export function autoSuggestNote(
   projectDir: string,
   enabled: boolean,
   action: "start" | "rerender",
   r: { timeline: Timeline },
 ): string {
-  if (!enabled || action !== "start") return "";
-  const has = annotationVersions(projectDir).some(
-    (v) => readAnnotations(projectDir, v)?.basedOn.vo === r.timeline.voVersion,
-  );
-  if (has) return "";
+  if (!autoSuggestPending(projectDir, enabled, action, r)) return "";
   return (
     "\n\nNext — Annotations (automatic, config annotations.autoSuggest): load the demo-annotations skill, read " +
     "demo_rec_annotations action=context and submit suggestions with action=suggest. Then tell the user v1 is waiting in the panel's Annotations tab."
@@ -183,11 +192,25 @@ export function startEdit(
           p.slug,
         );
       rt.setStatus(undefined, true);
-      if (j.result)
-        rt.reportToAgent(
-          `[demo-recording] ${editJobSummary(j.result)}${autoSuggestNote(p.dir, cfg.annotations.autoSuggest, action, j.result)}`,
-        );
-      else rt.reportToAgent(`[demo-recording] Edit ${j.status}: ${j.error ?? "unknown error"}`);
+      if (j.result) {
+        const edit = j.result;
+        const note = () => autoSuggestNote(p.dir, cfg.annotations.autoSuggest, action, edit);
+        let tail = note();
+        if (tail) {
+          // D85–D90: the Annotation designer as a separate run when the role has a model.
+          const started = startDesigner(rt, {
+            trigger: "auto",
+            voVersion: edit.timeline.voVersion,
+            onFallback: (errors) =>
+              rt.reportToAgent(
+                `[demo-recording] The separate Annotation designer couldn't suggest (${errors.join("; ")}), so it is yours now.${note()}`,
+              ),
+          });
+          if (started.job)
+            tail = `\n\nNext — Annotations: the separate Annotation designer (roles.annotationDesigner → ${rt.getConfig().roles.annotationDesigner?.model.join(" → ")}) is suggesting them now. Don't start it yourself; you'll get a note when the version is ready.`;
+        }
+        rt.reportToAgent(`[demo-recording] ${editJobSummary(edit)}${tail}`);
+      } else rt.reportToAgent(`[demo-recording] Edit ${j.status}: ${j.error ?? "unknown error"}`);
     },
   );
 }
@@ -221,6 +244,7 @@ export function registerEditTool(pi: ExtensionAPI, rt: Runtime): void {
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
+      rt.bindModels((ctx as { modelRegistry?: unknown } | undefined)?.modelRegistry);
       const action = params.action ?? "start";
       if (action === "status") {
         const j = rt.jobs.latest("edit");

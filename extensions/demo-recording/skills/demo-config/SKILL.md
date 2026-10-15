@@ -67,6 +67,7 @@ brief).
 | "Improvise is too slow / not working" | `show improvise` → suggest `improvise.models` from available fast models (Haiku-class first) → maybe `improvise.hesitateMs` |
 | "My machine struggles while recording" | `set capture.maxWidth 2560` + `capture.maxHeight 1440` |
 | "Discovery stopped too early" | raise `budgets.discoveryScreens` / `discoveryMinutes` for this project |
+| "Run the annotations on a cheaper model" | `set roles.annotationDesigner.model "provider/id"` (or a list, tried in order) → `/demo doctor` shows whether it is found and big enough. The engine then makes ONE call on it after each edit and for Re-suggest; if it fails, the agent turn does the job. `unset` goes back to the agent turn. Only this role can run separately: the Operator's model is `improvise.models`; the Cutter and the QA reviewer are engine roles with no model |
 | "Better word timing" | `set align.model "small.en"` (slower, bigger download) |
 | "The cost estimate is wrong for my plan" | `set tts.pricePer1kChars.elevenlabs 0.18` (money per 1,000 credits; `.openai` per 1,000 characters) and `tts.currency "€"` |
 | "Which model should run discovery?" | It isn't a config setting: the session model directs. Recommend a vision model with ≥ 200k context (`/demo doctor` shows a warning otherwise) |

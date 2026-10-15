@@ -31,6 +31,7 @@ export const OPTIONAL_KEYS = [
   "tts.elevenlabs.stability",
   "tts.elevenlabs.similarity",
   "tts.say.voice",
+  "roles.annotationDesigner.model",
 ];
 
 /** One-line docs per key (shown by `show` / `explain`). */
@@ -50,7 +51,10 @@ export const CONFIG_DOCS: Record<string, string> = {
     "Voice engines in priority order (elevenlabs | openai | kokoro | say); one engine per video.",
   voiceName:
     "ElevenLabs voice display name (exact, then prefix) or voice id. A project's brief 'Voice:' wins.",
-  "improvise.models": "Fast-model chain (provider/id) for live improvised inputs.",
+  "improvise.models":
+    "The Operator's model: fast-model chain (provider/id) for live improvised inputs.",
+  "roles.annotationDesigner.model":
+    'Run the Annotation designer as ONE call on this model ("provider/id" or an ordered list) instead of an agent turn on the session model. Unset = the agent turn. Falls back to the agent turn when every model fails.',
   "improvise.hesitateMs":
     "Max cursor hesitation waiting for an improvised input before the fallback text.",
   "improvise.timeoutMs": "Per-request timeout for improvise models.",
@@ -92,6 +96,7 @@ export const ENV_KEYS: Record<string, string> = {
   ttsChain: "DEMO_REC_TTS_CHAIN",
   voiceName: "DEMO_REC_VOICE",
   "improvise.models": "DEMO_REC_IMPROVISE_MODELS",
+  "roles.annotationDesigner.model": "DEMO_REC_ANNOTATION_MODEL",
   brand: "DEMO_REC_BRAND",
 };
 
@@ -111,6 +116,7 @@ function leaves(obj: unknown, prefix = ""): string[] {
 export function knownKeys(): string[] {
   const keys = new Set([...leaves(defaultConfig("~")), ...OPTIONAL_KEYS]);
   keys.delete("tts.say"); // empty object leaf
+  keys.delete("roles"); // empty object leaf (its keys are optional)
   return [...keys].sort();
 }
 

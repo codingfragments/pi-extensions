@@ -9,8 +9,14 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 3. **Analyse → voice-over.** A dense, opinionated, anchored narration written from the actual run. Reviewed in the panel.
 4. **Voice, edit, export.** ElevenLabs (custom voice) with OpenAI/Kokoro fallbacks, an audio-led edit, selective zoom, step callouts, and a title card. Per-scene videos plus one combined video.
 
-- Decisions: [docs/VISION.md](docs/VISION.md)
+**Start here to understand it:**
+
+- **How it works, end to end** (the flow, the principles and their reasons, the stage chain, the files, the panel and the agent bridge, with diagrams): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Who does what**: the cast (you, models, engine, scripts), each role's inputs, outputs, decisions and model, and how work is handed over: [docs/ACTORS.md](docs/ACTORS.md)
+- Decisions and the alternatives we turned down: [docs/VISION.md](docs/VISION.md)
 - Implementation plan (vertical slices S0–S8): [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
+
+![System context](docs/images/architecture/01-context.png)
 
 ## Workflow in pi (S2)
 
@@ -274,13 +280,16 @@ Optional JSON file at `~/.config/demo-recording/config.json` (or `$DEMO_REC_CONF
     "kokoro": { "voice": "am_michael" }
   },
   "align": { "model": "base.en" },
-  "budgets": { "discoveryScreens": 40, "discoveryActions": 150, "discoveryMinutes": 20 }
+  "budgets": { "discoveryScreens": 40, "discoveryActions": 150, "discoveryMinutes": 20 },
+  "roles": { "annotationDesigner": { "model": ["anthropic/claude-sonnet-4-5", "openai/gpt-5.4"] } }
 }
 ```
 
+`roles.annotationDesigner.model` is optional: with a model (one `provider/id` or an ordered list) the Annotation designer runs as **one separate model call** after each sync edit and for the panel's (Re-)suggest, instead of an agent turn on the session model; if every model fails, the agent turn takes over. Check it with `/demo doctor`. Details: [docs/ACTORS.md](docs/ACTORS.md#8-the-separate-annotation-designer-run).
+
 To downscale capture on weaker machines, set `"capture": { "maxWidth": 2560, "maxHeight": 1440 }` (see [docs/spikes/S1-capture.md](docs/spikes/S1-capture.md)).
 
-Environment variables override the file: `DEMO_REC_ROOT`, `DEMO_REC_PANEL_PORT`, `DEMO_REC_TTS_CHAIN` (comma-separated), `DEMO_REC_VOICE`. A malformed config file is a hard error.
+Environment variables override the file: `DEMO_REC_ROOT`, `DEMO_REC_PANEL_PORT`, `DEMO_REC_TTS_CHAIN` (comma-separated), `DEMO_REC_VOICE`, `DEMO_REC_IMPROVISE_MODELS`, `DEMO_REC_ANNOTATION_MODEL`. A malformed config file is a hard error.
 
 ## Working directory
 

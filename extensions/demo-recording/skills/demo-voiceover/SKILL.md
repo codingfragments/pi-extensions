@@ -175,4 +175,5 @@ with a stance, tone, length, focus and notes:
      → re-approval → re-render; only changed sections are re-synthesized).
 4. Report the output paths and anything off-sync to the user.
 5. When the edit report says **"Next — Annotations"**, continue with the
-   **demo-annotations** skill (suggest annotations for this edit).
+   **demo-annotations** skill (suggest annotations for this edit) — unless it
+   says the separate Annotation designer is already suggesting them.

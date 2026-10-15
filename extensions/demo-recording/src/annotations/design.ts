@@ -16,7 +16,12 @@ import { type LayoutSnapshot, readLayout } from "../recorder/layout.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { parseVo } from "../vo/script.ts";
 import { resolveContext } from "./apply.ts";
-import { readAnnotations, validateAnnotations, writeAnnotations } from "./file.ts";
+import {
+  annotationVersions,
+  readAnnotations,
+  validateAnnotations,
+  writeAnnotations,
+} from "./file.ts";
 import { scanPrivacy } from "./privacy.ts";
 import { type ResolvedAnnotation, resolveAnnotations, takeToSceneMs } from "./resolve.ts";
 import {
@@ -233,6 +238,8 @@ export function suggestAnnotations(o: {
   base?: number;
   instructions?: string;
   by?: string;
+  /** Evaluate and report (placed / dropped / enabled) without storing a version. */
+  dryRun?: boolean;
 }): DesignReport {
   const warnings: string[] = [];
   const dropped: { id: string; why: string }[] = [];
@@ -338,15 +345,17 @@ export function suggestAnnotations(o: {
   for (const it of items)
     if (it.enabled && it.type === "zoom" && ++zooms > MAX_ZOOMS) it.enabled = false;
 
-  const stored = writeAnnotations(o.projectDir, {
-    basedOn: { vo: o.timeline.voVersion },
-    take: o.timeline.take,
-    by: o.by ?? "annotation-designer",
-    ...(o.base !== undefined ? { resuggestedFrom: o.base } : {}),
-    ...(o.instructions ? { instructions: o.instructions } : {}),
-    budget: { optimumNoise: optimum },
-    items,
-  });
+  const stored = o.dryRun
+    ? { version: (annotationVersions(o.projectDir).at(-1) ?? 0) + 1 }
+    : writeAnnotations(o.projectDir, {
+        basedOn: { vo: o.timeline.voVersion },
+        take: o.timeline.take,
+        by: o.by ?? "annotation-designer",
+        ...(o.base !== undefined ? { resuggestedFrom: o.base } : {}),
+        ...(o.instructions ? { instructions: o.instructions } : {}),
+        budget: { optimumNoise: optimum },
+        items,
+      });
   return {
     version: stored.version,
     added: placed.length,

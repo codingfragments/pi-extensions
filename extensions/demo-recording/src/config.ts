@@ -38,6 +38,12 @@ export interface DemoRecConfig {
   ttsChain: TtsEngine[];
   /** ElevenLabs voice, resolved by name (D12). Empty = ask at brief time. */
   voiceName: string;
+  /**
+   * Roles that may run as a separate model call (S5 part 12, D85–D90; docs/ACTORS.md).
+   * Unset = the Director plays the role on the session model. The Operator's model is
+   * `improvise.models`; the Cutter and the QA reviewer are engine roles (no model).
+   */
+  roles: { annotationDesigner?: { model: string[] } };
   /** Live input generation for `improvise` steps (S3): model chain, hesitation budget. */
   improvise: { models: string[]; hesitateMs: number; timeoutMs: number };
   /** Recording behaviour (S3): retries per scene, typo rate (0 = none). */
@@ -70,6 +76,58 @@ export interface DemoRecConfig {
   sources: string[];
 }
 
+/** The roles the config can move to a separate model call, and why the others can't. */
+export const SEPARABLE_ROLES = ["annotationDesigner"] as const;
+const NOT_SEPARABLE: Record<string, string> = {
+  director: "the Director is the session model itself (pick it in pi)",
+  researcher: "discovery is a multi-step tool loop with the browser — the Director plays it",
+  storyboardWriter: "writing the storyboard needs the discovery context — the Director plays it",
+  operator: 'its model is "improvise.models"',
+  voiceWriter: "not separable yet (the direction loop needs the Director's context)",
+  cutter: "an engine role: deterministic, no model",
+  brandDesigner: "the Director plays it (the brand skill needs a conversation with you)",
+  qa: "an engine role: deterministic checks, no model (D69)",
+  privacyOfficer:
+    "its scan is an engine step; the designer's judgement is part of the Annotation designer",
+};
+
+/** "provider/id" or a list of them → a non-empty list. */
+export function parseModelChain(v: unknown, field: string): string[] {
+  const list =
+    typeof v === "string"
+      ? v
+          .split(",")
+          .map((m) => m.trim())
+          .filter(Boolean)
+      : v;
+  if (
+    !Array.isArray(list) ||
+    !list.length ||
+    list.some((m) => typeof m !== "string" || !/^[^/\s]+\/\S+$/.test(m))
+  )
+    throw new Error(
+      `demo-recording config: "${field}" must be "provider/id" or a non-empty list of them`,
+    );
+  return list as string[];
+}
+
+function parseRoles(raw: unknown): DemoRecConfig["roles"] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    throw new Error('demo-recording config: "roles" must be an object');
+  const out: DemoRecConfig["roles"] = {};
+  for (const [name, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (name.startsWith("_")) continue;
+    if (!(SEPARABLE_ROLES as readonly string[]).includes(name))
+      throw new Error(
+        `demo-recording config: "roles.${name}" ${NOT_SEPARABLE[name] ? `can't run separately: ${NOT_SEPARABLE[name]}` : `is not a role (separable: ${SEPARABLE_ROLES.join(", ")})`}`,
+      );
+    const m = (v as Record<string, unknown> | undefined)?.model;
+    if (m !== undefined)
+      out.annotationDesigner = { model: parseModelChain(m, `roles.${name}.model`) };
+  }
+  return out;
+}
+
 export interface ResolveInput {
   env?: NodeJS.ProcessEnv;
   home?: string;
@@ -90,6 +148,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     panelPort: 3777,
     ttsChain: ["elevenlabs", "openai", "kokoro"],
     voiceName: "",
+    roles: {},
     improvise: {
       models: ["anthropic/claude-haiku-4-5", "openai/gpt-5.4-mini"],
       hesitateMs: 3000,
@@ -201,6 +260,7 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       throw new Error('demo-recording config: "voiceName" must be a string');
     cfg.voiceName = raw.voiceName;
   }
+  if (raw.roles !== undefined) cfg.roles = parseRoles(raw.roles);
   const imp = raw.improvise as Record<string, unknown> | undefined;
   if (imp !== undefined) {
     if (imp.models !== undefined) {
@@ -379,6 +439,15 @@ export function resolveConfig(input: ResolveInput = {}): DemoRecConfig {
       .map((m) => m.trim())
       .filter(Boolean);
     envSources.push("DEMO_REC_IMPROVISE_MODELS");
+  }
+  if (env.DEMO_REC_ANNOTATION_MODEL?.trim()) {
+    cfg.roles = {
+      ...cfg.roles,
+      annotationDesigner: {
+        model: parseModelChain(env.DEMO_REC_ANNOTATION_MODEL, "DEMO_REC_ANNOTATION_MODEL"),
+      },
+    };
+    envSources.push("DEMO_REC_ANNOTATION_MODEL");
   }
   if (env.DEMO_REC_BRAND) {
     cfg.brand = env.DEMO_REC_BRAND.trim();

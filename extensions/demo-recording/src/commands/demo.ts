@@ -400,6 +400,7 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
     },
     handler: async (args, ctx) => {
       rt.bindModels((ctx as { modelRegistry?: unknown }).modelRegistry);
+      rt.bindSessionModel((ctx as { model?: unknown }).model);
       const [sub, ...rest] = args.trim().split(/\s+/).filter(Boolean);
       try {
         switch (sub) {

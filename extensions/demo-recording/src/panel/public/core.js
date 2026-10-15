@@ -135,20 +135,26 @@ export function SegmentBar({ segments }) {
 export function Modal(props) {
   // Rendered into its own element on <body>: the Live panel is a CSS container
   // (container-type), which would trap a position:fixed popup inside it.
+  // The element is created in an effect, never during render: Preact may throw a render
+  // away (it does under load), and a host created in render would stay behind as a second popup.
   const host = useRef(null);
-  if (!host.current) {
-    host.current = document.createElement("div");
-    document.body.appendChild(host.current);
-  }
-  useEffect(
-    () => () => {
-      render(null, host.current);
-      host.current.remove();
-    },
-    [],
-  );
-  useEffect(() => {
-    render(html`<${ModalBox} ...${props} />`, host.current);
+  const latest = useRef(props);
+  latest.current = props;
+  // Layout effects: this root is rendered from inside another component's effect,
+  // where Preact's deferred (after-paint) effects of the new root never run.
+  useLayoutEffect(() => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    host.current = el;
+    render(html`<${ModalBox} ...${latest.current} />`, el);
+    return () => {
+      render(null, el);
+      el.remove();
+      host.current = null;
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (host.current) render(html`<${ModalBox} ...${props} />`, host.current);
   });
   return null;
 }

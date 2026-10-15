@@ -21,6 +21,7 @@ import { readInputs } from "../src/workdir/inputs.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
 import { nextStep } from "../src/workdir/stages.ts";
 import { acceptTake, approve, readState } from "../src/workdir/state.ts";
+import { answerDialogs } from "./helpers/panel-dialogs.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
   try {
@@ -346,13 +347,8 @@ test(
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
-      const dialogs: string[] = [];
-      let answer = true;
-      page.on("dialog", async (d) => {
-        dialogs.push(d.message());
-        if (answer) await d.accept();
-        else await d.dismiss();
-      });
+      const dlg = answerDialogs(page);
+      const dialogs = dlg.seen;
       await page.goto(panel.url);
       await page.waitForSelector("aside.live");
       // Progress bars: one segment per line in the right-hand column.
@@ -442,7 +438,7 @@ test(
       // Un-accept take-002 from the Recording tab: cancel first — the dialog names the orphan.
       await page.locator("nav button", { hasText: "Recording" }).first().click();
       await page.waitForTimeout(400);
-      answer = false;
+      dlg.answer.accept = false;
       await page
         .locator(".card.take", { hasText: "take-002" })
         .getByRole("button", { name: "Un-accept" })
@@ -450,7 +446,7 @@ test(
       await page.waitForTimeout(500);
       assert.match(dialogs.at(-1) ?? "", /Un-accept take-002\?[\s\S]*orphaned[\s\S]*voice-over v1/);
       assert.ok(readState(dir)?.accepted.recording?.["2"], "cancelled: still accepted");
-      answer = true;
+      dlg.answer.accept = true;
 
       // Live panel: collapse → strip; persists; narrow window → bottom drawer.
       await page.getByRole("button", { name: "▼ collapse" }).click();

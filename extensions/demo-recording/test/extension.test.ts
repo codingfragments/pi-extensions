@@ -93,6 +93,7 @@ test("registers /demo, skills discovery and lifecycle hooks; no side effects at 
   const { events, commands } = await load();
   assert.ok(commands.has("demo"));
   assert.deepEqual([...events.keys()].sort(), [
+    "model_select", // keeps the Director's model for the panel's cost hints (part 13)
     "resources_discover",
     "session_shutdown",
     "session_start",

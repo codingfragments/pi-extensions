@@ -235,6 +235,11 @@ target in discovery, add a `deep_link`).
 3. `[demo-panel] … APPROVED` → recording is unlocked. Record when the user
    asks, or offer to record now.
 
+**The user is asked before money and long jobs.** In the panel, *Request a new take*, a separate designer
+run and *Generate voice & render* each open a dialog with an estimate first. A `[demo-panel]` message for
+them arrives only after the user said yes, so don't ask again; if there is no message, they cancelled.
+`demo_rec_tts check` shows the cost of the working line's voice-over before anything is spent.
+
 ## Recording
 
 `demo_rec_record` starts a **background** take of the **approved** version:

@@ -35,6 +35,7 @@ import {
 import { readInputs } from "../src/workdir/inputs.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
 import { listVersions } from "../src/workdir/versioning.ts";
+import { answerDialogs } from "./helpers/panel-dialogs.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
   try {
@@ -447,9 +448,7 @@ test(
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
-      page.on("dialog", async (d) =>
-        d.type() === "prompt" ? d.accept("not relevant anymore") : d.accept(),
-      );
+      const dlg = answerDialogs(page, { text: "not relevant anymore" });
       await page.goto(panel.url);
       await page.waitForSelector(".fact-groups");
       assert.equal(

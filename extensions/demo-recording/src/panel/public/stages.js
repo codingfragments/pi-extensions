@@ -1,9 +1,11 @@
+import { html, useState } from "/vendor/preact-htm.module.js";
+import { post, useApi } from "./core.js";
+import { CostHint } from "./cost.js";
 // demo-recording panel — branching stages (S5 part 4, D44–D46): the shared
 // stage header, the input picker (which accepted parent version a tab works
 // on), and per-version actions: accept, un-accept (with the orphan warning),
 // and "work on this" (put it on the working line).
-import { html, useState } from "/vendor/preact-htm.module.js";
-import { post, useApi } from "./core.js";
+import { confirmAsk, errorToast } from "./dialog.js";
 
 export const STAGE_EVENTS =
   /^(storyboard|vo|take|recording|tts|edit|review|project|brand|config|input|annotations|render|stage|line)\./;
@@ -37,7 +39,7 @@ export function InputPicker({ stages, stage }) {
     try {
       await post("/api/select", { artifact: s.parent, version: Number(e.target.value) });
     } catch (err) {
-      alert(err.message);
+      errorToast(err);
     }
   };
   return html`<label class="input-picker small-text">input ${parentName}
@@ -68,30 +70,43 @@ export function VersionActions({
       await fn();
       onDone?.();
     } catch (e) {
-      alert(`${what}: ${e.message}`);
+      errorToast(e, what);
     } finally {
       setBusy(false);
     }
   };
-  const accept = () =>
-    confirm(
-      `Accept ${what}? ${unlocks ?? ""}\n\nAccepting resets nothing: other accepted versions stay valid inputs.`,
-    ) && run(() => post("/api/approve", { artifact: stage, version }));
+  const accept = async () => {
+    const ok = await confirmAsk({
+      title: `Accept ${what}?`,
+      text: `${unlocks ?? ""}\n\nAccepting resets nothing: other accepted versions stay valid inputs.`.trim(),
+      confirmLabel: "Accept",
+    });
+    if (ok) run(() => post("/api/approve", { artifact: stage, version }));
+  };
   const unaccept = async () => {
     let orphans = [];
     try {
       ({ orphans } = await post("/api/unaccept-preview", { artifact: stage, version }));
     } catch (e) {
-      return alert(e.message);
+      return errorToast(e);
     }
-    const list = orphans.length
-      ? `\n\nBuilt on it and accepted — these become orphaned (kept, but not usable until ${what} is accepted again):\n${orphans.map((o) => `• ${o.label}`).join("\n")}`
-      : "";
-    if (confirm(`Un-accept ${what}?${list}`))
-      run(() => post("/api/unaccept", { artifact: stage, version }));
+    const ok = await confirmAsk({
+      title: `Un-accept ${what}?`,
+      text: orphans.length ? undefined : "Nothing accepted is built on it.",
+      ...(orphans.length
+        ? {
+            list: {
+              title: `Built on it and accepted — these become orphaned (kept, but not usable until ${what} is accepted again):`,
+              items: orphans.map((o) => o.label),
+            },
+          }
+        : {}),
+      confirmLabel: "Un-accept",
+    });
+    if (ok) run(() => post("/api/unaccept", { artifact: stage, version }));
   };
   if (!info)
-    return html`<button class="primary" disabled=${busy || disabled} title=${disabledWhy ?? ""} onClick=${accept}>Accept ${vLabel(stage, version)}</button>`;
+    return html`<span class="version-actions"><button class="primary" disabled=${busy || disabled} title=${disabledWhy ?? ""} onClick=${accept}>Accept ${vLabel(stage, version)}</button><${CostHint} /></span>`;
   return html`<span class="version-actions">
     <span class="badge approved">accepted</span>
     ${info.orphaned ? html`<span class="badge stale" title=${info.orphaned}>orphaned</span>` : null}

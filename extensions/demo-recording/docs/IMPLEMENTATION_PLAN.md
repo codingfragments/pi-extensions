@@ -666,7 +666,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 10 | Deterministic QA + mechanical auto-fix | ✅ |
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
-| 13 | **Panel modals + cost warnings** (user backlog): in-panel modal dialogs instead of native `alert` / `confirm` / `prompt`, plus a warning before any action that may start a paid AI step (LLM, improvise model, TTS) | backlog |
+| 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
 | **UX** | **UX pass** (user request, after part 13): a simpler story **and** design quality — a design system (tokens, one component per job), readable layout and good use of screen estate, one interaction language, accessibility (WCAG 2.2 AA) and a usability review, with measurable bars. A UX spec first (a design grill with mockups), then a foundations slice, then screens — see the entry below | backlog |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
@@ -1020,33 +1020,20 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - `docs/ACTORS.md` (see the cross-cutting entry): the vision behind the cast, each actor (responsibility, inputs, outputs, decisions, model profile, failure modes), the dependency model, handoffs, and the background decisions with the alternatives that were rejected.
 - **Per-role model config:** `roles.<role>.model` (default: the session model via its skill; opt-in separate runs). *Scoped down in the grill: only the Annotation designer; the Operator stays `improvise.*`; QA stays an engine role.*
 
-*13. Panel modals + cost warnings (user backlog)* — later in S5
-- **What:** replace every native `alert()`, `confirm()` and `prompt()` in the panel with an in-panel modal, so the dialogs match the Catppuccin themes and can show more than plain text. Today there are 12 call sites: accept, un-accept with its orphan list, brand save and default-brand diffs, project-facts diff, mark outdated, re-record notes, errors.
-- **One component** (`public/modal.js`): `await ask({ title, body, actions })` returning the chosen action (or the entered text). It supports:
-  - a diff view, with additions and removals coloured;
-  - lists (the orphans, the resets);
-  - a reason text field;
-  - a danger style for destructive actions.
-
-  Escape cancels and Enter confirms, focus is trapped, and the dialog is labelled for screen readers.
-- **Cost warnings** (user request): every panel action that may (re)start a potentially expensive AI step asks first, in the same modal.
-  - **Which actions:**
-    - an **LLM turn**: Send review to agent; accepting a storyboard, take or voice-over (the agent continues); Request a new take; annotation suggestions and voice direction later;
-    - the **improvise model** during a take;
-    - **TTS**: accepting a voice-over, "Generate voice", and voice direction re-renders.
-
-    Local work stays silent: re-render with a brand, previews, renders, and facts/finding/line changes.
-  - **Contents:** what will run (the role and model, e.g. "Director on the session model", "Operator: claude-haiku-4-5 → gpt-5.4-mini", "ElevenLabs eleven_v4, voice Stefan_trained") and an estimate where one is possible: TTS characters to synthesize vs. sections served from the cache, the number of improvise steps, images sent to the model. Unknowns are marked "can't estimate".
-  - **Engine:** each such route declares its cost class. A dry run `POST /api/estimate {action, …}` returns `{ classes: ["llm","tts"], what, estimate }`, using the TTS cache lookup the voice tool already has (`demo_rec_tts check`).
-  - **Choice:** "Run" / "Cancel", plus an optional "don't ask again this session" per action type. TTS always asks, because it spends credits directly.
-  - **Tests:** every route that triggers an agent turn or TTS has a cost class (a test fails for an unclassified one); the estimate counts only cache misses; local actions show no warning.
-- **Built for the UX pass:** the dialog uses CSS custom properties for every colour, space and radius (no new hard-coded values), so the UX pass's foundations slice restyles it by changing tokens, not the component.
-- **Tests:** the browser tests answer the modal instead of the native dialog events. The unit test checks the keyboard handling and that cancel resolves to `null`.
+*13. Panel dialogs + cost warnings (user backlog)* — ✅ done (D91–D97)
+- **Dialogs and errors:** `public/dialog.js`: `ask()` (confirm, text, list, diff, facts, warnings, required reason, danger, "don't ask again"), `confirmAsk`, `askText`, and `toast()` / `errorToast()`. All **25** native calls are gone (10 `confirm`, 2 `prompt`, 13 `alert` — the plan counted 12); a test fails if one returns. CSS uses tokens only, so the UX pass restyles it by changing tokens.
+- **Cost classes:** `src/panel/cost.ts`: every POST route is classed (`none`, `local`, `turn`, `tts`, `take`, `designer`); a test fails for an unclassified route or a stale entry. `Runtime.routeTables()` exposes the routes for that.
+- **Estimate:** `POST /api/estimate {action, …}` is a free dry run: the voice (the part 11 numbers), a new take (improvise steps, model status, the last take's length), a designer run (pack tokens, models); a turn says what it starts. `voiceEstimate` moved to `src/tts/estimate.ts`.
+- **Who asks (D91, D95):** TTS, a new take and a designer run block (take and designer can be switched off for the session; TTS never). Turn buttons show a `CostHint` caption. The part 11 Generate modal is replaced by the shared dialog.
+- **Small extras (D97):** `Runtime.sessionModel` (session start, `model_select`, `/demo`), `models` in `/api/state`, and the cost in `demo_rec_tts check`.
+- **Tests:** `test/s5-dialogs-costs.test.ts` (the class table, the estimates, no native dialogs, `ask()` keyboard and focus behaviour, toasts, the three asks in the panel); `test/helpers/panel-dialogs.ts` answers the new dialogs in the older browser tests.
+- **A latent bug found on the way:** `Modal` (bugfix sprint 1) created and appended its host element during render. When Preact discarded a render under load, the host stayed behind and a second popup appeared (the log-popup test failed about 1 run in 6 once more tests ran in parallel). The host is now created in a layout effect; 0 failures in 36 parallel runs.
+- **Not in this part:** a running per-project spend ledger and budget caps (§7 mentions them); a follow-up if wanted.
 
 *UX. UX pass (user request, after part 13)* — backlog
 - **Why:** after twelve parts built one at a time, the panel works but doesn't tell a simple story. Measured on the fixture project (Playwright, 1500 px wide):
   - **Controls per screen:** Render 196, Annotations 102, Voice over 46, Config 58, Project 30, Storyboard 22, Recording 5. Page heights run up to 3000 px.
-  - **No "where am I, what's next, what needs me".** The stepper shows no state (done, needs you, running); every tab is a detail view. The only hint is one status line in Live.
+  - **No clear "where am I, what's next, what needs me".** The stepper marks only the step that waits for you (a dot); it shows nothing for done or running, and every tab is a detail view. The other hint is one status line in Live.
   - **The version machinery is on every screen.** Each stage tab opens with an input picker, "N versions on this input", ACCEPTED and WORKING LINE badges — concepts a first-time user doesn't need up front.
   - **Live is always visible** as a quarter-width column with five sections, most of them idle ("nothing running", "no frame yet").
   - **Mixed vocabulary:** accepted / approved, working line, orphaned, input, flavor, variant, deliverable.
@@ -1074,7 +1061,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
      - the densest tabs (Render, Annotations, Voice over);
      - the Project first-run;
      - the vocabulary pass;
-     - Config.
+     - Config, **with a search bar** (user request): filter every setting by key, label, docs text and current value, across the groups and both scopes, with matches highlighted and the groups that have none collapsed; focus it with `/` (and Cmd/Ctrl+K), clear it with Escape. It fits the interaction language and keyboard bars below.
 - **Design quality is half of this part, not a footnote.** The spec has a **design-system section**, and the slices deliver it:
   1. **Foundations first** (the first slice, before any screen is reworked; everything after builds on it, and part 13's dialog is restyled to match):
      - **tokens:** a type scale, a spacing scale on a 4/8 px grid, a radius scale, elevation, and semantic status colours (ok, warn, error, info, accent) that pass AA on every surface in **both** themes;

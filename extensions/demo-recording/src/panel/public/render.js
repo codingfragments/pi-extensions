@@ -1,10 +1,11 @@
+import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { api, media, post, useApi } from "./core.js";
 // demo-recording panel — Render tab (S5 part 9, D59–D68): a form for a new
 // render (draft or final, annotation version and types, brands, subtitles,
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
-import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { api, media, post, useApi } from "./core.js";
+import { confirmAsk, errorToast } from "./dialog.js";
 import { StageHeader, VersionActions } from "./stages.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
@@ -61,9 +62,12 @@ function NewRender({ data, events, onStarted }) {
     const leavesRedactions = !all && chosen?.redactions && !selected.includes("redact");
     if (
       leavesRedactions &&
-      !confirm(
-        `This render leaves out ${chosen.redactions} enabled redaction(s) — it shows what was redacted. Render anyway?`,
-      )
+      !(await confirmAsk({
+        title: "Render without the redactions?",
+        text: `This render leaves out ${chosen.redactions} enabled redaction(s) — it shows what was redacted.`,
+        confirmLabel: "Render anyway",
+        danger: true,
+      }))
     )
       return;
     setBusy(true);
@@ -213,7 +217,7 @@ function ZipButton({ r, v }) {
       a.click();
       a.remove();
     } catch (err) {
-      alert(err.message);
+      errorToast(err);
     } finally {
       setBusy(false);
     }
@@ -292,7 +296,7 @@ function FlavorTable({ r, seek }) {
                       ) => {
                         e.stopPropagation();
                         post("/api/render-open", { version: r.version, variant: v.key }).catch(
-                          (err) => alert(err.message),
+                          (err) => errorToast(err),
                         );
                       }}>folder</button>`
                     : null
@@ -377,7 +381,7 @@ function QaSection({ r, onSeek, reload }) {
     try {
       await post("/api/render-qa-run", { version: r.version });
     } catch (e) {
-      alert(e.message);
+      errorToast(e);
     } finally {
       setBusy(false);
     }
@@ -390,7 +394,7 @@ function QaSection({ r, onSeek, reload }) {
     try {
       await post("/api/render-qa-fix", { version: r.version, ids: [...chosen] });
     } catch (e) {
-      alert(e.message);
+      errorToast(e);
     } finally {
       setBusy(false);
     }
@@ -423,14 +427,24 @@ function RenderCard({ r, stages, open, reload }) {
   const del = async () => {
     const size = mb(r.variants.reduce((n, v) => n + (v.present ? v.bytes : 0), 0));
     if (
-      !confirm(
-        `Delete the files of ${r.kind} render v${r.version} (${size})? The record stays in the history.`,
-      )
+      !(await confirmAsk({
+        title: `Delete the files of ${r.kind} render v${r.version}?`,
+        text: `${size} will be removed. The record stays in the history.`,
+        confirmLabel: "Delete files",
+        danger: true,
+      }))
     )
       return;
     let confirmAccepted = false;
     if (r.accepted) {
-      if (!confirm(`Render v${r.version} is the ACCEPTED deliverable. Delete its files anyway?`))
+      if (
+        !(await confirmAsk({
+          title: "Delete the accepted deliverable?",
+          text: `Render v${r.version} is the ACCEPTED deliverable. Delete its files anyway?`,
+          confirmLabel: "Delete anyway",
+          danger: true,
+        }))
+      )
         return;
       confirmAccepted = true;
     }
@@ -438,7 +452,7 @@ function RenderCard({ r, stages, open, reload }) {
       await post("/api/render-delete", { version: r.version, confirmAccepted });
       reload();
     } catch (e) {
-      alert(e.message);
+      errorToast(e);
     }
   };
   const o = r.options;
@@ -505,7 +519,7 @@ export function Render({ events, stages }) {
           ${data.legacy.map(
             (l) => html`<div class="variant">
               <div class="row"><b>edit v${l.edit} · ${l.variant}</b><span class="muted small-text">${mb(l.bytes)}</span><span class="grow"></span>
-                <button class="ghost" onClick=${() => post("/api/render-open", { dir: l.dir }).catch((e) => alert(e.message))}>Open folder</button></div>
+                <button class="ghost" onClick=${() => post("/api/render-open", { dir: l.dir }).catch((e) => errorToast(e))}>Open folder</button></div>
               <video class="render-video" controls preload="none" src=${media("project", join(l.dir, l.full))}></video>
             </div>`,
           )}

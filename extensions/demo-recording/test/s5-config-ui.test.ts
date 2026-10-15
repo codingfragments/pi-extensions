@@ -16,6 +16,7 @@ import { hasBinary } from "../src/media/ffmpeg.ts";
 import { configRoutes, settingsView } from "../src/panel/config-routes.ts";
 import { Runtime } from "../src/runtime.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
+import { answerDialogs } from "./helpers/panel-dialogs.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
   try {
@@ -210,12 +211,9 @@ test(
     try {
       const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
       const errors: string[] = [];
-      const dialogs: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
-      page.on("dialog", async (d) => {
-        dialogs.push(d.message());
-        await d.accept();
-      });
+      const dlg = answerDialogs(page);
+      const dialogs = dlg.seen;
       await page.goto(panel.url);
       await page.locator("button.config-btn").click();
       await page.waitForSelector(".setting-group");
@@ -229,7 +227,7 @@ test(
       await fps.locator("input").fill("24");
       await fps.getByRole("button", { name: "Save" }).click();
       await page.waitForTimeout(600);
-      assert.match(dialogs.at(-1) ?? "", /Set fps \(global\)\?[\s\S]*"fps": 24/);
+      assert.match(dialogs.at(-1) ?? "", /Set fps\?[\s\S]*Global[\s\S]*"fps": 24/);
       assert.equal(JSON.parse(fs.readFileSync(globalFile, "utf8")).fps, 24);
       // Project scope: reset the voiceName override
       await page.getByRole("button", { name: /^This project/ }).click();
@@ -238,7 +236,7 @@ test(
       });
       await vn.getByRole("button", { name: "reset" }).click();
       await page.waitForTimeout(600);
-      assert.match(dialogs.at(-1) ?? "", /Reset voiceName \(project kc\)/);
+      assert.match(dialogs.at(-1) ?? "", /Reset voiceName\?[\s\S]*Project kc/);
       assert.equal(
         JSON.parse(fs.readFileSync(path.join(p.dir, "config.json"), "utf8")).voiceName,
         undefined,

@@ -108,9 +108,9 @@ test("the separate run's documented prompt sections exist in the skill file", ()
   assert.match(actors, /What to suggest.*Writing rules.*Privacy/s);
 });
 
-test("decisions D85–D90 are recorded, and the architecture doc points at the decision record", () => {
+test("decisions D85–D97 are recorded, and the architecture doc points at the decision record", () => {
   const vision = read(path.join(DOCS, "VISION.md"));
-  for (let n = 85; n <= 90; n++) assert.match(vision, new RegExp(`^\\| D${n} \\|`, "m"), `D${n}`);
+  for (let n = 85; n <= 97; n++) assert.match(vision, new RegExp(`^\\| D${n} \\|`, "m"), `D${n}`);
   const arch = read(path.join(DOCS, "ARCHITECTURE.md"));
   assert.match(arch, /\(VISION\.md\)/);
   assert.match(arch, /## 13\. Decision map/);

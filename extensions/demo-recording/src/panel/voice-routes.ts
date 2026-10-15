@@ -17,7 +17,7 @@ import { voConfidence } from "../confidence/vo.ts";
 import type { Runtime } from "../runtime.ts";
 import { startEdit } from "../tools/edit.ts";
 import { startTts } from "../tools/tts.ts";
-import { estimateTts, formatEstimate } from "../tts/estimate.ts";
+import { formatEstimate, voiceEstimate } from "../tts/estimate.ts";
 import { buildEngines } from "../tts/factory.ts";
 import { firstLine } from "../util/events.ts";
 import { type VoDirection, readVo, writePendingDirection } from "../vo/store.ts";
@@ -177,21 +177,7 @@ export function voiceRoutes(rt: Runtime): { post: Record<string, PostRoute> } {
       "vo-generate": async (body) => {
         const p = requireProject();
         const version = versionOf(body);
-        const state = readState(p.dir) ?? p.state;
-        requireSelected(p.dir, state, "vo", version);
-        if (state.line.vo !== version)
-          throw new Error(
-            `voice-over v${version} is not on the working line (v${state.line.vo ?? "none"}) — switch to it first`,
-          );
-        const vo = readVo(p.dir, version);
-        if (!vo) throw new Error(`voice-over v${version} is missing on disk`);
-        const cfg = rt.getConfig(true);
-        const estimate = await estimateTts(
-          p.dir,
-          vo.validated.resolved,
-          buildEngines(cfg, { brief: briefOf(p.dir) }),
-          cfg,
-        );
+        const { estimate } = await voiceEstimate(rt, version);
         if (body.confirm !== true)
           return { planned: true, estimate, summary: formatEstimate(estimate) };
         if (rt.jobs.running("tts")) throw new Error("a voice job is already running");

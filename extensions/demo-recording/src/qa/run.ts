@@ -1,0 +1,681 @@
+/**
+ * Deterministic QA of a final render (S5 part 10, D69–D75) — the QA reviewer.
+ *
+ *   values       numbers/names the narration says vs. the page text at that moment (D71)
+ *   footage      error toasts and console/page errors inside the used footage
+ *   drift        Whisper on the rendered audio vs. each anchor's event (D72, D75)
+ *   media        frozen picture, silence, black frames (ffmpeg detect filters)
+ *   annotations  unplaceable items, redaction gaps, unredacted privacy hits
+ *
+ * Writes render/vN.qa.json + render/vN/qa-report.md; returns the summary for
+ * the record. Blocking items gate "accept" until fixed or confirmed (D70, D73).
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import { norm } from "../align/align.ts";
+import { dropSilentWords, envelope, refineOnsets, snapToOnset } from "../align/onset.ts";
+import { readAnalysis } from "../analysis/take.ts";
+import { resolveContext } from "../annotations/apply.ts";
+import { readVoText } from "../annotations/design.ts";
+import { readAnnotations } from "../annotations/file.ts";
+import { scanPrivacy } from "../annotations/privacy.ts";
+import { resolveAnnotations, sceneMsToTake, takeToSceneMs } from "../annotations/resolve.ts";
+import { resolveBrand } from "../brand/brand.ts";
+import type { DemoRecConfig } from "../config.ts";
+import { fullJob } from "../edit/render.ts";
+import type { SceneTimeline, Timeline } from "../edit/timeline.ts";
+import { ffmpeg, run } from "../media/ffmpeg.ts";
+import type { TakeEvent } from "../recorder/events.ts";
+import { type LayoutSnapshot, layoutAt, readLayout } from "../recorder/layout.ts";
+import type { RenderRequest } from "../render/run.ts";
+import type { RenderRecord, RenderVariantRec } from "../render/store.ts";
+import { readManifest, whisperWords } from "../tts/synthesize.ts";
+import { parseVo } from "../vo/script.ts";
+import { pageHas, spokenValues } from "./numbers.ts";
+import { type RenderOverrides, applyShifts } from "./overrides.ts";
+import type { QaFix, QaItem, QaReport, QaSummary } from "./types.ts";
+
+export const DRIFT_BLOCK_MS = 300;
+export const DRIFT_WARN_MS = 150;
+
+export const qaFile = (projectDir: string, v: number) =>
+  path.join(projectDir, "render", `v${v}.qa.json`);
+
+export function readQa(projectDir: string, v: number): QaReport | undefined {
+  const f = qaFile(projectDir, v);
+  return fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as QaReport) : undefined;
+}
+
+export function summarize(items: QaItem[], ranAt = new Date().toISOString()): QaSummary {
+  const blocking = items.filter((i) => i.level === "blocking");
+  const confirmed = blocking.filter((i) => i.confirmed).length;
+  return {
+    status:
+      blocking.length === 0 ? "pass" : confirmed === blocking.length ? "confirmed" : "blocked",
+    blocking: blocking.length,
+    confirmed,
+    warnings: items.filter((i) => i.level === "warning").length,
+    info: items.filter((i) => i.level === "info").length,
+    ranAt,
+  };
+}
+
+/** The timeline a render used: the edit's, with that render's overrides applied. */
+export function effectiveTimeline(projectDir: string, rec: RenderRecord): Timeline {
+  const t = JSON.parse(
+    fs.readFileSync(path.join(projectDir, "edit", `timeline.v${rec.timeline}.json`), "utf8"),
+  ) as Timeline;
+  const of = path.join(projectDir, "render", `v${rec.version}.overrides.json`);
+  if (!fs.existsSync(of)) return t;
+  const ov = JSON.parse(fs.readFileSync(of, "utf8")) as RenderOverrides;
+  return applyShifts(projectDir, t, ov.shifts).timeline;
+}
+
+function timingOf(projectDir: string, t: Timeline, v: RenderVariantRec, root: string) {
+  if (v.timing) return v.timing;
+  const b = resolveBrand(root, v.brand).brand;
+  const titleMs = b.title.enabled ? b.title.durationMs + b.title.dissolveMs : 0;
+  const fj = fullJob(t, projectDir, { titleMs });
+  return { titleMs, sceneStart: fj.sceneStart ?? {}, itemStart: fj.itemStart ?? [] };
+}
+
+function readEvents(takeDir: string): TakeEvent[] {
+  const f = path.join(takeDir, "events.jsonl");
+  if (!fs.existsSync(f)) return [];
+  return fs
+    .readFileSync(f, "utf8")
+    .split("\n")
+    .filter((l) => l.trim())
+    .map((l) => JSON.parse(l) as TakeEvent);
+}
+
+const pieceDur = (p: SceneTimeline["pieces"][number]) =>
+  "src" in p ? (p.src[1] - p.src[0]) / p.speed : p.freeze.dur;
+const secStr = (ms: number) =>
+  `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}.${String(Math.floor((ms % 1000) / 100))}`;
+
+/** Section-audio ms → scene output ms (undefined when that audio was cut). */
+function audioOut(sc: SceneTimeline, ms: number): number | undefined {
+  const p = sc.audio.find((a) => ms >= a.src[0] - 1 && ms <= a.src[1] + 1);
+  return p ? p.at + (ms - p.src[0]) : undefined;
+}
+
+interface Ctx {
+  projectDir: string;
+  config: DemoRecConfig;
+  rec: RenderRecord;
+  t: Timeline;
+  takeDir: string;
+  snaps: LayoutSnapshot[];
+  events: TakeEvent[];
+  timing: { titleMs: number; sceneStart: Record<string, number>; itemStart: number[] };
+  full: string;
+  signal?: AbortSignal;
+}
+
+// --- values (D71) ---------------------------------------------------------------------
+
+function domText(takeDir: string, mark: string): string {
+  const f = path.join(takeDir, "dom", `${mark}.yaml`);
+  return fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "";
+}
+const snapText = (s: LayoutSnapshot | undefined) =>
+  s ? s.els.map((e) => [e.text, e.name, e.value].filter(Boolean).join(" ")).join("\n") : "";
+
+export function checkValues(c: Ctx): QaItem[] {
+  const items: QaItem[] = [];
+  const m = readManifest(c.projectDir, c.t.voVersion);
+  const vo = readVoText(c.projectDir, c.t.voVersion);
+  if (!m || !vo) return items;
+  const sections = parseVo(vo).sections;
+  for (const sc of c.t.scenes) {
+    const sec = m.sections[sc.id];
+    const vsec = sections.find((s) => s.kind === "scene" && s.scene === sc.id);
+    if (!sec || !vsec) continue;
+    const start = c.timing.sceneStart[sc.id] ?? 0;
+    const sceneSnaps = c.snaps.filter((s) => s.scene === sc.id);
+    const sceneMarks = c.events
+      .filter((e) => e.scene === sc.id && e.mark)
+      .map((e) => e.mark as string);
+    const sceneText = [
+      ...sceneSnaps.map(snapText),
+      ...sceneMarks.map((mk) => domText(c.takeDir, mk)),
+    ].join("\n");
+    vsec.segments.forEach((seg, k) => {
+      const words = sec.alignment.words.filter((w) => w.seg === k);
+      if (!words.length) return;
+      for (const v of spokenValues(words.map((w) => w.w))) {
+        const w = words[v.wordIndex];
+        if (!w) continue;
+        const said = audioOut(sc, w.s * 1000);
+        if (said === undefined) continue;
+        const saidTake = sceneMsToTake(sc, said);
+        const atText = [
+          snapText(layoutAt(sceneSnaps, saidTake)),
+          seg.anchor ? domText(c.takeDir, seg.anchor) : "",
+        ].join("\n");
+        if (pageHas(atText, v)) continue;
+        const label = v.kind === "number" ? `“${v.said}”` : `the name “${v.said}”`;
+        if (pageHas(sceneText, v)) {
+          const shownSnap = sceneSnaps.find((s) => pageHas(snapText(s), v));
+          const shown = shownSnap ? takeToSceneMs(sc, shownSnap.t) : undefined;
+          const later = shown !== undefined && shown > said + 200;
+          const fix: QaFix | undefined =
+            later && v.kind === "number"
+              ? {
+                  kind: "shift-narration",
+                  scene: sc.id,
+                  anchor: seg.anchor ?? "",
+                  deltaMs: Math.round(shown - said + 300),
+                  label: `say it ${((shown - said + 300) / 1000).toFixed(1)} s later, when it's on screen`,
+                }
+              : undefined;
+          items.push({
+            id: "",
+            check: "values",
+            level: "warning",
+            scene: sc.id,
+            atMs: start + said,
+            message: `${label} is said at ${secStr(start + said)} but shown ${shown !== undefined ? `at ${secStr(start + shown)}` : "at another moment"} in ${sc.id}`,
+            ...(fix ? { fix } : {}),
+          });
+        } else
+          items.push({
+            id: "",
+            check: "values",
+            level: v.kind === "number" ? "blocking" : "warning",
+            scene: sc.id,
+            atMs: start + said,
+            message:
+              v.kind === "number"
+                ? `the narration says ${label} — it isn't on screen anywhere in ${sc.id}. Fix the number in the voice-over (or confirm it's meant, e.g. a forecast)`
+                : `${label} isn't on screen in ${sc.id} (names are checked loosely — a warning only)`,
+          });
+      }
+    });
+  }
+  return items;
+}
+
+// --- footage ----------------------------------------------------------------------------
+
+export function checkFootage(c: Ctx): QaItem[] {
+  const items: QaItem[] = [];
+  const analysis = readAnalysis(c.takeDir);
+  const used = (scene: string, t: number) => {
+    const sc = c.t.scenes.find((s) => s.id === scene);
+    return (
+      !!sc &&
+      sc.pieces.some((p) =>
+        "src" in p ? t >= p.src[0] && t <= p.src[1] : Math.abs(t - p.freeze.at) < 120,
+      )
+    );
+  };
+  for (const sc of c.t.scenes) {
+    const start = c.timing.sceneStart[sc.id] ?? 0;
+    const as = analysis?.scenes.find((s) => s.id === sc.id)?.alerts ?? [];
+    for (const a of as) {
+      if (!used(sc.id, a.t)) continue;
+      const err = /err|danger|fail|crit/i.test(a.level);
+      items.push({
+        id: "",
+        check: "footage",
+        level: err ? "blocking" : "warning",
+        scene: sc.id,
+        atMs: start + takeToSceneMs(sc, a.t),
+        message: `${err ? "an error" : `a ${a.level}`} message is on screen: “${a.text.slice(0, 120)}”${err ? " — re-record the scene, or confirm it's part of the story" : ""}`,
+      });
+    }
+    for (const e of c.events.filter(
+      (x) => x.scene === sc.id && (x.type === "console-error" || x.type === "page-error"),
+    )) {
+      if (!used(sc.id, e.t)) continue;
+      items.push({
+        id: "",
+        check: "footage",
+        level: "blocking",
+        scene: sc.id,
+        atMs: start + takeToSceneMs(sc, e.t),
+        message: `the app logged ${e.type === "page-error" ? "an uncaught error" : "a console error"} during this part of the video: “${String((e.data as { text?: string } | undefined)?.text ?? "").slice(0, 120)}” — not visible, but the app may be in a broken state`,
+      });
+    }
+  }
+  return items;
+}
+
+// --- drift (D72, D75) --------------------------------------------------------------------
+
+export async function checkDrift(c: Ctx): Promise<{ items: QaItem[]; whisper: boolean }> {
+  const m = readManifest(c.projectDir, c.t.voVersion);
+  const vo = readVoText(c.projectDir, c.t.voVersion);
+  if (!m || !vo) return { items: [], whisper: false };
+  const wav = path.join(
+    path.dirname(qaFile(c.projectDir, c.rec.version)),
+    `v${c.rec.version}.qa-audio.wav`,
+  );
+  const sections = parseVo(vo).sections;
+  const said = Object.values(m.sections).flatMap((s) => s.alignment.words.map((w) => w.w));
+  let heard: { w: string; s: number }[];
+  let env: number[] = [];
+  try {
+    await ffmpeg(["-i", c.full, "-vn", "-ac", "1", "-ar", "16000", "-y", wav]);
+    // Whisper's word starts are loose (±0.3 s after pauses): refine them on the audio
+    // envelope, as the voice pipeline does, and snap each anchored word to its onset.
+    env = await envelope(wav);
+    const raw = await whisperWords(wav, said.join(" "), c.config.align.model);
+    heard = refineOnsets(dropSilentWords(raw, env), env).map((w) => ({ w: w.w, s: w.s }));
+  } catch (err) {
+    return {
+      items: [
+        {
+          id: "",
+          check: "drift",
+          level: "warning",
+          message: `sync not checked: Whisper isn't available (${(err as Error).message.split("\n")[0]}) — install uv + Python for full QA`,
+        },
+      ],
+      whisper: false,
+    };
+  } finally {
+    fs.rmSync(wav, { force: true });
+  }
+  const H = heard.map((h) => ({ n: norm(h.w), s: h.s * 1000 }));
+  const items: QaItem[] = [];
+  for (const sc of c.t.scenes) {
+    const start = c.timing.sceneStart[sc.id] ?? 0;
+    const sec = m.sections[sc.id];
+    const vsec = sections.find((s) => s.kind === "scene" && s.scene === sc.id);
+    if (!sec || !vsec) continue;
+    for (const a of sc.anchors) {
+      const k = vsec.segments.findIndex((s) => s.anchor === a.mark);
+      const first = sec.alignment.words
+        .filter((w) => w.seg === k)
+        .slice(0, 2)
+        .map((w) => norm(w.w));
+      if (!first.length) continue;
+      const expect = start + a.out;
+      let best: number | undefined;
+      for (let i = 0; i + first.length <= H.length; i++) {
+        if (!first.every((f, j) => H[i + j]?.n === f)) continue;
+        const ts = (H[i] as { s: number }).s;
+        if (Math.abs(ts - expect) > 3000) continue;
+        if (best === undefined || Math.abs(ts - expect) < Math.abs(best - expect)) best = ts;
+      }
+      if (best === undefined) continue;
+      best = snapToOnset(best / 1000, env) * 1000;
+      const drift = Math.round(best - expect);
+      const abs = Math.abs(drift);
+      if (abs <= DRIFT_WARN_MS) continue;
+      items.push({
+        id: "",
+        check: "drift",
+        level: abs > DRIFT_BLOCK_MS ? "blocking" : "warning",
+        scene: sc.id,
+        atMs: expect,
+        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment`,
+        fix: {
+          kind: "shift-narration",
+          scene: sc.id,
+          anchor: a.mark,
+          deltaMs: -drift,
+          label: `move it ${(abs / 1000).toFixed(2)} s ${drift > 0 ? "earlier" : "later"}`,
+        },
+      });
+    }
+  }
+  return { items, whisper: true };
+}
+
+// --- media ------------------------------------------------------------------------------
+
+/** Windows (full ms) where the edit holds a frame on purpose: freezes, cards, the title hold. */
+function heldWindows(c: Ctx): [number, number][] {
+  const w: [number, number][] = [];
+  c.t.full.forEach((item, i) => {
+    const at = c.timing.itemStart[i] ?? 0;
+    if (item.type === "card") w.push([at, at + item.durationMs]);
+    else {
+      const sc = c.t.scenes.find((s) => s.id === item.id);
+      let out = at;
+      for (const p of sc?.pieces ?? []) {
+        const d = pieceDur(p);
+        if (!("src" in p) || p.kind === "static" || p.kind === "dead") w.push([out, out + d]);
+        out += d;
+      }
+    }
+  });
+  if (c.timing.titleMs) w.push([0, c.timing.titleMs]);
+  return w;
+}
+
+export async function checkMedia(c: Ctx): Promise<QaItem[]> {
+  const items: QaItem[] = [];
+  const r = await run("ffmpeg", [
+    "-hide_banner",
+    "-nostats",
+    "-i",
+    c.full,
+    "-vf",
+    "freezedetect=n=0.002:d=3,blackdetect=d=0.5:pix_th=0.08",
+    "-af",
+    "silencedetect=noise=-45dB:d=2.5",
+    "-f",
+    "null",
+    "-",
+  ]);
+  const log = `${r.stdout}\n${r.stderr}`;
+  const num = (re: RegExp) => [...log.matchAll(re)].map((m) => Number(m[1]) * 1000);
+  const fs0 = num(/freeze_start: ([\d.]+)/g);
+  const fe = num(/freeze_end: ([\d.]+)/g);
+  const held = heldWindows(c);
+  const overlapShare = (a: number, b: number) =>
+    held.reduce((n, [x, y]) => n + Math.max(0, Math.min(b, y) - Math.max(a, x)), 0) /
+    Math.max(1, b - a);
+  fs0.forEach((s, i) => {
+    const e = fe[i] ?? (c.rec.variants[0]?.durationSec ?? 0) * 1000;
+    const expected = overlapShare(s, e) >= 0.6;
+    items.push({
+      id: "",
+      check: "media",
+      level: expected || e - s < 6000 ? "info" : "warning",
+      atMs: s,
+      message: `the picture stands still for ${((e - s) / 1000).toFixed(1)} s${expected ? " (a held frame of the edit — expected)" : " — a loading screen or a frozen page?"}`,
+    });
+  });
+  const ss = num(/silence_start: ([\d.]+)/g);
+  const se = num(/silence_end: ([\d.]+)/g);
+  ss.forEach((s, i) => {
+    const e = se[i] ?? s;
+    const long = e - s >= 4000;
+    items.push({
+      id: "",
+      check: "media",
+      level: long ? "warning" : "info",
+      atMs: s,
+      message: `no narration for ${((e - s) / 1000).toFixed(1)} s${long ? " — a long pause" : ""}`,
+    });
+  });
+  for (const m of log.matchAll(/black_start:([\d.]+) black_end:([\d.]+)/g)) {
+    const s = Number(m[1]) * 1000;
+    const e = Number(m[2]) * 1000;
+    items.push({
+      id: "",
+      check: "media",
+      level: "warning",
+      atMs: s,
+      message: `a black picture for ${((e - s) / 1000).toFixed(1)} s`,
+    });
+  }
+  return items;
+}
+
+// --- annotations ----------------------------------------------------------------------------
+
+export function checkAnnotations(c: Ctx): QaItem[] {
+  const items: QaItem[] = [];
+  const v = c.rec.basedOn.annotations;
+  const file = v !== undefined ? readAnnotations(c.projectDir, v) : undefined;
+  const types = c.rec.options.annotationTypes;
+  const included = (file?.items ?? []).filter(
+    (it) => it.enabled && (types === "all" || types.includes(it.type)),
+  );
+  if (file && included.length) {
+    const rc = { ...resolveContext(c.projectDir, c.t), timeline: c.t };
+    const r = resolveAnnotations({ ...file, items: included }, rc);
+    for (const w of r.warnings)
+      items.push({ id: "", check: "annotations", level: "warning", message: w });
+    // Redaction gaps: the redacted element's later positions must stay inside the redaction.
+    for (const res of r.items.filter((x) => x.type === "redact" && x.box)) {
+      const it = included.find((x) => x.id === res.id);
+      const sc = c.t.scenes.find((s) => s.id === res.scene);
+      if (!it?.target || !sc || !res.box) continue;
+      let text: string | undefined;
+      if ("text" in it.target) text = it.target.text;
+      else if ("layout" in it.target) {
+        const [, ms, id] = /^t(\d+)#(e\d+)$/.exec(it.target.layout) ?? [];
+        const el = c.snaps.find((s) => s.t === Number(ms))?.els.find((e) => e.id === id);
+        text = el?.text ?? el?.name;
+      }
+      if (!text) continue;
+      const sx = rc.source.w / rc.viewport.width;
+      const sy = rc.source.h / rc.viewport.height;
+      const t0 = sceneMsToTake(sc, res.startMs);
+      const t1 = sceneMsToTake(sc, res.endMs);
+      for (const s of c.snaps.filter((x) => x.scene === res.scene && x.t >= t0 && x.t <= t1)) {
+        for (const el of s.els.filter((e) => (e.text ?? e.name) === text)) {
+          const b = { x: el.box.x * sx, y: el.box.y * sy, w: el.box.w * sx, h: el.box.h * sy };
+          const inside =
+            b.x >= res.box.x - 8 &&
+            b.y >= res.box.y - 8 &&
+            b.x + b.w <= res.box.x + res.box.w + 8 &&
+            b.y + b.h <= res.box.y + res.box.h + 8;
+          if (!inside) {
+            items.push({
+              id: "",
+              check: "annotations",
+              level: "blocking",
+              scene: res.scene,
+              atMs: (c.timing.sceneStart[res.scene] ?? 0) + takeToSceneMs(sc, s.t),
+              message: `redaction ${res.id} doesn't cover its element here — it moved; add a redaction for its new position`,
+            });
+            break;
+          }
+        }
+      }
+    }
+  }
+  // Privacy hits that this render shows unredacted.
+  const redacts = included.filter((x) => x.type === "redact");
+  for (const h of scanPrivacy(c.snaps)) {
+    const sc = c.t.scenes.find((s) => s.id === h.scene);
+    if (!sc) continue;
+    const covered = redacts.some(
+      (r) => r.scene === h.scene && r.target && "layout" in r.target && r.target.layout === h.ref,
+    );
+    if (covered) continue;
+    items.push({
+      id: "",
+      check: "annotations",
+      level: "warning",
+      scene: h.scene,
+      atMs: (c.timing.sceneStart[h.scene] ?? 0) + takeToSceneMs(sc, h.t),
+      message: `possibly private data on screen, not redacted: ${h.reason} (${h.masked})`,
+    });
+  }
+  return items;
+}
+
+// --- run ------------------------------------------------------------------------------------
+
+export async function runQa(o: {
+  projectDir: string;
+  config: DemoRecConfig;
+  rec: RenderRecord;
+  signal?: AbortSignal;
+}): Promise<QaSummary> {
+  const v = o.rec.variants[0];
+  if (!v) throw new Error(`render v${o.rec.version} has no variants`);
+  const full = path.join(o.projectDir, v.dir, v.files.full);
+  if (!fs.existsSync(full)) throw new Error(`render v${o.rec.version} has no video files any more`);
+  const t = effectiveTimeline(o.projectDir, o.rec);
+  const takeDir = path.join(o.projectDir, "takes", t.take);
+  const c: Ctx = {
+    projectDir: o.projectDir,
+    config: o.config,
+    rec: o.rec,
+    t,
+    takeDir,
+    snaps: readLayout(takeDir),
+    events: readEvents(takeDir),
+    timing: timingOf(o.projectDir, t, v, o.config.root),
+    full,
+    ...(o.signal ? { signal: o.signal } : {}),
+  };
+  const previous = readQa(o.projectDir, o.rec.version);
+  const drift = await checkDrift(c);
+  const items = [
+    ...checkValues(c),
+    ...checkFootage(c),
+    ...drift.items,
+    ...(await checkMedia(c)),
+    ...checkAnnotations(c),
+  ];
+  const order = { blocking: 0, warning: 1, info: 2 } as const;
+  items.sort((a, b) => order[a.level] - order[b.level] || (a.atMs ?? 0) - (b.atMs ?? 0));
+  items.forEach((it, i) => {
+    it.id = `${it.check}-${i + 1}`;
+    // Keep confirmations across re-runs when the same issue is found again.
+    const same = previous?.items.find(
+      (p) => p.confirmed && p.check === it.check && p.message === it.message,
+    );
+    if (same?.confirmed) it.confirmed = same.confirmed;
+  });
+  const report: QaReport = {
+    render: o.rec.version,
+    variant: v.key,
+    createdAt: new Date().toISOString(),
+    whisper: drift.whisper,
+    items,
+  };
+  fs.writeFileSync(qaFile(o.projectDir, o.rec.version), `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(
+    path.join(o.projectDir, "render", `v${o.rec.version}`, "qa-report.md"),
+    formatQaMarkdown(report),
+  );
+  return summarize(items, report.createdAt);
+}
+
+/** Never throws: a failing QA becomes status "error" on the record. */
+export async function runQaSafe(o: {
+  projectDir: string;
+  config: DemoRecConfig;
+  rec: RenderRecord;
+  signal?: AbortSignal;
+}): Promise<QaSummary> {
+  try {
+    return await runQa(o);
+  } catch (err) {
+    return {
+      status: "error",
+      blocking: 0,
+      confirmed: 0,
+      warnings: 0,
+      info: 0,
+      ranAt: new Date().toISOString(),
+      error: (err as Error).message,
+    };
+  }
+}
+
+/** Confirm a blocking item ("export anyway", D73). */
+export function confirmItem(
+  projectDir: string,
+  version: number,
+  id: string,
+  reason: string,
+  now = new Date(),
+): { report: QaReport; summary: QaSummary } {
+  const report = readQa(projectDir, version);
+  if (!report) throw new Error(`render v${version} has no QA report — run QA first`);
+  const it = report.items.find((x) => x.id === id);
+  if (!it) throw new Error(`QA item ${id} is not in the report of render v${version}`);
+  if (it.level !== "blocking")
+    throw new Error(`${id} is a ${it.level} — only blocking items need a confirmation`);
+  if (reason.trim().length < 3)
+    throw new Error("a reason is required — why is it fine to export anyway?");
+  it.confirmed = { at: now.toISOString(), reason: reason.trim().slice(0, 500) };
+  fs.writeFileSync(qaFile(projectDir, version), `${JSON.stringify(report, null, 2)}\n`);
+  return { report, summary: summarize(report.items, report.createdAt) };
+}
+
+/** Why a final can't be accepted yet (undefined = it can, D70). */
+export function qaBlocker(rec: RenderRecord): string | undefined {
+  if (rec.kind !== "final") return undefined;
+  if (!rec.qa) return "QA has not run on this final — Re-run QA first";
+  if (rec.qa.status === "error") return `QA failed to run (${rec.qa.error}) — Re-run QA`;
+  if (rec.qa.status === "blocked")
+    return `QA found ${rec.qa.blocking - rec.qa.confirmed} blocking item(s) — fix them (Apply fixes / a new render) or confirm each with a reason`;
+  return undefined;
+}
+
+export function formatQa(report: QaReport, summary: QaSummary): string {
+  const head = `QA of render v${report.render} (${report.variant}): ${summary.status} — ${summary.blocking} blocking${summary.confirmed ? ` (${summary.confirmed} confirmed)` : ""}, ${summary.warnings} warning(s), ${summary.info} info${report.whisper ? "" : " · sync not checked (no Whisper)"}`;
+  const lines = [head];
+  for (const it of report.items.filter((i) => i.level !== "info"))
+    lines.push(
+      `- [${it.level}${it.confirmed ? ", confirmed" : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}${it.fix ? ` → fix: ${it.fix.label}` : ""}`,
+    );
+  return lines.join("\n");
+}
+
+export function formatQaMarkdown(report: QaReport): string {
+  const s = summarize(report.items, report.createdAt);
+  const lines = [
+    `# QA — render v${report.render}`,
+    "",
+    `Status: **${s.status}** · ${s.blocking} blocking (${s.confirmed} confirmed) · ${s.warnings} warnings · ${s.info} info · checked ${report.createdAt}`,
+    "",
+  ];
+  for (const level of ["blocking", "warning", "info"] as const) {
+    const xs = report.items.filter((i) => i.level === level);
+    if (!xs.length) continue;
+    lines.push(`## ${level}`, "");
+    for (const it of xs)
+      lines.push(
+        `- ${it.atMs !== undefined ? `\`${secStr(it.atMs)}\` ` : ""}${it.scene ? `(${it.scene}) ` : ""}${it.message}${it.fix ? ` — fix: ${it.fix.label}` : ""}${it.confirmed ? ` — **confirmed**: ${it.confirmed.reason}` : ""}`,
+      );
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The render request that applies fixes of render `version` (D74): same
+ * annotations, timeline, brands and options; the overrides are that render's
+ * own plus the chosen fixes, shifts of the same segment added up.
+ */
+export function fixRequest(
+  projectDir: string,
+  version: number,
+  ids: string[] | "all",
+  by: RenderRecord["by"],
+): RenderRequest {
+  const rec = readRenderRecord(projectDir, version);
+  const q = readQa(projectDir, version);
+  if (!q) throw new Error(`render v${version} has no QA report`);
+  const chosen = q.items
+    .filter((i) => i.fix && (ids === "all" || ids.includes(i.id)))
+    .map((i) => i.fix as QaFix);
+  if (!chosen.length) throw new Error("no fixable items selected");
+  const prev = path.join(projectDir, "render", `v${version}.overrides.json`);
+  const earlier = fs.existsSync(prev)
+    ? (JSON.parse(fs.readFileSync(prev, "utf8")) as RenderOverrides).shifts
+    : [];
+  const merged = new Map<string, QaFix>();
+  for (const f of [...earlier, ...chosen]) {
+    const k = `${f.scene}\u0000${f.anchor}`;
+    const m = merged.get(k);
+    merged.set(
+      k,
+      m ? { ...m, deltaMs: m.deltaMs + f.deltaMs, label: `${m.label}; ${f.label}` } : { ...f },
+    );
+  }
+  return {
+    kind: "final",
+    ...(rec.basedOn.annotations !== undefined
+      ? { annotations: rec.basedOn.annotations }
+      : { annotations: null }),
+    timeline: rec.timeline,
+    brands: rec.brands,
+    options: rec.options,
+    overrides: { fromRender: version, shifts: [...merged.values()].filter((f) => f.deltaMs !== 0) },
+    by,
+  };
+}
+
+function readRenderRecord(projectDir: string, v: number): RenderRecord {
+  const f = path.join(projectDir, "render", `v${v}.json`);
+  if (!fs.existsSync(f)) throw new Error(`render v${v} does not exist`);
+  return JSON.parse(fs.readFileSync(f, "utf8")) as RenderRecord;
+}

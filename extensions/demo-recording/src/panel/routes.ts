@@ -9,6 +9,7 @@ import path from "node:path";
 import { readDraft } from "../annotations/draft.ts";
 import { readAnnotations } from "../annotations/file.ts";
 import type { EventBus } from "../bus.ts";
+import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
@@ -326,6 +327,8 @@ export function panelRoutes(deps: RouteDeps): {
           if (r.status !== "done") throw new Error(`render v${version} is ${r.status}`);
           if (r.deleted || r.pruned)
             throw new Error(`render v${version} has no files any more — render it again`);
+          const why = qaBlocker(r);
+          if (why) throw new Error(why);
         }
         if (artifact === "annotations") {
           if (!readAnnotations(p.dir, version))

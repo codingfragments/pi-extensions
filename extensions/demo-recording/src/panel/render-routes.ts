@@ -11,17 +11,19 @@ import path from "node:path";
 import { readDraft } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations, writeAnnotations } from "../annotations/file.ts";
 import { listBrands } from "../brand/brand.ts";
+import { confirmItem, qaBlocker, readQa } from "../qa/run.ts";
 import { type RenderRequest, finalBlocker, latestTimelineFor } from "../render/run.ts";
 import {
   deleteRenderFiles,
   legacyRenders,
   listRenders,
   readRender,
+  saveRecord,
   variantPresent,
   variantZip,
 } from "../render/store.ts";
 import type { Runtime } from "../runtime.ts";
-import { startRender } from "../tools/render.ts";
+import { startFixes, startQa, startRender } from "../tools/render.ts";
 import { openInBrowser } from "../util/open.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import { isUsable } from "../workdir/stages.ts";
@@ -69,6 +71,7 @@ export function rendersView(rt: Runtime) {
       ...r,
       accepted: !!accepted[String(r.version)],
       onLine: state.line.render === r.version,
+      qaBlocker: qaBlocker(r) ?? null,
       variants: r.variants.map((v) => {
         const present = variantPresent(p.dir, v);
         // Size of every file (the table shows them per row).
@@ -104,6 +107,19 @@ export function renderRoutes(rt: Runtime): {
   return {
     get: {
       renders: () => rendersView(rt),
+      /** ?version=N → the full QA report. */
+      "render-qa": (q) => {
+        const p = requireProject();
+        const v = Number(q.get("version"));
+        const rec = readRender(p.dir, v);
+        if (!rec) throw new Error(`render v${v} does not exist`);
+        return {
+          version: v,
+          summary: rec.qa,
+          report: readQa(p.dir, v) ?? null,
+          blocker: qaBlocker(rec) ?? null,
+        };
+      },
     },
     post: {
       /** { kind, annotations?: number|null, fromDraft?, brands?, options?, confirmUnredacted? } → background job. */
@@ -139,6 +155,60 @@ export function renderRoutes(rt: Runtime): {
         const j = rt.jobs.running("render");
         if (j) j.controller.abort();
         return { cancelled: !!j };
+      },
+      /** Re-run QA of a final (background). */
+      "render-qa-run": (body) => {
+        const job = startQa(rt, Number(body.version), "panel");
+        return { job: job.id };
+      },
+      /** Confirm a blocking item — "export anyway" with a reason (D73). */
+      "render-qa-confirm": (body) => {
+        const p = requireProject();
+        const v = Number(body.version);
+        const rec = readRender(p.dir, v);
+        if (!rec) throw new Error(`render v${v} does not exist`);
+        const { report, summary } = confirmItem(
+          p.dir,
+          v,
+          String(body.id ?? ""),
+          String(body.reason ?? ""),
+        );
+        rec.qa = summary;
+        saveRecord(p.dir, rec);
+        const it = report.items.find((x) => x.id === body.id);
+        recordInput(p.dir, {
+          stage: "render",
+          version: v,
+          source: "panel",
+          kind: "review",
+          text: `QA of render v${v}: confirmed "${it?.message}" — ${String(body.reason)}`,
+        });
+        rt.bus.publish(
+          "render.qa",
+          {
+            version: v,
+            status: summary.status,
+            message: `QA item confirmed on render v${v} (${summary.status})`,
+          },
+          p.slug,
+        );
+        return { summary, blocker: qaBlocker(rec) ?? null };
+      },
+      /** Apply proposed fixes (D74) → a new final render with overrides. */
+      "render-qa-fix": (body) => {
+        const p = requireProject();
+        const ids = Array.isArray(body.ids) && body.ids.length ? body.ids.map(String) : "all";
+        const job = startFixes(rt, Number(body.version), ids, "panel");
+        rt.bus.publish(
+          "render.started",
+          {
+            job: job.id,
+            kind: "final",
+            message: `fixes of render v${String(body.version)} → a new final render`,
+          },
+          p.slug,
+        );
+        return { job: job.id };
       },
       /** Delete a render's files (D64); the record stays as "deleted". Accepted finals need confirmAccepted. */
       "render-delete": (body) => {

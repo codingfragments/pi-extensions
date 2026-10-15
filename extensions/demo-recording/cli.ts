@@ -31,11 +31,12 @@ import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
 import { runFixtureDemo } from "./src/pipeline/fixture-demo.ts";
 import { runS1 } from "./src/pipeline/s1.ts";
+import { confirmItem, fixRequest, formatQa, qaBlocker, readQa, runQaSafe } from "./src/qa/run.ts";
 import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
 import { formatRender, runRender } from "./src/render/run.ts";
-import { readRender } from "./src/render/store.ts";
+import { listRenders, readRender, saveRecord } from "./src/render/store.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
 import { toSuggestion } from "./src/tools/annotations.ts";
@@ -68,6 +69,9 @@ Commands:
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
   accept --project P --stage S --version N   accept a version (the panel's Accept, from the shell)
+  qa --project P [--version N] [--run | --confirm ID --reason R | --fix all|ID,ID]
+                                           QA of a final render: show / re-run / confirm a blocking
+                                           item / apply the proposed fixes (a new final render)
   annotate context --project P [--base N] [--instructions T]
                                            the Annotation designer's input pack for the latest edit
   annotate suggest --project P --file F [--base N] [--instructions T]
@@ -298,9 +302,67 @@ async function main(argv: string[]): Promise<number> {
       const r = readRender(project.dir, v);
       if (!r || r.kind !== "final" || r.status !== "done")
         throw new Error("only finished final renders can be accepted");
+      const why = qaBlocker(r);
+      if (why) throw new Error(why);
     }
     const state = acceptStage(project.dir, values.stage, v);
     console.log(`accepted ${values.stage} v${v} · working line: ${formatLine(state.line)}`);
+    return 0;
+  }
+
+  if (command === "qa") {
+    // QA of a final render (S5 part 10): show, re-run, confirm an item, apply fixes.
+    const args = sub ? [sub, ...rest] : rest;
+    const { values } = parseArgs({
+      args,
+      options: {
+        project: { type: "string" },
+        version: { type: "string" },
+        run: { type: "boolean", default: false },
+        confirm: { type: "string" },
+        reason: { type: "string" },
+        fix: { type: "string" },
+      },
+    });
+    if (!values.project)
+      throw new Error(
+        "usage: qa --project P [--version N] [--run | --confirm ID --reason R | --fix all|ID,ID]",
+      );
+    const project = openProject(cfg.root, values.project);
+    const v = values.version
+      ? Number(values.version)
+      : listRenders(project.dir).find((r) => r.kind === "final")?.version;
+    if (v === undefined) throw new Error("no final render yet");
+    const rec = readRender(project.dir, v);
+    if (!rec) throw new Error(`render v${v} does not exist`);
+    if (values.confirm) {
+      const { summary } = confirmItem(project.dir, v, values.confirm, values.reason ?? "");
+      rec.qa = summary;
+      saveRecord(project.dir, rec);
+    } else if (values.fix) {
+      const fixed = await runRender({
+        projectDir: project.dir,
+        config: cfg,
+        request: fixRequest(
+          project.dir,
+          v,
+          values.fix === "all" ? "all" : values.fix.split(","),
+          "cli",
+        ),
+        onProgress: (p) => console.log(`[${p.done.toFixed(1)}/${p.total}] ${p.label}`),
+      });
+      console.log(formatRender(fixed));
+      const fq = readQa(project.dir, fixed.version);
+      if (fq && fixed.qa) console.log(formatQa(fq, fixed.qa));
+      return 0;
+    } else if (values.run || !rec.qa) {
+      rec.qa = await runQaSafe({ projectDir: project.dir, config: cfg, rec });
+      saveRecord(project.dir, rec);
+    }
+    const q = readQa(project.dir, v);
+    console.log(q && rec.qa ? formatQa(q, rec.qa) : `render v${v}: ${rec.qa?.error ?? "no QA"}`);
+    const why = qaBlocker(rec);
+    console.log(why ? `accept: blocked — ${why}` : "accept: possible");
     return 0;
   }
 

@@ -18,7 +18,7 @@ const bare = (spec) => (spec ? spec.split("/").slice(1).join("/") || spec : "");
 /** "starts the Director · claude-opus-4-5" — a turn on the session model; its cost can't be estimated. */
 export function CostHint({ what = "starts the Director", model }) {
   const m = model ?? models?.session;
-  return html`<span class="cost-hint" title=${`${what} on ${m ?? "the session model"}: an agent turn, its cost can't be estimated`}>${what}${m ? ` · ${bare(m)}` : ""}</span>`;
+  return html`<span class="ds-hint cost-hint" title=${`${what} on ${m ?? "the session model"}: an agent turn, its cost can't be estimated`}>${what}${m ? ` · ${bare(m)}` : ""}</span>`;
 }
 
 /**

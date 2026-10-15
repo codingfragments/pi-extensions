@@ -177,15 +177,15 @@ function ModalBox({ title, onClose, size = "medium", actions, children }) {
     box.current?.focus();
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
-  return html`<div class="modal-backdrop" onClick=${(e) => e.target === e.currentTarget && onClose()}>
-    <div class=${`modal ${size}`} role="dialog" aria-modal="true" aria-label=${title} tabindex="-1" ref=${box}>
-      <header class="modal-head">
+  return html`<div class="modal-backdrop ds-backdrop" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+    <div class=${`modal ${size} ds-dialog${size === "medium" ? " ds-dialog--wide" : ""}`} role="dialog" aria-modal="true" aria-label=${title} tabindex="-1" ref=${box}>
+      <header class="modal-head ds-dialog-head">
         <h2>${title}</h2>
-        <span class="grow"></span>
+        <span class="grow ds-grow"></span>
         ${actions ?? null}
-        <button class="ghost modal-close" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
+        <button class="ds-btn ds-btn--ghost ds-btn--icon modal-close" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
       </header>
-      <div class="modal-body">${children}</div>
+      <div class="modal-body ds-dialog-body">${children}</div>
     </div>
   </div>`;
 }

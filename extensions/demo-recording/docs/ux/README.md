@@ -25,12 +25,12 @@ works in the address bar. Press `/` on the showcase to focus the search field.
 
 | File | Role |
 |---|---|
-| `tokens.css` | The **only** file with colour literals: both themes, type, space, radius, elevation, motion, layers, layout. |
-| `base.css` | Element defaults, one focus ring, helpers. |
-| `components.css` | The `ds-` components. Tokens only. |
-| `config.css`, `config.js` | The Config page component and its search prototype (fixture data with the real keys and groups). |
-| `map.css`, `map.js` | The map component and its prototype logic. |
-| `shell.js` | Builds the frame (header, stepper, next action, strip, drawer) for the mock screens. |
+| `../../src/panel/public/ds/tokens.css` | The **only** file with colour literals: both themes, type, space, radius, elevation, motion, layers, layout. **The panel loads it too** (UX1): one source, no copies. |
+| `../../src/panel/public/ds/base.css` | Global safe rules (one focus ring, `[hidden]`, reduced motion) and the element defaults scoped to `.ds-root`. |
+| `../../src/panel/public/ds/components.css` | The `ds-` components. Tokens only. |
+| `config.css`, `config.js` | The Config page component and its search prototype (fixture data with the real keys and groups). Moves into the panel in UX9. |
+| `map.css`, `map.js` | The map component and its prototype logic. Moves into the panel in UX4. |
+| `shell.js` | Builds the frame (header, stepper, next action, strip, drawer) for the mock screens. Replaced by the real frame in UX2. |
 | `tile.css`, `tile.js` | Showcase page chrome and behaviour. |
 
 ## What is enforced

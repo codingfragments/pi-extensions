@@ -661,12 +661,13 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 5b | **Config UI** (D41/D48): the ⚙ Config button at the far right — Settings (global and project overrides) and Brands | ✅ |
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | ✅ |
 | 7 | Annotation rendering (engine) — [docs/ANNOTATIONS.md](ANNOTATIONS.md) | ✅ |
-| 8 | Annotations stage (designer, tab, review, approve, import) | |
+| 8 | Annotations stage (designer, tab, review, approve, import) | ✅ |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | |
 | 10 | Deterministic QA + mechanical auto-fix | |
 | 11 | Confidence-guided review + voice direction | |
 | 12 | Actor & dependency model document, per-role model config | |
 | 13 | **Panel modals + cost warnings** (user backlog): in-panel modal dialogs instead of native `alert` / `confirm` / `prompt`, plus a warning before any action that may start a paid AI step (LLM, improvise model, TTS) | backlog |
+| 14 | **User guide + control room 101** (user backlog): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
 - **3 first:** the chain and the input log are the backbone every later part writes into.
@@ -810,33 +811,75 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Sidecars:** `full.callouts.srt` (callouts) and VTT transcripts move to part 9.
 - **Tests:** `test/s5-annotations.test.ts` — validation, versions, time mapping, resolution (settled/step/text/layout/box, warnings, page changes), zoom geometry and easing, segment planning and graph shape, full-video shifting, slicing, and a real render of every type on a synthetic take with pixel probes.
 
-*8. Annotations stage (D31, D35–D37)*
-- **Annotation designer** (`annotation-designer` skill, played by the Director by default; D40).
-  - **Inputs:** the accepted take (keyframes, layout snapshots, events), the storyboard's `emphasis` hints, the generated voice-over (script, anchors, word timings), the brief, and the input log.
-  - **Suggests about 2× as many annotations as it enables**, each with:
-    - type, scene, anchor (`mark` or word);
-    - target (element ref from a layout snapshot, or a step target);
-    - text (callouts, chapters), and a one-line reason;
-    - weights (Q7).
-  - **Pre-enables** the recommended set: the best value per noise within the caps.
-  - **Defaults:** spotlight is off unless the value is 5; chapter titles and redactions are off and outside the budget.
-  - **The **Privacy officer** role** (part of the same skill run by default) scans layout snapshots for emails, person names, tokens and IDs, and adds redaction suggestions with the reason "looks like an email".
-  - **Writing rules** in the skill: a callout names *what* to look at, the voice says *why*, and never word for word; no annotation during typing; nothing on top of a callout; don't stack zooms.
+*8. Annotations stage (D31, D35–D37, D52–D58)* — ✅ done; user-facing reference: [ANNOTATIONS.md](ANNOTATIONS.md#the-annotations-stage)
+- **As built (refinements found on the fixture):**
+  - **Q7 value bonus:** "+1 for a VO match" means the narration at the anchor *mentions what the item shows* (a content word or number of the target's text, or of the callout). A bare narration anchor is not enough: almost every mark is one, which pushed everything to 5. Spotlights get no bonus.
+  - **Recommended set:** value-5 items (must-haves) come first, then value per noise. Pure ratio order filled the half with cheap highlights and left the demo's key zoom off.
+  - **Placement:** checked one item at a time, so two zoom candidates for the same moment don't knock each other out.
+  - **Previews (user feedback):** a click on a card's still opens a large popup; a click on the image there renders and plays the clip. Stills and clips are 960×540, sharp enough for the popup; scene drafts stay 640×360, inline. The card's on/off switch became one **enabled** checkbox at the top left of the card.
+  - **Input pack:** privacy hits are masked; long texts (an assistant's answer) are kept, truncated for display.
+  - **Accepting:** refused while the version has unsaved draft changes. The agent then re-renders with `demo_rec_edit action=rerender annotations=N`.
+- **Annotation designer = a skill in the main agent (D52).** `skills/demo-annotations` (Annotation designer + Privacy officer). The agent reads a compact **input pack** from `demo_rec_annotations action=context` and submits suggestions with `action=suggest`; the engine does everything deterministic.
+  - **The input pack, per scene:**
+    - duration;
+    - marks with their output time and the VO sentence at each anchor;
+    - `emphasis` hints;
+    - steps with their targets;
+    - the on-screen elements at each mark (role, text, ref `t<ms>#e<n>`, box);
+    - privacy hits;
+    - the caps and the noise table.
+  - **What the engine does on `suggest`:**
+    - validates and resolves every item, and returns the ones that don't resolve, with reasons, so the agent can fix them;
+    - adds the privacy scan's redactions;
+    - computes the noise, the value bonus (+1 for an `emphasis` or VO-anchor match, cap 5), the recommended set (greedy value/noise within the caps, 2× ratio), the optimum and the budget;
+    - pre-enables the recommended set: spotlight only at value 5; chapters and redactions off and outside the budget;
+    - writes `annotations/vN.json` (`by: annotation-designer`).
+- **Auto-suggest after the edit (D53):**
+  - when a sync edit finishes and its VO has no annotations yet, the edit report asks the agent to run the designer (config `annotations.autoSuggest`, default on);
+  - the Annotations tab has a **Re-suggest** box with extra instructions, which go to the agent and into the input log.
+- **Privacy (D54):**
+  - a deterministic scan of the layout snapshots finds emails, phone numbers, API keys/tokens/JWTs, IBAN- and card-like numbers (Luhn) and long IDs;
+  - the designer adds person and company names it judges sensitive;
+  - all of them are disabled redact suggestions with a reason, for the user to confirm.
+- **Re-suggest keeps the user's changes (D56):** on a new suggest based on vK, the items the user added, edited or toggled carry over unchanged; everything else is regenerated. The result lists what was kept.
+- **Import from vK is deterministic (D57):**
+  - an item carries over when its scene and mark (or scene start) exist and its target resolves on the new take; text edits, nudges and toggles come with it;
+  - the rest is listed as "not carried: mark gone / target not found";
+  - no model call.
+- **Draft + Save as new version (D58):**
+  - panel edits (toggle, text, ±0.5 s start/duration nudge, target candidate) go to `annotations/draft.json`; the stills and the budget meter update instantly;
+  - "Save as vN" writes one version with `origin`/`edits` kept, and logs the edit as an input; "Discard" drops the draft;
+  - the draft survives panel reloads.
+- **VO-word anchors:** `{ "word": "EMEA", "occurrence"?: n }`, the n-th occurrence in the scene's VO section, through the TTS word timings and the scene's audio placement.
 - **Tool `demo_rec_annotations`:**
-  - `suggest` (background; writes `annotations/vN.json`, `basedOn` the VO version);
-  - `get` and `write` (agent revisions);
-  - `import from=vK`, which re-applies the user's manual decisions (toggles, text edits, nudges) where the target and anchor still match, and lists the ones that couldn't be carried over;
-  - `approve` is refused, because only the user approves (as with the storyboard).
-- **Auto-start:** when voice generation + timeline finish, the Director hands over to the designer automatically, and v1 appears in the tab.
+  - `context`;
+  - `suggest` (items + `base` version + instructions);
+  - `get` (a compact list with weights and budget);
+  - `write` (full revision);
+  - `import from=vK`;
+  - `preview id`;
+  - `approve` is refused, because only the user approves.
 - **Annotations tab:**
-  - one card per suggestion, grouped by scene: type icon, text, reason, weights, a still preview, and "play clip";
-  - **filters** by type and by enabled/suggested;
-  - a **budget meter** ("noise 7.5 / optimum 8 — balanced"; value captured %);
-  - on/off toggles, inline text edit (callout and chapter), ±0.5 s start and duration nudges, a choice between zoom-target candidates;
-  - every save is a new version (like VO inline edits), and the edit is logged as an input;
-  - "Play scene with enabled annotations" (draft clip);
-  - "Send review to agent" with notes, and **Approve**.
-- **Panel routes:** `GET /api/annotations?version=`, `POST /api/annotations-edit` (toggle, text, nudge, target), `POST /api/annotation-preview {id, kind: still|clip}`, `POST /api/review*`, `POST /api/approve {artifact: "annotations"}`.
+  - **header:** the stage header (versions, "based on VO vN", accept);
+  - **Re-suggest box:** shows the budget meter ("noise 7.5 / optimum 8 · balanced", value captured %);
+  - **filters:** by type, and enabled/suggested;
+  - **cards per scene:** type icon, text, reason, value/noise, toggle, inline text edit, nudges, target candidates;
+  - **draft bar:** "unsaved changes · Save as vN · Discard";
+  - **"Play scene with enabled annotations"** (low-res draft);
+  - **send review to agent.**
+- **Previews (D55):**
+  - every card's still loads right away, from a 1-frame render at its peak, cached;
+  - the 640×360 clip renders on play, cached;
+  - the scene draft is 640×360.
+- **Panel routes:**
+  - `GET annotations?version=` (version or draft, resolved items, budget, warnings);
+  - `annotations-edit` (draft ops);
+  - `annotations-save`;
+  - `annotations-discard`;
+  - `annotations-resuggest {instructions}`;
+  - `annotation-preview {id, kind: still|clip}`;
+  - `annotations-scene-draft {scene}`;
+  - accept through the stage routes.
 
 *9. Render stage (D27, D38)*
 - **Render versions** `render/vN.json`: `{ basedOn: { annotations: N }, kind: draft|final, brand, variants: { subtitles, callouts, logoBug }, outputs, qa }`.
@@ -907,6 +950,27 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - **Choice:** "Run" / "Cancel", plus an optional "don't ask again this session" per action type. TTS always asks, because it spends credits directly.
   - **Tests:** every route that triggers an agent turn or TTS has a cost class (a test fails for an unclassified one); the estimate counts only cache misses; local actions show no warning.
 - **Tests:** the browser tests answer the modal instead of the native dialog events. The unit test checks the keyboard handling and that cancel resolves to `null`.
+
+*14. User guide + control room 101 (user backlog)* — after part 13, once the panel stages are complete
+- **What (user request):** complete documentation of the whole process and of the panel as a control room, written for a first-time user, not for developers.
+- **`docs/GUIDE.md` (the process):**
+  - what the tool does and doesn't do;
+  - the stage chain (Project → Storyboard → Recording → Voice over → Annotations → Render) with what goes in, what comes out, who decides (agent or you), what it costs (model, TTS) and how long it takes;
+  - versions, accepting and the working line;
+  - the project memory (inputs, findings);
+  - brands, voices, config;
+  - privacy and safety;
+  - troubleshooting.
+- **`docs/CONTROL_ROOM.md` (the panel):**
+  - every tab and button, with what it does, when to use it, and what it starts (an agent turn, a background job, nothing);
+  - the Live panel (log, progress, live frame);
+  - reviews and "send to agent";
+  - Config / Settings / Brands;
+  - keyboard and layout notes;
+  - screenshots of every screen (fixture, both themes).
+- **`docs/TUTORIAL-101.md`:** a step-by-step walkthrough from `/demo new` to the final MP4 on the bundled Acme Pulse fixture, free voice (`say`), every step with the exact command or click and a screenshot of the expected state; then the same with a real app and your ElevenLabs voice; "what to try next".
+- **Kept true by tests:** the tutorial's commands run in CI as a smoke test (fixture, no model), and screenshots are regenerated by a script (`cli.ts docs-screens`), so the docs don't drift.
+- Linked from the extension README and the root README.
 
 **How to test** (per part; each PR carries its own tests)
 - **Part 3:**

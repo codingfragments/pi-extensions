@@ -59,6 +59,7 @@ export const SETTING_GROUPS: { id: string; label: string; match: (key: string) =
     label: "Output & look",
     match: (k) => k.startsWith("output.") || k === "fps" || k === "brand",
   },
+  { id: "annotations", label: "Annotations", match: (k) => k.startsWith("annotations.") },
   { id: "discovery", label: "Discovery budgets", match: (k) => k.startsWith("budgets.") },
   { id: "general", label: "General", match: () => true },
 ];

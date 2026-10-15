@@ -25,7 +25,9 @@ export type Anchor =
   /** A storyboard mark (exact: uses the timeline's anchor time). */
   | { mark: string; offsetMs?: number }
   /** The start of the scene. */
-  | { sceneStart: true; offsetMs?: number };
+  | { sceneStart: true; offsetMs?: number }
+  /** A word of the scene's voice-over (the n-th occurrence, default 1), via the TTS word timings. */
+  | { word: string; occurrence?: number; offsetMs?: number };
 
 /** What it points at (page-space types and zoom). */
 export type AnnotationTarget =
@@ -45,6 +47,13 @@ export interface Weight {
   noise: number;
 }
 
+/** One user change to an item (D56–D58): kept on re-suggest and import. */
+export interface AnnotationEdit {
+  at: string;
+  field: "enabled" | "text" | "start" | "duration" | "target" | "added";
+  from?: unknown;
+}
+
 export interface AnnotationItem {
   id: string;
   type: AnnotationType;
@@ -62,7 +71,15 @@ export interface AnnotationItem {
   weight?: Weight;
   reason?: string;
   origin?: "suggested" | "edited" | "manual";
+  /** User changes (panel edits, D58). */
+  edits?: AnnotationEdit[];
+  /** Other targets the designer considered (the panel offers them as a choice). */
+  alternatives?: AnnotationTarget[];
 }
+
+/** Did the user touch this item (added, edited or toggled it)? */
+export const userTouched = (it: AnnotationItem) =>
+  it.origin === "manual" || it.origin === "edited" || (it.edits?.length ?? 0) > 0;
 
 export interface AnnotationFile {
   version: number;
@@ -70,6 +87,13 @@ export interface AnnotationFile {
   take: string;
   by?: string;
   importedFrom?: number;
+  /** The version a set of panel edits was saved on top of (D58). */
+  editedFrom?: number;
+  /** Re-suggest base and instructions (D56). */
+  resuggestedFrom?: number;
+  instructions?: string;
+  /** Noise of the recommended set (Q7), stored by the designer pipeline. */
+  budget?: { optimumNoise: number };
   items: AnnotationItem[];
 }
 

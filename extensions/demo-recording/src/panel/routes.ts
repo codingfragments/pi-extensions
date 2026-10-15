@@ -6,6 +6,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { readDraft } from "../annotations/draft.ts";
+import { readAnnotations } from "../annotations/file.ts";
 import type { EventBus } from "../bus.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
@@ -305,8 +307,21 @@ export function panelRoutes(deps: RouteDeps): {
         const p = requireProject(deps);
         const version = intField(body, "version");
         const artifact = body.artifact ?? "storyboard";
-        if (artifact !== "storyboard" && artifact !== "vo" && artifact !== "recording")
-          throw new Error('"artifact" must be "storyboard", "recording" or "vo"');
+        if (
+          artifact !== "storyboard" &&
+          artifact !== "vo" &&
+          artifact !== "recording" &&
+          artifact !== "annotations"
+        )
+          throw new Error('"artifact" must be "storyboard", "recording", "vo" or "annotations"');
+        if (artifact === "annotations") {
+          if (!readAnnotations(p.dir, version))
+            throw new Error(`annotations v${version} do not exist`);
+          if (readDraft(p.dir)?.base === version)
+            throw new Error(
+              `annotations v${version} have unsaved changes — save them (as a new version) or discard them first`,
+            );
+        }
         if (artifact === "storyboard" && !readStoryboard(p.dir, version))
           throw new Error(`storyboard v${version} does not exist`);
         if (artifact === "vo") {
@@ -323,8 +338,10 @@ export function panelRoutes(deps: RouteDeps): {
               ? "recording"
               : artifact === "recording"
                 ? "vo-review"
-                : "voice-edit";
-          if (PHASES.indexOf(next) > PHASES.indexOf(state.phase)) setPhase(p.dir, next);
+                : artifact === "vo"
+                  ? "voice-edit"
+                  : undefined;
+          if (next && PHASES.indexOf(next) > PHASES.indexOf(state.phase)) setPhase(p.dir, next);
         }
         const label = versionLabel(artifact, version);
         deps.bus.publish(

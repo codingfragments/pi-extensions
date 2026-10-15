@@ -8,8 +8,14 @@ import fs from "node:fs";
 import path from "node:path";
 import type { LoadedBrand } from "../brand/brand.ts";
 import type { Timeline } from "../edit/timeline.ts";
+import { readManifest } from "../tts/synthesize.ts";
 import { type RenderAnnotations, buildRenderAnnotations } from "./render.ts";
-import { type ResolvedAnnotation, resolveAnnotations } from "./resolve.ts";
+import {
+  type ResolveContext,
+  type ResolvedAnnotation,
+  type SpokenWord,
+  resolveAnnotations,
+} from "./resolve.ts";
 import type { AnnotationFile } from "./types.ts";
 
 export interface PreparedAnnotations {
@@ -39,6 +45,25 @@ export function takeGeometry(projectDir: string, take: string) {
   };
 }
 
+/** Voice-over word timings per scene section (for `{ word }` anchors). */
+export function voWords(projectDir: string, voVersion: number): Record<string, SpokenWord[]> {
+  const m = readManifest(projectDir, voVersion);
+  const out: Record<string, SpokenWord[]> = {};
+  for (const [key, sec] of Object.entries(m?.sections ?? {}))
+    if (!key.startsWith("_")) out[key] = sec.alignment.words.map((w) => ({ w: w.w, s: w.s }));
+  return out;
+}
+
+/** Everything the resolver needs for a timeline (take geometry, events dir, word timings). */
+export function resolveContext(projectDir: string, timeline: Timeline): ResolveContext {
+  return {
+    timeline,
+    takeDir: path.join(projectDir, "takes", timeline.take),
+    ...takeGeometry(projectDir, timeline.take),
+    words: voWords(projectDir, timeline.voVersion),
+  };
+}
+
 export async function prepareAnnotations(o: {
   projectDir: string;
   timeline: Timeline;
@@ -58,9 +83,8 @@ export async function prepareAnnotations(o: {
     warnings.push(
       `annotations v${o.file.version} were made for VO v${o.file.basedOn.vo}, this edit uses VO v${o.timeline.voVersion} — anchors still map through marks, check the timing`,
     );
-  const takeDir = path.join(o.projectDir, "takes", o.timeline.take);
-  const geo = takeGeometry(o.projectDir, o.timeline.take);
-  const r = resolveAnnotations(o.file, { timeline: o.timeline, takeDir, ...geo });
+  const geo = resolveContext(o.projectDir, o.timeline);
+  const r = resolveAnnotations(o.file, geo);
   warnings.push(...r.warnings);
   const scenes: Record<string, RenderAnnotations> = {};
   for (const sc of o.timeline.scenes) {

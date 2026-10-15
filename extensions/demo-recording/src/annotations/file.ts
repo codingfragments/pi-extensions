@@ -27,6 +27,17 @@ export function annotationVersions(projectDir: string): number[] {
 const isObj = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
+function isTarget(v: unknown): boolean {
+  if (!isObj(v)) return false;
+  return (
+    typeof v.step === "number" ||
+    (typeof v.text === "string" && v.text.trim().length > 0) ||
+    (typeof v.layout === "string" && /^t\d+#e\d+$/.test(v.layout)) ||
+    (isObj(v.box) &&
+      ["x", "y", "w", "h"].every((k) => typeof (v.box as Record<string, unknown>)[k] === "number"))
+  );
+}
+
 /** Validate a parsed annotation file. Throws with a path-precise message. */
 export function validateAnnotations(raw: unknown): AnnotationFile {
   const fail = (where: string, msg: string): never => {
@@ -50,8 +61,21 @@ export function validateAnnotations(raw: unknown): AnnotationFile {
     const type = it.type as AnnotationType;
     if (typeof it.scene !== "string" || !it.scene) fail(`${at}.scene`, "is required");
     const a = it.anchor;
-    if (!isObj(a) || !(typeof a.mark === "string" || a.sceneStart === true))
-      fail(`${at}.anchor`, 'must be { mark: "…" } or { sceneStart: true }');
+    if (
+      !isObj(a) ||
+      !(
+        typeof a.mark === "string" ||
+        a.sceneStart === true ||
+        (typeof a.word === "string" && a.word.trim().length > 0)
+      )
+    )
+      fail(
+        `${at}.anchor`,
+        'must be { mark: "…" }, { sceneStart: true } or { word: "…", occurrence? }',
+      );
+    const occ = (a as Record<string, unknown>).occurrence;
+    if (occ !== undefined && !(Number.isInteger(occ) && (occ as number) >= 1))
+      fail(`${at}.anchor.occurrence`, "must be 1, 2, …");
     if (
       (a as Record<string, unknown>).offsetMs !== undefined &&
       typeof (a as Record<string, unknown>).offsetMs !== "number"
@@ -60,22 +84,17 @@ export function validateAnnotations(raw: unknown): AnnotationFile {
     const needsTarget =
       type === "zoom" || type === "highlight" || type === "spotlight" || type === "redact";
     const tg = it.target;
-    if (needsTarget) {
-      if (!isObj(tg)) fail(`${at}.target`, `is required for ${type}`);
-      const t = tg as Record<string, unknown>;
-      const ok =
-        typeof t.step === "number" ||
-        (typeof t.text === "string" && t.text.trim().length > 0) ||
-        (typeof t.layout === "string" && /^t\d+#e\d+$/.test(t.layout)) ||
-        (isObj(t.box) &&
-          ["x", "y", "w", "h"].every(
-            (k) => typeof (t.box as Record<string, unknown>)[k] === "number",
-          ));
-      if (!ok)
-        fail(
-          `${at}.target`,
-          'must be { step }, { text, role? }, { layout: "t<ms>#e<n>" } or { box: {x,y,w,h} }',
-        );
+    if (needsTarget && !isObj(tg)) fail(`${at}.target`, `is required for ${type}`);
+    if (tg !== undefined && !isTarget(tg))
+      fail(
+        `${at}.target`,
+        'must be { step }, { text, role? }, { layout: "t<ms>#e<n>" } or { box: {x,y,w,h} }',
+      );
+    if (it.alternatives !== undefined) {
+      if (!Array.isArray(it.alternatives)) fail(`${at}.alternatives`, "must be a list of targets");
+      (it.alternatives as unknown[]).forEach((alt, k) => {
+        if (!isTarget(alt)) fail(`${at}.alternatives[${k}]`, "must be a target like `target`");
+      });
     }
     if (type === "callout" || type === "chapter") {
       if (typeof it.text !== "string" || !it.text.trim())
@@ -108,6 +127,12 @@ export function validateAnnotations(raw: unknown): AnnotationFile {
     take: raw.take as string,
     ...(typeof raw.by === "string" ? { by: raw.by } : {}),
     ...(typeof raw.importedFrom === "number" ? { importedFrom: raw.importedFrom } : {}),
+    ...(typeof raw.resuggestedFrom === "number" ? { resuggestedFrom: raw.resuggestedFrom } : {}),
+    ...(typeof raw.editedFrom === "number" ? { editedFrom: raw.editedFrom } : {}),
+    ...(typeof raw.instructions === "string" ? { instructions: raw.instructions } : {}),
+    ...(isObj(raw.budget) && typeof raw.budget.optimumNoise === "number"
+      ? { budget: { optimumNoise: raw.budget.optimumNoise } }
+      : {}),
     items,
   };
 }

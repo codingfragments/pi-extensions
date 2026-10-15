@@ -3,6 +3,7 @@
 // with a shared stage header, plus the collapsible Live panel. Preact + htm,
 // vendored, no build.
 import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { Annotations } from "./annotations.js";
 import { Settings } from "./config.js";
 import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
 import { LivePanel } from "./live.js";
@@ -724,16 +725,7 @@ function Render({ events, stages }) {
     </section>`;
 }
 
-// ---------------- ANNOTATIONS / CONFIG ----------------
-
-function Annotations({ stages }) {
-  return html`
-    <${StageHeader} stages=${stages} stage="annotations" />
-    <section class="card muted">
-      <h2>Annotations</h2>
-      <p>After the voice is generated, the annotation designer suggests zooms, callouts, highlights and more; you toggle, edit and approve them here. This stage arrives in S5 parts 7–8.</p>
-    </section>`;
-}
+// ---------------- CONFIG ----------------
 
 function Config({ events }) {
   const [view, setView] = useState("settings");
@@ -786,6 +778,12 @@ function App() {
   useEffect(() => {
     if (lastVo) setTab("voice");
   }, [lastVo]);
+  const lastAnn = events
+    .filter((e) => e.type === "annotations.updated" && e.data?.by === "agent")
+    .at(-1)?.seq;
+  useEffect(() => {
+    if (lastAnn) setTab("annotations");
+  }, [lastAnn]);
   const lastTake = events
     .filter((e) => e.type === "take.finished" || e.type === "take.analyzed")
     .at(-1)?.seq;
@@ -803,7 +801,7 @@ function App() {
           : tab === "voice"
             ? html`<${Voice} events=${events} stages=${stages} />`
             : tab === "annotations"
-              ? html`<${Annotations} stages=${stages} />`
+              ? html`<${Annotations} events=${events} stages=${stages} />`
               : tab === "render"
                 ? html`<${Render} events=${events} stages=${stages} />`
                 : html`<${Config} events=${events} />`;

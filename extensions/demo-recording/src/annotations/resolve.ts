@@ -51,6 +51,48 @@ export interface ResolveContext {
   source: { w: number; h: number };
   /** Viewport in CSS px (take.json). */
   viewport: { width: number; height: number };
+  /** Voice-over word timings per scene (section audio seconds), for `{ word }` anchors. */
+  words?: Record<string, SpokenWord[]>;
+}
+
+export interface SpokenWord {
+  w: string;
+  /** Start in the section's audio (s). */
+  s: number;
+}
+
+const norm = (w: string) => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+
+/**
+ * Output time (scene ms) of the n-th occurrence of a word or phrase in the
+ * scene's narration: section-audio time → the audio piece that plays it.
+ */
+export function wordOutMs(
+  sc: SceneTimeline,
+  words: SpokenWord[] | undefined,
+  phrase: string,
+  occurrence: number,
+): { ms: number } | { error: string } {
+  if (!words?.length)
+    return {
+      error: `no word timings for ${sc.id} (no narration, or the voice was rendered before word timings)`,
+    };
+  const want = phrase.split(/\s+/).map(norm).filter(Boolean);
+  const said = words.map((x) => norm(x.w));
+  let seen = 0;
+  for (let i = 0; i + want.length <= said.length; i++) {
+    if (!want.every((w, k) => said[i + k] === w)) continue;
+    if (++seen < occurrence) continue;
+    const secMs = (words[i] as SpokenWord).s * 1000;
+    const piece = sc.audio.find((a) => secMs >= a.src[0] - 1 && secMs <= a.src[1] + 1);
+    if (!piece) return { error: `"${phrase}" is not played in the edit of ${sc.id}` };
+    return { ms: piece.at + (secMs - piece.src[0]) };
+  }
+  return {
+    error: seen
+      ? `"${phrase}" occurs only ${seen}× in the narration of ${sc.id}`
+      : `"${phrase}" is not in the narration of ${sc.id}`,
+  };
 }
 
 const pieceDur = (p: Piece) => ("src" in p ? (p.src[1] - p.src[0]) / p.speed : p.freeze.dur);
@@ -196,10 +238,18 @@ export function resolveAnnotations(
     // Anchor → output time (and take time, for layout lookups).
     let atMs: number;
     let atTake: number;
-    if ("mark" in it.anchor) {
+    if ("word" in it.anchor) {
+      const w = wordOutMs(sc, ctx.words?.[it.scene], it.anchor.word, it.anchor.occurrence ?? 1);
+      if ("error" in w) {
+        warnings.push(`${it.id}: ${w.error} — skipped`);
+        continue;
+      }
+      atMs = w.ms;
+      atTake = sceneMsToTake(sc, atMs);
+    } else if ("mark" in it.anchor) {
       const m = it.anchor.mark;
       const anchored = sc.anchors.find((a) => a.mark === m);
-      const ev = events.find((e) => e.mark === m);
+      const ev = events.find((e) => e.mark === m && (!e.scene || e.scene === it.scene));
       if (!anchored && !ev) {
         warnings.push(`${it.id}: mark "${m}" is not in ${it.scene} — skipped`);
         continue;
@@ -210,7 +260,7 @@ export function resolveAnnotations(
       atMs = 0;
       atTake = sceneMsToTake(sc, 0);
     }
-    atMs += it.anchor.offsetMs ?? 0;
+    atMs = Math.min(Math.max(0, atMs + (it.anchor.offsetMs ?? 0)), sc.durationMs);
     if (it.anchor.offsetMs) atTake = sceneMsToTake(sc, atMs);
     const dur = it.durMs ?? DEFAULT_DURATION[it.type];
     const startMs = Math.max(0, atMs - LEAD_MS[it.type]);

@@ -70,6 +70,8 @@ export const CONFIG_DOCS: Record<string, string> = {
   "align.model": "faster-whisper model for word timings: tiny.en | base.en | small.en | medium.en.",
   brand:
     "Brand package for rendering: built-in 'neutral' or a user brand in <root>/brands/ (see /demo brand list).",
+  "annotations.autoSuggest":
+    "Suggest annotations automatically after each sync edit (an agent turn). Off: use Re-suggest in the Annotations tab.",
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",

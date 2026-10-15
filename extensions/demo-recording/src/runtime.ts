@@ -14,6 +14,7 @@ import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
 import { voiceFit } from "./edit/pipeline.ts";
 import { Jobs } from "./jobs.ts";
+import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
@@ -271,6 +272,12 @@ export class Runtime {
         publish: (type, data, slug) => this.bus.publish(type, data, slug),
         tellAgent: (text) => this.tellAgent(text),
       });
+      const annotations = annotationRoutes({
+        activeProject: () => this.activeProject(),
+        getConfig: () => this.getConfig(),
+        notifyAgent: (text) => this.notifyAgent(text),
+        publish: (type, data, slug) => this.bus.publish(type, data, slug),
+      });
       const config = configRoutes({
         activeProject: () => this.activeProject(),
         reloadConfig: () => this.getConfig(true),
@@ -280,8 +287,22 @@ export class Runtime {
         bus: this.bus,
         port: this.getConfig().panelPort,
         getState: () => this.snapshot(),
-        get: { ...routes.get, ...brand.get, ...stages.get, ...project.get, ...config.get },
-        post: { ...routes.post, ...brand.post, ...stages.post, ...project.post, ...config.post },
+        get: {
+          ...routes.get,
+          ...brand.get,
+          ...stages.get,
+          ...project.get,
+          ...config.get,
+          ...annotations.get,
+        },
+        post: {
+          ...routes.post,
+          ...brand.post,
+          ...stages.post,
+          ...project.post,
+          ...config.post,
+          ...annotations.post,
+        },
         media: () => {
           const root = this.getConfig().root;
           const p = this.activeProject();

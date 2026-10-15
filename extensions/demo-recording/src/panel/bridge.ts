@@ -44,9 +44,11 @@ export function reviewMessage(
 
 export function approvalMessage(
   project: string,
-  artifact: "storyboard" | "vo" | "recording",
+  artifact: "storyboard" | "vo" | "recording" | "annotations",
   version: number,
 ): string {
+  if (artifact === "annotations")
+    return `${PANEL_PREFIX} Annotations v${version} for project "${project}" are ACCEPTED by the user (Annotations tab). Render the video with them: demo_rec_edit action=rerender annotations=${version} (the full render stage with drafts and QA comes in S5 part 9).`;
   if (artifact === "recording")
     return `${PANEL_PREFIX} Recording take-${String(version).padStart(3, "0")} for project "${project}" is ACCEPTED by the user (Recording tab). Write the voice-over for this take (demo-voiceover skill).`;
   return artifact === "storyboard"

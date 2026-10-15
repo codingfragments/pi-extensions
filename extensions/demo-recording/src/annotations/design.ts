@@ -52,6 +52,8 @@ export interface Suggestion {
   value: number;
   /** One line: why. */
   reason: string;
+  /** Own doubt about this item (D77), 1–5. */
+  confidence?: { score: number; why?: string };
 }
 
 export interface DesignReport {
@@ -276,6 +278,7 @@ export function suggestAnnotations(o: {
       enabled: false,
       origin: "suggested",
       reason: sg.reason,
+      ...(sg.confidence ? { confidence: sg.confidence } : {}),
     };
     try {
       validateAnnotations({

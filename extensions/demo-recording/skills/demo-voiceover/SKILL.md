@@ -102,6 +102,10 @@ Two questions, and the regional churn problem is on the table.
   Per-scene videos stay self-contained, so each scene section must make sense
   on its own.
 - `<!-- comments -->` are notes and are never spoken.
+- `<!-- confidence: 2 — why -->` inside a section is your own doubt about it
+  (D77): a number you couldn't confirm on the page, a claim about an answer
+  that may vary. 1–2 marks it low in the panel, 3 at most medium. Use it only
+  where you doubt; it never raises a level.
 
 ## Timing
 
@@ -128,6 +132,26 @@ CHANGES or RE-RUN, with notes:
   version by itself. Read it (`demo_rec_vo get`) before your next write so you
   don't overwrite their edit.
 
+The panel rates every section high / medium / low from measured signals: a
+number not on the page, speech vs footage, missing `[@mark]`s, changes since
+the base version, validation issues. Review messages and `demo_rec_vo`
+results list the low ones first: fix those before the user has to.
+
+**Voice direction (D82):** a `[demo-panel] … VOICE DIRECTION` message asks
+you to rewrite version N as a **new complete version from the same take**,
+with a stance, tone, length, focus and notes:
+
+1. `demo_rec_vo get version=N`. It also shows the pending direction.
+2. Rewrite the whole script in that direction:
+   - **Length** "about 20 % shorter/longer": change the word count per
+     section accordingly.
+   - **"fit the footage"**: get each scene's speech close to its usable
+     footage.
+   - Keep every `[@mark]` valid and every quoted value real.
+3. `demo_rec_vo write`. The version is stored as **based on vN**. The user sees
+   a word diff in the Voice tab and approves it. In 2 lines, say what you
+   changed.
+
 `[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked.
 
 ## Voice and edit (after approval)
@@ -136,6 +160,9 @@ CHANGES or RE-RUN, with notes:
    ElevenLabs voice by name, else OpenAI, else local Kokoro. If the user expects
    their own voice and the check says otherwise, tell them why (e.g. key not
    set, voice name not found) **before** synthesizing.
+   The panel's **"Generate voice & render"** runs TTS, the edit and a draft
+   render itself, after showing the user the cost. When you get a note that
+   it started, **don't start them yourself**; wait for the edit report.
 2. `demo_rec_tts start` synthesizes every section in the background. One
    engine is used for the whole video, and unchanged sections come from the
    cache. Wait for the `[demo-recording]` message; don't poll.

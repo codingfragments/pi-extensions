@@ -19,6 +19,7 @@ import { previewAnnotation, previewScene } from "../annotations/preview.ts";
 import { resolveAnnotations } from "../annotations/resolve.ts";
 import type { AnnotationFile } from "../annotations/types.ts";
 import { budgetOf } from "../annotations/weights.ts";
+import { annotationBase, annotationConfidence } from "../confidence/annotations.ts";
 import type { DemoRecConfig } from "../config.ts";
 import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
@@ -113,6 +114,7 @@ export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?
     scenes,
     timelineVersion: t?.version ?? null,
     budget: budgetOf(file.items, file.budget?.optimumNoise ?? 0),
+    confidence: annotationConfidence(file, resolved, baseOf(p.dir, file, versions)),
     stale: !t ? `the edit for VO v${file.basedOn.vo} is missing` : null,
   };
 }
@@ -354,4 +356,19 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
       },
     },
   };
+}
+
+/** D78 "new vs base": the edit/re-suggest/import base, else the previous version for the same VO. */
+function baseOf(dir: string, file: AnnotationFile, versions: number[]) {
+  const b = annotationBase(file, versions);
+  if (b === undefined) return undefined;
+  try {
+    const bf = readAnnotations(dir, b);
+    if (!bf) return undefined;
+    const related = file.editedFrom ?? file.resuggestedFrom ?? file.importedFrom;
+    if (related === undefined && bf.basedOn.vo !== file.basedOn.vo) return undefined;
+    return { version: b, ids: bf.items.map((x) => x.id) };
+  } catch {
+    return undefined;
+  }
 }

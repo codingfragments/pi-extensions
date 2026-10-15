@@ -179,6 +179,7 @@ scenes:
       - churn KPI looks harmless at 3.1%
       - the chart shows EMEA at 14.2%
     findings: [f-0003]            # findings this scene covers (every "use" finding must be covered)
+    # confidence: { score: 2, why: the chart sometimes loads late }   # only where YOU doubt the scene
     steps:
       - { do: hover, target: { css: '[data-kpi="churn"]' }, mark: churn-kpi, dwell: 1.2s }
       - { do: hover, target: { text: EMEA }, mark: emea-bar, dwell: 1.4s, emphasis: the EMEA outlier is the story }
@@ -206,6 +207,16 @@ back to `{text}`, `{label}`, and `{css}` last.
 
 `version` is assigned by the tool. Don't set it.
 
+**Confidence (D23, D77):** the panel rates every scene high / medium / low from
+measured signals (targets never seen in discovery, css targets, failed takes,
+improvised inputs, no `deep_link`, no screen, changes since the last version)
+and lists those that "need your eyes" first. Add `confidence: {score: 1–5, why}`
+to a scene **only when you doubt it** (an element you couldn't verify, timing
+you're unsure of). 1–2 marks it low, 3 at most medium. It never raises a
+level, so don't add 4–5 everywhere. Write results and review messages list the
+low items first: fix what you can before the user reads it (e.g. verify a
+target in discovery, add a `deep_link`).
+
 ## Review loop
 
 1. `demo_rec_storyboard write` → the user sees it in the panel's Review tab.
@@ -219,6 +230,8 @@ back to `{text}`, `{label}`, and `{css}` last.
      actually found.
    - Overall notes may reorder, add or drop scenes.
    Then write the next version and summarize the diff in one or two lines.
+   The user may approve all high-confidence scenes in one click; their marks
+   (and any CHANGES) arrive in the same review message.
 3. `[demo-panel] … APPROVED` → recording is unlocked. Record when the user
    asks, or offer to record now.
 

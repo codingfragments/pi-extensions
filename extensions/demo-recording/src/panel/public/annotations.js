@@ -1,9 +1,10 @@
+import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 // demo-recording panel — Annotations tab (S5 part 8, D53–D58): the designer's
 // suggestions per scene as cards (still eager, clip on click), toggles, inline
 // text, ±0.5 s nudges, target choices, a large preview popup (click the still to play), a budget meter, filters, an unsaved
 // draft with Save / Discard, Re-suggest with instructions, and a low-res scene
 // draft with every enabled annotation.
-import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { ConfBadge, ConfReasons, NeedsEyes, byRisk, confOf, itemDomId } from "./confidence.js";
 import { media, post, useApi } from "./core.js";
 import { StageHeader, VersionActions } from "./stages.js";
 
@@ -171,13 +172,14 @@ function TextEdit({ item, onSave }) {
   </div>`;
 }
 
-function AnnotationCard({ item, res, version, edit, onOpen }) {
+function AnnotationCard({ item, res, version, edit, onOpen, conf }) {
   const problem = res && "problem" in res ? res.problem : null;
   const privacy = item.type === "redact" && (item.reason ?? "").startsWith("privacy:");
   const touched =
     item.origin === "edited" || item.origin === "manual" || (item.edits?.length ?? 0) > 0;
-  return html`<article class=${`ann-card ${item.enabled ? "on" : "off"} ${problem ? "problem" : ""}`}>
+  return html`<article class=${`ann-card ${item.enabled ? "on" : "off"} ${problem ? "problem" : ""} ${conf ? `cf-${conf.level}` : ""}`} id=${itemDomId(item.id)}>
     <div class="ann-top">
+      <${ConfBadge} c=${conf} />
       <label class="ann-enabled" title=${item.enabled ? "in the render" : "not rendered — tick to use it"}>
         <input type="checkbox" checked=${item.enabled} onChange=${(e) => edit({ op: "toggle", id: item.id, enabled: e.target.checked })} />
         enabled
@@ -216,6 +218,7 @@ function AnnotationCard({ item, res, version, edit, onOpen }) {
           : null
       }
       ${item.reason ? html`<p class="ann-reason small-text">${item.reason}</p>` : null}
+      <${ConfReasons} c=${conf} />
       <div class="ann-tags small-text">
         ${item.weight ? html`<span class="pill" title="value 1–5 (designer) · noise cost (Q7)">value ${item.weight.value} · noise ${item.weight.noise}</span>` : null}
         ${privacy ? html`<span class="pill privacy" title="found by the privacy scan — turn on to redact">privacy</span>` : null}
@@ -313,6 +316,7 @@ export function Annotations({ events, stages }) {
   const [flash, setFlash] = useState(null);
   const [view, setView] = useState(null);
   const [lightbox, setLightbox] = useState(null);
+  const [riskFirst, setRiskFirst] = useState(false);
   // The edit routes answer with the new view; the next reload (bus event) replaces it.
   const d = view ?? data;
   useEffect(() => setView(null), [data]);
@@ -404,10 +408,12 @@ export function Annotations({ events, stages }) {
         <span class="grow"></span>
         ${["all", "on", "off"].map((s) => html`<button class=${`chip ${state === s ? "on" : ""}`} onClick=${() => setState(s)}>${s === "all" ? "all" : s === "on" ? "enabled" : "suggested, off"}</button>`)}
       </div>
+      <${NeedsEyes} summary=${d.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} />
       <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
     </section>
     ${d.scenes.map((sc) => {
-      const items = shown.filter((it) => it.scene === sc.id);
+      const inScene = shown.filter((it) => it.scene === sc.id);
+      const items = riskFirst ? byRisk(inScene, d.confidence, (it) => it.id) : inScene;
       const total = f.items.filter((it) => it.scene === sc.id);
       if (!total.length) return null;
       return html`<section class="card ann-scene" key=${sc.id}>
@@ -417,7 +423,7 @@ export function Annotations({ events, stages }) {
           <span class="grow"></span>
           <${SceneDraft} version=${d.version} scene=${sc.id} draftKey=${draftKey} />
         </div>
-        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} edit=${edit} onOpen=${setLightbox} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
+        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} edit=${edit} onOpen=${setLightbox} conf=${confOf(d.confidence, it.id)} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
       </section>`;
     })}
     ${lightbox ? html`<${Lightbox} open=${lightbox} onClose=${() => setLightbox(null)} />` : null}`;

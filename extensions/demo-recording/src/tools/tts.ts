@@ -127,75 +127,7 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
       const p = rt.requireProject();
       const state = readState(p.dir) ?? p.state;
       const version = requireSelected(p.dir, state, "vo", params.version);
-      const vo = readVo(p.dir, version);
-      if (!vo) throw new Error(`approved voice-over v${version} is missing on disk`);
-      const job = rt.jobs.start<VoiceManifest>(
-        "tts",
-        p.slug,
-        (jobSignal) =>
-          renderVoice({
-            projectDir: p.dir,
-            voVersion: version,
-            take: vo.validated.script.take,
-            sections: vo.validated.resolved,
-            engines,
-            alignModel: cfg.align.model,
-            signal: jobSignal,
-            onProgress: (pr) =>
-              rt.bus.publish(
-                "tts.progress",
-                {
-                  ...pr,
-                  message: `🎙 voice ${pr.done}/${pr.total} · ${pr.section} · ${pr.engine}${pr.cached ? " (cached)" : ""}`,
-                },
-                p.slug,
-              ),
-          }),
-        (j: Job<VoiceManifest>) => {
-          rt.bus.publish(
-            "tts.finished",
-            {
-              ...jobFacts(j),
-              voVersion: version,
-              message: j.result
-                ? `voice ready · ${j.result.engine} “${j.result.voice.name}” · ${j.result.totalSec.toFixed(1)} s · ${Object.keys(j.result.sections).length} section(s)`
-                : `voice ${j.status}: ${firstLine(j.error ?? "")}`,
-              ...(j.result
-                ? {
-                    engine: j.result.engine,
-                    voice: j.result.voice,
-                    models: j.result.models,
-                    totalSec: j.result.totalSec,
-                    billedChars: j.result.billedChars,
-                    sections: Object.values(j.result.sections).map((s) => ({
-                      key: s.key,
-                      sec: +s.durationSec.toFixed(2),
-                      cached: s.cached,
-                      chars: s.chars,
-                    })),
-                    ...(j.result.skipped.length ? { skipped: j.result.skipped } : {}),
-                    ...(j.result.modelFallbacks.length
-                      ? { modelFallbacks: j.result.modelFallbacks }
-                      : {}),
-                  }
-                : {}),
-            },
-            p.slug,
-          );
-          rt.setStatus(undefined, true);
-          if (j.result) {
-            const fits = voiceFit(p.dir, version, cfg);
-            const warn = fits?.filter((f) => f.level === "warn") ?? [];
-            rt.reportToAgent(
-              `[demo-recording] ${voiceSummary(j.result)}${fits ? `\n\nFit of the real voice to the footage:\n${formatFits(fits)}` : ""}` +
-                `${warn.length ? `\n${warn.length} scene(s) need attention before rendering — shorten those sections (new VO version) or accept.` : ""}`,
-            );
-          } else
-            rt.reportToAgent(
-              `[demo-recording] Voice synthesis ${j.status}: ${j.error ?? "unknown error"}`,
-            );
-        },
-      );
+      const job = startTts(rt, version, { by: "agent" });
       const existing = readManifest(p.dir, version);
       return result(
         `Voice synthesis started (${job.id}) for voice-over v${version}${existing ? " (re-render: unchanged sections come from the cache)" : ""}. Progress is in the panel and the footer; you'll get a [demo-recording] message when it's done — don't poll.`,
@@ -203,4 +135,97 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
       );
     },
   });
+}
+
+/**
+ * Synthesize an accepted voice-over as a background job (the tool and the
+ * panel's "Generate voice & render", D84). `afterDone` runs after the agent report
+ * (the panel chains the edit there).
+ */
+export function startTts(
+  rt: Runtime,
+  version: number,
+  opts: {
+    by: "agent" | "panel";
+    afterDone?: (j: Job<VoiceManifest>) => void;
+    quietReport?: boolean;
+  },
+): Job<VoiceManifest> {
+  const p = rt.requireProject();
+  const cfg = rt.getConfig(true);
+  const brief = fs.existsSync(path.join(p.dir, "brief.md"))
+    ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")
+    : "";
+  const engines = buildEngines(cfg, { brief });
+  const vo = readVo(p.dir, version);
+  if (!vo) throw new Error(`approved voice-over v${version} is missing on disk`);
+  return rt.jobs.start<VoiceManifest>(
+    "tts",
+    p.slug,
+    (jobSignal) =>
+      renderVoice({
+        projectDir: p.dir,
+        voVersion: version,
+        take: vo.validated.script.take,
+        sections: vo.validated.resolved,
+        engines,
+        alignModel: cfg.align.model,
+        signal: jobSignal,
+        onProgress: (pr) =>
+          rt.bus.publish(
+            "tts.progress",
+            {
+              ...pr,
+              message: `🎙 voice ${pr.done}/${pr.total} · ${pr.section} · ${pr.engine}${pr.cached ? " (cached)" : ""}`,
+            },
+            p.slug,
+          ),
+      }),
+    (j: Job<VoiceManifest>) => {
+      rt.bus.publish(
+        "tts.finished",
+        {
+          ...jobFacts(j),
+          voVersion: version,
+          by: opts.by,
+          message: j.result
+            ? `voice ready · ${j.result.engine} “${j.result.voice.name}” · ${j.result.totalSec.toFixed(1)} s · ${Object.keys(j.result.sections).length} section(s)`
+            : `voice ${j.status}: ${firstLine(j.error ?? "")}`,
+          ...(j.result
+            ? {
+                engine: j.result.engine,
+                voice: j.result.voice,
+                models: j.result.models,
+                totalSec: j.result.totalSec,
+                billedChars: j.result.billedChars,
+                sections: Object.values(j.result.sections).map((s) => ({
+                  key: s.key,
+                  sec: +s.durationSec.toFixed(2),
+                  cached: s.cached,
+                  chars: s.chars,
+                })),
+                ...(j.result.skipped.length ? { skipped: j.result.skipped } : {}),
+                ...(j.result.modelFallbacks.length
+                  ? { modelFallbacks: j.result.modelFallbacks }
+                  : {}),
+              }
+            : {}),
+        },
+        p.slug,
+      );
+      rt.setStatus(undefined, true);
+      // The panel's "Generate voice & render" goes on with the edit: a quiet note
+      // now, the edit's report starts the agent's turn later (D84).
+      const tell = (t: string) => (opts.quietReport ? rt.tellAgent(t) : rt.reportToAgent(t));
+      if (j.result) {
+        const fits = voiceFit(p.dir, version, cfg);
+        const warn = fits?.filter((f) => f.level === "warn") ?? [];
+        tell(
+          `[demo-recording] ${opts.by === "panel" ? "(started from the panel) " : ""}${voiceSummary(j.result)}${fits ? `\n\nFit of the real voice to the footage:\n${formatFits(fits)}` : ""}` +
+            `${warn.length ? `\n${warn.length} scene(s) need attention before rendering — shorten those sections (new VO version) or accept.` : ""}`,
+        );
+      } else tell(`[demo-recording] Voice synthesis ${j.status}: ${j.error ?? "unknown error"}`);
+      opts.afterDone?.(j);
+    },
+  );
 }

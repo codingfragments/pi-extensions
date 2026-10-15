@@ -24,6 +24,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { TakeAnalysis } from "../analysis/take.ts";
+import type { AgentConfidence } from "../storyboard/types.ts";
 
 export type SectionKind = "scene" | "intro" | "outro" | "bridge";
 
@@ -42,6 +43,8 @@ export interface VoSection {
   /** Section body as written. */
   body: string;
   segments: VoSegment[];
+  /** The agent's own view (D77): a `<!-- confidence: 2 — why -->` line in the section. */
+  confidence?: AgentConfidence;
 }
 
 export interface VoScript {
@@ -77,6 +80,8 @@ export const BANNED = [
   "supercharge",
 ];
 
+/** `<!-- confidence: 2 — the number may have changed -->` (score 1–5, optional reason after —, -, or :). */
+const CONFIDENCE_RE = /<!--\s*confidence:\s*([1-5])\s*(?:[—–:-]\s*([\s\S]*?))?\s*-->/g;
 const ANCHOR_RE = /\[@([a-z0-9][a-z0-9-]*)\]/g;
 const BINDING_RE = /\{\{dom:([a-z0-9][a-z0-9-]*)\|(.+?)\}\}/g;
 
@@ -85,8 +90,16 @@ export function parseVo(text: string): VoScript {
   if (!m) throw new Error("voice-over: missing front matter (---\\ntake: take-NNN\\n---)");
   const take = /^take:\s*(take-\d+)\s*$/m.exec(m[1] as string)?.[1];
   if (!take) throw new Error("voice-over: front matter needs `take: take-NNN`");
-  // HTML comments are notes for the writer (e.g. from the template), never spoken.
-  const rest = text.slice(m[0].length).replace(/<!--[\s\S]*?-->/g, "");
+  // HTML comments are notes for the writer (e.g. from the template), never spoken —
+  // except `<!-- confidence: N — why -->`, the agent's view of its section (D77).
+  const rest = text
+    .slice(m[0].length)
+    .replace(
+      CONFIDENCE_RE,
+      (_w, n: string, why: string) =>
+        `\uE000conf:${n}:${(why ?? "").trim().replace(/\s+/g, " ")}\uE000`,
+    )
+    .replace(/<!--[\s\S]*?-->/g, "");
   const sections: VoSection[] = [];
   const parts = rest.split(/^## +/m).slice(1);
   if (!parts.length)
@@ -94,7 +107,13 @@ export function parseVo(text: string): VoScript {
   for (const part of parts) {
     const nl = part.indexOf("\n");
     const heading = (nl < 0 ? part : part.slice(0, nl)).trim();
-    const body = (nl < 0 ? "" : part.slice(nl + 1)).trim();
+    let confidence: AgentConfidence | undefined;
+    const body = (nl < 0 ? "" : part.slice(nl + 1))
+      .replace(/\uE000conf:(\d):([^\uE000]*)\uE000/g, (_w, n: string, why: string) => {
+        confidence = { score: Number(n), ...(why ? { why } : {}) };
+        return "";
+      })
+      .trim();
     const key = heading.split(/\s+—\s+|\s+-\s+/)[0]?.trim() ?? "";
     let kind: SectionKind;
     let scene: string | undefined;
@@ -112,7 +131,14 @@ export function parseVo(text: string): VoScript {
       );
     if (sections.some((s) => s.key === key))
       throw new Error(`voice-over: duplicate section "${key}"`);
-    sections.push({ key, kind, ...(scene ? { scene } : {}), body, segments: splitSegments(body) });
+    sections.push({
+      key,
+      kind,
+      ...(scene ? { scene } : {}),
+      body,
+      segments: splitSegments(body),
+      ...(confidence ? { confidence } : {}),
+    });
   }
   return { take, sections };
 }

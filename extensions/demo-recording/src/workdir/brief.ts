@@ -58,6 +58,8 @@ export const BRIEF_FIELDS: BriefField[] = [
   { key: "mustAvoid", label: "Must avoid" },
   { key: "language", label: "Language" },
   { key: "voice", label: "Voice" },
+  /** The project's default voice direction (D82): "stance: evaluator · tone: calm · length: same · focus: … · notes: …". */
+  { key: "voiceDirection", label: "Voice direction" },
 ];
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");

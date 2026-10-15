@@ -1646,6 +1646,7 @@ button.tiny {
 .ann-top {
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--line);
   background: var(--card);
@@ -2099,4 +2100,155 @@ button.tiny {
   white-space: pre-wrap;
   word-break: break-word;
   overflow: auto;
+}
+
+/* ---------- S5 part 11: confidence-guided review (D76–D81) ---------- */
+.conf {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.conf-high {
+  color: var(--ok);
+}
+.conf-medium {
+  color: var(--warn);
+}
+.conf-low {
+  color: var(--err);
+}
+.chip.conf-chip {
+  border-color: currentColor;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.chip.conf-chip.conf-low {
+  color: var(--err);
+}
+.chip.conf-chip.conf-medium {
+  color: var(--warn);
+}
+.eyes {
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.eyes-count {
+  color: var(--text);
+}
+.conf-reasons {
+  list-style: none;
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--inset);
+}
+.conf-reasons li.r-low {
+  color: var(--err);
+}
+.conf-reasons li.r-medium {
+  color: var(--warn);
+}
+.scene.cf-low {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--err) 45%, transparent);
+}
+.scene.compact {
+  display: block;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.scene.compact .title {
+  font-size: 16px;
+}
+.scene.compact header {
+  align-items: center;
+}
+.jumped {
+  animation: jumped 1.4s ease-out;
+}
+@keyframes jumped {
+  0% {
+    box-shadow: 0 0 0 3px var(--accent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.ann-card.cf-low {
+  border-color: color-mix(in srgb, var(--err) 55%, var(--line));
+}
+.approve-plan ul {
+  margin: 4px 0 12px;
+  padding-left: 18px;
+}
+.approve-plan li {
+  margin: 2px 0;
+}
+
+/* ---------- S5 part 11: voice direction + diff + generate (D82–D84) ---------- */
+.spoken.diff .d-ins {
+  background: color-mix(in srgb, var(--ok) 22%, transparent);
+  border-radius: 3px;
+  text-decoration: underline;
+  text-decoration-color: var(--ok);
+}
+.spoken.diff .d-del {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+  border-radius: 3px;
+  text-decoration: line-through;
+}
+.vo-diff-head {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+.direction summary {
+  cursor: pointer;
+}
+.direction[open] summary {
+  margin-bottom: 10px;
+}
+.dir-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  flex-wrap: wrap;
+}
+.dir-label {
+  width: 72px;
+  flex: none;
+  color: var(--muted);
+}
+.dir-row input.grow,
+.dir-row textarea.grow {
+  flex: 1;
+  min-width: 240px;
+}
+.dir-row textarea.grow {
+  min-height: 56px;
+}
+.direction .pending {
+  color: var(--warn);
+}
+.estimate .kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 8px 0;
+}
+.estimate .kv dt {
+  color: var(--muted);
+}
+.estimate .kv dd {
+  margin: 0;
+}
+.est-table td {
+  padding: 2px 12px 2px 0;
 }

@@ -58,6 +58,12 @@ export type Step =
 
 export type StepKind = Step["do"];
 
+/** The agent's 1–5 view of an item (D77); it can only lower a measured confidence level. */
+export interface AgentConfidence {
+  score: number;
+  why?: string;
+}
+
 export interface Scene {
   id: string;
   title: string;
@@ -71,6 +77,8 @@ export interface Scene {
   narration_outline?: string[];
   /** Findings this scene covers (S5 part 5a): every "use" finding must be covered by a scene. */
   findings?: string[];
+  /** The agent's own view (D77), only where it doubts the scene: 1–2 → low, 3 → at most medium. */
+  confidence?: AgentConfidence;
   /** S1 only: draft narration for the naive `say` mux. Replaced by the VO script in S4. */
   narration?: string;
   steps: Step[];

@@ -67,6 +67,12 @@ export const CONFIG_DOCS: Record<string, string> = {
   "tts.openai.instructions": "Tone/delivery instructions for gpt-4o-mini-tts.",
   "tts.kokoro.voice": "Local Kokoro voice (am_michael, am_adam, af_heart, bf_emma …).",
   "tts.say.voice": "Optional macOS say voice (dev only).",
+  "tts.pricePer1kChars.elevenlabs":
+    "Cost estimate: money per 1,000 ElevenLabs credits (flash/turbo use 0.5 credit per character). Default ≈ Creator plan list price.",
+  "tts.pricePer1kChars.openai": "Cost estimate: money per 1,000 characters for OpenAI TTS.",
+  "tts.pricePer1kChars.kokoro": "Cost estimate for local Kokoro (free: 0).",
+  "tts.pricePer1kChars.say": "Cost estimate for macOS say (free: 0).",
+  "tts.currency": "Currency symbol for cost estimates ($, €, £ …).",
   "align.model": "faster-whisper model for word timings: tiny.en | base.en | small.en | medium.en.",
   brand:
     "Brand package for rendering: built-in 'neutral' or a user brand in <root>/brands/ (see /demo brand list).",

@@ -48,6 +48,13 @@ export interface DemoRecConfig {
     openai: { model: string; voice: string; instructions: string };
     kokoro: { voice: string };
     say: { voice?: string };
+    /**
+     * Cost estimate before synthesis (D84): money per 1,000 billing units —
+     * ElevenLabs credits (flash/turbo models: 0.5 per character), characters
+     * for the others. Defaults are list prices (check your plan).
+     */
+    pricePer1kChars: { elevenlabs: number; openai: number; kokoro: number; say: number };
+    currency: string;
   };
   /** Word-timing alignment for engines without provider timings (S4, Q4). */
   align: { model: string };
@@ -99,6 +106,9 @@ export function defaultConfig(home: string): DemoRecConfig {
       },
       kokoro: { voice: "am_michael" },
       say: {},
+      // ElevenLabs Creator ≈ $22 / 100k credits; OpenAI gpt-4o-mini-tts ≈ $0.015/min ≈ tts-1's $15 / 1M chars.
+      pricePer1kChars: { elevenlabs: 0.22, openai: 0.015, kokoro: 0, say: 0 },
+      currency: "$",
     },
     align: { model: "base.en" },
     brand: "neutral",
@@ -254,6 +264,24 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
     if (tts.kokoro?.voice !== undefined)
       cfg.tts.kokoro.voice = str(tts.kokoro.voice, "tts.kokoro.voice");
     if (tts.say?.voice !== undefined) cfg.tts.say.voice = str(tts.say.voice, "tts.say.voice");
+    const pr = tts.pricePer1kChars as Record<string, unknown> | undefined;
+    if (pr !== undefined)
+      for (const k of ["elevenlabs", "openai", "kokoro", "say"] as const) {
+        if (pr[k] === undefined) continue;
+        if (typeof pr[k] !== "number" || (pr[k] as number) < 0 || (pr[k] as number) > 100)
+          throw new Error(
+            `demo-recording config: "tts.pricePer1kChars.${k}" must be a number 0..100 (money per 1,000 characters/credits)`,
+          );
+        cfg.tts.pricePer1kChars[k] = pr[k] as number;
+      }
+    const cur = (raw.tts as Record<string, unknown>).currency;
+    if (cur !== undefined) {
+      if (typeof cur !== "string" || !cur.trim() || cur.length > 4)
+        throw new Error(
+          'demo-recording config: "tts.currency" must be a short symbol like "$" or "€"',
+        );
+      cfg.tts.currency = cur.trim();
+    }
   }
   const al = raw.align as Record<string, unknown> | undefined;
   if (al?.model !== undefined) {

@@ -55,6 +55,8 @@ export interface DemoRecConfig {
   brand: string;
   /** Annotations stage (S5 part 8): suggest automatically after the sync edit (D53). */
   annotations: { autoSuggest: boolean };
+  /** Render stage (S5 part 9): how many drafts keep their video files (D64). */
+  render: { keepDrafts: number };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
@@ -101,6 +103,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     align: { model: "base.en" },
     brand: "neutral",
     annotations: { autoSuggest: true },
+    render: { keepDrafts: 3 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
   };
@@ -279,6 +282,16 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
         throw new Error('demo-recording config: "annotations.autoSuggest" must be true or false');
       cfg.annotations.autoSuggest = an.autoSuggest;
     }
+  }
+  const rd = raw.render as Record<string, unknown> | undefined;
+  if (rd !== undefined && rd.keepDrafts !== undefined) {
+    if (
+      !Number.isInteger(rd.keepDrafts) ||
+      (rd.keepDrafts as number) < 0 ||
+      (rd.keepDrafts as number) > 100
+    )
+      throw new Error('demo-recording config: "render.keepDrafts" must be a whole number 0..100');
+    cfg.render.keepDrafts = rd.keepDrafts as number;
   }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {

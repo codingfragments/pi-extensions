@@ -25,7 +25,7 @@ import { resolveAnnotations } from "./src/annotations/resolve.ts";
 import { EventBus } from "./src/bus.ts";
 import { resolveConfig } from "./src/config.ts";
 import { formatDoctor, runDoctor } from "./src/doctor.ts";
-import { prepareBrand, renderVariant } from "./src/edit/pipeline.ts";
+import { prepareBrand } from "./src/edit/pipeline.ts";
 import type { Timeline } from "./src/edit/timeline.ts";
 import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
@@ -34,6 +34,7 @@ import { runS1 } from "./src/pipeline/s1.ts";
 import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
+import { formatRender, runRender } from "./src/render/run.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
 import { toSuggestion } from "./src/tools/annotations.ts";
@@ -75,9 +76,11 @@ Commands:
                                            resolve annotations against the edit: times, boxes, warnings
   annotate preview --project P --id ID [--version N] [--edit N] [--brand B]
                                            render a preview clip + still of one annotation
-  render --project P [--edit N] [--brand B] [--annotations N]
-                                           re-render an edit (scenes + full), optionally with
-                                           annotations burned in → out/edit-vN/<brand>+aN/
+  render --project P [--kind draft|final] [--annotations N|none] [--draft] [--brand B1,B2]
+         [--types all|none|zoom,callout,…] [--subtitles] [--no-logo] [--edit N] [--confirm-unredacted]
+                                           a render version → render/vN/<variant>/ (draft: full video
+                                           960×540 with a DRAFT tag; final: needs accepted annotations,
+                                           full + scenes + transcript/callout sidecars + poster)
 
 Environment: DEMO_REC_ROOT, DEMO_REC_CONFIG, DEMO_REC_PANEL_PORT (see README)`;
 
@@ -284,6 +287,12 @@ async function main(argv: string[]): Promise<number> {
         base: { type: "string" },
         from: { type: "string" },
         instructions: { type: "string" },
+        kind: { type: "string" },
+        types: { type: "string" },
+        draft: { type: "boolean", default: false },
+        subtitles: { type: "boolean", default: false },
+        "no-logo": { type: "boolean", default: false },
+        "confirm-unredacted": { type: "boolean", default: false },
       },
     });
     if (!values.project) throw new Error("--project is required");
@@ -299,18 +308,39 @@ async function main(argv: string[]): Promise<number> {
       ) as Timeline;
     };
     if (command === "render") {
-      if (editV === undefined) throw new Error("this project has no edit yet");
-      const r = await renderVariant({
+      // The Render stage (S5 part 9): a new render version under render/vN/.
+      const kind = (values.kind ?? "draft") as "draft" | "final";
+      if (kind !== "draft" && kind !== "final") throw new Error("--kind is draft or final");
+      const types =
+        values.types === undefined || values.types === "all"
+          ? "all"
+          : values.types === "none"
+            ? []
+            : values.types.split(",").map((t) => t.trim());
+      const rec = await runRender({
         projectDir: project.dir,
         config: cfg,
-        timelineVersion: editV,
-        variant: {
-          ...(values.brand ? { brand: values.brand } : {}),
-          ...(values.annotations ? { annotations: Number(values.annotations) } : {}),
+        request: {
+          kind,
+          ...(values.annotations === "none"
+            ? { annotations: null }
+            : values.annotations
+              ? { annotations: Number(values.annotations) }
+              : {}),
+          ...(values.draft ? { fromDraft: true } : {}),
+          ...(values.edit ? { timeline: Number(values.edit) } : {}),
+          ...(values.brand ? { brands: values.brand.split(",").map((b) => b.trim()) } : {}),
+          options: {
+            annotationTypes: types as never,
+            subtitles: values.subtitles,
+            logoBug: !values["no-logo"],
+          },
+          ...(values["confirm-unredacted"] ? { confirmUnredacted: true } : {}),
+          by: "cli",
         },
-        onProgress: (p) => console.log(`[${p.done}/${p.total}] ${p.label}`),
+        onProgress: (p) => console.log(`[${p.done.toFixed(1)}/${p.total}] ${p.label}`),
       });
-      console.log(editSummary(r));
+      console.log(formatRender(rec));
       return 0;
     }
     if (sub === "context") {

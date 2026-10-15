@@ -145,6 +145,10 @@ export interface RenderOpts {
   annotations?: RenderAnnotations;
   /** Capture size (needed for zoom). */
   source?: { w: number; h: number };
+  /** A static image over everything, e.g. the DRAFT tag (S5 part 9, D60). Input after the annotation images. */
+  stamp?: { file: string; x: number; y: number };
+  /** Encoder settings (default medium / crf 20; drafts use a fast preset). */
+  encode?: { preset: string; crf: number };
 }
 
 /** A run of consecutive pieces rendered the same way. hi = source resolution (page ops/zoom). */
@@ -355,6 +359,21 @@ export function filterGraph(job: RenderJob, opts: RenderOpts, audioInputs: strin
       `${job.audio.map((_, j) => `[a${j}]`).join("")}amix=inputs=${job.audio.length}:normalize=0:dropout_transition=0,apad,atrim=duration=${D},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[aout]`,
     );
   }
+  if (opts.stamp) {
+    // The graph's final picture is always the line ending in [vout]: route it through the stamp.
+    const k = lines.findIndex((l) => l.endsWith("[vout]"));
+    if (k >= 0) {
+      lines[k] = `${(lines[k] as string).slice(0, -"[vout]".length)}[vstamp]`;
+      const idx =
+        1 + audioInputs.length + images.length + annotationInputs(opts.annotations).length;
+      lines.splice(
+        k + 1,
+        0,
+        `[${idx}:v]format=rgba,loop=loop=-1:size=1:start=0,setpts=N/${fps}/TB[stamp]`,
+        `[vstamp][stamp]overlay=${opts.stamp.x}:${opts.stamp.y}:shortest=1:format=auto,format=yuv420p[vout]`,
+      );
+    }
+  }
   return lines.join(";\n");
 }
 
@@ -388,6 +407,7 @@ export async function renderJob(
         im.file,
       ]),
       ...annotationInputs(opts.annotations).flatMap((f) => ["-i", f]),
+      ...(opts.stamp ? ["-i", opts.stamp.file] : []),
       "-/filter_complex", // value read from a file (ffmpeg ≥ 7)
       script,
       "-map",
@@ -397,9 +417,9 @@ export async function renderJob(
       "-c:v",
       "libx264",
       "-preset",
-      "medium",
+      opts.encode?.preset ?? "medium",
       "-crf",
-      "20",
+      String(opts.encode?.crf ?? 20),
       "-pix_fmt",
       "yuv420p",
       "-r",

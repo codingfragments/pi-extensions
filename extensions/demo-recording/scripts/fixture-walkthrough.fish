@@ -101,7 +101,9 @@ if contains -- --no-pi $argv
     echo "skipped pi (--no-pi)"
 else
     step "panel: in pi run /demo open fixture-demo, then /demo panel; quit pi to finish"
-    pi
+    # DEMO_REC_NO_OPEN keeps the CLI steps from opening windows; pi must not inherit it,
+    # or /demo panel won't open the browser.
+    env -u DEMO_REC_NO_OPEN pi
 end
 
 cleanup $argv

@@ -243,6 +243,15 @@ variant ~0.2 s.
 
 ---
 
+## Try it
+
+[`scripts/fixture-walkthrough.fish`](../scripts/fixture-walkthrough.fish) runs
+the whole pipeline on the fixture: the edit's draft, a draft with annotations,
+the final gate, accepting, a final with burned-in subtitles, a callouts-only
+cut and a reused variant, then the tests and the panel.
+
+---
+
 ## Legacy renders
 
 Before the Render stage, every edit rendered straight to `out/edit-vN/<brand>/`.

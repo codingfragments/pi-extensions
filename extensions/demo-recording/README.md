@@ -173,6 +173,12 @@ The last stage: drafts to watch, and finals to hand over. Every render is a vers
 
 Full reference: [docs/RENDER.md](docs/RENDER.md).
 
+**Try the whole pipeline on the bundled fixture** (free macOS voice, temp workspace, no model needed; ends in the panel):
+
+```fish
+fish extensions/demo-recording/scripts/fixture-walkthrough.fish        # --no-pi: skip the panel · --keep: keep the workspace
+```
+
 ### Recording (S3)
 
 - **Motion:** curved paths with a natural speed profile (slow start, fast middle, slow landing), occasional overshoot-and-correct, and a small hand drift while dwelling. Seeded per take, so it can be reproduced.

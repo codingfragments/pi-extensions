@@ -615,6 +615,9 @@ node extensions/demo-recording/cli.ts render --project fixture-demo --annotation
 open $R/projects/fixture-demo/render/v2/neutral/full.mp4      # v1 is the edit's own draft
 ```
 
+Or run [`scripts/fixture-walkthrough.fish`](../scripts/fixture-walkthrough.fish),
+which does all of this (with the stub designer) and continues into the Render stage.
+
 The recording is not byte-identical between machines, but the marks, steps
 and texts are, so the file resolves the same way.
 

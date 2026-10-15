@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass**: stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D109; slices UX1–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass**: stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1047,6 +1047,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
     - five responsive mechanisms (two media queries, three container queries);
     - 2 `:focus-visible` rules, no reduced-motion handling.
   - **Contrast.** Macchiato (dark) passes AA for text, accent and status colours on cards; muted text and the accent on the darkest surfaces are borderline (about 5:1 worst case). **Latte (light) fails** at text size: muted text is 4.4:1 on cards and 3.7:1 on the page background, the green and amber status colours are about 3:1 and 2.3:1.
+- **Review grill (2026-10-15)** settled the technical gaps (D110–D115): a UX0 style tile gate, hash routes, an own-SVG graph with grouped drafts and a computed `GET /api/graph`, a ratchet-based migration, and per-base-version drafts with conflict rejection.
 - **Design grill completed 2026-10-15:** the selected direction is recorded as **D98–D109** in [VISION.md](VISION.md). [UX.md](UX.md) contains the draft specification, wide/narrow mockups, graph contracts, vocabulary, save/approval rules and acceptance scenarios. **Writing the spec was approved; the spec itself and implementation still need review/go-ahead.**
 - **Agreed direction:**
   - stage workspaces with a next-action summary; no automatic tab switching on background results;
@@ -1064,10 +1065,11 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 
   | Slice | Scope | State |
   |---|---|---|
-  | UX1 | Foundations: tokens, shared components, contrast/focus and audit baseline/harness | planned |
-  | UX2 | Frame, stateful navigation/next action and Activity strip/drawer; shared Recording frame | planned |
+  | UX0 | **Style tile and component/dialog showcase** (static page, all components and layout principles, both themes, 900/1400 px); **your approval gates UX1** | planned |
+  | UX1 | Foundations exactly as approved in UX0: tokens, shared components, contrast/focus, audit harness, ratchet test | planned |
+  | UX2 | **Hash routes**, frame, stateful navigation/next action and Activity strip/drawer; shared Recording frame | planned |
   | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary | planned |
-  | UX4 | Dependency graph overlay, artifact data, path filters, collapse/focus/quick navigation | planned |
+  | UX4 | Dependency graph overlay (own SVG), `GET /api/graph`, path filters, collapse/focus/quick navigation | planned |
   | UX5 | Durable drafts and storyboard/voice list-detail review | planned |
   | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | planned |
   | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |

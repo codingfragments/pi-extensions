@@ -31,7 +31,7 @@ Each stage is versioned and links to exactly one parent version (D30). Several v
 
 ## Decisions
 
-**2026-10-15 UX grill:** D98–D109 record the selected design direction. The
+**2026-10-15 UX grill:** D98–D115 record the selected design direction and its technical choices. The
 [UX specification](UX.md) is a **draft for review**, not an implementation
 approval or a claim that the new UI has shipped. These decisions refine the
 presentation of D39/D48, the browsing and approval semantics of D46, and the
@@ -148,6 +148,12 @@ draft workflow of D58; existing safety, lineage and cost gates remain.
 | D107 | Width behaviour (UX grill, 2026-10-15) | **Fluid workspace, capped prose**. Tables, footage and the map use available width; reading columns stay comfortable. Collapse secondary panes when narrow rather than shrinking everything | Use large screens while keeping 900 px layouts usable |
 | D108 | Density (UX grill, 2026-10-15) | **One comfortable density** for this sprint. Naturally tighter table rows are fine; no global or list-only compact toggle | Fix the main layout before multiplying the layout/test matrix |
 | D109 | Project first-run (UX grill, 2026-10-15) | **Brief summary + missing essentials**, with grouped editing on demand and sources/findings/history nearby. No mandatory setup wizard or wall of empty fields | Explain the demo and the next decision, not the storage schema |
+| D110 | Style tile gate (UX review grill, 2026-10-15) | Before UX1, a **static style tile and component/dialog showcase** (tokens with measured contrast, every shared component and layout principle in all states, two mock screens, both themes, 900 and 1400 px) is approved by the user. UX1 implements exactly that; a test keeps tile and panel tokens in sync | A modern look can't be judged from ASCII sketches, and a rejected look is cheapest to fix before nine slices build on it |
+| D111 | Location in the URL hash (UX review grill, 2026-10-15) | Stage, version, item, map view/focus and Config search are **hash routes**; back/forward and reload restore the place; routes never mutate state; an overlay is part of the route; unknown routes explain their fallback. No framework, no server routes | Deep links, a working back button, and "open this" from chat and the agent |
+| D112 | Graph engine and scale (UX review grill, 2026-10-15) | **Own SVG with Preact**, one column per stage, curved edges for recorded links only, no graph library. Draft renders fold into "Drafts ×N" under their annotation version and expand in place; a matching draft opens its group. Tested on a generated 300-node fixture | The data is a strict single-parent tree; a library adds weight and hurts accessibility and theming |
+| D113 | Graph data (UX review grill, 2026-10-15) | A read-only **`GET /api/graph`** computed from the existing records (nodes, depends-on vs contains edges, separate status fields, unknown-link flags, stable node ids); stores nothing, cached by mtime, refreshed by the event bus. Shared dependencies are rare and are not implied | One source of truth: the files |
+| D114 | Migration (UX review grill, 2026-10-15) | Token layer and component CSS beside `style.css`, legacy names aliased; each slice migrates its screens and removes their legacy rules; a **ratchet test** fails if hard-coded colours, sizes, spacings or legacy button classes increase; `app.js` splits into one module per screen as each is migrated; UX9 deletes the last legacy rules | No big bang, no two panels, and measurable progress |
+| D115 | Working drafts, storage (UX review grill, 2026-10-15) | One draft per **stage and base version** in `drafts/<stage>/v<base>.json` with a revision counter, written atomically; a **stale revision is rejected** (keep mine / take theirs / compare); unsaved text stays in the browser until the server confirms; Save new version is idempotent on the revision; drafts never start jobs. Refines D106 | Safe, shared with the agent, and no silent overwrite across tabs |
 
 ## Explicit non-goals for v1
 

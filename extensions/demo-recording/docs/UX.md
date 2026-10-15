@@ -5,7 +5,7 @@
 > authorised.** The detailed contracts, starting token scales and slice plan
 > are proposals for that review, not claims about the current UI.
 >
-> Scope: S5 UX pass, between part 13 and part 14. Decisions **D98–D109** in
+> Scope: S5 UX pass, between part 13 and part 14. Decisions **D98–D115** in
 > [VISION.md](VISION.md); delivery tracking in
 > [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
@@ -32,6 +32,10 @@ layer or a timeline editor.
 | Artifact editing | Autosaved working drafts; explicit immutable version creation; approval remains explicit |
 | Width and density | Fluid workspace, capped prose widths, one comfortable density; no density toggle |
 | Project first-run | Brief summary and missing essentials, not a mandatory wizard or wall of empty fields |
+| Visual proof | A **style tile and component showcase** (UX0) approved before UX1 implements it |
+| Location | **Hash routes**: stage, item and map focus are in the URL; deep-linkable, back/forward work |
+| Graph engine | Own SVG, stage-column layout, no graph library; drafts grouped by default |
+| Migration | Token layer first, legacy names aliased, a **ratchet test**, legacy CSS deleted at UX9 |
 
 Keep the current capabilities and safety gates. The map is an explorer, not a
 pipeline editor. No new framework, real-model test calls, generic filesystem
@@ -212,6 +216,15 @@ Focusing a graph branch never selects a new production line.
   annotations exist. Never infer an edge merely from version order or filenames.
   Unknown/legacy relationships stay visibly unknown. Do not promise historical
   revisions where only a current manifest was retained.
+- **What the data gives today (checked in the code):** the stage versions form a
+  **strict single-parent branching tree**, five levels deep (storyboard → take →
+  voice-over → annotations → render), read from `parentOf`. Renders also record
+  their take, timeline and voice version, and annotations record their take, so
+  those are extra *recorded* links, not inferred ones. Genuinely **shared
+  dependencies are rare** (a node has one stage parent); the map must not
+  suggest otherwise. Unknown links happen for older or malformed records and are
+  drawn as a broken stub with the reason. Artifact groups (audio, timelines,
+  variants, QA reports) hang under their owner as *contains* relationships.
 - Missing/pruned/deleted files keep their recorded nodes, with unavailable media
   actions explained. Opening the stage record remains possible where it exists.
 - Brief, sources and findings remain accessible in Project. Only add them as
@@ -381,16 +394,17 @@ restyle through tokens instead of introducing parallel implementations.
 
 ## 8. Delivery slices and gates
 
-Every slice is a separate branch/PR with local tests and before/after screenshots.
+Every slice, **including UX0**, is a separate branch/PR with local tests and before/after screenshots.
 Spec approval is not implementation permission; pushes and merges have their own
 gates. Do not rename stored schemas or break tool callers as a cosmetic refactor.
 
 | Slice | Deliverable | Principal proof |
 |---|---|---|
-| UX1 | Tokens and shared components; audit baseline/harness; existing dialog restyled | Both themes, token/contrast/focus checks, representative components |
-| UX2 | Frame, stage status/next action, Activity strip/drawer; Recording adopts shared frame | Arriving results never steal navigation/focus; running vs waiting truthful |
+| UX0 | **Style tile and component/dialog showcase** (static page, §10.1) | Your approval of the screenshots; every shared component and layout principle shown in all states, both themes, 900 and 1400 px |
+| UX1 | Tokens and shared components exactly as approved in UX0; audit baseline/harness; ratchet test; existing dialog restyled | Both themes, token/contrast/focus checks, representative components; tile and panel tokens in sync |
+| UX2 | Hash routing (§10.2), frame, stage status/next action, Activity strip/drawer; Recording adopts shared frame | Arriving results never steal navigation/focus; running vs waiting truthful |
 | UX3 | Version summary, History, read-only browsing, explicit production/approval actions and vocabulary | Browse has no writes; approve-only keeps line; approve-and-use has coherent effects |
-| UX4 | Dependency map overlay, real graph data, path filters, collapse/focus/navigation | Forks/shared dependencies/legacy gaps; graph and outline equivalence; no production mutation |
+| UX4 | Dependency map overlay, `GET /api/graph`, path filters, collapse/focus/navigation, hash routes for the map | Forks/shared dependencies/legacy gaps; graph and outline equivalence; no production mutation |
 | UX5 | Durable draft contract and storyboard/voice list-detail review | Reload/navigation/conflict/save failure; explicit new versions; review vs approval |
 | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | Privacy/target/timing/budget/import/re-suggest capabilities retained |
 | UX7 | Render run/variant table, player/files/QA, creation form on demand | Draft/final gates, redaction confirmations, retention, variants and downloads |
@@ -458,18 +472,122 @@ widths or count hidden controls as a usability success.
 - No automatic desktop video opening during tests. Manual commands use fish with
   per-command `env` overrides, never exported variables left in the user's shell.
 
-## 10. Decisions still requiring implementation planning
+## 10. Technical decisions (settled in the review grill) and what remains open
 
-The interview settled product behaviour, not these technical details:
+The product grill settled behaviour; a second review grill (2026-10-15) settled
+these technical choices. Each is recorded as a decision (D110–D115).
 
-- Graph data identity/availability contracts, layout approach and large-project
-  performance; inspect actual metadata before promising complete historic provenance.
-- Draft persistence/migration, conflict handling and safe recovery across tabs and
-  restarts; reuse annotation machinery where compatible without coupling extensions.
-- Compatibility of explicit approval intents with existing routes/tools and agent
-  messages; prevent duplicate work and preserve all current safety/cost gates.
-- Final token values, content-driven pane thresholds, small motion timings and
-  representative wide/narrow visual mockups during foundations validation.
+### 10.1 Style tile and showcase gate (UX0, D110)
 
-Resolve these within the relevant slice plan before its implementation. The first
-implementation slice remains **UX1 foundations**, only after explicit go-ahead.
+Before UX1, build **one static, themeable HTML page** (no panel code, no build
+step; served from `docs/ux/` and generated screenshots under `docs/images/ux/`):
+
+- **Tokens:** type scale, spacing, radii, elevation, semantic status and focus
+  colours, both themes, with the measured contrast ratio beside every pair.
+- **A component and dialog showcase** that covers every shared component and every
+  layout principle in all its states: buttons (variants, sizes, busy, disabled with
+  a reason), form controls with error states, chips, badges and status pills,
+  rows/tables and the list + inspector pattern, tabs and stepper states (complete,
+  needs you, blocked, running), the status strip and Activity drawer, toasts,
+  confirm / danger / cost / diff / text dialogs, empty, loading and error states,
+  the History list, a map node in every state and the map's controls, the draft
+  saving states, the config search result, and focus rings.
+- **Layout principles shown, not described:** the frame at 1400 and 900 px, the
+  fluid workspace with capped prose, the list-and-detail collapse to an item picker,
+  and overlays and drawers stacking.
+- **Two mock screens** built from those parts, **Voice over** and **Render**, with
+  fixture content, in both themes at 900 and 1400 px.
+- **Gate:** you approve the screenshots (and may use the page in a browser) before
+  UX1 starts. UX1 implements exactly that, and the page stays as the living
+  reference; a test fails if the tile's tokens and the panel's tokens drift apart.
+
+### 10.2 Location and routes (D111)
+
+The location lives in the URL **hash**, no framework and no server routes:
+
+| Route | Meaning |
+|---|---|
+| `#/project` | Project |
+| `#/<stage>` and `#/<stage>/v<N>` | a stage, optionally a viewed version |
+| `#/<stage>/v<N>/<item>` | a selected item (scene, section, annotation, variant) |
+| `#/map` with `focus=`, `view=` (`all`, `approved`, `line`), `q=` | the map overlay and its view |
+| `#/config` with `q=` and `scope=` | Config and its search |
+
+Rules: changing a route **never mutates project state**; back/forward and reload
+restore the place; an unknown or unavailable route explains the fallback instead
+of silently showing something else; an overlay is part of the route, so Escape and
+Back close the top layer only; a route may be pasted into chat. New background
+results update badges and never rewrite the route. The remembered last place per
+project (spec §2) is the default when the hash is empty.
+
+### 10.3 Graph: data, layout and scale (D112, D113)
+
+- **Data:** a read-only `GET /api/graph` walks existing records and returns nodes,
+  edges (`depends-on` vs `contains`), status fields kept separate (approved,
+  usable, in the production line, availability, review), `unknown-link` flags with
+  a reason, and a **stable id per node** (e.g. `vo:3`, `render:12:full`). It stores
+  nothing, so it cannot disagree with the files; the result is cached by file
+  modification time and refreshed by the event bus. It is a GET with no side
+  effect, and it is listed in the route table with cost class `none`.
+- **Layout:** drawn as **SVG with Preact**, in one column per stage, rows ordered by
+  branch, curved edges, no graph library. Selection, focus, group expansion and the
+  synchronised outline are our own components, so focus rings, keyboard use and
+  theming follow the tokens. Pan and zoom are limited to the map surface. Edges
+  are only drawn for recorded links.
+- **Drafts are grouped by default:** under each annotation version, finals show as
+  nodes and draft renders fold into one node, "Drafts ×N", that expands in place.
+  Filters can reveal them all; a group never hides a match (a matching draft opens
+  its group and says so).
+- **Scale budget:** the fixture has about 45 versions (37 renders). The map must stay
+  responsive on a **generated 300-node fixture** (target: first paint under 200 ms
+  of layout work, interaction without dropped frames on a laptop), by grouping and
+  by not loading media for collapsed groups. If that fails, the answer is more
+  grouping or virtualisation, not a library, unless a later review decides otherwise.
+
+### 10.4 Migration without a big bang (D114)
+
+1. **UX1** adds a token file and component CSS **next to** `style.css`, and aliases
+   today's variable and class names to the tokens, so nothing visibly changes by
+   accident.
+2. Each slice migrates **its** screens and **deletes the legacy rules they used**.
+3. A **ratchet test** counts hard-coded colours, font sizes, spacing values and
+   legacy button/chip classes in `style.css` and the panel scripts, and fails if a
+   count rises above the committed baseline; each slice lowers the baseline.
+4. `app.js` (about 1,000 lines) is split into **one module per screen** while its
+   screen is migrated; no behavioural change is hidden in a move.
+5. **UX9 deletes the last legacy rules**, the aliases and the ratchet baselines.
+6. Panel tests are updated for the new structure with their intent kept; a test
+   that is deleted needs a reason in the PR.
+
+### 10.5 Drafts: storage and conflicts (D115)
+
+- **Storage:** one working draft per **stage and base version**, in the project:
+  `drafts/<stage>/v<base>.json`, with a `revision` counter, the base version, the
+  author tab/session id and a timestamp, written **atomically** (write then rename).
+  It reuses the annotations draft pattern where compatible, without coupling
+  extensions. A draft is never a numbered version and never appears in the map as
+  one.
+- **Conflicts:** a write carries the revision it was based on; a **stale revision is
+  rejected** with the current draft, and the panel shows an actionable choice (keep
+  mine, take theirs, compare). There is no silent last-writer-wins.
+- **Recovery:** the unsaved text is kept in the browser until the server confirms,
+  so a failed or rejected save never loses it; the UI says "Save failed" with a
+  retry, never "Saved".
+- **Save new version** flushes the latest revision, validates, and creates exactly
+  one version (idempotent on the draft revision, so a double click cannot create two).
+  On failure the draft stays. Discard names the draft it deletes.
+- Draft routes are listed with cost class `none`; saving a draft never starts a
+  model, TTS or render job and never changes approval or the production line.
+
+### 10.6 Still open, to settle inside the slice that needs it
+
+- Final token values and content-driven pane thresholds (settled in UX0 by looking
+  at the tile, not argued on paper); small functional motion timings.
+- How the **approval intents** map onto the existing `approve` and `select` routes and
+  tool callers (UX3: audit callers first; one validated server operation, not two
+  browser requests).
+- The exact **draft schema** per stage (UX5), reusing the annotation draft where it fits.
+- **Outline and graph equivalence** details and the pan/zoom controls (UX4).
+
+The first step is **UX0 (the style tile and showcase)**, then UX1 foundations, each
+only after explicit go-ahead.

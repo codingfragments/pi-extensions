@@ -157,6 +157,19 @@ Zooms, highlights, spotlights, callouts, chapter titles and redactions, burned i
 
 Full reference, with an example of every type: [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md).
 
+### Review help: confidence and voice direction (S5)
+
+- **Confidence:** every storyboard scene, voice-over section and annotation is rated **high / medium / low** from measured signals, with the reasons on the card:
+  - unseen or css targets, failed takes;
+  - a number the page never shows, speech vs footage;
+  - redactions, fixed boxes;
+  - changes since the last version.
+
+  The agent can add its own doubt, which only lowers a level. The tabs show "N need your eyes" (chips jump to the item), riskiest first, collapse high, and **Approve high-confidence…** (a popup lists what it approves and skips).
+- **Voice direction:** the Voice over tab's **Direction** box (stance, tone, length, focus, notes) asks the agent for a new complete version from the same take. You review a word diff against its base, then **Generate voice & render**, which shows the cost (cached sections are free, ElevenLabs credits, `tts.pricePer1kChars`) and then runs TTS, the edit and a draft render.
+
+Full reference: [docs/CONFIDENCE.md](docs/CONFIDENCE.md).
+
 ### Render (S5)
 
 The last stage: drafts to watch, and finals to hand over. Every render is a version (`render/vN/`), and the panel's **Render** tab is where they're made, watched, accepted and deleted.

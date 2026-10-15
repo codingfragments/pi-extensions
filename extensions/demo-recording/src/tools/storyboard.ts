@@ -7,6 +7,8 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { formatConfidence } from "../confidence/level.ts";
+import { storyboardConfidence, writeStoryboardChecks } from "../confidence/storyboard.ts";
 import { unsafeResumeScenes } from "../recorder/replay-guard.ts";
 import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
@@ -46,8 +48,9 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         const marks = Object.entries(review.scenes).map(
           ([id, r]) => `${id}: ${r.status}${r.note ? ` — "${r.note}"` : ""}`,
         );
+        const conf = storyboardConfidence(p.dir, sb.version);
         return result(
-          `storyboard v${sb.version} (versions: ${storyboardVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "storyboard").join(", ") || "none"}; working line: ${state.line.storyboard ?? "none"})\n` +
+          `${conf ? `${formatConfidence(conf, "scene")}\n` : ""}storyboard v${sb.version} (versions: ${storyboardVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "storyboard").join(", ") || "none"}; working line: ${state.line.storyboard ?? "none"})\n` +
             `${marks.length ? `review:\n${marks.join("\n")}\n` : ""}---\n${sb.text}`,
         );
       }
@@ -59,11 +62,13 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
 
       const warnings: string[] = [];
       const d = rt.discovery;
+      const unknownRefs: ReturnType<typeof storyboardTargets> = [];
       if (d && !d.isClosed) {
         const refs = storyboardTargets(written.storyboard);
         const unknown = new Set(
           d.unknownTargets(refs.map((r) => r.target)).map((t) => JSON.stringify(t)),
         );
+        unknownRefs.push(...refs.filter((r) => unknown.has(JSON.stringify(r.target))));
         for (const r of refs) {
           if (unknown.has(JSON.stringify(r.target)))
             warnings.push(
@@ -106,6 +111,12 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
             `${scene.id}: no screen thumbnail (set screen: <id from a look>) — the review card will be blank`,
           );
       }
+      // Measured now (discovery is live), read by the panel's confidence badges (D78).
+      writeStoryboardChecks(p.dir, written.version, {
+        discovery: !!d && !d.isClosed,
+        unknownTargets: unknownRefs,
+      });
+      const conf = storyboardConfidence(p.dir, written.version);
       rt.bus.publish(
         "storyboard.written",
         {
@@ -126,6 +137,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
           `Stored storyboard v${written.version} (${written.storyboard.scenes.length} scenes) at ${written.file}.`,
           written.diff ? formatDiff(written.diff) : "First version.",
           warnings.length ? `Warnings:\n- ${warnings.join("\n- ")}` : "No warnings.",
+          ...(conf ? [formatConfidence(conf, "scene")] : []),
           `The user reviews it in the panel (Review tab): ${panel.url}. Wait for their [demo-panel] feedback; do not record before approval.`,
         ].join("\n"),
         { version: written.version, warnings },

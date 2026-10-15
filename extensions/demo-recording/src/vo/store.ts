@@ -41,7 +41,11 @@ export function readVo(projectDir: string, version?: number): StoredVo | undefin
 }
 
 /** Validate, then store as the next version. Errors never consume a version. */
-export function writeVo(projectDir: string, text: string): StoredVo {
+export function writeVo(
+  projectDir: string,
+  text: string,
+  opts: { base?: number; panelEdit?: boolean } = {},
+): StoredVo {
   const normalized = `${text.trim()}\n`;
   const validated = validate(projectDir, normalized);
   const errors = validated.issues.filter((i) => i.level === "error");
@@ -51,6 +55,15 @@ export function writeVo(projectDir: string, text: string): StoredVo {
     );
   }
   const stored = writeNextVersion(voDir(projectDir), "script.v", ".md", normalized);
+  // A pending panel direction (D82/D83) is consumed by the next written version.
+  const pending = opts.panelEdit ? undefined : readPendingDirection(projectDir);
+  const base = opts.base ?? pending?.base;
+  if (base !== undefined || pending)
+    writeVoMeta(projectDir, stored.version, {
+      ...(base !== undefined ? { base } : {}),
+      ...(pending ? { direction: pending.direction } : {}),
+    });
+  if (pending) clearPendingDirection(projectDir);
   return { version: stored.version, file: stored.file, text: normalized, validated };
 }
 
@@ -78,5 +91,61 @@ export function editVoSection(
   const next = [...lines.slice(0, start + 1), body.trim(), "", ...lines.slice(end)]
     .join("\n")
     .replace(/\n{3,}/g, "\n\n");
-  return writeVo(projectDir, next);
+  return writeVo(projectDir, next, { base: version, panelEdit: true });
+}
+
+/**
+ * What a version was drafted from (D83): `vo/script.vN.meta.json`. Written
+ * when the agent rewrites the script after a panel direction (the pending
+ * direction names the base) or when the tool is given a base.
+ */
+export interface VoMeta {
+  base?: number;
+  direction?: VoDirection;
+}
+
+/** A panel direction for the next version (D82). */
+export interface VoDirection {
+  stance?: string;
+  tone?: string;
+  length?: string;
+  focus?: string;
+  notes?: string;
+}
+
+const metaFile = (projectDir: string, v: number) =>
+  path.join(voDir(projectDir), `script.v${v}.meta.json`);
+const pendingFile = (projectDir: string) => path.join(voDir(projectDir), "direction.pending.json");
+
+export function readVoMeta(projectDir: string, v: number): VoMeta | undefined {
+  const f = metaFile(projectDir, v);
+  return fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as VoMeta) : undefined;
+}
+
+export function writeVoMeta(projectDir: string, v: number, meta: VoMeta): void {
+  fs.writeFileSync(metaFile(projectDir, v), `${JSON.stringify(meta, null, 2)}\n`);
+}
+
+/** The direction the panel sent, waiting for the agent's next version. */
+export function readPendingDirection(
+  projectDir: string,
+): { base: number; direction: VoDirection; at: string } | undefined {
+  const f = pendingFile(projectDir);
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : undefined;
+}
+
+export function writePendingDirection(
+  projectDir: string,
+  base: number,
+  direction: VoDirection,
+): void {
+  fs.mkdirSync(voDir(projectDir), { recursive: true });
+  fs.writeFileSync(
+    pendingFile(projectDir),
+    `${JSON.stringify({ base, direction, at: new Date().toISOString() }, null, 2)}\n`,
+  );
+}
+
+export function clearPendingDirection(projectDir: string): void {
+  fs.rmSync(pendingFile(projectDir), { force: true });
 }

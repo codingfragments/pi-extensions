@@ -150,6 +150,15 @@ const SuggestionSchema = Type.Object({
   factor: Type.Optional(Type.Number({ description: "zoom 1.1–1.8 (default 1.5)" })),
   value: Type.Number({ description: "1–5: how much it helps the viewer" }),
   reason: Type.String({ description: "one line: why" }),
+  confidence: Type.Optional(
+    Type.Object(
+      { score: Type.Number({ description: "1–5" }), why: Type.Optional(Type.String()) },
+      {
+        description:
+          "only when you doubt this item (wrong element? wording?): 1–2 = needs the user's eyes",
+      },
+    ),
+  ),
 });
 
 /** Drop undefined keys and keep exactly one anchor kind / target kind. */
@@ -175,6 +184,15 @@ function cleanTarget(t: Record<string, unknown> | undefined): AnnotationTarget |
   return undefined;
 }
 
+function agentScore(v: unknown): { score: number; why?: string } | undefined {
+  const o = (typeof v === "number" ? { score: v } : v) as
+    | { score?: unknown; why?: unknown }
+    | undefined;
+  if (!o || typeof o.score !== "number") return undefined;
+  const score = Math.min(5, Math.max(1, Math.round(o.score)));
+  return { score, ...(typeof o.why === "string" && o.why.trim() ? { why: o.why.trim() } : {}) };
+}
+
 export function toSuggestion(raw: Record<string, unknown>): Suggestion {
   const target = cleanTarget(raw.target as Record<string, unknown> | undefined);
   const alternatives = Array.isArray(raw.alternatives)
@@ -194,6 +212,9 @@ export function toSuggestion(raw: Record<string, unknown>): Suggestion {
     ...(typeof raw.factor === "number" ? { factor: raw.factor } : {}),
     value: typeof raw.value === "number" ? raw.value : 3,
     reason: typeof raw.reason === "string" ? raw.reason : "",
+    ...(agentScore(raw.confidence)
+      ? { confidence: agentScore(raw.confidence) as { score: number; why?: string } }
+      : {}),
   };
 }
 

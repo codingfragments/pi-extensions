@@ -22,6 +22,7 @@ import { renderRoutes } from "./panel/render-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
+import { voiceRoutes } from "./panel/voice-routes.ts";
 import { readManifest } from "./tts/synthesize.ts";
 import { MAX_EVENT_TEXT, capText, firstLine } from "./util/events.ts";
 import { projectContext } from "./workdir/context.ts";
@@ -311,6 +312,7 @@ export class Runtime {
         publish: (type, data, slug) => this.bus.publish(type, data, slug),
       });
       const renders = renderRoutes(this);
+      const voice = voiceRoutes(this);
       const config = configRoutes({
         activeProject: () => this.activeProject(),
         reloadConfig: () => this.getConfig(true),
@@ -337,6 +339,7 @@ export class Runtime {
           ...config.post,
           ...annotations.post,
           ...renders.post,
+          ...voice.post,
         },
         media: () => {
           const root = this.getConfig().root;

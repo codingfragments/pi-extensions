@@ -979,7 +979,16 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
     - **who:** panel, agent or CLI on approvals, accepts and marks.
   - **Progress ticks collapse:** one log line per job run (its newest state, a ×N badge); the full log's "show all progress" shows every tick.
 
-*11. Confidence-guided review (D23) and voice direction (D29)*
+*11. Confidence-guided review (D23) and voice direction (D29)* — ✅ done (D76–D84); user-facing reference: [CONFIDENCE.md](CONFIDENCE.md)
+- **Built:**
+  - **Engine:** `src/confidence/{level,storyboard,vo,annotations}.ts` (signal table D78; agent cap; carry-over D79), plus `storyboard/vN.checks.json` written at storyboard write (unseen targets). Its output goes into the panel views, the tool results and the review messages.
+  - **Agent fields:** the agent's view as `confidence` on scenes and suggestions, and `<!-- confidence: N — why -->` in VO sections.
+  - **Panel review:** `public/confidence.js` with badges, reasons, "need your eyes" chips (jump), riskiest first, collapse high, and the Approve-high popup (`POST /api/review-approve-high`, two-phase).
+  - **Direction:** `POST /api/vo-direction` (`src/panel/voice-routes.ts`) → `vo/direction.pending.json` + a `nudge` input + an agent message; the next VO version records `vo/script.vN.meta.json` `{base, direction}`; the brief's new **Voice direction** field holds the default.
+  - **Diff:** `src/util/worddiff.ts` (LCS on words); the VO view returns a per-section diff vs the base or `?compare=N`.
+  - **Generate voice & render:** `POST /api/vo-generate` (estimate first via `src/tts/estimate.ts`: cache, credits, `tts.pricePer1kChars`, `tts.currency`) → `startTts` (extracted from the tool) → `startEdit`, as engine jobs.
+  - **Tests:** `test/s5-confidence.test.ts`, `test/s5-confidence-panel.test.ts`.
+- **Plan as written:**
 - **Confidence:**
   - measured signals → a high/medium/low level with reasons, per storyboard scene, VO section and annotation;
   - the agent's 1–5 view can only lower the level;

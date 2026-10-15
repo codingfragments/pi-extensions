@@ -9,15 +9,33 @@ import path from "node:path";
 import { readDraft } from "../annotations/draft.ts";
 import { readAnnotations } from "../annotations/file.ts";
 import type { EventBus } from "../bus.ts";
+import { type ConfidenceSummary, formatConfidence } from "../confidence/level.ts";
+import { storyboardConfidence } from "../confidence/storyboard.ts";
+import { normText, voBase, voConfidence } from "../confidence/vo.ts";
 import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
 import { capText } from "../util/events.ts";
-import { editVoSection, readVo, voVersions } from "../vo/store.ts";
+import { wordDiff } from "../util/worddiff.ts";
+import {
+  editVoSection,
+  readPendingDirection,
+  readVo,
+  readVoMeta,
+  voVersions,
+} from "../vo/store.ts";
+import { briefFieldValue, parseStance } from "../workdir/brief.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
-import { PARENT, acceptedVersions, formatLine, parentOf, versionLabel } from "../workdir/stages.ts";
+import {
+  PARENT,
+  acceptedVersions,
+  formatLine,
+  isAccepted,
+  parentOf,
+  versionLabel,
+} from "../workdir/stages.ts";
 import {
   type GatedArtifact,
   PHASES,
@@ -34,6 +52,7 @@ import {
 } from "../workdir/state.ts";
 import { approvalMessage, reviewMessage, voReviewMessage } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
+import { defaultDirection } from "./voice-routes.ts";
 
 export interface RouteDeps {
   /** Per-section audio files for a VO version (filled in once TTS exists). */
@@ -112,6 +131,7 @@ export function panelRoutes(deps: RouteDeps): {
           selected: state.line.storyboard ?? null,
           review: getReview(state, current.version),
           diff: prev ? diffStoryboards(prev.storyboard, current.storyboard) : null,
+          confidence: safeConfidence(() => storyboardConfidence(p.dir, current.version)),
         };
       },
       vo: (q) => {
@@ -151,19 +171,59 @@ export function panelRoutes(deps: RouteDeps): {
             acceptedTake: acceptedTakeId(state) ?? null,
           };
         const v = current.validated;
+        // D83: diff against the base (or ?compare=N), per section, on the written text.
+        const askedBase = q.get("compare") ? Number(q.get("compare")) : undefined;
+        const base = askedBase ?? voBase(p.dir, current.version);
+        let baseBodies: Map<string, string> | undefined;
+        try {
+          const b =
+            base !== undefined && base !== current.version ? readVo(p.dir, base) : undefined;
+          baseBodies = b
+            ? new Map(b.validated.script.sections.map((s) => [s.key, s.body]))
+            : undefined;
+        } catch {
+          baseBodies = undefined;
+        }
+        const meta = readVoMeta(p.dir, current.version);
+        const brief = fs.existsSync(path.join(p.dir, "brief.md"))
+          ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")
+          : "";
         return {
           project: p.slug,
           versions,
           version: current.version,
           take: v.script.take,
-          sections: v.resolved.map((s, i) => ({
-            key: s.key,
-            kind: s.kind,
-            scene: s.scene ?? null,
-            written: v.script.sections[i]?.body ?? "",
-            spoken: s.body,
-            segments: s.segments,
-          })),
+          sections: v.resolved.map((s, i) => {
+            const written = v.script.sections[i]?.body ?? "";
+            const before = baseBodies?.get(s.key);
+            return {
+              key: s.key,
+              kind: s.kind,
+              scene: s.scene ?? null,
+              written,
+              spoken: s.body,
+              segments: s.segments,
+              diff: !baseBodies
+                ? null
+                : before === undefined
+                  ? "new"
+                  : normText(before) === normText(written)
+                    ? "same"
+                    : wordDiff(before, written),
+            };
+          }),
+          base: baseBodies ? base : null,
+          meta: meta ?? null,
+          confidence: safeConfidence(() => voConfidence(p.dir, current.version)),
+          direction: {
+            defaults: {
+              stance: parseStance(briefFieldValue(brief, "Stance")) ?? null,
+              ...defaultDirection(brief),
+            },
+            pending: readPendingDirection(p.dir) ?? null,
+          },
+          canGenerate:
+            isAccepted(state.accepted, "vo", current.version) && state.line.vo === current.version,
           timing: v.timing,
           issues: v.issues,
           ...scope,
@@ -230,6 +290,54 @@ export function panelRoutes(deps: RouteDeps): {
         );
         return { review: getReview(state, version, artifact) };
       },
+      /**
+       * D80: mark every unmarked HIGH-confidence item approved. Without confirm → the plan
+       * (what it approves, what it skips and why, your own marks that stay); with confirm → applied.
+       */
+      "review-approve-high": (body) => {
+        const p = requireProject(deps);
+        const version = intField(body, "version");
+        const artifact = artifactField(body);
+        const conf =
+          artifact === "vo" ? voConfidence(p.dir, version) : storyboardConfidence(p.dir, version);
+        if (!conf)
+          throw new Error(
+            `${artifact === "vo" ? "voice-over" : "storyboard"} v${version} does not exist`,
+          );
+        const state = readState(p.dir) ?? p.state;
+        const review = getReview(state, version, artifact);
+        const unmarked = conf.items.filter((i) => !review.scenes[i.id]);
+        const approve = unmarked.filter((i) => i.level === "high").map((i) => i.id);
+        const skip = unmarked
+          .filter((i) => i.level !== "high")
+          .map((i) => ({
+            id: i.id,
+            level: i.level,
+            why: i.reasons.find((r) => r.level !== "high")?.text ?? "",
+          }));
+        const kept = Object.entries(review.scenes).map(([id, r]) => ({ id, status: r.status }));
+        if (body.confirm !== true) return { planned: true, approve, skip, kept };
+        for (const id of approve)
+          setSceneReview(p.dir, version, id, "approved", undefined, artifact);
+        const what = artifact === "vo" ? "voice-over" : "storyboard";
+        deps.bus.publish(
+          "review.updated",
+          {
+            artifact,
+            version,
+            bulk: true,
+            approved: approve,
+            skipped: skip,
+            message: `${what} v${version}: ${approve.length} high-confidence item(s) approved, ${skip.length} left for you`,
+          },
+          p.slug,
+        );
+        return {
+          approved: approve,
+          skip,
+          review: getReview(readState(p.dir) ?? state, version, artifact),
+        };
+      },
       "review-note": (body) => {
         const p = requireProject(deps);
         const version = intField(body, "version");
@@ -267,7 +375,10 @@ export function panelRoutes(deps: RouteDeps): {
             },
             p.slug,
           );
-          deps.notifyAgent(reviewMessage(p.slug, sb.storyboard, review));
+          const sc = safeConfidence(() => storyboardConfidence(p.dir, version));
+          deps.notifyAgent(
+            `${reviewMessage(p.slug, sb.storyboard, review)}${sc?.needEyes ? `\n${formatConfidence(sc, "scene")}` : ""}`,
+          );
           return { review };
         }
         const vo = readVo(p.dir, version);
@@ -290,13 +401,14 @@ export function panelRoutes(deps: RouteDeps): {
           },
           p.slug,
         );
+        const vc = safeConfidence(() => voConfidence(p.dir, version));
         deps.notifyAgent(
-          voReviewMessage(
+          `${voReviewMessage(
             p.slug,
             vo.version,
             vo.validated.script.sections.map((s) => s.key),
             review,
-          ),
+          )}${vc?.needEyes ? `\n${formatConfidence(vc, "section")}` : ""}`,
         );
         return { review };
       },
@@ -404,4 +516,13 @@ export function panelRoutes(deps: RouteDeps): {
       },
     },
   };
+}
+
+/** Confidence never breaks a view: a failing signal source just means no badges. */
+function safeConfidence(f: () => ConfidenceSummary | undefined): ConfidenceSummary | null {
+  try {
+    return f() ?? null;
+  } catch {
+    return null;
+  }
 }

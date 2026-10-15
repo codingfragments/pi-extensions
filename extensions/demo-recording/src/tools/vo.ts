@@ -9,9 +9,11 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { type TakeAnalysis, readAnalysis } from "../analysis/take.ts";
+import { formatConfidence } from "../confidence/level.ts";
+import { voConfidence } from "../confidence/vo.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatIssues } from "../vo/script.ts";
-import { readVo, voVersions, writeVo } from "../vo/store.ts";
+import { readPendingDirection, readVo, readVoMeta, voVersions, writeVo } from "../vo/store.ts";
 import { acceptedVersions } from "../workdir/stages.ts";
 import { acceptedTakeId, getReview, readState } from "../workdir/state.ts";
 import { result } from "./common.ts";
@@ -61,6 +63,12 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         Type.String({ description: "write: the complete script incl. front matter" }),
       ),
       version: Type.Optional(Type.Number({ description: "get: version (default latest)" })),
+      base: Type.Optional(
+        Type.Number({
+          description:
+            "write: the version you rewrote (the panel diffs against it). A panel direction sets it automatically.",
+        }),
+      ),
       take: Type.Optional(
         Type.String({ description: "template: take id (default: accepted, else latest complete)" }),
       ),
@@ -85,13 +93,21 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         const marks = Object.entries(review.scenes).map(
           ([k, r]) => `${k}: ${r.status}${r.note ? ` — "${r.note}"` : ""}`,
         );
+        const conf = voConfidence(p.dir, vo.version);
+        const pending = readPendingDirection(p.dir);
         return result(
-          `voice-over v${vo.version} (versions: ${voVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "vo").join(", ") || "none"}; working line: ${state.line.vo ?? "none"})\n` +
+          `${pending ? `PENDING DIRECTION from the panel (rewrite v${pending.base} as a new version): ${JSON.stringify(pending.direction)}\n` : ""}${conf ? `${formatConfidence(conf, "section")}\n` : ""}voice-over v${vo.version} (versions: ${voVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "vo").join(", ") || "none"}; working line: ${state.line.vo ?? "none"})\n` +
             `${formatIssues(vo.validated)}\n${marks.length ? `review:\n${marks.join("\n")}\n` : ""}---\n${vo.text}`,
         );
       }
       if (!params.markdown?.trim()) throw new Error("write needs markdown (the complete script)");
-      const stored = writeVo(p.dir, params.markdown);
+      const stored = writeVo(
+        p.dir,
+        params.markdown,
+        params.base !== undefined ? { base: params.base } : {},
+      );
+      const meta = readVoMeta(p.dir, stored.version);
+      const conf = voConfidence(p.dir, stored.version);
       rt.bus.publish(
         "vo.written",
         {
@@ -109,6 +125,12 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         [
           `Stored voice-over v${stored.version} for ${stored.validated.script.take} at ${stored.file}.`,
           formatIssues(stored.validated) || "No issues.",
+          ...(meta?.base !== undefined
+            ? [
+                `Based on v${meta.base}${meta.direction ? " (the user's direction)" : ""} — the panel shows the word diff.`,
+              ]
+            : []),
+          ...(conf ? [formatConfidence(conf, "section")] : []),
           ...(stored.validated.script.take !== acceptedTakeId(readState(p.dir) ?? state)
             ? [
                 `⚠ ${stored.validated.script.take} is not the accepted recording (${acceptedTakeId(readState(p.dir) ?? state) ?? "none accepted"}): this voice-over can only be approved after \`demo_rec_take accept take=${stored.validated.script.take}\` (the stage chain: storyboard → recording → voice-over).`,

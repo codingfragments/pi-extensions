@@ -75,6 +75,8 @@ export interface AnnotationItem {
   edits?: AnnotationEdit[];
   /** Other targets the designer considered (the panel offers them as a choice). */
   alternatives?: AnnotationTarget[];
+  /** The designer's own doubt (D77): 1–2 → low, 3 → at most medium. */
+  confidence?: { score: number; why?: string };
 }
 
 /** Did the user touch this item (added, edited or toggled it)? */

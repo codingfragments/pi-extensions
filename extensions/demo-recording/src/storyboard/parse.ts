@@ -5,7 +5,7 @@
 
 import { parse as parseYaml } from "yaml";
 import { parseDuration } from "../util/duration.ts";
-import type { Scene, Step, Storyboard, Target, WaitFor } from "./types.ts";
+import type { AgentConfidence, Scene, Step, Storyboard, Target, WaitFor } from "./types.ts";
 
 class StoryboardError extends Error {}
 
@@ -176,6 +176,25 @@ function parseStep(v: unknown, path: string): Step {
   }
 }
 
+/** `confidence: {score: 1–5, why: "…"}` (or a bare number). */
+export function parseAgentConfidence(v: unknown, path: string): AgentConfidence {
+  const raw = typeof v === "number" ? { score: v } : v;
+  if (
+    !isObj(raw) ||
+    typeof raw.score !== "number" ||
+    !Number.isInteger(raw.score) ||
+    raw.score < 1 ||
+    raw.score > 5
+  )
+    return fail(path, 'must be {score: 1–5, why: "…"} — your own doubt about this scene');
+  if (raw.why !== undefined && typeof raw.why !== "string")
+    return fail(`${path}.why`, "must be text");
+  return {
+    score: raw.score,
+    ...(typeof raw.why === "string" && raw.why.trim() ? { why: raw.why.trim() } : {}),
+  };
+}
+
 function parseScene(v: unknown, path: string): Scene {
   if (!isObj(v)) return fail(path, "scene must be an object");
   const id = str(v, "id", path) as string;
@@ -214,6 +233,8 @@ function parseScene(v: unknown, path: string): Scene {
       fail(`${path}.findings`, 'must be a list of finding ids like "f-0003" or "e-1a2b3c4d"');
     scene.findings = v.findings as string[];
   }
+  if (v.confidence !== undefined)
+    scene.confidence = parseAgentConfidence(v.confidence, `${path}.confidence`);
   return scene;
 }
 

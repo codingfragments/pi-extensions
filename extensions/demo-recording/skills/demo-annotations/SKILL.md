@@ -24,6 +24,11 @@ Reference for every type, field and rule: `docs/ANNOTATIONS.md` in the extension
    - the caps and the noise table.
 2. Design **about twice as many suggestions as should be on** (the engine
    enables the best half by value per noise). Typically 2–4 per scene.
+   Add `confidence: {score: 1–2, why}` to a suggestion **only when you doubt
+   it** (maybe the wrong element, wording you're unsure of). The panel shows
+   it as low confidence, "needs your eyes", next to its own measured signals:
+   redactions, box targets and unplaceable items are always low; text targets,
+   callout and chapter wording and new items are medium.
 3. `demo_rec_annotations action=suggest suggestions=[…]` (with `base` and
    `instructions` on a re-suggest). The result lists what was placed, what was
    enabled, the budget, and anything **not placed, with the reason** — fix

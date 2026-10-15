@@ -4,8 +4,18 @@
 // vendored, no build.
 import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { Annotations } from "./annotations.js";
+import {
+  ApproveHighModal,
+  ConfBadge,
+  ConfReasons,
+  NeedsEyes,
+  byRisk,
+  confOf,
+  itemDomId,
+  useCollapse,
+} from "./confidence.js";
 import { Settings } from "./config.js";
-import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
+import { Modal, api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
 import { LivePanel } from "./live.js";
 import { Project } from "./project.js";
 import { Recording } from "./recording.js";
@@ -54,13 +64,29 @@ function stepLabel(s) {
 
 const STATUS_LABEL = { approved: "Approve", changes: "Request changes", rerun: "Re-run" };
 
-function SceneCard({ scene, index, review, diffKind, readOnly, onReview }) {
+/** One line for a collapsed high-confidence item (D79/D81). */
+function CompactCard({ id, index, title, conf, status, onExpand }) {
+  return html`<article class=${`scene card compact ${status ? `st-${status}` : ""}`} id=${itemDomId(id)}>
+    <header>
+      ${index !== undefined ? html`<span class="idx">${index + 1}</span>` : null}
+      <h3 class="title">${title}</h3>
+      <span class="mono muted">${id}</span>
+      <${ConfBadge} c=${conf} />
+      ${conf?.approvedIn !== undefined ? html`<span class="muted small-text">unchanged since v${conf.approvedIn}, where you approved it</span>` : null}
+      ${status ? html`<span class=${`badge ${status}`}>${status}</span>` : null}
+      <span class="grow"></span>
+      <button class="ghost" onClick=${onExpand}>show ▾</button>
+    </header>
+  </article>`;
+}
+
+function SceneCard({ scene, index, review, diffKind, readOnly, onReview, conf }) {
   const r = review?.scenes?.[scene.id];
   const [note, setNote] = useState(r?.note ?? "");
   useEffect(() => setNote(r?.note ?? ""), [r?.note]);
   const set = (status) => onReview(scene.id, r?.status === status ? null : status, note);
   return html`
-    <article class=${`scene card ${r ? `st-${r.status}` : ""}`}>
+    <article class=${`scene card ${r ? `st-${r.status}` : ""} ${conf ? `cf-${conf.level}` : ""}`} id=${itemDomId(scene.id)}>
       <div class="thumb">
         ${scene.screen ? html`<img src=${screenUrl(scene.screen)} alt="" loading="lazy" />` : html`<div class="muted">no screen</div>`}
       </div>
@@ -70,7 +96,9 @@ function SceneCard({ scene, index, review, diffKind, readOnly, onReview }) {
           <h3 class="title">${scene.title}</h3>
           <span class="mono muted">${scene.id}</span>
           ${diffKind ? html`<span class=${`badge ${diffKind}`}>${diffKind}</span>` : null}
+          <${ConfBadge} c=${conf} />
         </header>
+        <${ConfReasons} c=${conf} />
         ${scene.takeaway ? html`<p class="takeaway">${scene.takeaway}</p>` : null}
         ${scene.emphasis ? html`<p class="emphasis" title="the director's intent — annotations are chosen later, in the Annotations stage">✦ ${scene.emphasis}</p>` : null}
         ${
@@ -114,6 +142,9 @@ function Review({ events, stages }) {
   const [overall, setOverall] = useState("");
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
+  const [riskFirst, setRiskFirst] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const fold = useCollapse();
   useEffect(() => setOverall(data?.review?.note ?? ""), [data?.version, data?.review?.note]);
 
   if (error) return html`<section class="card error">${error}</section>`;
@@ -171,10 +202,21 @@ function Review({ events, stages }) {
             ${data.diff.reordered ? " reordered;" : ""}</p>`
           : null
       }
+      <${NeedsEyes} summary=${data.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} collapseHigh=${fold.collapseHigh} setCollapseHigh=${fold.setCollapseHigh}>
+        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence scene approved — you see the list first" onClick=${() => setApproveOpen(true)}>Approve high-confidence…</button>`}
+      </${NeedsEyes}>
     </section>
     <div class="scenes">
-      ${data.storyboard.scenes.map(
-        (scene, i) => html`<${SceneCard}
+      ${(
+        riskFirst
+          ? byRisk(data.storyboard.scenes, data.confidence, (s) => s.id)
+          : data.storyboard.scenes
+      ).map((scene) => {
+        const i = data.storyboard.scenes.indexOf(scene);
+        const conf = confOf(data.confidence, scene.id);
+        return fold.isCollapsed(scene.id, conf)
+          ? html`<${CompactCard} key=${`${data.version}-${scene.id}-c`} id=${scene.id} index=${i} title=${scene.title} conf=${conf} status=${data.review?.scenes?.[scene.id]?.status} onExpand=${() => fold.expand(scene.id)} />`
+          : html`<${SceneCard}
           key=${`${data.version}-${scene.id}`}
           scene=${scene}
           index=${i}
@@ -182,9 +224,22 @@ function Review({ events, stages }) {
           diffKind=${diffKind(scene.id)}
           readOnly=${readOnly}
           onReview=${onReview}
-        />`,
-      )}
+          conf=${conf}
+        />`;
+      })}
     </div>
+    ${
+      approveOpen
+        ? html`<${ApproveHighModal} artifact="storyboard" version=${data.version} onClose=${() => setApproveOpen(false)} onDone=${(
+            r,
+          ) => {
+            setApproveOpen(false);
+            setFlash(`${r.approved.length} scene(s) approved · ${r.skip.length} left for you`);
+            setTimeout(() => setFlash(null), 5000);
+            reload();
+          }} />`
+        : null
+    }
     ${
       readOnly
         ? null
@@ -246,7 +301,28 @@ function Spoken({ text }) {
   return html`<p class="spoken">${text.split(ANCHOR_SPLIT).map((part) => (ANCHOR_SPLIT.test(part) ? html`<span class="mark">${part.slice(1, -1)}</span>` : part))}</p>`;
 }
 
-function VoSection({ section, timing, fit, issues, review, readOnly, onReview, onEdit, audio }) {
+/** Word diff vs the base (D83): insertions and deletions inline. */
+function DiffText({ parts }) {
+  return html`<p class="spoken diff">${parts.map((p) =>
+    p.op === "eq"
+      ? `${p.text} `
+      : html`<span class=${p.op === "ins" ? "d-ins" : "d-del"}>${p.text}</span>${" "}`,
+  )}</p>`;
+}
+
+function VoSection({
+  section,
+  timing,
+  fit,
+  issues,
+  review,
+  readOnly,
+  onReview,
+  onEdit,
+  audio,
+  conf,
+  showChanges,
+}) {
   const r = review?.scenes?.[section.key];
   const [draft, setDraft] = useState(section.written);
   const [note, setNote] = useState(r?.note ?? "");
@@ -257,12 +333,17 @@ function VoSection({ section, timing, fit, issues, review, readOnly, onReview, o
   const spokenWithAnchors = section.segments
     .map((seg) => `${seg.anchor ? `[@${seg.anchor}] ` : ""}${seg.text}`)
     .join(" ");
-  return html`<article class=${`scene card vo ${r ? `st-${r.status}` : ""}`}>
+  const diffParts = showChanges && Array.isArray(section.diff) ? section.diff : null;
+  return html`<article class=${`scene card vo ${r ? `st-${r.status}` : ""} ${conf ? `cf-${conf.level}` : ""}`} id=${itemDomId(section.key)}>
     <div class="body">
       <header>
         <h3 class="title">${section.key}</h3>
         <span class="badge">${KIND_LABEL[section.kind]}</span>
+        ${showChanges && section.diff === "new" ? html`<span class="badge new">new</span>` : null}
+        ${diffParts ? html`<span class="badge changed">changed</span>` : null}
+        <${ConfBadge} c=${conf} />
       </header>
+      <${ConfReasons} c=${conf} />
       ${section.kind === "scene" ? html`<${TimingBar} timing=${timing} fit=${fit} />` : null}
       ${
         editing
@@ -274,7 +355,9 @@ function VoSection({ section, timing, fit, issues, review, readOnly, onReview, o
                 setEditing(false);
               }}>Cancel</button>
             </div>`
-          : html`<${Spoken} text=${spokenWithAnchors} />`
+          : diffParts
+            ? html`<${DiffText} parts=${diffParts} />`
+            : html`<${Spoken} text=${spokenWithAnchors} />`
       }
       ${issues.map((i) => html`<p class=${`issue ${i.level}`}>${i.level === "error" ? "✖" : "⚠"} ${i.message}</p>`)}
       ${audio ? html`<audio controls preload="none" src=${audio}></audio>` : null}
@@ -295,11 +378,134 @@ function VoSection({ section, timing, fit, issues, review, readOnly, onReview, o
   </article>`;
 }
 
+const DIR_STANCES = ["champion", "evaluator", "teacher"];
+const DIR_TONES = ["calm", "energetic", "conversational", "crisp"];
+const DIR_LENGTHS = [
+  ["shorter", "−20 %"],
+  ["same", "same"],
+  ["longer", "+20 %"],
+  ["fit", "fit footage"],
+];
+
+function Chips({ label, options, value, onChange }) {
+  return html`<div class="dir-row"><span class="dir-label">${label}</span>
+    ${options.map(([v, l]) => html`<button class=${`chip ${value === v ? "on" : ""}`} aria-pressed=${value === v} onClick=${() => onChange(value === v ? "" : v)}>${l}</button>`)}
+  </div>`;
+}
+
+/** D82: steer the whole narrative — the agent rewrites the script as a new version from the same take. */
+function Direction({ data, onSent }) {
+  const def = data.direction?.defaults ?? {};
+  const init = () => ({
+    stance: def.stance ?? "",
+    tone: def.tone ?? "",
+    length: def.length ?? "same",
+    focus: def.focus ?? "",
+    notes: def.notes ?? "",
+  });
+  const [d, setD] = useState(init);
+  const [save, setSave] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  useEffect(() => setD(init()), [data.version, JSON.stringify(def)]);
+  const set = (k) => (v) => setD({ ...d, [k]: v });
+  const pending = data.direction?.pending;
+  const send = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await post("/api/vo-direction", { version: data.version, ...d, saveDefault: save });
+      onSent(
+        `direction sent — the agent drafts v${Math.max(...data.versions) + 1} from v${data.version}`,
+      );
+      setSave(false);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return html`<details class="card direction" open=${!!pending}>
+    <summary><b>Direction</b> <span class="muted small-text">— steer the whole narrative; the agent drafts a new version of v${data.version} from the same take</span></summary>
+    ${pending ? html`<p class="small-text pending">⏳ Direction sent ${new Date(pending.at).toLocaleTimeString()} on v${pending.base} — waiting for the agent's new version.</p>` : null}
+    <${Chips} label="Stance" options=${DIR_STANCES.map((x) => [x, x])} value=${d.stance} onChange=${set("stance")} />
+    <${Chips} label="Tone" options=${DIR_TONES.map((x) => [x, x])} value=${d.tone} onChange=${set("tone")} />
+    <${Chips} label="Length" options=${DIR_LENGTHS} value=${d.length} onChange=${set("length")} />
+    <div class="dir-row"><span class="dir-label">Focus</span><input class="grow" value=${d.focus} placeholder="what the story should lean on, e.g. the EMEA churn drill-down" onInput=${(e) => set("focus")(e.target.value)} aria-label="focus" /></div>
+    <div class="dir-row"><span class="dir-label">Notes</span><textarea class="grow" value=${d.notes} placeholder="anything else: less hype, say each number once, …" onInput=${(e) => set("notes")(e.target.value)} aria-label="direction notes"></textarea></div>
+    <div class="row">
+      <label class="check small-text"><input type="checkbox" checked=${save} onChange=${(e) => setSave(e.target.checked)} /> save as the project's default direction (brief)</label>
+      <span class="grow"></span>
+      ${err ? html`<span class="error small-text">${err}</span>` : null}
+      <button class="primary" disabled=${busy} onClick=${send}>Draft new version</button>
+    </div>
+  </details>`;
+}
+
+/** D84: the estimate first (sections to synthesize vs cached, characters, credits, money), then TTS → edit → draft. */
+function GenerateModal({ version, onClose, onStarted }) {
+  const [plan, setPlan] = useState(null);
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    post("/api/vo-generate", { version })
+      .then(setPlan)
+      .catch((e) => setErr(e.message));
+  }, [version]);
+  const go = async () => {
+    setBusy(true);
+    try {
+      await post("/api/vo-generate", { version, confirm: true });
+      onStarted();
+    } catch (e) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  };
+  const e = plan?.estimate;
+  const money = e && e.price > 0 ? `≈ ${e.currency}${e.cost.toFixed(2)}` : "free";
+  return html`<${Modal} title=${`Generate voice & render · VO v${version}`} onClose=${onClose}
+      actions=${html`<button class="primary" disabled=${busy || !e} onClick=${go}>Generate${e ? ` (${money})` : ""}</button>`}>
+    ${err ? html`<p class="error">${err}</p>` : null}
+    ${
+      !e
+        ? err
+          ? null
+          : html`<p class="muted">estimating (checks the engine, no synthesis)…</p>`
+        : html`<div class="estimate">
+          <p><b>${e.engine}</b> “${e.voice.name}”${e.model ? html` <span class="muted">· ${e.model}</span>` : null}</p>
+          <dl class="kv">
+            <dt>Sections</dt><dd><b>${e.toSynthesize}</b> to synthesize · ${e.cached} cached (free)</dd>
+            <dt>Characters</dt><dd>${e.chars.toLocaleString()}</dd>
+            ${e.credits !== null ? html`<dt>Credits</dt><dd>≈ ${e.credits.toLocaleString()}${e.model && /flash|turbo/i.test(e.model) ? " (0.5 per character)" : ""}</dd>` : null}
+            <dt>Cost</dt><dd>${e.price > 0 ? html`${money} <span class="muted small-text">at ${e.currency}${e.price} ${e.priceUnit} — tts.pricePer1kChars in ⚙ Config</span>` : "free"}</dd>
+          </dl>
+          <details class="small-text"><summary>per section</summary>
+            <table class="est-table"><tbody>${e.sections.map((x) => html`<tr><td class="mono">${x.key}</td><td>${x.chars} chars</td><td>${x.cached ? html`<span class="muted">cached</span>` : "synthesize"}</td></tr>`)}</tbody></table>
+          </details>
+          ${e.skipped.length ? html`<p class="muted small-text">skipped engines: ${e.skipped.map((x) => `${x.engine} (${x.reason})`).join("; ")}</p>` : null}
+          <p class="muted small-text">Then the sync edit and a draft render run as engine jobs (no agent turn); the agent gets the edit report.</p>
+        </div>`
+    }
+  </${Modal}>`;
+}
+
 function Voice({ events, stages }) {
   const [version, setVersion] = useState(null);
+  const [compare, setCompare] = useState(null);
+  const [showChanges, setShowChanges] = useState(true);
+  const [riskFirst, setRiskFirst] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const fold = useCollapse();
   const input = stageOf(stages, "vo")?.input;
   useEffect(() => setVersion(null), [input]);
-  const q = [input !== undefined ? `take=${input}` : "", version ? `version=${version}` : ""]
+  useEffect(() => setCompare(null), [version]);
+  const q = [
+    input !== undefined ? `take=${input}` : "",
+    version ? `version=${version}` : "",
+    compare ? `compare=${compare}` : "",
+  ]
     .filter(Boolean)
     .join("&");
   const path = `/api/vo${q ? `?${q}` : ""}`;
@@ -345,6 +551,9 @@ function Voice({ events, stages }) {
       setVersion(null);
       return r;
     }, "saved as a new version");
+  const changedCount = data.sections.filter(
+    (x) => Array.isArray(x.diff) || x.diff === "new",
+  ).length;
   const totalSpeech = data.timing.reduce((n, t) => n + t.speechSec, 0);
   const totalFootage = data.timing.reduce((n, t) => n + t.usableSec, 0);
   return html`
@@ -360,12 +569,48 @@ function Voice({ events, stages }) {
         </select>
         <${VersionActions} stages=${stages} stage="vo" version=${data.version} disabled=${hasErrors} disabledWhy=${hasErrors ? "fix the errors first" : ""}
           unlocks="Voice synthesis is unlocked for it (uses TTS credits)." onDone=${reload} />
+        ${data.canGenerate ? html`<button class="primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${() => setGenerateOpen(true)}>Generate voice & render…</button>` : null}
       </div>
+      ${
+        data.base !== null && data.base !== undefined
+          ? html`<div class="row small-text vo-diff-head">
+            <span>${data.meta?.direction ? "re-directed from" : "compared with"} <b>v${data.base}</b>: changed ${changedCount} of ${data.sections.length} sections</span>
+            <select aria-label="compare with" value=${data.base} onChange=${(e) => setCompare(Number(e.target.value))}>
+              ${data.versions.filter((v) => v !== data.version).map((v) => html`<option value=${v}>compare with v${v}</option>`)}
+            </select>
+            <label class="check"><input type="checkbox" checked=${showChanges} onChange=${(e) => setShowChanges(e.target.checked)} /> show changes</label>
+            ${
+              data.meta?.direction
+                ? html`<span class="muted">direction: ${Object.entries(data.meta.direction)
+                    .map(([k, v]) => `${k} ${v}`)
+                    .join(" · ")}</span>`
+                : null
+            }
+          </div>`
+          : null
+      }
+      <${NeedsEyes} summary=${data.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} collapseHigh=${fold.collapseHigh} setCollapseHigh=${fold.setCollapseHigh}>
+        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence section approved — you see the list first" onClick=${() => setApproveOpen(true)}>Approve high-confidence…</button>`}
+      </${NeedsEyes}>
     </section>
+    ${
+      readOnly
+        ? null
+        : html`<${Direction} data=${data} onSent=${(m) => {
+            setFlash(m);
+            setTimeout(() => setFlash(null), 6000);
+          }} />`
+    }
     <div class="scenes">
-      ${data.sections.map(
-        (s) => html`<${VoSection}
+      ${(riskFirst ? byRisk(data.sections, data.confidence, (x) => x.key) : data.sections).map(
+        (s) => {
+          const conf = confOf(data.confidence, s.key);
+          if (fold.isCollapsed(s.key, conf, showChanges && s.diff === "same"))
+            return html`<${CompactCard} key=${`${data.version}-${s.key}-c`} id=${s.key} title=${s.key} conf=${conf} status=${data.review?.scenes?.[s.key]?.status} onExpand=${() => fold.expand(s.key)} />`;
+          return html`<${VoSection}
           key=${`${data.version}-${s.key}`}
+          conf=${conf}
+          showChanges=${showChanges}
           section=${s}
           timing=${data.timing.find((t) => t.section === s.key)}
           issues=${data.issues.filter((i) => i.section === s.key && !(data.fit && /of speech for ~/.test(i.message)))}
@@ -375,9 +620,33 @@ function Voice({ events, stages }) {
           onEdit=${onEdit}
           audio=${data.audio?.[s.key] ? media("project", data.audio[s.key]) : null}
           fit=${data.fit?.find((f) => f.scene === s.key) ?? null}
-        />`,
+        />`;
+        },
       )}
     </div>
+    ${
+      approveOpen
+        ? html`<${ApproveHighModal} artifact="vo" version=${data.version} onClose=${() => setApproveOpen(false)} onDone=${(
+            r,
+          ) => {
+            setApproveOpen(false);
+            setFlash(`${r.approved.length} section(s) approved · ${r.skip.length} left for you`);
+            setTimeout(() => setFlash(null), 5000);
+            reload();
+          }} />`
+        : null
+    }
+    ${
+      generateOpen
+        ? html`<${GenerateModal} version=${data.version} onClose=${() => setGenerateOpen(false)} onStarted=${() => {
+            setGenerateOpen(false);
+            setFlash(
+              "voice synthesis started — then the edit and a draft render (progress in Live)",
+            );
+            setTimeout(() => setFlash(null), 6000);
+          }} />`
+        : null
+    }
     ${
       readOnly
         ? null

@@ -68,6 +68,7 @@ brief).
 | "My machine struggles while recording" | `set capture.maxWidth 2560` + `capture.maxHeight 1440` |
 | "Discovery stopped too early" | raise `budgets.discoveryScreens` / `discoveryMinutes` for this project |
 | "Better word timing" | `set align.model "small.en"` (slower, bigger download) |
+| "The cost estimate is wrong for my plan" | `set tts.pricePer1kChars.elevenlabs 0.18` (money per 1,000 credits; `.openai` per 1,000 characters) and `tts.currency "€"` |
 | "Which model should run discovery?" | It isn't a config setting: the session model directs. Recommend a vision model with ≥ 200k context (`/demo doctor` shows a warning otherwise) |
 
 ## Never

@@ -22,6 +22,7 @@ import {
 import { formatDoctor, runDoctor } from "../doctor.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
+import { startRender } from "../tools/render.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
 import { briefVoice } from "../tts/factory.ts";
 import { openInBrowser } from "../util/open.ts";
@@ -49,7 +50,8 @@ const USAGE = [
   "/demo status                                    phase, approvals, panel",
   "/demo discover [notes…]                         explore the app and draft a storyboard",
   "/demo voiceover [notes…]                        analyze the latest take and write the voice-over",
-  "/demo render                                    check the voice, synthesize, and render the edit",
+  "/demo render                                    check the voice, synthesize, and render the edit (a draft)",
+  "/demo render final|draft [brand …]              render a final (needs accepted annotations) or a draft — Render tab",
   "/demo voices                                    list your ElevenLabs voices and pick one",
   "/demo brand [list | use <name> [--project] | new [zip/folder] | rerender [name]]  brand packages",
   "/demo config [show [prefix] | set <key> <value> [--project] | unset <key> [--project]]",
@@ -173,8 +175,22 @@ function cmdVoiceover(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   );
 }
 
-function cmdRender(pi: ExtensionAPI, rt: Runtime, ctx: ExtensionCommandContext) {
+function cmdRender(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: ExtensionCommandContext) {
   const p = rt.requireProject();
+  const kind = rest[0];
+  if (kind === "final" || kind === "draft") {
+    // The Render stage (S5 part 9): a background engine job, no agent turn (like the panel).
+    const brands = rest.slice(1).filter(Boolean);
+    try {
+      const job = startRender(rt, { kind, ...(brands.length ? { brands } : {}), by: "panel" });
+      return report(
+        ctx,
+        `${kind} render started for "${p.slug}" (${job.id}) — watch it in the Render tab`,
+      );
+    } catch (err) {
+      return report(ctx, `can't render a ${kind}: ${(err as Error).message}`, "warning");
+    }
+  }
   kick(
     pi,
     `/skill:demo-voiceover The voice-over of "${p.slug}" is approved. Run demo_rec_tts check and tell me which engine and voice will be used; if it's the voice I expect, synthesize (demo_rec_tts start) and then render the edit (demo_rec_edit start). Report output paths and sync stats.`,
@@ -394,7 +410,7 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             await rt.ensurePanel();
             return cmdVoiceover(pi, rt, rest, ctx);
           case "render":
-            return cmdRender(pi, rt, ctx);
+            return cmdRender(pi, rt, rest, ctx);
           case "voices":
             return await cmdVoices(rt, ctx);
           case "config":

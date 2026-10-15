@@ -84,9 +84,9 @@ timing: an annotated render has exactly the same frames as the clean one.
 ## The Annotations stage
 
 ```
-sync edit done ──► designer (agent) ──► annotations/vN.json ──► Annotations tab ──► accept ──► render with vN
-  (auto-suggest)     context → suggest       suggestions,         toggle / edit /                demo_rec_edit
-                     engine: places,         ~half enabled,       nudge / preview /              rerender annotations=N
+sync edit done ──► designer (agent) ──► annotations/vN.json ──► Annotations tab ──► accept ──► final render with vN
+  (auto-suggest)     context → suggest       suggestions,         toggle / edit /                Render tab /
+                     engine: places,         ~half enabled,       nudge / preview /              demo_rec_render
                      weighs, privacy         privacy off          re-suggest
 ```
 
@@ -199,10 +199,12 @@ restarts.
 
 ### Accept and render
 
-**Accept** in the tab (one or several versions, like every stage) tells the
-agent, which re-renders with them: `demo_rec_edit action=rerender
-annotations=N` → `out/edit-vN/<brand>+aN/`. Draft and final renders with QA
-come with the Render stage (S5 part 9).
+**Accept** in the tab (one or several versions, like every stage) makes a
+**final render** possible: in the Render tab, or the agent offers one
+(`demo_rec_render action=start kind=final`). Drafts work from any version —
+even your unsaved changes. Which annotation types a render includes is a
+render option (all by default; none, chapters only, …) — the version stays as
+approved. See [RENDER.md](RENDER.md).
 
 ### The tool
 
@@ -563,12 +565,13 @@ node extensions/demo-recording/cli.ts annotate check --project <p> [--version N]
 # preview one annotation: a short clip (its window ± 1 s, with narration) and a still at its peak
 node extensions/demo-recording/cli.ts annotate preview --project <p> --id zoom-emea [--version N]
 
-# render the edit with annotations burned in (scenes + full video)
-node extensions/demo-recording/cli.ts render --project <p> --annotations N [--edit N] [--brand B]
+# render with annotations burned in (a draft; --kind final once accepted)
+node extensions/demo-recording/cli.ts render --project <p> --annotations N [--kind final] [--brand B]
 ```
 
-- Annotated renders go to `out/edit-vN/<brand>+a<N>/` (e.g. `neutral+a1/`), so
-  they never overwrite the clean render in `out/edit-vN/<brand>/`.
+- `render` makes a render version in `render/vN/<variant>/` (a draft by
+  default; `--kind final` once the annotations are accepted) — see
+  [RENDER.md](RENDER.md#cli-and-tool).
 - Previews go to `previews/annotations/<id>-<hash>.{mp4,png}` and are cached:
   the second call is instant; any change to the annotation, the edit or the
   brand makes a new one.
@@ -609,7 +612,7 @@ node extensions/demo-recording/cli.ts fixture-demo          # take + VO + edit +
 node extensions/demo-recording/cli.ts annotate add --project fixture-demo --file extensions/demo-recording/fixtures/annotations/s3-human.json
 node extensions/demo-recording/cli.ts annotate check --project fixture-demo
 node extensions/demo-recording/cli.ts render --project fixture-demo --annotations 1
-open $R/projects/fixture-demo/out/edit-v1/neutral+a1/full.mp4
+open $R/projects/fixture-demo/render/v2/neutral/full.mp4      # v1 is the edit's own draft
 ```
 
 The recording is not byte-identical between machines, but the marks, steps

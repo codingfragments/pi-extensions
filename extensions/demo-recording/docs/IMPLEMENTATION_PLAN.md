@@ -662,7 +662,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 6 | Recording inputs (layout snapshots, settled boxes, `emphasis`) | ✅ |
 | 7 | Annotation rendering (engine) — [docs/ANNOTATIONS.md](ANNOTATIONS.md) | ✅ |
 | 8 | Annotations stage (designer, tab, review, approve, import) | ✅ |
-| 9 | Render stage (draft/final, render versions, variants, subtitles) | |
+| 9 | Render stage (draft/final, render versions, variants, subtitles) | ✅ |
 | 10 | Deterministic QA + mechanical auto-fix | |
 | 11 | Confidence-guided review + voice direction | |
 | 12 | Actor & dependency model document, per-role model config | |
@@ -881,7 +881,12 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - `annotations-scene-draft {scene}`;
   - accept through the stage routes.
 
-*9. Render stage (D27, D38, D59–D68)* — planned (grill after part 8)
+*9. Render stage (D27, D38, D59–D68)* — ✅ done; user-facing reference: [RENDER.md](RENDER.md)
+- **As built:**
+  - **Code:** `src/render/` (`store.ts` versions, prune/delete, legacy; `run.ts` plan, gate, selection, variants, reuse; `subtitles.ts` words → cues → VTT/SRT, burn-in; `sidecars.ts`; `stamp.ts` DRAFT tag), `renderCut()` in the pipeline (size, scenes, logo bug, encoder, stamp), `demo_rec_render`, `/demo render final|draft`, `panel/render-routes.ts`, `public/render.js`.
+  - **Reuse key:** includes a render code revision (`RENDER_REVISION`), so a code change never serves stale variants.
+  - **Burned-in subtitles:** overlaid onto copies of the rendered files, not a second render.
+  - **The sync edit:** `buildEdit()` (timeline) + a draft render version. The S4 `runEdit()` (full render into `out/edit-vN/`) stays for its end-to-end test.
 - **Render versions** `render/vN.json`, never overwritten:
   ```json
   { "version": 3, "kind": "final", "basedOn": { "annotations": 4 }, "timeline": 2,

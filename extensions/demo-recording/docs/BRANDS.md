@@ -6,7 +6,7 @@ A **brand package** decides how a rendered demo video *looks*:
 - the colors of callouts and highlights;
 - an optional small logo in a corner.
 
-It never changes *what* the video shows: the recording, the cuts, the narration and its timing stay the same. Switching brands is therefore a cheap re-render. It needs no LLM and no new voice generation; the result goes to `out/edit-vN/<brand>/`.
+It never changes *what* the video shows: the recording, the cuts, the narration and its timing stay the same. Switching brands is therefore a cheap re-render. It needs no LLM and no new voice generation; the result goes to `render/vN/<brand>/` ([RENDER.md](RENDER.md)); one render can produce several brands at once.
 
 Decisions behind this: D24 (brand packages), D25 (frame and title), D27 (brand switch). See [VISION.md](VISION.md).
 
@@ -217,7 +217,7 @@ audio: placed voice clips → mix → −16 LUFS
 | Tweak | The panel **Brand** tab: color pickers, sliders for frame/title/logo bug/rim, **preview tweaks** on a real keyframe of the project before saving, then **Save** (shows the `brand.json` diff first) or **Save as copy**. Or `demo_rec_brand update name=… settings='{"colors":{"accent":"#…"}}'` (deep-merged, validated) |
 | Duplicate | `demo_rec_brand duplicate name=neutral to=neutral-custom` or "Save as copy" |
 | Set the default | `/demo brand use <name> [--project]`, `demo_rec_brand use …`, or "Set as default" in the tab. Always shows the config diff and writes only after you confirm |
-| Re-render with a brand | `/demo brand rerender [name]`, `demo_rec_edit action=rerender brand=…`, or "Re-render with …" in the tab. Same timeline, same voice; output in `out/edit-vN/<brand>/`, next to other brands' renders |
+| Render with a brand | the Render tab (tick one or several brands), `/demo render final|draft <name>`, `demo_rec_render brands=[…]`, or `/demo brand rerender [name]` (a draft). Same timeline, same voice; output in `render/vN/<brand>/` |
 
 **Brand creation from material:**
 - **Accepted input:** a `.zip` or a folder. Nested folders are fine, and macOS `__MACOSX` entries are ignored.

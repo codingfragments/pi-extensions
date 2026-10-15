@@ -1,0 +1,177 @@
+/* Config page component (UX0 mock of UX9). Tokens only. */
+
+.ds-cfg {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.ds-cfg-nav {
+  position: sticky;
+  inset-block-start: calc(var(--header-h) + var(--space-4));
+  display: grid;
+  gap: 2px;
+}
+.ds-cfg-nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-min);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.ds-cfg-nav a:hover {
+  background: var(--surface-raised);
+}
+.ds-cfg-nav a[aria-current="true"] {
+  background: var(--accent-tint);
+  color: var(--text-strong);
+  font-weight: var(--weight-medium);
+}
+.ds-cfg-nav a[data-empty="true"] {
+  color: var(--text-muted);
+}
+.ds-cfg-count {
+  margin-inline-start: auto;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ds-cfg-main {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+.ds-cfg-top {
+  display: grid;
+  gap: var(--space-3);
+}
+.ds-cfg-keys {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.ds-group {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  overflow: hidden;
+}
+.ds-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  min-block-size: 3rem;
+  padding: 0 var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--weight-strong);
+  text-align: start;
+  cursor: pointer;
+}
+.ds-group-head:hover {
+  background: var(--surface-raised);
+}
+.ds-group-chev {
+  inline-size: 1rem;
+  color: var(--text-muted);
+}
+.ds-srow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem) auto;
+  gap: var(--space-2) var(--space-4);
+  align-items: start;
+  padding: var(--space-3) var(--space-4);
+  border-block-start: 1px solid var(--border-subtle);
+}
+.ds-srow-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.ds-srow-title h4 {
+  font-size: var(--text-md);
+}
+.ds-srow-title code {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.ds-srow-main p {
+  margin-block-start: 2px;
+  max-inline-size: var(--measure);
+}
+.ds-srow-value {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  min-inline-size: 0;
+}
+.ds-srow-value strong {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.ds-srow-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+.ds-srow-panel .ds-scope {
+  border-block-start-color: var(--border-strong);
+}
+.ds-srow-panel .ds-scope:first-child {
+  border-block-start: 0;
+}
+.ds-srow[data-edit="true"] {
+  background: var(--accent-tint);
+}
+.ds-srow-edit {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-2);
+}
+.ds-raw {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  overflow: auto;
+}
+@container (max-width: 60rem) {
+  .ds-cfg {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ds-cfg-nav {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .ds-cfg-nav a {
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-pill);
+  }
+  .ds-srow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ds-srow-value {
+    grid-column: 1 / 2;
+    grid-row: 2;
+  }
+}

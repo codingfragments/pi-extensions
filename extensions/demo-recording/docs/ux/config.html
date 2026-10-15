@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" data-theme="macchiato">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UX0 mock: Config</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="components.css" />
+    <link rel="stylesheet" href="config.css" />
+  </head>
+  <body
+    data-project="Keycraft"
+    data-stage="config"
+    data-steps="complete,complete,needs,upcoming,upcoming"
+    data-strip-tone="idle"
+    data-strip-text="Nothing running"
+  >
+    <main class="ds-page ds-cfg-root">
+      <div class="ds-stagehead">
+        <div class="ds-grow">
+          <h1>Config</h1>
+          <div class="ds-stagehead-meta"><span>How the tool behaves. Facts about the demo itself live in Project.</span></div>
+        </div>
+        <button class="ds-btn" type="button" title="Re-read the config files after editing them by hand">Reload files</button>
+      </div>
+
+      <div class="ds-tabs" role="tablist" aria-label="Config sections">
+        <button class="ds-tab" role="tab" aria-selected="true" type="button">Settings</button>
+        <button class="ds-tab" role="tab" aria-selected="false" type="button">Brands</button>
+      </div>
+
+      <div class="ds-cfg-top">
+        <div class="ds-row-flex">
+          <label class="ds-search ds-grow" style="max-inline-size: 40rem">
+            <span class="ds-sr-only">Search settings</span>
+            <span class="ds-search-icon" aria-hidden="true">⌕</span>
+            <input class="ds-input" type="search" placeholder="Search names, keys, descriptions and values…" autocomplete="off" />
+            <kbd class="ds-kbd">/</kbd>
+          </label>
+          <button class="ds-btn ds-btn--ghost ds-cfg-clear" type="button" hidden>Clear</button>
+          <span class="ds-small ds-muted ds-cfg-status" role="status" aria-live="polite"></span>
+        </div>
+        <div class="ds-notice ds-cfg-project" role="note"></div>
+        <div class="ds-cfg-keys"><span class="ds-cfg-keys-list ds-row-flex"></span><span>API keys come from the environment only. They are never shown, stored or searched here.</span></div>
+      </div>
+
+      <div class="ds-cfg">
+        <nav class="ds-cfg-nav" aria-label="Setting groups"></nav>
+        <div class="ds-cfg-main">
+          <div class="ds-cfg-groups"></div>
+          <details class="ds-group">
+            <summary class="ds-group-head" style="list-style: none"><span class="ds-group-chev" aria-hidden="true">▸</span>Raw config files <span class="ds-muted ds-small" style="font-weight: var(--weight-regular)">read-only</span></summary>
+            <div class="ds-stack" style="padding: var(--space-4); border-block-start: 1px solid var(--border-subtle)">
+              <div class="ds-row-flex"><span class="ds-seg"><button type="button" aria-pressed="true">global</button><button type="button" aria-pressed="false">project</button></span><code class="ds-small ds-muted">~/.config/demo-recording/config.json</code><span class="ds-grow"></span><button class="ds-btn ds-btn--sm" type="button">Open in editor</button></div>
+              <pre class="ds-raw">{
+  "voiceName": "Stefan_trained",
+  "ttsChain": ["elevenlabs", "say"],
+  "root": "~/DemoRecordings"
+}</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+    </main>
+    <script src="shell.js"></script>
+    
+    <script src="config.js"></script>
+    <script>
+      DSShell.buildFrame();
+    </script>
+  </body>
+</html>

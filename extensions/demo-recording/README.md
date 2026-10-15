@@ -103,7 +103,7 @@ The first step, with three views:
 
 ### Style tile (UX0)
 
-[docs/ux/](docs/ux/README.md) holds the design-system proof for the control room redesign: tokens with measured WCAG contrast in Macchiato and Latte, a showcase of every shared component, two mock screens (Voice over, Render) and a working map prototype. Open `docs/ux/tile.html` in a browser. `test/ux-tile.test.ts` keeps it honest.
+[docs/ux/](docs/ux/README.md) holds the design-system proof for the control room redesign: tokens with measured WCAG contrast in Macchiato and Latte, a showcase of every shared component, four mock screens (Voice over, Render, Config, Map), with working map and settings-search prototypes. Open `docs/ux/tile.html` in a browser. `test/ux-tile.test.ts` keeps it honest.
 
 ### Dialogs, errors and cost warnings (S5)
 

@@ -36,6 +36,21 @@ const SHOTS: Shot[] = [
   { name: "map-approved-paths", page: "map.html", query: "view=approved", widths: [1400] },
   { name: "map-search-final", page: "map.html", query: "q=final&sel=r8", widths: [1400] },
   { name: "map-focus", page: "map.html", query: "focus=1&sel=vo2&open=g1", widths: [1400] },
+  { name: "config", page: "config.html", fullPage: true },
+  {
+    name: "config-search",
+    page: "config.html",
+    query: "q=voice&open=voiceName",
+    fullPage: true,
+    widths: [1400],
+  },
+  {
+    name: "config-edit",
+    page: "config.html",
+    query: "q=tts&edit=ttsChain&open=voiceName",
+    fullPage: true,
+    widths: [1400],
+  },
   // large (1.5 MB each): only when asked for by name, e.g. `... ux-tile-shots.ts tile`
   { name: "tile", page: "tile.html", fullPage: true, widths: [1400], optional: true },
 ];

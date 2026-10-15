@@ -18,6 +18,7 @@ works in the address bar. Press `/` on the showcase to focus the search field.
 | [tile.html](tile.html) | Tokens with **live measured contrast**, and every shared component and layout principle in all its states (14 sections). Live native dialogs and toasts. |
 | [voice.html](voice.html) | Mock **Voice over** screen: frame, next action, version context, list + inspector, working draft, "Approve & use" disabled with its reason, Activity strip and drawer. |
 | [render.html](render.html) | Mock **Render** screen: runs table, selected run with player, variants and QA, destructive and primary actions. |
+| [config.html](config.html) | Mock **Config** screen and a working **settings search** (UX9): seven real groups, every setting with its effective value and source, global / project / environment / default together, explicit "Edit global" and "Override for this project", an environment-shadow warning, `/` and Cmd/Ctrl+K to search, Escape to clear. Query strings: `q=voice&open=voiceName`, `q=tts&edit=ttsChain`, `project=none`. |
 | [map.html](map.html) | Working **Project map** prototype (the UX4 overlay): column layout, curved edges, All / Approved / Production line, search with dim context, focus, grouped drafts, outline, keyboard (arrows, `/`). Query strings: `view=approved`, `q=final&sel=r8`, `focus=1&sel=vo2&open=g1`. |
 
 ## Files
@@ -27,6 +28,7 @@ works in the address bar. Press `/` on the showcase to focus the search field.
 | `tokens.css` | The **only** file with colour literals: both themes, type, space, radius, elevation, motion, layers, layout. |
 | `base.css` | Element defaults, one focus ring, helpers. |
 | `components.css` | The `ds-` components. Tokens only. |
+| `config.css`, `config.js` | The Config page component and its search prototype (fixture data with the real keys and groups). |
 | `map.css`, `map.js` | The map component and its prototype logic. |
 | `shell.js` | Builds the frame (header, stepper, next action, strip, drawer) for the mock screens. |
 | `tile.css`, `tile.js` | Showcase page chrome and behaviour. |
@@ -46,7 +48,7 @@ works in the address bar. Press `/` on the showcase to focus the search field.
 
 ## Screenshots
 
-Committed in [../images/ux/](../images/ux/): the three mock screens at 1400 and 900 px in both
+Committed in [../images/ux/](../images/ux/): the four mock screens (Voice over, Render, Config, Map) at 1400 and 900 px in both
 themes, and the map's states. Regenerate with:
 
 ```fish

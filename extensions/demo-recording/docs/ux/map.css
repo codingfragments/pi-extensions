@@ -40,31 +40,6 @@
 .ds-map-toolbar .ds-search {
   inline-size: 16rem;
 }
-.ds-seg {
-  display: inline-flex;
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.ds-seg button {
-  min-block-size: calc(var(--target-min) - 2px);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-inline-end: 1px solid var(--border-control);
-  background: var(--surface-raised);
-  color: var(--text-body);
-  font: inherit;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-.ds-seg button:last-child {
-  border-inline-end: 0;
-}
-.ds-seg button[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--text-on-accent);
-  font-weight: var(--weight-medium);
-}
 .ds-map-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 19rem;

@@ -161,7 +161,7 @@ test(
     const browser = await (browserType as NonNullable<typeof browserType>).launch();
     try {
       const problems: string[] = [];
-      for (const file of ["tile.html", "voice.html", "render.html", "map.html"]) {
+      for (const file of ["tile.html", "voice.html", "render.html", "map.html", "config.html"]) {
         for (const theme of ["macchiato", "latte"]) {
           for (const width of [1400, 900]) {
             const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -332,6 +332,105 @@ test(
       const failing = await page.locator(".tile-ratio", { hasText: "✗" }).count();
       assert.equal(failing, 0, "no measured pair fails in Latte");
       await page.close();
+    } finally {
+      await browser.close();
+    }
+  },
+);
+
+test(
+  "config prototype: search across both scopes, explicit edit scope, shadowing, no secrets",
+  {
+    skip: !browserType,
+  },
+  async () => {
+    const browser = await (browserType as NonNullable<typeof browserType>).launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+      await page.goto(url("config.html", "theme=macchiato"));
+      const rows = () => page.locator(".ds-srow").count();
+      const all = await rows();
+      assert.equal(all, 18, "every setting of the fixture is listed");
+      assert.match(await page.locator(".ds-cfg-status").innerText(), /18 settings/);
+
+      // "/" focuses the search outside editable controls; typing narrows by key, label, doc and value
+      await page.locator("body").click({ position: { x: 5, y: 400 } });
+      await page.keyboard.press("/");
+      assert.equal(await page.evaluate("document.activeElement?.type"), "search");
+      await page.keyboard.type("voice");
+      assert.equal(
+        await rows(),
+        3,
+        "voice matches the TTS chain doc, the voice name and the auto-suggest doc",
+      );
+      assert.ok((await page.locator("mark.ds-mark").count()) >= 3, "matches are highlighted");
+      assert.match(
+        await page.locator(".ds-cfg-status").innerText(),
+        /3 settings in 2 groups match/,
+      );
+      assert.match(await page.locator(".ds-cfg-main").innerText(), /5 groups have no match/);
+
+      // a value is searchable, and the search never reaches a secret (none is in the data)
+      await page.locator(".ds-input").fill("Stefan_trained");
+      assert.equal(await rows(), 1);
+      await page.locator(".ds-input").fill("sk-");
+      assert.equal(await rows(), 0);
+      assert.match(await page.locator(".ds-cfg-groups").innerText(), /No settings match/);
+      assert.match(await page.locator(".ds-cfg-groups").innerText(), /Secrets are never searched/);
+
+      // Escape clears the query while the search owns focus
+      await page.locator(".ds-input").focus();
+      await page.keyboard.press("Escape");
+      assert.equal(await page.locator(".ds-input").inputValue(), "");
+      assert.equal(await rows(), all);
+
+      // both scopes, the environment and the default are visible together; edit names its scope
+      await page.locator('[data-toggle="voiceName"]').click();
+      const scopes = await page.locator('.ds-srow[data-key="voiceName"] .ds-scope').allInnerTexts();
+      assert.equal(scopes.length, 4);
+      assert.match(
+        scopes.join("\n"),
+        /Environment[\s\S]*Project override[\s\S]*Global value[\s\S]*Default/,
+      );
+      await page.locator('[data-edit="voiceName"][data-scope="project"]').click();
+      assert.match(
+        await page.locator(".ds-srow-edit").innerText(),
+        /Editing the project override \(keycraft\)/,
+      );
+      assert.match(
+        await page.locator(".ds-srow-edit").innerText(),
+        /projects\/keycraft\/config\.json/,
+      );
+      await page.locator("[data-cancel]").click();
+
+      // an environment override shadows a global edit: the panel says so before you save
+      await page.locator('[data-toggle="ttsChain"]').click();
+      await page.locator('[data-edit="ttsChain"][data-scope="global"]').click();
+      assert.match(
+        await page.locator(".ds-srow-edit .ds-notice").innerText(),
+        /no effect right now[\s\S]*DEMO_REC_TTS_CHAIN/,
+      );
+      await page.close();
+
+      // no project open: project editing is disabled, with the reason
+      const p2 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+      await p2.goto(url("config.html", "project=none&open=fps"));
+      const disabled = p2.locator('.ds-srow[data-key="fps"] button[aria-disabled="true"]');
+      assert.equal(await disabled.count(), 1);
+      assert.match(
+        await p2.locator('.ds-srow[data-key="fps"] .ds-why').innerText(),
+        /Open a project to override/,
+      );
+      await p2.close();
+
+      // narrow: the group nav becomes chips, rows stack, no page overflow
+      const p3 = await browser.newPage({ viewport: { width: 900, height: 900 } });
+      await p3.goto(url("config.html"));
+      assert.equal(
+        await p3.evaluate("getComputedStyle(document.querySelector('.ds-cfg-nav')).position"),
+        "static",
+      );
+      await p3.close();
     } finally {
       await browser.close();
     }

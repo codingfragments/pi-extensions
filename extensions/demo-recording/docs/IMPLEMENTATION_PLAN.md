@@ -1065,7 +1065,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 
   | Slice | Scope | State |
   |---|---|---|
-  | UX0 | **Style tile and component/dialog showcase** ([docs/ux](ux/README.md): tokens with measured contrast, 14 showcase sections, mock Voice over and Render screens, a working map prototype; both themes, 900/1400 px). **Built; your approval gates UX1** | built, awaiting approval |
+  | UX0 | **Style tile and component/dialog showcase** ([docs/ux](ux/README.md): tokens with measured contrast, 14 showcase sections, mock Voice over, Render and Config screens, working map and settings-search prototypes; both themes, 900/1400 px). **Built; your approval gates UX1** | built, awaiting approval |
   | UX1 | Foundations exactly as approved in UX0: tokens, shared components, contrast/focus, audit harness, ratchet test | planned |
   | UX2 | **Hash routes**, frame, stateful navigation/next action and Activity strip/drawer; shared Recording frame | planned |
   | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary | planned |

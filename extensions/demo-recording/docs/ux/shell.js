@@ -86,7 +86,7 @@
       <nav aria-label="Production stages" style="flex:1;min-inline-size:0"><ol class="ds-steps">${steps}</ol></nav>
       <span class="ds-header-tools">
         <button class="ds-btn ds-btn--ghost" type="button" data-act="map">◇ Map</button>
-        <button class="ds-btn ds-btn--ghost" type="button">⚙ Config</button>
+        <button class="ds-btn ds-btn--ghost" type="button" ${current === "config" ? 'aria-current="page"' : ""}>⚙ Config</button>
         <button class="ds-btn ds-btn--ghost" type="button" data-act="theme" aria-label="Switch theme">◐ Theme</button>
       </span></header>${next}</div>`;
     const main = document.querySelector("main");

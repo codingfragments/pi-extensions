@@ -1121,3 +1121,62 @@ dialog.ds-dialog::backdrop {
 .ds-table .ds-wrap {
   white-space: normal;
 }
+
+/* ---------- Tabs ---------- */
+.ds-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-block-end: 1px solid var(--border-subtle);
+}
+.ds-tab {
+  min-block-size: var(--target-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: none;
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.ds-tab:hover {
+  background: var(--surface-raised);
+}
+.ds-tab[aria-selected="true"] {
+  color: var(--text-strong);
+  border-block-end-color: var(--accent);
+}
+.ds-header .ds-btn[aria-current="page"],
+.ds-btn[aria-current="page"] {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+
+/* ---------- Segmented control ---------- */
+.ds-seg {
+  display: inline-flex;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.ds-seg button {
+  min-block-size: calc(var(--target-min) - 2px);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-inline-end: 1px solid var(--border-control);
+  background: var(--surface-raised);
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.ds-seg button:last-child {
+  border-inline-end: 0;
+}
+.ds-seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: var(--weight-medium);
+}

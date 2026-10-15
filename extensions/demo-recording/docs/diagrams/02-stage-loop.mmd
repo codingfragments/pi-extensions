@@ -1,0 +1,25 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef script fill:#d9f2dd,stroke:#2e8b57,color:#0d3b22
+  classDef store fill:#fff,stroke:#8a8a99,color:#333
+
+  M("<b>Model proposes</b><br/>writes the artifact:<br/>storyboard · script · annotations"):::model
+  V["<b>Engine validates</b><br/>schema · anchors · targets<br/>numbers on the page"]:::engine
+  X["<b>Scripts compute</b><br/>Playwright · ffmpeg · Whisper"]:::script
+  S[("<b>Immutable version vN</b><br/>+ its checks and its parent link")]:::store
+  C["<b>Engine measures</b><br/>confidence · cost estimate<br/>diff vs base · QA"]:::engine
+  H{{"<b>You decide</b> in the panel<br/>approve · changes · re-run<br/>sees reasons, diff and cost"}}:::human
+  R["<b>Engine records</b><br/>accepted · working line<br/>input log"]:::engine
+  N["<b>Next stage unlocks</b><br/>engine job or a<br/>[demo-panel] message"]:::engine
+
+  M --> V
+  V -- "errors: nothing stored,<br/>the model fixes and resubmits" --> M
+  V --> S
+  X -.-> V
+  S --> C
+  C --> H
+  H -- "changes · re-run<br/>(a message to the model)" --> M
+  H -- "accept" --> R
+  R --> N

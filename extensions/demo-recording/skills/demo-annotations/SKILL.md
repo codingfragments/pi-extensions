@@ -12,6 +12,24 @@ pre-enables the best half; the user toggles, edits and accepts in the panel.
 
 Reference for every type, field and rule: `docs/ANNOTATIONS.md` in the extension.
 
+<!-- The sections "What to suggest", "Writing rules" and "Privacy (Privacy officer)" are also the
+system prompt of the SEPARATE designer run (roles.annotationDesigner, docs/ACTORS.md): keep them
+self-contained — rules and judgement only, no tool calls (those belong in "Workflow"). -->
+
+## When the designer runs separately
+
+If the user gave the role a model (`roles.annotationDesigner.model`), the engine runs
+the designer as ONE call on that model instead of your turn, after each sync edit and for the
+panel's (Re-)suggest. You then see one of three things:
+
+- the edit report says **"the separate Annotation designer … is suggesting them now"**: don't
+  start it yourself. A quiet note "Annotations vN were suggested by the separate Annotation
+  designer (model)" follows. Nothing to do unless the user asks for changes (then use the
+  workflow below — your `suggest` keeps the user's changed items);
+- a message **"The separate Annotation designer couldn't suggest (…), so it is yours now"**:
+  its models failed. Do the workflow below as usual;
+- no mention at all: the role has no model, so the workflow below is yours.
+
 ## Workflow
 
 1. `demo_rec_annotations action=context` (for a re-suggest: pass `base` and the

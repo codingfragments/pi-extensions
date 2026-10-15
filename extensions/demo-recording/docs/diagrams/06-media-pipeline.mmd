@@ -1,0 +1,36 @@
+flowchart TB
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef script fill:#d9f2dd,stroke:#2e8b57,color:#0d3b22
+  classDef store fill:#fff,stroke:#8a8a99,color:#333
+
+  subgraph A["1 · Record"]
+    direction LR
+    sb[("storyboard/vN.yaml")]:::store --> rec["Recorder"]:::engine
+    rec -.-> pw[["Chromium<br/>CDP screencast"]]:::script
+    rec --> take[("takes/take-NNN<br/>raw.mp4 · events<br/>layout · dom")]:::store
+  end
+  subgraph B["2 · Understand and write"]
+    direction LR
+    an["Take analysis"]:::engine --> ana[("analysis.json<br/>marks · idle · alerts<br/>keyframes")]:::store
+    ana --> vw("Voice writer"):::model
+    vw --> script[("vo/script.vN.md<br/>+ meta: base, direction")]:::store
+  end
+  subgraph C["3 · Voice and edit"]
+    direction LR
+    tts["TTS job"]:::engine -.-> voice[["TTS engines<br/>Whisper timings"]]:::script
+    tts --> audio[("vo/audio<br/>wav · timings · anchors")]:::store
+    audio --> edit["Edit<br/>audio-led timeline"]:::engine
+    edit --> tl[("edit/timeline.vN.json")]:::store
+  end
+  subgraph D["4 · Annotate and render"]
+    direction LR
+    des("Annotation designer"):::model --> ann[("annotations/vN.json")]:::store
+    ann --> rnd["Render job<br/>brand · variants"]:::engine
+    rnd -.-> ff[["ffmpeg"]]:::script
+    rnd --> outp[("render/vN/&lt;brand&gt;/<br/>mp4 · scenes · vtt · srt")]:::store
+    outp --> qa["QA"]:::engine
+  end
+  A -- "the take" --> B
+  B -- "the approved script" --> C
+  C -- "the timeline" --> D

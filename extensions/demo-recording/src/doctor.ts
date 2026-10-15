@@ -10,10 +10,12 @@ import fs from "node:fs";
 import path from "node:path";
 import type { DemoRecConfig } from "./config.ts";
 import {
+  MIN_ROLE_CONTEXT,
   type ModelInfo,
   type RegistryLike,
   contextWarning,
   improviseModelStatus,
+  roleModelStatus,
   visionWarning,
 } from "./models.ts";
 
@@ -198,6 +200,40 @@ export async function runDoctor(
         `${p.sessionModel.provider}/${p.sessionModel.id} (images, ${Math.round((p.sessionModel.contextWindow ?? 0) / 1000)}k context)`,
     );
   }
+
+  // The cast (S5 part 12, docs/ACTORS.md): who plays what, and on which model.
+  const designer = cfg.roles.annotationDesigner?.model;
+  const sm = p.sessionModel
+    ? `${p.sessionModel.provider}/${p.sessionModel.id}`
+    : "the session model";
+  add(
+    "roles",
+    "pass",
+    `Director, Researcher, Storyboard writer, Voice writer, Brand designer: ${sm} · Operator: ${cfg.improvise.models.join(" → ")} · ` +
+      `Annotation designer (+ Privacy officer): ${designer ? `separate run on ${designer.join(" → ")}` : sm} · Cutter, QA reviewer: engine (no model)`,
+  );
+  if (designer && p.registry) {
+    const st = roleModelStatus(designer, p.registry);
+    const ok = st.filter((x) => x.ok);
+    const small = ok.filter(
+      (x) => x.contextWindow !== undefined && x.contextWindow < MIN_ROLE_CONTEXT,
+    );
+    add(
+      "annotation designer model",
+      ok.length === 0 ? "warn" : ok.length < st.length || small.length ? "warn" : "pass",
+      st
+        .map(
+          (x) =>
+            `${x.ok ? "✔" : "✖"} ${x.spec}${x.ok ? (x.contextWindow ? ` (${Math.round(x.contextWindow / 1000)}k context)` : "") : ` (${x.reason})`}${small.some((m) => m.spec === x.spec) ? ` — under ${MIN_ROLE_CONTEXT / 1000}k: a long demo's input pack may not fit` : ""}`,
+        )
+        .join("; ") + (ok.length ? "" : " — the agent turn will do the designing instead"),
+    );
+  } else if (designer)
+    add(
+      "annotation designer model",
+      "warn",
+      `${designer.join(" → ")} (can't check without pi's model registry — run /demo doctor inside pi)`,
+    );
 
   return results;
 }

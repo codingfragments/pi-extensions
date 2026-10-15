@@ -1,0 +1,49 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef script fill:#d9f2dd,stroke:#2e8b57,color:#0d3b22
+  classDef store fill:#fff,stroke:#8a8a99,color:#333
+
+  subgraph people["  You  "]
+    direction LR
+    you{{"You<br/>approve · steer · decide"}}:::human
+    panel{{"Panel (browser)<br/>the control room"}}:::human
+  end
+
+  subgraph pi["  pi session (terminal)  "]
+    direction LR
+    director("Director<br/>= the session model<br/>+ skills"):::model
+    tools["demo_rec_* tools<br/>/demo commands"]:::engine
+  end
+
+  subgraph ext["  demo-recording extension (one Node process)  "]
+    direction LR
+    runtime["Runtime<br/>config · jobs · event bus"]:::engine
+    panelsrv["Panel server<br/>HTTP + WebSocket · token"]:::engine
+    jobs["Engine jobs<br/>record · tts · edit<br/>render with QA · design"]:::engine
+    work[("Working directory<br/>apps/ projects/ brands/<br/>versions · inputs · state")]:::store
+  end
+
+  subgraph out["  What the engine drives  "]
+    direction LR
+    pw[["Playwright + Chromium"]]:::script
+    ff[["ffmpeg"]]:::script
+    wh[["uv: Whisper · Kokoro"]]:::script
+    im("Operator + designer models"):::model
+    tts("ElevenLabs / OpenAI TTS"):::model
+  end
+
+  you <--> director
+  you <--> panel
+  director <--> tools
+  tools --> runtime
+  runtime <--> work
+  runtime --> jobs
+  panel <--> panelsrv
+  panelsrv -.->|"[demo-panel] messages"| director
+  jobs --> pw
+  jobs --> ff
+  jobs --> wh
+  jobs --> im
+  jobs --> tts

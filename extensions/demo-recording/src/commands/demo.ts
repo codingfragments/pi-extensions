@@ -399,6 +399,7 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
       return null;
     },
     handler: async (args, ctx) => {
+      rt.bindModels((ctx as { modelRegistry?: unknown }).modelRegistry);
       const [sub, ...rest] = args.trim().split(/\s+/).filter(Boolean);
       try {
         switch (sub) {

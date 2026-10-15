@@ -36,6 +36,15 @@ export interface AnnotationRouteDeps {
   getConfig: () => DemoRecConfig;
   notifyAgent: (text: string) => void;
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
+  /**
+   * Run the Annotation designer as a separate model call (S5 part 12), when its role has a model.
+   * Returns true when the run started; `onFallback` hands over to the agent when it can't deliver.
+   */
+  designer?: (o: {
+    base?: number;
+    instructions?: string;
+    onFallback: (errors: string[]) => void;
+  }) => boolean;
 }
 
 /** Stills and clips at 960×540 (cards and the large preview popup); scene drafts at 640×360 (inline). */
@@ -267,11 +276,20 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
             "save or discard the unsaved changes first — re-suggest keeps saved changes only",
           );
         if (instructions) logInstructions(p.dir, base, instructions);
-        deps.notifyAgent(
+        const ask =
           base === undefined
             ? `${PANEL_PREFIX} Suggest annotations for project "${p.slug}" (VO v${state.line.vo})${instructions ? ` — the user's instructions: "${instructions}"` : ""}. Use the demo-annotations skill: demo_rec_annotations action=context${instructions ? " with these instructions" : ""}, then action=suggest.`
-            : `${PANEL_PREFIX} Re-suggest annotations for project "${p.slug}" on top of v${base}${instructions ? ` — the user's instructions: "${instructions}"` : ""}. Use the demo-annotations skill: demo_rec_annotations action=context base=${base}${instructions ? " with these instructions" : ""}, then action=suggest base=${base}${instructions ? " instructions=…" : ""}. The user's changed items are kept automatically.`,
-        );
+            : `${PANEL_PREFIX} Re-suggest annotations for project "${p.slug}" on top of v${base}${instructions ? ` — the user's instructions: "${instructions}"` : ""}. Use the demo-annotations skill: demo_rec_annotations action=context base=${base}${instructions ? " with these instructions" : ""}, then action=suggest base=${base}${instructions ? " instructions=…" : ""}. The user's changed items are kept automatically.`;
+        // D85–D90: the separate Annotation designer when its role has a model; the agent otherwise (or when it fails).
+        const separate = deps.designer?.({
+          ...(base !== undefined ? { base } : {}),
+          ...(instructions ? { instructions } : {}),
+          onFallback: (errors) =>
+            deps.notifyAgent(
+              `(The separate Annotation designer couldn't do it: ${errors.join("; ")}.) ${ask}`,
+            ),
+        });
+        if (!separate) deps.notifyAgent(ask);
         deps.publish(
           "annotations.requested",
           {
@@ -281,11 +299,12 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
                 : `re-suggest on v${base} requested${instructions ? " (with instructions)" : ""}`,
             ...(base !== undefined ? { base } : {}),
             voVersion: state.line.vo,
+            by: separate ? "separate designer run" : "agent",
             ...(instructions ? { instructions } : {}),
           },
           p.slug,
         );
-        return { requested: true, base: base ?? null };
+        return { requested: true, base: base ?? null, separate: !!separate };
       },
       /** { version, id, kind: still|clip } → media URL (draft-aware, cached). */
       "annotation-preview": (body) => {

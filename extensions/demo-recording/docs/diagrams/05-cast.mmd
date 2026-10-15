@@ -1,0 +1,36 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef script fill:#d9f2dd,stroke:#2e8b57,color:#0d3b22
+
+  you{{"You<br/>every gate, every approval"}}:::human
+  dir("<b>Director</b><br/>leads · talks to you<br/>reads every report"):::model
+
+  subgraph played["Roles the Director plays: a skill on the session model"]
+    direction LR
+    res("Researcher<br/>(discovery)"):::model
+    sw("Storyboard writer"):::model
+    vw("Voice writer<br/>+ voice direction"):::model
+    bd("Brand designer"):::model
+    ad("Annotation designer<br/>+ Privacy officer's judgement"):::model
+  end
+
+  subgraph sep["Roles that can run as a separate model call"]
+    direction LR
+    op("Operator<br/>improvise.models"):::model
+    ad2("Annotation designer<br/>roles.annotationDesigner.model"):::model
+  end
+
+  subgraph eng["Engine roles: deterministic, no model"]
+    direction LR
+    cut["Cutter<br/>timeline · holds · sync"]:::engine
+    qa["QA reviewer<br/>values · drift · footage · redactions"]:::engine
+    ps["Privacy scan<br/>emails · keys · ids"]:::engine
+    rec["Recorder · TTS · Renderer"]:::engine
+  end
+
+  you <--> dir
+  dir -- "loads the skill" --> played
+  dir -. "unchanged unless configured" .-> sep
+  dir -- "tool calls · jobs · reports" --> eng

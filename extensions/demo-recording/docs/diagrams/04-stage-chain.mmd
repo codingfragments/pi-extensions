@@ -1,0 +1,31 @@
+flowchart LR
+  classDef ok fill:#e3f5e1,stroke:#2e8b57,color:#0d3b22
+  classDef line fill:#e3f5e1,stroke:#1b5e3a,stroke-width:4px,color:#0d3b22
+  classDef open fill:#fff,stroke:#8a8a99,color:#333
+  classDef orphan fill:#f4f4f6,stroke:#aaa,stroke-dasharray:5 4,color:#777
+
+  subgraph L["stages, left to right: each version has exactly ONE parent version"]
+    direction LR
+    sb1["storyboard v1 ✓"]:::ok
+    sb2["storyboard v2 ✓"]:::line
+    t1["take-001 ✓"]:::ok
+    t2["take-002 ✓"]:::line
+    vo1["voice-over v1 ✓"]:::ok
+    vo2["voice-over v2 ✓<br/>(from a direction)"]:::line
+    vo3["voice-over v3"]:::open
+    an1["annotations v1 ✓"]:::ok
+    an2["annotations v2 ✓"]:::line
+    an3["annotations v3"]:::open
+    r1["render v1 draft"]:::open
+    r2["render v2 final ✓"]:::line
+  end
+  sb1 --> t1
+  sb2 --> t2
+  t1 --> vo1
+  t2 --> vo2
+  t2 --> vo3
+  vo1 --> an1
+  vo2 --> an2
+  vo2 --> an3
+  an1 --> r1
+  an2 --> r2

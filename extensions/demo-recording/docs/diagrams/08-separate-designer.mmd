@@ -1,0 +1,33 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef store fill:#fff,stroke:#8a8a99,color:#333
+
+  trig["Trigger: a new sync edit<br/>(auto-suggest) or the<br/>panel's Re-suggest"]:::engine
+  chk{"role has a model,<br/>models reachable,<br/>no run going?"}:::engine
+  agent("Agent turn on the session model<br/>skill demo-annotations<br/>the default"):::model
+  pack["Engine builds the input pack<br/>narration per anchor · emphasis · elements with refs<br/>privacy hits · caps · the user's kept items"]:::engine
+  sys["System prompt from the skill file<br/>What to suggest · Writing rules · Privacy<br/>+ the output format"]:::engine
+  asks("ONE call on model 1<br/>(next model if it fails)"):::model
+  parse["Parse the JSON array<br/>check every element"]:::engine
+  dry["Dry run of the suggest engine<br/>placeable? (stores nothing)"]:::engine
+  ok{"problems?"}:::engine
+  rep("ONE repair round:<br/>problems sent back,<br/>complete corrected array"):::model
+  place["Place · weigh · privacy scan<br/>store annotations vN"]:::engine
+  note["Quiet note to the Director<br/>no turn"]:::engine
+  you{{"You review in the Annotations tab"}}:::human
+  fail["All models failed or nothing placeable<br/>design.finished with the reasons"]:::engine
+
+  trig --> chk
+  chk -- "no" --> agent
+  chk -- "yes" --> pack --> asks
+  sys --> asks
+  asks --> parse --> dry --> ok
+  ok -- "no" --> place
+  ok -- "yes, first time" --> rep --> parse
+  ok -- "yes, again" --> fail
+  asks -- "error / no answer" --> fail
+  place --> note --> you
+  fail -- "fallback" --> agent
+  agent --> you

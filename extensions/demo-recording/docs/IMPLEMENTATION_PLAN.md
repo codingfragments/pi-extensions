@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass**: stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass** (UX0 built, awaiting approval): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1065,7 +1065,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 
   | Slice | Scope | State |
   |---|---|---|
-  | UX0 | **Style tile and component/dialog showcase** (static page, all components and layout principles, both themes, 900/1400 px); **your approval gates UX1** | planned |
+  | UX0 | **Style tile and component/dialog showcase** ([docs/ux](ux/README.md): tokens with measured contrast, 14 showcase sections, mock Voice over, Render and Config screens, working map and settings-search prototypes; both themes, 900/1400 px). **Built; your approval gates UX1** | built, awaiting approval |
   | UX1 | Foundations exactly as approved in UX0: tokens, shared components, contrast/focus, audit harness, ratchet test | planned |
   | UX2 | **Hash routes**, frame, stateful navigation/next action and Activity strip/drawer; shared Recording frame | planned |
   | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary | planned |

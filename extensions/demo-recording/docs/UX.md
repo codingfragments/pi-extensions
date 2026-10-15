@@ -479,6 +479,8 @@ these technical choices. Each is recorded as a decision (D110–D115).
 
 ### 10.1 Style tile and showcase gate (UX0, D110)
 
+**Built:** [ux/README.md](ux/README.md) describes the pages, the tokens and the tests; screenshots are in `images/ux/`. The values in `tokens.css` are now measured, not proposed. Besides the two planned mock screens (Voice over, Render) it has a working **Project map** prototype (UX4) and a **Config** screen with a working settings search (UX9), added on request.
+
 Before UX1, build **one static, themeable HTML page** (no panel code, no build
 step; served from `docs/ux/` and generated screenshots under `docs/images/ux/`):
 

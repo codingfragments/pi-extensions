@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" data-theme="macchiato">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UX0 mock: Render</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="components.css" />
+  </head>
+  <body
+    data-project="Keycraft"
+    data-stage="render"
+    data-steps="complete,complete,complete,complete,needs"
+    data-next-label="Needs you"
+    data-next-text="Review and approve final v8"
+    data-next-action="Review final v8"
+    data-strip-tone="idle"
+    data-strip-text="Nothing running"
+  >
+    <main class="ds-page">
+      <div class="ds-stagehead">
+        <div class="ds-grow">
+          <h1>Render</h1>
+          <div class="ds-stagehead-meta">
+            <span>Based on <strong style="color: var(--text-strong)">Annotations v4</strong></span>
+            <span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Approved</span>
+            <span>3 final renders · 17 draft renders</span>
+          </div>
+        </div>
+        <span class="ds-btn-group">
+          <button class="ds-btn ds-btn--primary" type="button">New render…</button>
+          <button class="ds-btn ds-btn--primary" type="button" aria-label="Render presets">▾</button>
+        </span>
+      </div>
+
+      <section class="ds-card" aria-label="Renders" style="padding: 0; overflow: hidden">
+        <div class="ds-card-head" style="padding: var(--space-3) var(--space-4); margin: 0">
+          <h2>Renders</h2>
+          <span class="ds-row-flex">
+            <button class="ds-chip" type="button" aria-pressed="true">Finals</button>
+            <button class="ds-chip" type="button" aria-pressed="false">Drafts</button>
+            <button class="ds-chip" type="button" aria-pressed="false">QA problems</button>
+          </span>
+        </div>
+        <div class="ds-table-wrap"><table class="ds-table">
+          <caption class="ds-sr-only">Render runs</caption>
+          <thead><tr><th scope="col">Run</th><th scope="col" class="ds-hide-narrow">Kind</th><th scope="col">Based on</th><th scope="col" class="ds-hide-narrow">Variants</th><th scope="col">QA</th><th scope="col" class="ds-hide-narrow">Status</th><th scope="col" class="ds-num ds-hide-narrow">Size</th><th scope="col" class="ds-hide-narrow">Created</th></tr></thead>
+          <tbody>
+            <tr aria-selected="true"><td><strong style="color: var(--text-strong)">Final v8</strong> <span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In production line</span></td><td class="ds-hide-narrow">Final</td><td>Annotations v4</td><td class="ds-hide-narrow">Neutral · subtitled</td><td><span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Passed</span></td><td class="ds-hide-narrow">Done</td><td class="ds-num ds-hide-narrow">184 MB</td><td class="ds-hide-narrow">Today 12:20</td></tr>
+            <tr><td><strong style="color: var(--text-strong)">Final v7</strong></td><td class="ds-hide-narrow">Final</td><td>Annotations v4</td><td class="ds-hide-narrow">Neutral</td><td><span class="ds-badge" data-tone="err"><span class="ds-badge-ico" aria-hidden="true">!</span>1 blocking</span></td><td class="ds-hide-narrow">Done</td><td class="ds-num ds-hide-narrow">96 MB</td><td class="ds-hide-narrow">Today 11:02</td></tr>
+            <tr><td><strong style="color: var(--text-strong)">Final v3</strong></td><td class="ds-hide-narrow">Final</td><td>Annotations v2</td><td class="ds-hide-narrow">Neutral</td><td><span class="ds-badge" data-tone="neutral">Not checked</span></td><td class="ds-hide-narrow"><span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">!</span>Files deleted</span></td><td class="ds-num ds-hide-narrow">—</td><td class="ds-hide-narrow">Yesterday</td></tr>
+            <tr class="ds-table-group"><td colspan="8"><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" aria-expanded="false">▸ 17 draft renders · only the newest 3 keep files</button></td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <div class="ds-workspace">
+        <div class="ds-cols">
+          <section class="ds-card ds-stack" aria-label="Final v8">
+            <div class="ds-card-head" style="margin: 0">
+              <h2>Final v8</h2>
+              <span class="ds-muted ds-small">2:08 · 1920×1080 · Neutral</span>
+              <span class="ds-grow"></span>
+              <span class="ds-btn-group">
+                <button class="ds-btn ds-btn--sm" type="button">Full video</button>
+                <button class="ds-btn ds-btn--sm" type="button" aria-pressed="false">Scenes</button>
+              </span>
+            </div>
+            <div class="ds-footage" role="img" aria-label="Poster frame of the final video"><div class="ds-footage-bar"><i></i><i></i><i></i></div><div class="ds-footage-body"><span></span><span class="ds-hot"></span><span></span></div><span class="ds-footage-time">0:00 / 2:08</span></div>
+            <table class="ds-table">
+              <caption class="ds-sr-only">Variants of final v8</caption>
+              <thead><tr><th scope="col">Variant</th><th scope="col">Files</th><th scope="col" class="ds-num">Size</th><th scope="col"><span class="ds-sr-only">Actions</span></th></tr></thead>
+              <tbody>
+                <tr><td>Neutral</td><td>full · 6 scenes · VTT · poster</td><td class="ds-num">96 MB</td><td><button class="ds-btn ds-btn--sm" type="button">Show files</button></td></tr>
+                <tr><td>Neutral · subtitled</td><td>full · 6 scenes · VTT</td><td class="ds-num">88 MB</td><td><button class="ds-btn ds-btn--sm" type="button">Show files</button></td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="ds-card ds-stack" aria-label="Quality check">
+            <div class="ds-card-head" style="margin: 0"><h2>Quality check</h2><span class="ds-grow"></span><span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>No blocking items</span></div>
+            <ul class="ds-checklist">
+              <li class="ds-iconrow"><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span>Every narrated value is on the page</li>
+              <li class="ds-iconrow"><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span>No error toast or console error in used footage</li>
+              <li class="ds-iconrow"><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span>Sync drift 84 ms, under the 300 ms limit</li>
+              <li class="ds-iconrow"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span>One 1.4 s hold in scene 4 <a href="#" class="ds-small">Propose a fix</a></li>
+            </ul>
+            <div class="ds-row-flex"><button class="ds-btn ds-btn--sm" type="button">Re-run QA</button><button class="ds-btn ds-btn--sm ds-btn--ghost" type="button">Full report</button></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="ds-actionbar" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-lg)">
+        <span class="ds-muted ds-small">Approving a final makes it the deliverable and protects its files from clean-up.</span>
+        <span class="ds-row-flex" style="margin-inline-start: auto">
+          <button class="ds-btn ds-btn--danger" type="button">Delete files…</button>
+          <button class="ds-btn" type="button">Download ▾</button>
+          <button class="ds-btn ds-btn--primary" type="button">Approve final v8</button>
+        </span>
+      </div>
+    </main>
+    <script src="shell.js"></script>
+    <script>
+      DSShell.buildFrame();
+    </script>
+  </body>
+</html>

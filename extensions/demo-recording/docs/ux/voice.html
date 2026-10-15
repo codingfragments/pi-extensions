@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-theme="macchiato">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UX0 mock: Voice over</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="components.css" />
+  </head>
+  <body
+    data-project="Keycraft"
+    data-stage="vo"
+    data-steps="complete,complete,needs,upcoming,upcoming"
+    data-next-label="Needs you"
+    data-next-text="Review the narration of Voice v3"
+    data-next-more="2 other items need you"
+    data-next-action="Continue review"
+    data-strip-tone="running"
+    data-strip-text="Rendering draft · 3 of 6 scenes"
+    data-strip-progress="50"
+  >
+    <main class="ds-page">
+      <div class="ds-stagehead">
+        <div class="ds-grow">
+          <h1>Voice over</h1>
+          <div class="ds-stagehead-meta">
+            <span>Viewing <strong style="color: var(--text-strong)">v3</strong></span>
+            <span class="ds-badge" data-tone="neutral"><span class="ds-badge-ico" aria-hidden="true">✎</span>Draft version</span>
+            <span>Based on Recording 6</span>
+          </div>
+        </div>
+        <button class="ds-btn" type="button">History</button>
+      </div>
+
+      <div class="ds-notice" role="note">
+        <span class="ds-status" data-tone="info" aria-hidden="true">i</span>
+        <div>
+          <strong>You are reviewing a new draft.</strong> Voice v2 is in the production line, so the next steps still use v2.
+          <a href="#">Compare with v2</a>
+        </div>
+      </div>
+
+      <div class="ds-workspace">
+        <div class="ds-split">
+          <div class="ds-split-bar">
+            <label class="ds-field"><span class="ds-label">Section</span>
+              <select class="ds-select"><option>2. Search results · needs attention</option></select></label>
+          </div>
+          <section class="ds-split-list" aria-label="Sections">
+            <div class="ds-list-head">
+              <span><strong style="color: var(--text-strong)">6 sections</strong> · 2 need attention</span>
+              <span class="ds-row-flex">
+                <button class="ds-chip" type="button" aria-pressed="true">All</button>
+                <button class="ds-chip" type="button" aria-pressed="false">Needs attention</button>
+              </span>
+            </div>
+            <ul class="ds-list">
+              <li><button class="ds-item" type="button"><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span><span><span class="ds-item-title">1. Introduction</span><br /><span class="ds-item-meta">0:00–0:18 · 48 words</span></span><span class="ds-badge" data-tone="ok">Reviewed</span></button></li>
+              <li><button class="ds-item" type="button" aria-current="true"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><span><span class="ds-item-title">2. Search results</span><br /><span class="ds-item-meta">0:18–0:41 · 62 words</span></span><span class="ds-badge" data-tone="warn">Medium</span></button></li>
+              <li><button class="ds-item" type="button"><span class="ds-status" aria-hidden="true">○</span><span><span class="ds-item-title">3. Compare two results</span><br /><span class="ds-item-meta">0:41–1:05 · 58 words</span></span><span class="ds-badge" data-tone="ok">High</span></button></li>
+              <li><button class="ds-item" type="button"><span class="ds-status" data-tone="err" aria-hidden="true">!</span><span><span class="ds-item-title">4. Open the insights view</span><br /><span class="ds-item-meta">1:05–1:30 · 71 words</span></span><span class="ds-badge" data-tone="err">Low</span></button></li>
+              <li><button class="ds-item" type="button"><span class="ds-status" aria-hidden="true">○</span><span><span class="ds-item-title">5. Export the list</span><br /><span class="ds-item-meta">1:30–1:52 · 44 words</span></span><span class="ds-badge" data-tone="ok">High</span></button></li>
+              <li><button class="ds-item" type="button"><span class="ds-status" aria-hidden="true">○</span><span><span class="ds-item-title">6. Wrap-up</span><br /><span class="ds-item-meta">1:52–2:08 · 31 words</span></span><span class="ds-badge" data-tone="ok">High</span></button></li>
+            </ul>
+          </section>
+
+          <section class="ds-split-detail" aria-label="Selected section">
+            <div class="ds-stack" style="padding: var(--space-4)">
+              <div class="ds-row-flex">
+                <h2>2. Search results</h2>
+                <span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">!</span>Medium confidence</span>
+                <span class="ds-grow"></span>
+                <span class="ds-muted ds-small">0:18–0:41 · 3 anchors</span>
+              </div>
+              <div class="ds-footage" role="img" aria-label="Keyframe at the results-visible anchor, the result count highlighted">
+                <div class="ds-footage-bar"><i></i><i></i><i></i></div>
+                <div class="ds-footage-body"><span></span><span class="ds-hot"></span><span></span></div>
+                <span class="ds-footage-time">0:27 · [@results-visible]</span>
+              </div>
+              <div class="ds-notice" data-tone="warn">
+                <span class="ds-status" data-tone="warn" aria-hidden="true">!</span>
+                <div><strong>Why medium:</strong> the number “12” is on the page at the anchor, but the section changed since v2.</div>
+              </div>
+              <div class="ds-field">
+                <label class="ds-label" for="narration">Narration</label>
+                <textarea class="ds-textarea ds-measure" id="narration" rows="5">Typing a query returns [@results-visible] 12 of the 17 products, ranked by relevance. I pick the first result to compare it with the runner-up, because the price difference is what a buyer actually asks about.</textarea>
+                <span class="ds-hint-text">Anchors in [@brackets] are kept. 62 words · about 24 s at 150 words per minute.</span>
+              </div>
+              <div class="ds-row-flex">
+                <button class="ds-btn" type="button">Mark reviewed</button>
+                <button class="ds-btn" type="button">Needs changes</button>
+                <button class="ds-btn ds-btn--ghost" type="button">Add a note</button>
+              </div>
+            </div>
+            <div class="ds-actionbar">
+              <span class="ds-savestate" data-state="saved" role="status"><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span>Draft saved 12:41 · not a new version yet</span>
+              <button class="ds-btn ds-btn--ghost" type="button">Discard draft</button>
+              <span class="ds-grow"></span>
+              <button class="ds-btn ds-btn--primary" type="button">Save new version</button>
+              <span class="ds-btn-group">
+                <button class="ds-btn" type="button" aria-disabled="true" aria-describedby="why-approve">Approve &amp; use v3</button>
+                <button class="ds-btn" type="button" aria-label="More approval options" aria-disabled="true">▾</button>
+              </span>
+              <span class="ds-why" id="why-approve" style="flex-basis: 100%; text-align: end">Save the draft as a new version before approving it.</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <script src="shell.js"></script>
+    <script>
+      DSShell.buildFrame();
+    </script>
+  </body>
+</html>

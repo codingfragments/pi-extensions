@@ -663,7 +663,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 7 | Annotation rendering (engine) — [docs/ANNOTATIONS.md](ANNOTATIONS.md) | ✅ |
 | 8 | Annotations stage (designer, tab, review, approve, import) | ✅ |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | ✅ |
-| 10 | Deterministic QA + mechanical auto-fix | |
+| 10 | Deterministic QA + mechanical auto-fix | ✅ |
 | 11 | Confidence-guided review + voice direction | |
 | 12 | Actor & dependency model document, per-role model config | |
 | 13 | **Panel modals + cost warnings** (user backlog): in-panel modal dialogs instead of native `alert` / `confirm` / `prompt`, plus a warning before any action that may start a paid AI step (LLM, improvise model, TTS) | backlog |
@@ -938,7 +938,13 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - panel routes; agent note on finish.
 - **Docs:** `docs/RENDER.md` (stage, options, outputs, sidecars, retention), README, skills (render hand-off after accepting annotations).
 
-*10. Deterministic QA (D13, D21) and mechanical auto-fix (D22, D69–D75)* — the **QA reviewer** role (D40). In progress.
+*10. Deterministic QA (D13, D21) and mechanical auto-fix (D22, D69–D75)* — the **QA reviewer** role (D40). ✅ done; user-facing reference: [QA.md](QA.md)
+- **As built:**
+  - **Names:** names (guessed from capitals) never block — only numbers follow D71's blocking rule; an absent name is a warning.
+  - **Drift:** raw Whisper word starts are refined on the audio envelope (`refineOnsets` + `snapToOnset`, like the voice pipeline) — without it, pauses produced ±0.5 s false drift.
+  - **Fixes:** a fix render carries its source's overrides plus the new ones, shifts of the same segment added up (verified: inject +600 ms → QA measures +601 → fix → −1 ms → pass).
+  - **Timing:** each render variant records `timing` (title hold, scene and item starts) for QA.
+  - **Re-runs:** QA keeps confirmations of issues found again.
 - **When (D69):** automatically after **every final render**, in the same background job (drafts get none); **Re-run QA** in the Render tab. The report: `render/vN.qa.json` + `render/vN/qa-report.md`; the record's `qa` holds the summary (status, counts). Finals from before part 10 show "QA not run" until re-run.
 - **Checks (`src/qa/`):**
   - `media.ts` — ffmpeg `freezedetect`, `silencedetect`, `blackdetect` on the full video; freezes explained by the edit's own holds and silences by narrator pauses are info, the rest warnings.

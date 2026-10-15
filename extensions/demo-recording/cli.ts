@@ -25,7 +25,7 @@ import { resolveAnnotations } from "./src/annotations/resolve.ts";
 import { EventBus } from "./src/bus.ts";
 import { resolveConfig } from "./src/config.ts";
 import { formatDoctor, runDoctor } from "./src/doctor.ts";
-import { prepareBrand, renderVariant } from "./src/edit/pipeline.ts";
+import { prepareBrand } from "./src/edit/pipeline.ts";
 import type { Timeline } from "./src/edit/timeline.ts";
 import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
@@ -34,14 +34,18 @@ import { runS1 } from "./src/pipeline/s1.ts";
 import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
+import { formatRender, runRender } from "./src/render/run.ts";
+import { readRender } from "./src/render/store.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
 import { toSuggestion } from "./src/tools/annotations.ts";
-import { editSummary } from "./src/tools/edit.ts";
+import { editJobSummary } from "./src/tools/edit.ts";
 import { takeSummary } from "./src/tools/record.ts";
 import { voiceSummary } from "./src/tools/tts.ts";
 import { listElevenLabsVoices, sortVoices } from "./src/tts/engines.ts";
 import { ensureProject, listProjects, openProject } from "./src/workdir/layout.ts";
+import { formatLine, isStage } from "./src/workdir/stages.ts";
+import { acceptStage } from "./src/workdir/state.ts";
 import { listVersions } from "./src/workdir/versioning.ts";
 
 const HELP = `demo-recording engine CLI
@@ -63,6 +67,7 @@ Commands:
   record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
+  accept --project P --stage S --version N   accept a version (the panel's Accept, from the shell)
   annotate context --project P [--base N] [--instructions T]
                                            the Annotation designer's input pack for the latest edit
   annotate suggest --project P --file F [--base N] [--instructions T]
@@ -75,9 +80,11 @@ Commands:
                                            resolve annotations against the edit: times, boxes, warnings
   annotate preview --project P --id ID [--version N] [--edit N] [--brand B]
                                            render a preview clip + still of one annotation
-  render --project P [--edit N] [--brand B] [--annotations N]
-                                           re-render an edit (scenes + full), optionally with
-                                           annotations burned in → out/edit-vN/<brand>+aN/
+  render --project P [--kind draft|final] [--annotations N|none] [--draft] [--brand B1,B2]
+         [--types all|none|zoom,callout,…] [--subtitles] [--no-logo] [--edit N] [--confirm-unredacted]
+                                           a render version → render/vN/<variant>/ (draft: full video
+                                           960×540 with a DRAFT tag; final: needs accepted annotations,
+                                           full + scenes + transcript/callout sidecars + poster)
 
 Environment: DEMO_REC_ROOT, DEMO_REC_CONFIG, DEMO_REC_PANEL_PORT (see README)`;
 
@@ -265,7 +272,35 @@ async function main(argv: string[]): Promise<number> {
       ...(values.voice ? { voiceName: values.voice } : {}),
       log: (m) => console.log(m),
     });
-    console.log(`\n${voiceSummary(r.voice)}\n\n${editSummary(r.edit)}`);
+    console.log(`\n${voiceSummary(r.voice)}\n\n${editJobSummary(r.edit)}`);
+    return 0;
+  }
+
+  if (command === "accept") {
+    // You accepting a version from the shell (the same gate as the panel's Accept button).
+    const args = sub ? [sub, ...rest] : rest;
+    const { values } = parseArgs({
+      args,
+      options: {
+        project: { type: "string" },
+        stage: { type: "string" },
+        version: { type: "string" },
+      },
+    });
+    if (!values.project || !values.stage || !values.version)
+      throw new Error(
+        "usage: accept --project P --stage storyboard|recording|vo|annotations|render --version N",
+      );
+    if (!isStage(values.stage)) throw new Error(`unknown stage "${values.stage}"`);
+    const project = openProject(cfg.root, values.project);
+    const v = Number(values.version);
+    if (values.stage === "render") {
+      const r = readRender(project.dir, v);
+      if (!r || r.kind !== "final" || r.status !== "done")
+        throw new Error("only finished final renders can be accepted");
+    }
+    const state = acceptStage(project.dir, values.stage, v);
+    console.log(`accepted ${values.stage} v${v} · working line: ${formatLine(state.line)}`);
     return 0;
   }
 
@@ -284,6 +319,12 @@ async function main(argv: string[]): Promise<number> {
         base: { type: "string" },
         from: { type: "string" },
         instructions: { type: "string" },
+        kind: { type: "string" },
+        types: { type: "string" },
+        draft: { type: "boolean", default: false },
+        subtitles: { type: "boolean", default: false },
+        "no-logo": { type: "boolean", default: false },
+        "confirm-unredacted": { type: "boolean", default: false },
       },
     });
     if (!values.project) throw new Error("--project is required");
@@ -299,18 +340,39 @@ async function main(argv: string[]): Promise<number> {
       ) as Timeline;
     };
     if (command === "render") {
-      if (editV === undefined) throw new Error("this project has no edit yet");
-      const r = await renderVariant({
+      // The Render stage (S5 part 9): a new render version under render/vN/.
+      const kind = (values.kind ?? "draft") as "draft" | "final";
+      if (kind !== "draft" && kind !== "final") throw new Error("--kind is draft or final");
+      const types =
+        values.types === undefined || values.types === "all"
+          ? "all"
+          : values.types === "none"
+            ? []
+            : values.types.split(",").map((t) => t.trim());
+      const rec = await runRender({
         projectDir: project.dir,
         config: cfg,
-        timelineVersion: editV,
-        variant: {
-          ...(values.brand ? { brand: values.brand } : {}),
-          ...(values.annotations ? { annotations: Number(values.annotations) } : {}),
+        request: {
+          kind,
+          ...(values.annotations === "none"
+            ? { annotations: null }
+            : values.annotations
+              ? { annotations: Number(values.annotations) }
+              : {}),
+          ...(values.draft ? { fromDraft: true } : {}),
+          ...(values.edit ? { timeline: Number(values.edit) } : {}),
+          ...(values.brand ? { brands: values.brand.split(",").map((b) => b.trim()) } : {}),
+          options: {
+            annotationTypes: types as never,
+            subtitles: values.subtitles,
+            logoBug: !values["no-logo"],
+          },
+          ...(values["confirm-unredacted"] ? { confirmUnredacted: true } : {}),
+          by: "cli",
         },
-        onProgress: (p) => console.log(`[${p.done}/${p.total}] ${p.label}`),
+        onProgress: (p) => console.log(`[${p.done.toFixed(1)}/${p.total}] ${p.label}`),
       });
-      console.log(editSummary(r));
+      console.log(formatRender(rec));
       return 0;
     }
     if (sub === "context") {

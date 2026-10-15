@@ -18,6 +18,7 @@ import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
+import { renderRoutes } from "./panel/render-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
@@ -278,6 +279,7 @@ export class Runtime {
         notifyAgent: (text) => this.notifyAgent(text),
         publish: (type, data, slug) => this.bus.publish(type, data, slug),
       });
+      const renders = renderRoutes(this);
       const config = configRoutes({
         activeProject: () => this.activeProject(),
         reloadConfig: () => this.getConfig(true),
@@ -294,6 +296,7 @@ export class Runtime {
           ...project.get,
           ...config.get,
           ...annotations.get,
+          ...renders.get,
         },
         post: {
           ...routes.post,
@@ -302,6 +305,7 @@ export class Runtime {
           ...project.post,
           ...config.post,
           ...annotations.post,
+          ...renders.post,
         },
         media: () => {
           const root = this.getConfig().root;

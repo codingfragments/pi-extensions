@@ -22,7 +22,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
 6. After the take, the agent analyzes it (`demo_rec_take`) and writes the voice-over (`demo_rec_vo`, **demo-voiceover** skill). It's written from the actual run and quotes real on-screen values.
 7. The panel **Voice over** tab shows each section with a speech-vs-footage timing bar. You can edit inline (each save is a new version), mark sections, send the review, and **Approve**. Approval unlocks the paid voice synthesis.
-8. `demo_rec_tts` generates the voice and `demo_rec_edit` renders it: `projects/<p>/out/edit-vN/scenes/NN-<scene>.mp4`, `full.mp4` and `timeline.json`.
+8. `demo_rec_tts` generates the voice and `demo_rec_edit` syncs the take to it (`edit/timeline.vN.json`) and renders a **draft**. Finals come from the Render stage: `projects/<p>/render/vN/<flavor>/<project>_final-vN_<flavor>.mp4`, per-scene clips, transcripts and a poster. See [docs/RENDER.md](docs/RENDER.md).
 
 ### Voice-over and edit (S4)
 
@@ -122,7 +122,7 @@ Every render uses a **brand package**, which sets:
 | user brands | `<root>/brands/<name>/`, outside this repo, so company logos never end up in a public package |
 | create | `/demo brand new path/to/brand.zip`: the `demo-brand` skill inspects logos (rendered, luminance-checked) and colors, proposes a mapping, creates the brand, and shows a preview |
 | default | config `brand` (`/demo brand use <name> [--project]`, diff-confirmed) |
-| switch | `/demo brand rerender <name>`, or the panel **Render** tab (brand dropdown): re-renders the latest edit from timeline + `raw.mp4` + voice. No LLM, no TTS. Output in `out/edit-vN/<brand>/` |
+| switch | the **Render** tab (tick one or several brands), `/demo render final <name>`, or `/demo brand rerender <name>` (a draft). Same timeline, `raw.mp4` and voice; no LLM, no TTS. Output in `render/vN/<brand>/` |
 
 The panel **⚙ Config** brand editor previews tweaks (colors, inset, corners, shadow, title timing, logo bug) on a real keyframe before saving. Built-in brands are read-only, so use "Save as copy".
 
@@ -145,17 +145,39 @@ Zooms, highlights, spotlights, callouts, chapter titles and redactions, burned i
 
 - **Motion:** nothing pops in. Overlays fade with a small entrance motion: highlights settle, callouts rise, chapters slide in. Zooms ease in and out, and redactions are instant.
 - **Spaces:** page-space types (redact, highlight, spotlight) are drawn on the recorded page and follow a zoom. Callouts and chapters sit on the finished frame.
-- **Output:** annotated renders go to `out/edit-vN/<brand>+aN/`, next to the clean render.
+- **Output:** annotations are burned in by the Render stage; which types a render includes is a render option ([docs/RENDER.md](docs/RENDER.md)).
 - **Suggested for you:** after each sync edit, the Annotation designer (the agent, `demo-annotations` skill) suggests about twice as many as needed. The engine places and weighs them, switches the best half on and adds privacy redactions, which stay off until you confirm. Config: `annotations.autoSuggest`.
 - **Annotations tab:**
   - a card per suggestion, with its still (▶ plays a clip);
   - on/off switches, inline texts, ±½ s nudges and other targets;
   - a budget meter, filters, and "Play scene with enabled annotations";
   - **Re-suggest with instructions**, which keeps everything you changed.
-- **Saving and accepting:** edits are a draft until **Save as vN**. **Accept** a version, and the agent re-renders with it (`demo_rec_edit action=rerender annotations=N`).
-- **By hand:** the same files via the CLI (`annotate add|check|preview`, `render --annotations N`).
+- **Saving and accepting:** edits are a draft until **Save as vN**. **Accept** a version, and a final render becomes possible; the agent offers one.
+- **By hand:** the same files via the CLI (`annotate add|check|preview|suggest|import`).
 
 Full reference, with an example of every type: [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md).
+
+### Render (S5)
+
+The last stage: drafts to watch, and finals to hand over. Every render is a version (`render/vN/`), and the panel's **Render** tab is where they're made, watched, accepted and deleted.
+
+- **Draft:** any annotations (or unsaved changes). Full video only, 960×540, with a small DRAFT tag. Every sync edit makes one.
+- **Final:** needs accepted annotations. Full quality, per-scene clips, a transcript (VTT) and the callouts (SRT), and a poster.
+- **Per render:**
+  - which annotation types to include (none, chapters only, …);
+  - several brands at once;
+  - optional burned-in subtitles, as extra files;
+  - the logo bug on or off.
+- **Accept** a final: it becomes the deliverable.
+- **Disk space:** old drafts are pruned (`render.keepDrafts`), and **Delete files** keeps the record.
+
+Full reference: [docs/RENDER.md](docs/RENDER.md).
+
+**Try the whole pipeline on the bundled fixture** (free macOS voice, temp workspace, no model needed; ends in the panel):
+
+```fish
+fish extensions/demo-recording/scripts/fixture-walkthrough.fish        # --no-pi: skip the panel · --keep: keep the workspace
+```
 
 ### Recording (S3)
 
@@ -204,7 +226,7 @@ node extensions/demo-recording/cli.ts fixture-demo             # S4: full narrat
 node extensions/demo-recording/cli.ts annotate add --project P --file a.json   # S5: store annotations/vN.json (validated)
 node extensions/demo-recording/cli.ts annotate check --project P               # resolved times, boxes, warnings
 node extensions/demo-recording/cli.ts annotate preview --project P --id ID     # clip + still of one annotation (cached)
-node extensions/demo-recording/cli.ts render --project P --annotations N       # re-render with annotations → out/edit-vN/<brand>+aN/
+node extensions/demo-recording/cli.ts render --project P [--kind final] [--brand a,b] [--types …] [--subtitles]   # S5: a render version → render/vN/
 DEMO_REC_ELEVENLABS_E2E=1 DEMO_REC_VOICE="<your voice>" node --test extensions/demo-recording/test/s4-elevenlabs.test.ts   # live voice check (~200 chars)
 ```
 

@@ -9,6 +9,7 @@ import path from "node:path";
 import { readDraft } from "../annotations/draft.ts";
 import { readAnnotations } from "../annotations/file.ts";
 import type { EventBus } from "../bus.ts";
+import { readRender } from "../render/store.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
 import { editVoSection, readVo, voVersions } from "../vo/store.ts";
@@ -311,9 +312,21 @@ export function panelRoutes(deps: RouteDeps): {
           artifact !== "storyboard" &&
           artifact !== "vo" &&
           artifact !== "recording" &&
-          artifact !== "annotations"
+          artifact !== "annotations" &&
+          artifact !== "render"
         )
-          throw new Error('"artifact" must be "storyboard", "recording", "vo" or "annotations"');
+          throw new Error(
+            '"artifact" must be "storyboard", "recording", "vo", "annotations" or "render"',
+          );
+        if (artifact === "render") {
+          const r = readRender(p.dir, version);
+          if (!r) throw new Error(`render v${version} does not exist`);
+          if (r.kind !== "final")
+            throw new Error("only final renders can be accepted — drafts are for watching");
+          if (r.status !== "done") throw new Error(`render v${version} is ${r.status}`);
+          if (r.deleted || r.pruned)
+            throw new Error(`render v${version} has no files any more — render it again`);
+        }
         if (artifact === "annotations") {
           if (!readAnnotations(p.dir, version))
             throw new Error(`annotations v${version} do not exist`);

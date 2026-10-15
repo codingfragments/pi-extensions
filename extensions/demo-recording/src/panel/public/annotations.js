@@ -255,6 +255,19 @@ function Resuggest({ data, onDone }) {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
   const has = data.version !== null;
+  const noAnnotations = async () => {
+    setBusy(true);
+    try {
+      const r = await post("/api/annotations-empty", {});
+      setFlash(`v${r.version}: no annotations — accept it to render a plain final`);
+      onDone?.(r.version);
+    } catch (e) {
+      setFlash(`⚠ ${e.message}`);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setFlash(null), 8000);
+    }
+  };
   const go = async () => {
     setBusy(true);
     try {
@@ -283,6 +296,10 @@ function Resuggest({ data, onDone }) {
       <button class="primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "accept a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
       <span class="muted small-text">${has ? "Keeps every item you added, edited or toggled; regenerates the rest." : data.autoSuggest ? "Auto-suggest is on: this also starts by itself after each sync edit." : "Auto-suggest is off (Config → Settings → Annotations)."}</span>
       ${flash ? html`<span class="flash">${flash}</span>` : null}
+    </div>
+    <div class="row small-text">
+      <button class="ghost" disabled=${busy || !data.canSuggest} title="writes an empty annotation version — accept it to render a plain final; you can still choose per render which annotation types to include" onClick=${noAnnotations}>Use no annotations</button>
+      <span class="muted">for a demo without any; or choose per render which types to include (Render tab).</span>
     </div>
   </details>`;
 }
@@ -336,7 +353,7 @@ export function Annotations({ events, stages }) {
       <section class="card">
         <h2>Annotations</h2>
         <p class="muted">${d.canSuggest ? "No annotations yet. The Annotation designer suggests zooms, highlights, callouts and more from the recording and the narration; you toggle, edit and accept them here." : "Accept a voice-over and run the sync edit first — annotations follow the real timing of the narration."}</p>
-        <${Resuggest} data=${d} onDone=${reload} />
+        <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
       </section>`;
   const f = d.file;
   const draftKey = d.draft ? `${d.draft.base}:${d.draft.changes}` : `v${d.version}`;
@@ -387,7 +404,7 @@ export function Annotations({ events, stages }) {
         <span class="grow"></span>
         ${["all", "on", "off"].map((s) => html`<button class=${`chip ${state === s ? "on" : ""}`} onClick=${() => setState(s)}>${s === "all" ? "all" : s === "on" ? "enabled" : "suggested, off"}</button>`)}
       </div>
-      <${Resuggest} data=${d} onDone=${reload} />
+      <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
     </section>
     ${d.scenes.map((sc) => {
       const items = shown.filter((it) => it.scene === sc.id);

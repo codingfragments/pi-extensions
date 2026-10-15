@@ -1731,3 +1731,205 @@ button.tiny {
 .lightbox figcaption {
   font-size: 0.95em;
 }
+
+/* ---------------- Render tab (S5 part 9) ---------------- */
+.render-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin: 10px 0 14px;
+}
+.render-form fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.render-form legend {
+  font-weight: 600;
+  padding: 0 6px;
+}
+.render-form select {
+  font: inherit;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--inset);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.radio,
+.check {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+}
+.type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.type-chips .chip input {
+  margin: 0 4px 0 0;
+  accent-color: var(--accent);
+}
+.warn-text {
+  color: var(--warn);
+  margin: 0;
+}
+.render-card > summary {
+  cursor: pointer;
+  list-style: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.render-card > summary h3 {
+  margin: 0;
+}
+.render-card.accepted {
+  border-color: color-mix(in srgb, var(--ok) 60%, var(--line));
+}
+.render-actions {
+  margin: 10px 0 4px;
+}
+.variant {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.variant.gone {
+  color: var(--muted);
+}
+.render-video {
+  width: min(960px, 100%);
+  display: block;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: #000;
+}
+.render-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+}
+.render-files a {
+  color: var(--accent);
+}
+.legacy > summary {
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.legacy > summary h3 {
+  margin: 0;
+}
+.render-form .hint {
+  margin: -4px 0 0 26px;
+}
+/* Render: flavor table + player (player to the left when there is room) */
+.render-card {
+  container-type: inline-size;
+  container-name: rcard;
+}
+.flavor-view {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+.flavor-view .flavor-player {
+  order: 2;
+}
+@container rcard (min-width: 1150px) {
+  .flavor-view {
+    grid-template-columns: minmax(420px, 1.1fr) minmax(400px, 1fr);
+    align-items: start;
+  }
+  .flavor-view .flavor-player {
+    order: 0;
+  }
+}
+.flavor-player .render-video {
+  width: 100%;
+  margin: 0 0 4px;
+}
+.gone-player {
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.flavor-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.flavor-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.85em;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.flavor-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  vertical-align: middle;
+}
+.flavor-table tr.fv-row,
+.flavor-table tr.fv-scene {
+  cursor: pointer;
+}
+.flavor-table tr.fv-row:hover,
+.flavor-table tr.fv-scene:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.flavor-table tr.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.flavor-table tr.gone {
+  color: var(--muted);
+  cursor: default;
+}
+.flavor-table .tag {
+  font-size: 0.8em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--chip);
+  margin-left: 2px;
+}
+.flavor-table .extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.flavor-table a {
+  color: var(--accent);
+}
+.flavor-table .fv-scene-name {
+  white-space: nowrap;
+  padding-left: 22px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.9em;
+}
+.flavor-table tr.fv-toggle td {
+  border-bottom: none;
+  padding-top: 0;
+}
+.flavor-table td:nth-child(3),
+.flavor-table td:nth-child(4),
+.flavor-table td:nth-child(5) {
+  white-space: nowrap;
+}
+.flavor-table td:first-child {
+  width: 28px;
+}

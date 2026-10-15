@@ -9,10 +9,12 @@ import path from "node:path";
 import { readAnalysis } from "../analysis/take.ts";
 import { fullOps, prepareAnnotations, sceneOps, takeGeometry } from "../annotations/apply.ts";
 import { readAnnotations } from "../annotations/file.ts";
+import type { AnnotationFile } from "../annotations/types.ts";
 import { type TitleInfo, renderBrandAssets } from "../brand/assets.ts";
 import { resolveBrand } from "../brand/brand.ts";
 import { type Rim, edgeLuminance, resolveRim } from "../brand/rim.ts";
 import type { DemoRecConfig } from "../config.ts";
+import { draftStamp } from "../render/stamp.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { readManifest } from "../tts/synthesize.ts";
 import { readVo } from "../vo/store.ts";
@@ -163,74 +165,119 @@ export async function prepareBrand(
   return { loaded, size, rim, assets, frame };
 }
 
-export async function renderVariant(o: {
+/** What one cut (one variant folder) renders — the Render stage's unit (S5 part 9). */
+export interface CutOptions {
+  brand: string;
+  /** The annotation file to burn in, already filtered to what this render includes. */
+  annotations?: AnnotationFile;
+  /** Output size (default: config.output). Drafts: 960×540. */
+  size?: { width: number; height: number };
+  /** Per-scene videos too (finals) or only the full video (drafts). */
+  scenes: boolean;
+  logoBug: boolean;
+  encode?: { preset: string; crf: number };
+  /** Small corner tag over everything (drafts, D60). */
+  stamp?: "draft";
+  outDir: string;
+  /** File names relative to outDir (default full.mp4, scenes/NN-<id>.mp4). */
+  names?: { full: string; scene: (id: string, i: number) => string };
+}
+
+export interface CutResult {
+  timeline: Timeline;
+  timelineFile: string;
+  outDir: string;
+  brand: string;
+  rim?: Rim;
+  scenes: { id: string; file: string; durationSec: number }[];
+  full: { file: string; durationSec: number };
+  /** Title card length in the full video (for sidecars). */
+  titleMs: number;
+  /** Output start of each scene in the full video (for sidecars). */
+  sceneStart: Record<string, number>;
+  /** Output start of each `timeline.full` item (for sidecars). */
+  itemStart: number[];
+  annotations?: { version: number; applied: number; warnings: string[] };
+}
+
+export const sceneFileName = (id: string, i: number) =>
+  `${/^\d+-/.test(id) ? id : `${String(i + 1).padStart(2, "0")}-${id}`}.mp4`;
+
+export async function renderCut(o: {
   projectDir: string;
   config: DemoRecConfig;
   timelineVersion: number;
-  variant?: VariantOptions;
+  cut: CutOptions;
   signal?: AbortSignal;
   onProgress?: (p: { done: number; total: number; label: string }) => void;
-}): Promise<EditResult> {
+}): Promise<CutResult> {
   const timelineFile = path.join(o.projectDir, "edit", `timeline.v${o.timelineVersion}.json`);
   if (!fs.existsSync(timelineFile))
     throw new Error(`edit timeline v${o.timelineVersion} does not exist`);
   const timeline = JSON.parse(fs.readFileSync(timelineFile, "utf8")) as Timeline;
   const raw = path.join(o.projectDir, "takes", timeline.take, "raw.mp4");
   if (!fs.existsSync(raw)) throw new Error(`${timeline.take}/raw.mp4 is missing`);
-  const brandName = o.variant?.brand ?? o.config.brand;
+  const cfg = o.cut.size ? { ...o.config, output: o.cut.size } : o.config;
   const { loaded, size, rim, assets, frame } = await prepareBrand(
     o.projectDir,
-    o.config,
+    cfg,
     timeline.take,
-    brandName,
+    o.cut.brand,
   );
-  const annVersion = o.variant?.annotations;
-  const annFile = annVersion ? readAnnotations(o.projectDir, annVersion) : undefined;
-  if (annVersion && !annFile) throw new Error(`annotations v${annVersion} do not exist`);
   const geo = takeGeometry(o.projectDir, timeline.take);
-  const prepared = annFile
+  const ann = o.cut.annotations;
+  const prepared = ann
     ? await prepareAnnotations({
         projectDir: o.projectDir,
         timeline,
-        file: annFile,
+        file: ann,
         brand: loaded,
         output: size,
         footage: frame.backdrop ? frame.inset : { x: 0, y: 0, w: size.width, h: size.height },
         cacheDir: path.join(o.config.root, ".cache", "annotation-assets"),
       })
     : undefined;
-  const variant = variantKey({
-    brand: brandName,
-    ...(annVersion ? { annotations: annVersion } : {}),
+  const label = path.basename(o.cut.outDir);
+  const names = o.cut.names ?? {
+    full: "full.mp4",
+    scene: (id: string, i: number) => `scenes/${sceneFileName(id, i)}`,
+  };
+  fs.mkdirSync(o.cut.scenes ? path.join(o.cut.outDir, "scenes") : o.cut.outDir, {
+    recursive: true,
   });
-  const outDir = path.join(o.projectDir, "out", `edit-v${o.timelineVersion}`, variant);
-  fs.mkdirSync(path.join(outDir, "scenes"), { recursive: true });
-  fs.copyFileSync(
-    timelineFile,
-    path.join(o.projectDir, "out", `edit-v${o.timelineVersion}`, "timeline.json"),
-  );
-  const base = { fps: o.config.fps, width: size.width, height: size.height, source: geo.source };
-  const total = timeline.scenes.length + 1;
-
-  const scenes: EditResult["scenes"] = [];
-  for (const [i, sc] of timeline.scenes.entries()) {
-    if (o.signal?.aborted) throw new Error("render cancelled");
-    o.onProgress?.({ done: i, total, label: `scene ${sc.id} (${variant})` });
-    const file = path.join(
-      outDir,
-      "scenes",
-      `${/^\d+-/.test(sc.id) ? sc.id : `${String(i + 1).padStart(2, "0")}-${sc.id}`}.mp4`,
-    );
-    const ops = sceneOps(prepared, sc.id);
-    const r = await renderJob(sceneJob(timeline, sc.id, o.projectDir), raw, file, {
-      ...base,
-      brand: frame,
-      ...(ops ? { annotations: ops } : {}),
-    });
-    scenes.push({ id: sc.id, file, durationSec: r.durationSec });
-  }
+  const stamp = o.cut.stamp
+    ? await draftStamp(
+        loaded,
+        size,
+        path.join(o.config.root, ".cache", "render-assets"),
+        loaded.brand.logoBug.enabled && o.cut.logoBug ? loaded.brand.logoBug.position : undefined,
+      )
+    : undefined;
+  const base = {
+    fps: o.config.fps,
+    width: size.width,
+    height: size.height,
+    source: geo.source,
+    ...(o.cut.encode ? { encode: o.cut.encode } : {}),
+    ...(stamp ? { stamp } : {}),
+  };
+  const total = (o.cut.scenes ? timeline.scenes.length : 0) + 1;
+  const scenes: CutResult["scenes"] = [];
+  if (o.cut.scenes)
+    for (const [i, sc] of timeline.scenes.entries()) {
+      if (o.signal?.aborted) throw new Error("render cancelled");
+      o.onProgress?.({ done: i, total, label: `scene ${sc.id} (${label})` });
+      const file = path.join(o.cut.outDir, names.scene(sc.id, i));
+      const ops = sceneOps(prepared, sc.id);
+      const r = await renderJob(sceneJob(timeline, sc.id, o.projectDir), raw, file, {
+        ...base,
+        brand: frame,
+        ...(ops ? { annotations: ops } : {}),
+      });
+      scenes.push({ id: sc.id, file, durationSec: r.durationSec });
+    }
   if (o.signal?.aborted) throw new Error("render cancelled");
-  o.onProgress?.({ done: timeline.scenes.length, total, label: `full video (${variant})` });
+  o.onProgress?.({ done: total - 1, total, label: `full video (${label})` });
   const title = assets.title
     ? {
         file: assets.title,
@@ -242,7 +289,7 @@ export async function renderVariant(o: {
   const fullBrand: RenderBrand = {
     ...frame,
     ...(title ? { title } : {}),
-    ...(assets.logoBug
+    ...(assets.logoBug && o.cut.logoBug
       ? {
           logoBug: {
             file: assets.logoBug.file,
@@ -254,7 +301,7 @@ export async function renderVariant(o: {
         }
       : {}),
   };
-  const fullFile = path.join(outDir, "full.mp4");
+  const fullFile = path.join(o.cut.outDir, names.full);
   const fj = fullJob(timeline, o.projectDir, { titleMs });
   const fops = fullOps(prepared, fj.sceneStart);
   const r = await renderJob(fj, raw, fullFile, {
@@ -262,17 +309,18 @@ export async function renderVariant(o: {
     brand: fullBrand,
     ...(fops ? { annotations: fops } : {}),
   });
-  o.onProgress?.({ done: total, total, label: "done" });
+  o.onProgress?.({ done: total, total, label: `done (${label})` });
   return {
-    version: o.timelineVersion,
     timeline,
     timelineFile,
-    outDir,
-    variant,
-    brand: brandName,
+    outDir: o.cut.outDir,
+    brand: o.cut.brand,
     ...(rim ? { rim } : {}),
     scenes,
     full: { file: fullFile, durationSec: r.durationSec },
+    titleMs,
+    sceneStart: fj.sceneStart ?? {},
+    itemStart: fj.itemStart ?? [],
     ...(prepared
       ? {
           annotations: {
@@ -285,15 +333,60 @@ export async function renderVariant(o: {
   };
 }
 
-export async function runEdit(o: {
+/** Legacy (S4–S5 part 8) render into out/edit-vN/<variant>/ — kept for the CLI and old projects. */
+export async function renderVariant(o: {
   projectDir: string;
   config: DemoRecConfig;
-  signal?: AbortSignal;
+  timelineVersion: number;
   variant?: VariantOptions;
-  /** Voice-over to edit (default: the working line's). Must be accepted and usable. */
-  voVersion?: number;
+  signal?: AbortSignal;
   onProgress?: (p: { done: number; total: number; label: string }) => void;
 }): Promise<EditResult> {
+  const brandName = o.variant?.brand ?? o.config.brand;
+  const annVersion = o.variant?.annotations;
+  const annFile = annVersion ? readAnnotations(o.projectDir, annVersion) : undefined;
+  if (annVersion && !annFile) throw new Error(`annotations v${annVersion} do not exist`);
+  const variant = variantKey({
+    brand: brandName,
+    ...(annVersion ? { annotations: annVersion } : {}),
+  });
+  const editDir = path.join(o.projectDir, "out", `edit-v${o.timelineVersion}`);
+  const r = await renderCut({
+    projectDir: o.projectDir,
+    config: o.config,
+    timelineVersion: o.timelineVersion,
+    cut: {
+      brand: brandName,
+      ...(annFile ? { annotations: annFile } : {}),
+      scenes: true,
+      logoBug: true,
+      outDir: path.join(editDir, variant),
+    },
+    ...(o.signal ? { signal: o.signal } : {}),
+    ...(o.onProgress ? { onProgress: o.onProgress } : {}),
+  });
+  fs.copyFileSync(r.timelineFile, path.join(editDir, "timeline.json"));
+  return {
+    version: o.timelineVersion,
+    timeline: r.timeline,
+    timelineFile: r.timelineFile,
+    outDir: r.outDir,
+    variant,
+    brand: brandName,
+    ...(r.rim ? { rim: r.rim } : {}),
+    scenes: r.scenes,
+    full: r.full,
+    ...(r.annotations ? { annotations: r.annotations } : {}),
+  };
+}
+
+/** The sync edit itself: accepted VO + its voice + the take analysis → edit/timeline.vN.json. */
+export function buildEdit(o: {
+  projectDir: string;
+  config: DemoRecConfig;
+  /** Voice-over to edit (default: the working line's). Must be accepted and usable. */
+  voVersion?: number;
+}): { version: number; timeline: Timeline; timelineFile: string } {
   const state = readState(o.projectDir);
   if (!state) throw new Error("project state missing");
   const voVersion = requireSelected(o.projectDir, state, "vo", o.voVersion);
@@ -314,6 +407,23 @@ export async function runEdit(o: {
     ".json",
     `${JSON.stringify(timeline, null, 2)}\n`,
   );
+  return { version: stored.version, timeline, timelineFile: stored.file };
+}
+
+/** S4 path: the edit + a full-quality render to out/edit-vN/ (kept for the S4 tests and the CLI). */
+export async function runEdit(o: {
+  projectDir: string;
+  config: DemoRecConfig;
+  signal?: AbortSignal;
+  variant?: VariantOptions;
+  voVersion?: number;
+  onProgress?: (p: { done: number; total: number; label: string }) => void;
+}): Promise<EditResult> {
+  const stored = buildEdit({
+    projectDir: o.projectDir,
+    config: o.config,
+    ...(o.voVersion !== undefined ? { voVersion: o.voVersion } : {}),
+  });
   return renderVariant({
     projectDir: o.projectDir,
     config: o.config,

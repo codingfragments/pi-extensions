@@ -110,7 +110,7 @@ function hash(parts: unknown): string {
   return crypto.createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 20);
 }
 
-interface PngJob {
+export interface PngJob {
   key: string;
   html: string;
   /** Viewport for the page. */
@@ -122,7 +122,7 @@ interface PngJob {
   clipPad?: number;
 }
 
-async function renderPngs(
+export async function renderPngs(
   jobs: PngJob[],
   cacheDir: string,
 ): Promise<Map<string, { file: string; w: number; h: number; pad: number }>> {

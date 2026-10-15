@@ -163,6 +163,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
     "demo_rec_edit",
     "demo_rec_project",
     "demo_rec_record",
+    "demo_rec_render",
     "demo_rec_storyboard",
     "demo_rec_take",
     "demo_rec_tts",

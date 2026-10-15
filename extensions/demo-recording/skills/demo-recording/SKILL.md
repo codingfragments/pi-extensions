@@ -20,7 +20,7 @@ side panel and talks back through `[demo-panel]` messages.
 | 3 Voice-over | Analyze the take, write the narration (demo-voiceover skill) | `demo_rec_take`, `demo_rec_vo` |
 | 4 Voice + edit | After the user approves the voice-over | `demo_rec_tts`, `demo_rec_edit` |
 | 5 Annotations | After the edit (automatic) or a `[demo-panel]` request: suggest zooms, callouts, … (demo-annotations skill); the user accepts in the panel | `demo_rec_annotations` |
-| 6 Render | After the user accepts annotations: re-render with them | `demo_rec_edit action=rerender annotations=N` |
+| 6 Render | After the user accepts annotations: offer a final (ask brands, subtitles); the user accepts the deliverable in the Render tab | `demo_rec_render` |
 
 **Hard rules**
 - **You cannot approve anything.** Approval is a button in the panel. Never
@@ -248,6 +248,8 @@ The narrated video is produced with the **demo-voiceover** skill:
 → the user approves in the panel's Voice tab → `demo_rec_tts` → `demo_rec_edit`.
 Then the **demo-annotations** skill suggests the visual emphasis
 (`demo_rec_annotations context` → `suggest`); the user reviews and accepts it in
-the Annotations tab, and `demo_rec_edit action=rerender annotations=N` burns it in.
+the Annotations tab. Then offer a **final render** (`demo_rec_render action=start
+kind=final`, asking which brands and whether to burn in subtitles); the edit
+itself only makes drafts. The user accepts the deliverable in the Render tab.
 Shortcuts the user may type: `/demo voiceover`, `/demo render`, `/demo voices`,
 `/demo config`. For settings questions use the **demo-config** skill.

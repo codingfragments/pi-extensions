@@ -72,6 +72,8 @@ export const CONFIG_DOCS: Record<string, string> = {
     "Brand package for rendering: built-in 'neutral' or a user brand in <root>/brands/ (see /demo brand list).",
   "annotations.autoSuggest":
     "Suggest annotations automatically after each sync edit (an agent turn). Off: use Re-suggest in the Annotations tab.",
+  "render.keepDrafts":
+    "How many draft renders keep their video files; older drafts keep only their record (finals are never pruned).",
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",

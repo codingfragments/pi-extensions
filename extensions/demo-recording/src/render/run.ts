@@ -351,17 +351,19 @@ export async function runRender(o: {
 export function formatRender(r: RenderRecord): string {
   const head = `${r.kind === "final" ? "Final" : "Draft"} render v${r.version} (${r.status})${r.basedOn.annotations !== undefined ? ` of annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : ", no annotations"} · edit v${r.timeline} · ${r.size.width}×${r.size.height}`;
   const opts = [
-    r.options.annotationTypes === "all"
-      ? "all annotations"
-      : r.options.annotationTypes.length
-        ? `only ${r.options.annotationTypes.join(", ")}`
-        : "none included",
+    r.basedOn.annotations === undefined
+      ? ""
+      : r.options.annotationTypes === "all"
+        ? "all annotations"
+        : r.options.annotationTypes.length
+          ? `only ${r.options.annotationTypes.join(", ")}`
+          : "none included",
     r.options.subtitles ? "+ burned-in subtitles" : "",
     r.options.logoBug ? "" : "no logo bug",
   ].filter(Boolean);
   const lines = [
     head,
-    `options: ${opts.join(", ")}${r.kind === "final" ? " · QA: not checked (part 10)" : ""}`,
+    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? " · QA: not checked (part 10)" : ""}`,
   ];
   for (const v of r.variants)
     lines.push(

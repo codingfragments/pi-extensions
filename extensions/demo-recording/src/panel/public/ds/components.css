@@ -152,6 +152,9 @@
   line-height: var(--leading-body);
   resize: vertical;
 }
+.ds-input--wide {
+  max-inline-size: 28rem;
+}
 .ds-textarea--compact {
   min-block-size: 4.5rem;
 }
@@ -1076,8 +1079,14 @@ mark.ds-mark {
   position: static;
 }
 @container (max-width: 64rem) {
-  .ds-step:not([aria-current="step"]) .ds-step-label {
-    display: none;
+  /* visually hidden, still read: the link keeps its name */
+  .ds-steps .ds-step:not([aria-current="step"]) .ds-step-label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .ds-steps li + li::before {
     inline-size: var(--space-2);
@@ -1196,4 +1205,60 @@ dialog.ds-dialog::backdrop {
   background: var(--accent);
   color: var(--text-on-accent);
   font-weight: var(--weight-medium);
+}
+
+/* ---------- Frame additions (UX2) ---------- */
+.ds-step--plain {
+  padding-inline: var(--space-3);
+}
+.ds-step .ds-badge {
+  margin-inline-start: var(--space-1);
+}
+.ds-strip[data-tone="warn"] {
+  background: var(--status-warn-tint);
+}
+.ds-next[data-tone="idle"] .ds-next-text {
+  font-weight: var(--weight-regular);
+}
+.ds-menu {
+  position: relative;
+}
+.ds-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target-min);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  list-style: none;
+}
+.ds-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.ds-menu > ul {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + var(--space-1));
+  z-index: var(--layer-drawer);
+  min-inline-size: 18rem;
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-2);
+}
+.ds-menu > ul a {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.ds-menu > ul a:hover {
+  background: var(--surface-raised);
 }

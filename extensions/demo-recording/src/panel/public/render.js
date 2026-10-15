@@ -83,7 +83,7 @@ function NewRender({ data, events, onStarted }) {
         options: { annotationTypes: all ? "all" : selected, subtitles, logoBug },
         ...(leavesRedactions ? { confirmUnredacted: true } : {}),
       });
-      setFlash(`${kind} render started — progress below and in the Live panel`);
+      setFlash(`${kind} render started — progress below and in the Activity drawer`);
       onStarted?.();
     } catch (e) {
       setFlash(`⚠ ${e.message}`);

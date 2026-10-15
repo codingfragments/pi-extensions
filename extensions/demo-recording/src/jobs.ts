@@ -70,6 +70,11 @@ export class Jobs {
     );
   }
 
+  /** Jobs of one project (all when omitted), newest first. */
+  list(project?: string): Job[] {
+    return [...this.jobs.values()].filter((j) => !project || j.project === project).reverse();
+  }
+
   get(id: string): Job | undefined {
     return this.jobs.get(id);
   }

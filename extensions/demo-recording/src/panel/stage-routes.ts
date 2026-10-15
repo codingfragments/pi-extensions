@@ -2,7 +2,7 @@
  * Panel routes for the control room (S5 part 4, D39): stage lineage for every
  * tab header, the Recording tab (takes per storyboard version), approval dry
  * runs (cascade warning before approving), re-record requests, and the live
- * frame of a running take for the Live panel's preview.
+ * frame of a running take for the Activity drawer's preview.
  */
 
 import fs from "node:fs";

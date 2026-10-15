@@ -49,6 +49,11 @@ export class EventBus {
     return () => this.listeners.delete(listener);
   }
 
+  /** The sequence number of the newest event (0 before the first). */
+  get lastSeq(): number {
+    return this.seq;
+  }
+
   /** Events with seq greater than `afterSeq` (default: all retained). */
   recent(afterSeq = 0): BusEvent[] {
     return this.history.filter((e) => e.seq > afterSeq);

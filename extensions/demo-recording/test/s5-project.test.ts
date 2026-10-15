@@ -452,9 +452,14 @@ test(
       await page.goto(panel.url);
       await page.waitForSelector(".fact-groups");
       assert.equal(
-        (await page.locator("nav.steps button").first().textContent())?.trim(),
+        (await page.locator("header.top > a.ds-step").first().textContent())?.trim(),
         "Project",
-        "Project is the first step",
+        "Project comes first, before the production stages",
+      );
+      assert.equal(
+        await page.evaluate("location.hash"),
+        "#/project",
+        "a new project starts at Project",
       );
       assert.deepEqual(await page.locator(".fact-group legend").allTextContents(), [
         "Title card",

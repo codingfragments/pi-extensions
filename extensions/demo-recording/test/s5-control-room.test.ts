@@ -350,8 +350,14 @@ test(
       const dlg = answerDialogs(page);
       const dialogs = dlg.seen;
       await page.goto(panel.url);
-      await page.waitForSelector("aside.live");
-      // Progress bars: one segment per line in the right-hand column.
+      await page.waitForSelector(".ds-strip");
+      // What runs comes from the engine's job table, as in production: start a real (idle) record job.
+      rt.jobs.start<void>(
+        "record",
+        "p",
+        (signal) => new Promise((resolve) => signal.addEventListener("abort", () => resolve())),
+      );
+      // Progress bars: one segment per line, in the Activity drawer (which opens only on request).
       rt.bus.publish(
         "take.progress",
         {
@@ -374,28 +380,44 @@ test(
         },
         "p",
       );
-      await page.waitForSelector("aside.live .segbar");
+      assert.equal(
+        await page.locator("aside#activity").isVisible(),
+        false,
+        "the drawer does not open by itself",
+      );
+      await page.waitForFunction(
+        `/Recording 40%/.test(document.querySelector(".ds-strip .strip-text")?.textContent ?? "")`,
+      );
+      await page.locator(".ds-strip button[aria-controls=activity]").click();
+      await page.waitForSelector("aside#activity .segbar");
       assert.equal(
         await page.evaluate(
-          `getComputedStyle(document.querySelector("aside.live .segbar")).flexDirection`,
+          `getComputedStyle(document.querySelector("aside#activity .segbar")).flexDirection`,
         ),
         "column",
-        "stacked in the side column",
+        "stacked in the drawer",
+      );
+      await page.keyboard.press("Escape");
+      assert.equal(
+        await page.locator("aside#activity").isVisible(),
+        false,
+        "Escape closes the drawer",
       );
       assert.deepEqual(
-        await page.locator("nav.steps button").allTextContents(),
-        ["Project", "Storyboard", "Recording", "Voice over", "Annotations", "Render"],
-        "Project + the process steps; Config is separate",
+        (await page.locator("nav.steps a .ds-step-label").allTextContents()).map((t) => t.trim()),
+        ["Storyboard", "Recording", "Voice over", "Annotations", "Render"],
+        "the production stages; Project and Config are not steps",
       );
+      assert.equal(await page.locator("header.top > a.ds-step").innerText(), "Project");
       for (const tab of ["Storyboard", "Recording", "Voice over", "Annotations", "Render"]) {
-        await page.locator("nav button", { hasText: tab }).first().click();
+        await page.locator("nav.steps a", { hasText: tab }).click();
         await page.waitForTimeout(250);
       }
-      await page.locator("button.config-btn").click();
+      await page.locator("a.config-btn").click();
       await page.waitForSelector(".setting-group");
       await page.locator(".subtabs .chip", { hasText: "Brands" }).click();
       await page.waitForSelector(".brand-grid");
-      await page.locator("nav button", { hasText: "Recording" }).first().click();
+      await page.locator("nav.steps a", { hasText: "Recording" }).click();
       await page.waitForSelector(".card.take");
       assert.equal(
         await page.locator(".card.take").count(),
@@ -426,7 +448,7 @@ test(
       assert.equal(readState(dir)?.line.vo, 1);
 
       // Voice over tab: input picker lists both accepted takes with lineage.
-      await page.locator("nav button", { hasText: "Voice over" }).first().click();
+      await page.locator("nav.steps a", { hasText: "Voice over" }).click();
       await page.waitForTimeout(500);
       const options = await page.locator(".input-picker select option").allTextContents();
       assert.ok(
@@ -436,7 +458,7 @@ test(
       );
 
       // Un-accept take-002 from the Recording tab: cancel first — the dialog names the orphan.
-      await page.locator("nav button", { hasText: "Recording" }).first().click();
+      await page.locator("nav.steps a", { hasText: "Recording" }).click();
       await page.waitForTimeout(400);
       dlg.answer.accept = false;
       await page
@@ -448,18 +470,37 @@ test(
       assert.ok(readState(dir)?.accepted.recording?.["2"], "cancelled: still accepted");
       dlg.answer.accept = true;
 
-      // Live panel: collapse → strip; persists; narrow window → bottom drawer.
-      await page.getByRole("button", { name: "▼ collapse" }).click();
-      await page.waitForSelector(".live-strip");
-      await page.reload();
-      await page.waitForSelector(".live-strip");
-      await page.setViewportSize({ width: 900, height: 900 });
-      await page.locator(".live-strip").click();
-      await page.waitForSelector("aside.live");
-      const pos = await page.evaluate(
-        `(() => { const cs = getComputedStyle(document.querySelector("aside.live")); return { position: cs.position, bottom: cs.bottom }; })()`,
+      // The Activity drawer: closed by default, opens on request, overlays (the page does not shrink),
+      // Escape closes it and the focus goes back to the strip's button. It is not remembered across reloads.
+      const widthBefore = await page.evaluate(
+        `document.querySelector("main").getBoundingClientRect().width`,
       );
-      assert.deepEqual(pos, { position: "fixed", bottom: "0px" });
+      await page.locator(".ds-strip button[aria-controls=activity]").click();
+      await page.waitForSelector("aside#activity", { state: "visible" });
+      assert.equal(
+        await page.evaluate(`document.querySelector("main").getBoundingClientRect().width`),
+        widthBefore,
+        "the drawer overlays: the page does not get narrower",
+      );
+      await page.keyboard.press("Escape");
+      assert.equal(
+        await page.evaluate(`document.activeElement?.getAttribute("aria-controls")`),
+        "activity",
+        "focus returns to the Activity button",
+      );
+      await page.locator(".ds-strip button[aria-controls=activity]").click();
+      await page.reload();
+      assert.equal(
+        await page.locator("aside#activity").isVisible(),
+        false,
+        "closed again after a reload",
+      );
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.locator(".ds-strip button[aria-controls=activity]").click();
+      const pos = await page.evaluate(
+        `(() => { const cs = getComputedStyle(document.querySelector("aside#activity")); return { position: cs.position, right: cs.right }; })()`,
+      );
+      assert.deepEqual(pos, { position: "fixed", right: "0px" });
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

@@ -1,4 +1,3 @@
-// demo-recording panel — shared helpers (token, API, bus, media, small components).
 import {
   html,
   render,
@@ -8,6 +7,8 @@ import {
   useRef,
   useState,
 } from "/vendor/preact-htm.module.js";
+// demo-recording panel — shared helpers (token, API, bus, media, small components).
+import { formatRoute, parseRoute } from "./route.js";
 
 // The token arrives once via ?token=; keep it in sessionStorage (this tab only)
 // so reloads keep working, and strip it from the visible URL / history.
@@ -15,7 +16,7 @@ export const TOKEN_KEY = "demo-rec-token";
 export const urlToken = new URLSearchParams(location.search).get("token");
 if (urlToken) sessionStorage.setItem(TOKEN_KEY, urlToken);
 export const token = urlToken ?? sessionStorage.getItem(TOKEN_KEY) ?? "";
-if (urlToken) history.replaceState(null, "", location.pathname);
+if (urlToken) history.replaceState(null, "", location.pathname + location.hash);
 
 export async function api(path) {
   const res = await fetch(path, { headers: { authorization: `Bearer ${token}` } });
@@ -82,6 +83,26 @@ export function useBus() {
   return { events, status };
 }
 
+/** The current route, kept in step with the hash (back, forward and reload work). */
+export function useHashRoute() {
+  const [route, setRoute] = useState(() => parseRoute(location.hash));
+  useEffect(() => {
+    const on = () => setRoute(parseRoute(location.hash));
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  /** Go to a route; `replace` rewrites the current history entry (used for fallbacks and restores). */
+  const go = useCallback((next, { replace = false } = {}) => {
+    const hash = typeof next === "string" ? next : formatRoute(next);
+    if (hash === location.hash) return;
+    if (replace) {
+      history.replaceState(null, "", location.pathname + location.search + hash);
+      setRoute(parseRoute(hash));
+    } else location.hash = hash;
+  }, []);
+  return [route, go];
+}
+
 /** Refetch `path` whenever a bus event whose type matches `re` arrives. */
 export function useApi(path, events, re) {
   const [data, setData] = useState(null);
@@ -133,8 +154,8 @@ export function SegmentBar({ segments }) {
  * Popups stack (a line opened from the full log sits on top of it).
  */
 export function Modal(props) {
-  // Rendered into its own element on <body>: the Live panel is a CSS container
-  // (container-type), which would trap a position:fixed popup inside it.
+  // Rendered into its own element on <body>: a screen area that is a CSS container
+  // (container-type) would trap a position:fixed popup inside it.
   // The element is created in an effect, never during render: Preact may throw a render
   // away (it does under load), and a host created in render would stay behind as a second popup.
   const host = useRef(null);

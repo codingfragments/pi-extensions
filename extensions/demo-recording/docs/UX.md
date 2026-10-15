@@ -402,7 +402,7 @@ gates. Do not rename stored schemas or break tool callers as a cosmetic refactor
 |---|---|---|
 | UX0 | **Style tile and component/dialog showcase** (static page, §10.1) | Your approval of the screenshots; every shared component and layout principle shown in all states, both themes, 900 and 1400 px |
 | UX1 | **Built** ([report](ux/UX1.md)): tokens and shared components exactly as approved in UX0; audit baseline/harness; ratchet test; existing dialog restyled | Both themes, token/contrast/focus checks, representative components; tile and panel tokens in sync |
-| UX2 | Hash routing (§10.2), frame, stage status/next action, Activity strip/drawer; Recording adopts shared frame | Arriving results never steal navigation/focus; running vs waiting truthful |
+| UX2 | **Built** ([report](ux/UX2.md)): hash routing (§10.2), frame, stage status/next action, Activity strip/drawer; Recording adopts shared frame | Arriving results never steal navigation/focus; running vs waiting truthful |
 | UX3 | Version summary, History, read-only browsing, explicit production/approval actions and vocabulary | Browse has no writes; approve-only keeps line; approve-and-use has coherent effects |
 | UX4 | Dependency map overlay, `GET /api/graph`, path filters, collapse/focus/navigation, hash routes for the map | Forks/shared dependencies/legacy gaps; graph and outline equivalence; no production mutation |
 | UX5 | Durable draft contract and storyboard/voice list-detail review | Reload/navigation/conflict/save failure; explicit new versions; review vs approval |

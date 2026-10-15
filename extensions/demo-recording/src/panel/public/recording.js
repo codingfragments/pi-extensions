@@ -3,8 +3,9 @@ import { media, mmss, post, useApi } from "./core.js";
 // demo-recording panel — Recording tab (S5 part 4, D44–D46): pick an accepted
 // storyboard (the input), see its takes, accept several, put one on the
 // working line, and ask for a new take of that storyboard.
-import { confirmCost } from "./cost.js";
+import { CostHint, confirmCost } from "./cost.js";
 import { errorToast } from "./dialog.js";
+import { StageTitle } from "./frame.js";
 import { StageHeader, VersionActions, stageOf } from "./stages.js";
 
 function TakeCard({ t, stages, reload }) {
@@ -64,17 +65,18 @@ export function Recording({ events, stages }) {
       setTimeout(() => setFlash(null), 6000);
     }
   };
+  const sb = data.storyboard !== null ? `v${data.storyboard}` : "—";
   return html`
+    <${StageTitle} title="Recording"
+      meta=${html`<span>Takes of storyboard <strong style="color:var(--text-strong)">${sb}</strong></span><span>${data.takes.length} take(s)</span>`} />
     <${StageHeader} stages=${stages} stage="recording" />
     <section class="card review-head">
       <div class="row">
-        <h2>Takes of storyboard ${data.storyboard !== null ? `v${data.storyboard}` : "—"}</h2>
-        <span class="muted small-text">${data.takes.length} take(s)</span>
-        <span class="grow"></span>
-        ${flash ? html`<span class="flash">${flash}</span>` : null}
-        <input class="note" placeholder="notes for the next take (optional)" value=${note} onInput=${(e) => setNote(e.target.value)} />
-        <button disabled=${busy || !data.storyboardUsable} title=${data.storyboardUsable ? "asks the agent to record a new take of this storyboard" : "accept a storyboard first"}
+        <input class="ds-input ds-input--wide" placeholder="notes for the next take (optional)" aria-label="notes for the next take" value=${note} onInput=${(e) => setNote(e.target.value)} />
+        <button class="ds-btn ds-btn--primary" type="button" disabled=${busy || !data.storyboardUsable} title=${data.storyboardUsable ? "asks the agent to record a new take of this storyboard" : "accept a storyboard first"}
           onClick=${request}>Request a new take</button>
+        <${CostHint} />
+        ${flash ? html`<span class="flash">${flash}</span>` : null}
       </div>
       <p class="muted small-text">Accept every take that is good enough to build on — each accepted take can get its own voice-over. <b>Work on this</b> makes a take the working line (the Voice over tab and the agent follow it).</p>
     </section>
@@ -83,6 +85,6 @@ export function Recording({ events, stages }) {
         ? data.takes.map(
             (t) => html`<${TakeCard} key=${t.id} t=${t} stages=${stages} reload=${reload} />`,
           )
-        : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (it streams in the Live panel).` : "Accept a storyboard first; its takes show up here."}</section>`
+        : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (its progress is in the Activity drawer).` : "Accept a storyboard first; its takes show up here."}</section>`
     }`;
 }

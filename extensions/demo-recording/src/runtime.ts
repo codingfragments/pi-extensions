@@ -19,6 +19,7 @@ import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { costRoutes } from "./panel/cost.ts";
+import { jobRoutes } from "./panel/job-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
 import { renderRoutes } from "./panel/render-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
@@ -265,6 +266,8 @@ export class Runtime {
     const p = this.activeProject();
     return {
       root: cfg.root,
+      // Where history ends: the panel treats events at or below this as old news (UX2).
+      busSeq: this.bus.lastSeq,
       models: {
         session: this.sessionModel ?? null,
         operator: cfg.improvise.models,
@@ -348,9 +351,11 @@ export class Runtime {
       publish: (type, data, slug) => this.bus.publish(type, data, slug),
     });
     const cost = costRoutes(this);
+    const jobs = jobRoutes(this);
     return {
       get: {
         ...routes.get,
+        ...jobs.get,
         ...brand.get,
         ...stages.get,
         ...project.get,

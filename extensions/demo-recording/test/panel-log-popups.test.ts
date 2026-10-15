@@ -58,7 +58,9 @@ test(
     try {
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(panel.url);
-      await page.waitForSelector("aside .log li");
+      await page.waitForSelector(".ds-strip");
+      await page.locator(".ds-strip button[aria-controls=activity]").click(); // the drawer holds the log
+      await page.waitForSelector("aside#activity .log li");
       // the header opens the full log at 80 % of the window
       await page.locator(".log-head").click();
       const big = page.locator(".modal.large");
@@ -76,7 +78,7 @@ test(
         /step 29/,
       );
       assert.equal(
-        await page.locator("aside .log li .ticks").innerText(),
+        await page.locator("aside#activity .log li .ticks").innerText(),
         "×30",
         "the side log too",
       );
@@ -114,7 +116,7 @@ test(
       await page.keyboard.press("Escape");
       await page.waitForFunction(`!document.querySelector(".modal-backdrop")`);
       // a line in the side panel directly; a click outside closes
-      await page.locator("aside .log li").last().click();
+      await page.locator("aside#activity .log li").last().click();
       await page.locator(".modal.medium").waitFor();
       await page.locator(".modal-backdrop").click({ position: { x: 5, y: 5 } });
       await page.waitForFunction(`!document.querySelector(".modal-backdrop")`);

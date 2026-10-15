@@ -27,57 +27,11 @@ body {
   background: var(--bg);
   color: var(--text);
 }
-header.top {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  position: sticky;
-  top: 0;
-  background: var(--bg);
-}
-nav {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-}
-nav button {
-  background: none;
-  border: 1px solid transparent;
-  color: var(--text);
-  padding: 4px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font: inherit;
-  white-space: nowrap;
-}
-nav button.active {
-  border-color: var(--line);
-  background: var(--card);
-}
-nav button:disabled {
-  color: var(--muted);
-  cursor: not-allowed;
-}
-.conn {
-  font-size: 14px;
-  color: var(--muted);
-}
-.conn.live {
-  color: var(--ok);
-}
-.conn.reconnecting {
-  color: var(--warn);
-}
 main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  height: calc(100vh - 49px);
+  padding: 16px 16px calc(var(--strip-h) + var(--space-6));
 }
 .card {
   background: var(--card);
@@ -173,13 +127,6 @@ code,
 }
 
 /* ---------- S2: live discovery + review ---------- */
-header.top {
-  z-index: 2;
-}
-main.review {
-  height: auto;
-  min-height: calc(100vh - 49px);
-}
 .small-text {
   font-size: 14px;
 }
@@ -411,17 +358,6 @@ button.st.on.rerun {
   font-size: 15px;
 }
 
-.theme-toggle {
-  background: var(--chip);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-}
-
 /* ---------- S3: progress bars ---------- */
 .progress h3 {
   display: flex;
@@ -617,34 +553,6 @@ audio {
 }
 
 /* ---------- S5 part 4: control room ---------- */
-.shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  height: calc(100vh - 49px);
-}
-.shell.live-closed {
-  grid-template-columns: minmax(0, 1fr);
-}
-.shell > main,
-.shell > main.review {
-  height: auto;
-  min-height: 0;
-  overflow: auto;
-}
-.shell.live-closed > main {
-  padding-bottom: 56px;
-}
-nav button.waiting {
-  border-color: color-mix(in srgb, var(--warn) 60%, transparent);
-}
-nav button .dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--warn);
-  vertical-align: middle;
-}
 
 /* stage header */
 .stage-head {
@@ -678,41 +586,6 @@ nav button .dot {
   color: var(--text);
 }
 
-/* live panel */
-aside.live {
-  container-type: inline-size;
-  container-name: live;
-  border-left: 1px solid var(--line);
-  background: var(--inset);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  overflow: auto;
-  min-height: 0;
-}
-.live-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.live-summary {
-  margin: 0;
-  font-size: 15px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: var(--card);
-  border: 1px solid var(--line);
-}
-.live-summary.attention,
-.live-strip.attention {
-  border-color: color-mix(in srgb, var(--warn) 70%, transparent);
-}
-.live-toggles {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
 .chip {
   font: inherit;
   font-size: 13px;
@@ -726,35 +599,6 @@ aside.live {
 .chip.on {
   background: var(--chip);
   color: var(--text);
-}
-.live-sec {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
-}
-.live-sec.grow {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 180px;
-}
-.live-sec h3 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.live-sec dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 10px;
-  margin: 0;
-}
-.live-sec dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 .prow + .prow {
   margin-top: 10px;
@@ -786,10 +630,6 @@ aside.live {
   height: 100%;
   background: var(--accent);
 }
-.minibar.strip {
-  width: 120px;
-  flex: none;
-}
 .frame {
   margin: 0;
 }
@@ -803,19 +643,6 @@ aside.live {
   font-size: 13px;
   color: var(--muted);
   margin-top: 4px;
-}
-.conn-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-  flex: none;
-}
-.conn-dot.live {
-  background: var(--ok);
-}
-.conn-dot.reconnecting {
-  background: var(--warn);
 }
 button.ghost {
   font: inherit;
@@ -831,53 +658,8 @@ button.ghost:hover {
 }
 
 /* collapsed strip (both layouts) */
-.live-strip {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  font: inherit;
-  color: var(--text);
-  background: var(--inset);
-  border: none;
-  border-top: 1px solid var(--line);
-  cursor: pointer;
-  z-index: 3;
-  text-align: left;
-}
-.live-strip-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
 
 /* narrow windows: the open panel becomes a bottom drawer */
-@media (max-width: 1100px) {
-  .shell,
-  .shell.live-closed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .shell.live-open > main {
-    padding-bottom: calc(45vh + 16px);
-  }
-  aside.live {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 45vh;
-    border-left: none;
-    border-top: 1px solid var(--line);
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
-    z-index: 3;
-  }
-}
 
 /* recording tab */
 .group-head {
@@ -960,30 +742,6 @@ input.note {
 }
 
 /* top bar: process steps (stepper) on the left, Config as a separate button on the right */
-nav.steps {
-  align-items: center;
-}
-.step-sep {
-  color: var(--muted);
-  opacity: 0.6;
-  user-select: none;
-}
-.config-btn {
-  font: inherit;
-  font-size: 15px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.config-btn:hover,
-.config-btn.active {
-  color: var(--text);
-  background: var(--card);
-}
 
 /* Project tab (S5 part 5a) */
 .subtabs {
@@ -1254,7 +1012,7 @@ pre.brief-text {
   gap: 4px;
   min-width: 0;
 }
-/* enough room (the form's own width, Live panel accounted for): the explanation sits to the right of the value */
+/* enough room (the form's own width): the explanation sits to the right of the value */
 @container (min-width: 760px) {
   .setting {
     grid-template-columns: minmax(420px, 3fr) minmax(220px, 2fr);
@@ -1358,22 +1116,19 @@ p.emphasis {
   color: var(--mauve);
 }
 
-/* Live panel as a right-hand column: one segment per line, so labels stay readable.
-   (The wide bottom drawer keeps the horizontal bar.) */
-@container live (max-width: 600px) {
-  .segbar {
-    flex-direction: column;
-    height: auto;
-    gap: 3px;
-  }
-  .segbar .seg {
-    flex: none !important;
-    height: 24px;
-    min-width: 0;
-  }
-  .segbar .seg span {
-    line-height: 20px;
-  }
+/* in the Activity drawer the segments stack, one per line */
+.ds-drawer .segbar {
+  flex-direction: column;
+  height: auto;
+  gap: 3px;
+}
+.ds-drawer .segbar .seg {
+  flex: none !important;
+  height: 24px;
+  min-width: 0;
+}
+.ds-drawer .segbar .seg span {
+  line-height: 20px;
 }
 
 /* ---------------- Annotations tab (S5 part 8) ---------------- */
@@ -2216,4 +1971,10 @@ button.tiny {
 /* ---------- S5 part 13: decisions, errors and cost hints (D91–D96) ---------- */
 .dlg-skip {
   align-self: flex-start;
+}
+
+/* ---------- UX2: the frame's neighbours ---------- */
+/* the Activity drawer's log: bounded, the page scrolls the rest */
+.log-section .log {
+  max-height: 22rem;
 }

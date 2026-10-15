@@ -1,4 +1,4 @@
-import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { html, render, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Annotations } from "./annotations.js";
 import {
   ApproveHighModal,
@@ -11,27 +11,21 @@ import {
   useCollapse,
 } from "./confidence.js";
 import { Settings } from "./config.js";
-import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
+import { api, media, post, screenUrl, token, useApi, useBus, useHashRoute } from "./core.js";
 import { CostHint, confirmCost, setModels } from "./cost.js";
 // demo-recording side panel — the control room (S5 part 4): stage tabs
 // Storyboard · Recording · Voice over · Annotations · Render · Config, each
-// with a shared stage header, plus the collapsible Live panel. Preact + htm,
+// with a shared stage header, the frame (frame.js) and the Activity drawer. Preact + htm,
 // vendored, no build.
 import { askText, confirmAsk, errorToast } from "./dialog.js";
-import { LivePanel } from "./live.js";
+import { newsTab, nextBand, stepStates, stripState } from "./frame-state.js";
+import { ActivityDrawer, ActivityStrip, Header } from "./frame.js";
+import { activityRows } from "./live.js";
 import { Project } from "./project.js";
 import { Recording } from "./recording.js";
 import { Render } from "./render.js";
+import { readLastPlace, writeLastPlace } from "./route.js";
 import { StageHeader, VersionActions, stageOf, useStages } from "./stages.js";
-
-const TABS = [
-  { id: "project", label: "Project", stage: null },
-  { id: "storyboard", label: "Storyboard", stage: "storyboard" },
-  { id: "recording", label: "Recording", stage: "recording" },
-  { id: "voice", label: "Voice over", stage: "vo" },
-  { id: "annotations", label: "Annotations", stage: "annotations" },
-  { id: "render", label: "Render", stage: "render" },
-];
 
 // ---------------- REVIEW ----------------
 
@@ -926,98 +920,100 @@ function Config({ events }) {
 
 // ---------------- APP ----------------
 
-const THEME_KEY = "demo-rec-theme";
-
-function ThemeToggle() {
-  const [theme, setTheme] = useState(document.documentElement.dataset.theme || "macchiato");
-  const next = theme === "macchiato" ? "latte" : "macchiato";
-  const flip = () => {
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem(THEME_KEY, next);
-    setTheme(next);
-  };
-  return html`<button class="theme-toggle" title=${`Switch to ${next === "latte" ? "Latte (light)" : "Macchiato (dark)"}`} onClick=${flip}>
-    ${theme === "macchiato" ? "☾ Macchiato" : "☀ Latte"}
-  </button>`;
-}
-
-const LIVE_OPEN_KEY = "demo-rec-live-open";
+const SCREEN_BODY = {
+  project: (p) => html`<${Project} events=${p.events} />`,
+  storyboard: (p) => html`<${Review} events=${p.events} stages=${p.stages} />`,
+  recording: (p) => html`<${Recording} events=${p.events} stages=${p.stages} />`,
+  voice: (p) => html`<${Voice} events=${p.events} stages=${p.stages} />`,
+  annotations: (p) => html`<${Annotations} events=${p.events} stages=${p.stages} />`,
+  render: (p) => html`<${Render} events=${p.events} stages=${p.stages} />`,
+  config: (p) => html`<${Config} events=${p.events} />`,
+};
 
 function App() {
-  const [tab, setTab] = useState("project");
-  const [liveOpen, setLiveOpenState] = useState(localStorage.getItem(LIVE_OPEN_KEY) !== "false");
-  const setLiveOpen = (v) => {
-    localStorage.setItem(LIVE_OPEN_KEY, String(v));
-    setLiveOpenState(v);
-  };
+  const [route, go] = useHashRoute();
   const { events, status } = useBus();
   const { data: state, error: stateError } = useApi("/api/state", events, /./);
   setModels(state?.models);
   const { data: stages } = useStages(events);
-  // Jump to the stage where something new arrived.
-  const lastWrite = events.filter((e) => e.type === "storyboard.written").at(-1)?.seq;
+  const { data: jobData } = useApi(
+    "/api/jobs",
+    events,
+    /^(take|tts|edit|render|design|discovery)\./,
+  );
+  const jobs = jobData?.jobs ?? [];
+  const slug = state?.project?.slug ?? null;
+  const [notice, setNotice] = useState(null);
+  const [drawer, setDrawer] = useState(false);
+  const [dismissed, setDismissed] = useState(() => new Set());
+  const [news, setNews] = useState(() => new Set());
+  const stripButton = useRef(null);
+
+  // Where we are comes from the URL. An empty hash restores the last place in this project (or starts
+  // at Project); an unknown route says so and falls back, it never silently shows something else.
   useEffect(() => {
-    if (lastWrite) setTab("storyboard");
-  }, [lastWrite]);
-  const lastVo = events.filter((e) => e.type === "vo.written" && e.data?.by !== "user").at(-1)?.seq;
+    if (!state) return;
+    if (route === null) go(readLastPlace(slug) ?? { screen: "project" }, { replace: true });
+    else if (!route.valid) {
+      setNotice(`${route.reason}. Showing Project.`);
+      go({ screen: "project" }, { replace: true });
+    }
+  }, [state, route]);
+  const tab = route?.valid ? route.screen : "project";
   useEffect(() => {
-    if (lastVo) setTab("voice");
-  }, [lastVo]);
-  const lastRender = events.filter((e) => e.type === "render.started").at(-1)?.seq;
+    if (slug && route?.valid) writeLastPlace(slug, route);
+  }, [slug, route?.raw]);
+  useEffect(() => setNotice(null), [tab]);
+
+  // A result that arrives for another screen puts a badge on its step. It never moves you.
+  // History is whatever the engine had published when this page first asked for the state.
+  const historyUntil = useRef(null);
+  if (state && historyUntil.current === null) historyUntil.current = state.busSeq ?? 0;
+  const seen = useRef(0);
+  const here = useRef(tab);
+  here.current = tab;
   useEffect(() => {
-    if (lastRender) setTab("render");
-  }, [lastRender]);
-  const lastAnn = events
-    .filter((e) => e.type === "annotations.updated" && e.data?.by === "agent")
-    .at(-1)?.seq;
-  useEffect(() => {
-    if (lastAnn) setTab("annotations");
-  }, [lastAnn]);
-  const lastTake = events
-    .filter((e) => e.type === "take.finished" || e.type === "take.analyzed")
-    .at(-1)?.seq;
-  useEffect(() => {
-    if (lastTake) setTab("recording");
-  }, [lastTake]);
-  const waiting = stages?.next?.who === "user" ? stages.next.stage : null;
-  const body =
-    tab === "project"
-      ? html`<${Project} events=${events} />`
-      : tab === "storyboard"
-        ? html`<${Review} events=${events} stages=${stages} />`
-        : tab === "recording"
-          ? html`<${Recording} events=${events} stages=${stages} />`
-          : tab === "voice"
-            ? html`<${Voice} events=${events} stages=${stages} />`
-            : tab === "annotations"
-              ? html`<${Annotations} events=${events} stages=${stages} />`
-              : tab === "render"
-                ? html`<${Render} events=${events} stages=${stages} />`
-                : html`<${Config} events=${events} />`;
+    if (historyUntil.current === null) return; // not known yet: nothing is judged
+    const fresh = events.filter((e) => e.seq > seen.current);
+    if (!fresh.length) return;
+    seen.current = fresh.at(-1).seq;
+    const add = fresh
+      .filter((e) => e.seq > historyUntil.current)
+      .map(newsTab)
+      .filter((t) => t && t !== here.current);
+    if (add.length) setNews((n) => new Set([...n, ...add]));
+  }, [events, state]);
+  useEffect(
+    () =>
+      setNews((n) => {
+        if (!n.has(tab)) return n;
+        const m = new Set(n);
+        m.delete(tab);
+        return m;
+      }),
+    [tab],
+  );
+
+  const rows = useMemo(() => activityRows(events), [events]);
+  const discovery = rows.some((r) => r.key === "discovery" && r.state === "running");
+  const states = useMemo(() => stepStates({ stages, jobs, discovery }), [stages, jobs, discovery]);
+  const band = useMemo(() => nextBand({ stages, states, jobs }), [stages, states, jobs]);
+  const strip = useMemo(
+    () => stripState({ jobs, rows, status, dismissed }),
+    [jobs, rows, status, dismissed],
+  );
+  const body = (SCREEN_BODY[tab] ?? SCREEN_BODY.project)({ events, stages });
   return html`
-    <header class="top">
-      <strong>demo-recording</strong>
-      ${state?.project ? html`<span class="muted small-text">${state.project.slug}</span>` : null}
-      <nav class="steps" aria-label="process steps">
-        ${TABS.map(
-          (
-            t,
-            i,
-          ) => html`${i ? html`<span class="step-sep" aria-hidden="true">›</span>` : null}<button
-            class=${`${tab === t.id ? "active" : ""} ${waiting && waiting === t.stage ? "waiting" : ""}`}
-            title=${waiting && waiting === t.stage ? `waiting for you: ${stages.next.text}` : ""}
-            onClick=${() => setTab(t.id)}
-          >${t.label}${waiting && waiting === t.stage ? html` <span class="dot"></span>` : null}</button>`,
-        )}
-      </nav>
-      <button class=${`config-btn ${tab === "config" ? "active" : ""}`} title="Settings and brands (not a process step)" onClick=${() => setTab("config")}>⚙ Config</button>
-      <${ThemeToggle} />
-      <span class=${`conn ${status}`}>${status}</span>
-    </header>
-    <div class=${`shell ${liveOpen ? "live-open" : "live-closed"}`}>
-      <main class=${tab}>${stateError ? html`<section class="card error">${stateError}</section>` : null}${body}</main>
-      <${LivePanel} events=${events} state=${state} stages=${stages} tab=${tab} open=${liveOpen} setOpen=${setLiveOpen} status=${status} />
-    </div>`;
+    <${Header} slug=${slug} tab=${tab} states=${states} news=${news} band=${band} />
+    <main class=${tab}>
+      ${notice ? html`<div class="ds-root ds-notice" role="note" data-tone="warn"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div class="ds-grow">${notice}</div><button class="ds-btn ds-btn--sm" type="button" onClick=${() => setNotice(null)}>Dismiss</button></div>` : null}
+      ${stateError ? html`<section class="card error">${stateError}</section>` : null}
+      ${body}
+    </main>
+    <${ActivityStrip} strip=${strip} status=${status} open=${drawer} buttonRef=${stripButton}
+      onToggle=${(forceOpen) => setDrawer((o) => (forceOpen === true ? true : !o))} />
+    <${ActivityDrawer} open=${drawer} onClose=${() => setDrawer(false)} events=${events} rows=${rows} jobs=${jobs}
+      dismissed=${dismissed} onDismiss=${(id) => setDismissed((d) => new Set([...d, id]))} buttonRef=${stripButton} />`;
 }
 
 render(html`<${App} />`, document.getElementById("app"));

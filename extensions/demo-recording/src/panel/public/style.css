@@ -1933,3 +1933,59 @@ button.tiny {
 .flavor-table td:first-child {
   width: 28px;
 }
+/* QA (S5 part 10) */
+.qa-section {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--inset);
+}
+.qa-section.blocked {
+  border-color: color-mix(in srgb, var(--err) 55%, var(--line));
+}
+.qa-section.pass,
+.qa-section.confirmed {
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+}
+.qa-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qa-item {
+  padding: 6px 8px;
+  border-left: 3px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+}
+.qa-item.blocking {
+  border-left-color: var(--err);
+}
+.qa-item.blocking.confirmed {
+  border-left-color: var(--warn);
+}
+.qa-item.warning {
+  border-left-color: var(--warn);
+}
+.qa-item .time {
+  font-family: var(--mono, ui-monospace, monospace);
+}
+.qa-item .qa-fix {
+  margin: 4px 0 0 4px;
+}
+.qa-confirm .note {
+  flex: 1;
+  min-width: 260px;
+}
+.qa-pill.pass,
+.qa-pill.confirmed {
+  background: color-mix(in srgb, var(--ok) 30%, var(--chip));
+}
+.qa-pill.blocked,
+.qa-pill.error {
+  background: color-mix(in srgb, var(--err) 30%, var(--chip));
+}

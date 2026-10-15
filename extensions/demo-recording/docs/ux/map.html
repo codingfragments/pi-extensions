@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" data-theme="macchiato">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UX0 mock: Project map</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="components.css" />
+    <link rel="stylesheet" href="map.css" />
+  </head>
+  <body
+    data-project="Keycraft"
+    data-stage="vo"
+    data-steps="complete,complete,needs,upcoming,upcoming"
+    data-next-label="Needs you"
+    data-next-text="Review the narration of Voice v3"
+    data-next-action="Continue review"
+    data-strip-tone="idle"
+    data-strip-text="Nothing running"
+  >
+    <main class="ds-page" aria-hidden="true">
+      <div class="ds-stagehead"><div class="ds-grow"><h1>Voice over</h1><div class="ds-stagehead-meta"><span>Viewing v3</span><span>Draft version</span></div></div><button class="ds-btn" type="button" tabindex="-1">History</button></div>
+      <div class="ds-card" style="min-block-size: 24rem"></div>
+    </main>
+
+    <div class="ds-overlay">
+      <section class="ds-map" role="dialog" aria-modal="true" aria-labelledby="map-title">
+        <div class="ds-map-head">
+          <h2 id="map-title">Project map</h2>
+          <span class="ds-muted ds-small ds-map-count"></span>
+          <span class="ds-grow"></span>
+          <button class="ds-btn ds-btn--ghost" type="button" aria-label="Close map">×</button>
+        </div>
+        <div class="ds-map-toolbar">
+          <span class="ds-seg" role="group" aria-label="Which paths">
+            <button type="button" data-view="all" aria-pressed="true">All paths</button>
+            <button type="button" data-view="approved" aria-pressed="false">Approved paths</button>
+            <button type="button" data-view="line" aria-pressed="false">Production line</button>
+          </span>
+          <label class="ds-search"><span class="ds-sr-only">Search the map</span><span class="ds-search-icon" aria-hidden="true">⌕</span><input class="ds-input" type="search" placeholder="Search versions…" /><kbd class="ds-kbd">/</kbd></label>
+          <button class="ds-chip" type="button" data-act="focus" aria-pressed="false">Focus connections</button>
+          <button class="ds-btn ds-btn--ghost" type="button" data-act="collapse">Collapse groups</button>
+          <button class="ds-btn ds-btn--ghost" type="button" data-act="reset">Reset view</button>
+          <button class="ds-chip ds-map-hidden" type="button" hidden></button>
+        </div>
+        <div class="ds-map-body">
+          <div class="ds-map-canvas" tabindex="0" role="region" aria-label="Dependency graph, scrolls in both directions">
+            <div class="ds-map-heads"></div>
+            <div class="ds-map-stage"></div>
+            
+          </div>
+          <aside class="ds-map-side" aria-label="Selection and outline">
+            <div class="ds-map-selected" aria-live="polite"></div>
+            <nav class="ds-outline" aria-label="Outline of the visible versions"></nav>
+          </aside>
+        </div>
+        <div class="ds-map-foot">
+          <span class="ds-muted ds-small">Looking never changes what the next steps use.</span>
+          <span class="ds-grow"></span>
+          <button class="ds-btn ds-btn--primary ds-map-open" type="button">Open in stage</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="shell.js"></script>
+    <script src="map.js"></script>
+    <script>
+      DSShell.buildFrame();
+      DSMap.initMap(document.querySelector(".ds-map"));
+    </script>
+  </body>
+</html>

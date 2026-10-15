@@ -1,0 +1,162 @@
+/*
+ * demo-recording control room — design tokens (UX0, D104/D110).
+ *
+ * The ONLY file that may contain colour literals. Everything else in the style
+ * tile (and, from UX1, the panel) reads these custom properties.
+ *
+ * Palette: Catppuccin Macchiato (dark, default) and Latte (light), 16 px base.
+ * Every text/surface and non-text pair below is verified for WCAG 2.2 AA by
+ * test/ux-tile.test.ts, which parses this file. Change a value here and the test
+ * tells you which pair stopped passing.
+ *
+ * Naming: --<group>-<role>. Groups: surface, text, border, accent, status
+ * (ok / warn / err / info / mauve), then scales (type, space, radius, shadow,
+ * motion, layer, layout).
+ */
+
+:root,
+:root[data-theme="macchiato"] {
+  color-scheme: dark;
+
+  /* Surfaces, lowest to highest */
+  --surface-sunken: #181926; /* crust: code, inset wells */
+  --surface-page: #1e2030; /* mantle: the app background */
+  --surface-panel: #24273a; /* base: panels, cards, list */
+  --surface-raised: #2c3048; /* controls, hovered rows, popovers */
+  --surface-overlay: #313550; /* dialogs, drawer */
+  --surface-scrim: rgb(14 15 24 / 0.62);
+
+  /* Text */
+  --text-strong: #e4e9ff;
+  --text-body: #cad3f5;
+  --text-muted: #a5adcb; /* secondary metadata; ≥ 5.8:1 on every surface */
+  --text-on-accent: #181926;
+
+  /* Borders. subtle = decoration only; control = the 3:1 boundary of inputs and buttons */
+  --border-subtle: #363a4f;
+  --border-strong: #494d64;
+  --border-control: #8087a2;
+
+  /* Accent and status. tone = text and icons; tint = badge and notice background */
+  --accent: #8aadf4;
+  --accent-hover: #a3bdf7;
+  --accent-tint: #2b3a5c;
+  --status-ok: #a6da95;
+  --status-ok-tint: #2f4440;
+  --status-warn: #eed49f;
+  --status-warn-tint: #463f3a;
+  --status-err: #ed8796;
+  --status-err-tint: #4a3445;
+  --status-info: #91d7e3;
+  --status-info-tint: #2d4150;
+  --status-mauve: #c6a0f6;
+  --status-mauve-tint: #3e3659;
+
+  --focus-ring: #b7bdf8;
+  --shadow-color: 0 0 0;
+}
+
+:root[data-theme="latte"] {
+  color-scheme: light;
+
+  --surface-sunken: #dce0e8;
+  --surface-page: #e6e9ef;
+  --surface-panel: #eff1f5;
+  --surface-raised: #ffffff;
+  --surface-overlay: #ffffff;
+  --surface-scrim: rgb(76 79 105 / 0.42);
+
+  --text-strong: #30334a;
+  --text-body: #4c4f69;
+  --text-muted: #5c5f77;
+  --text-on-accent: #ffffff;
+
+  --border-subtle: #ccd0da;
+  --border-strong: #9ca0b0;
+  --border-control: #6f7388;
+
+  /* Latte's own status colours fail AA as text (2.2–3:1); these keep the hue and
+     darken it to about 5:1 on every surface. */
+  --accent: #0a54e8;
+  --accent-hover: #0847c4;
+  --accent-tint: #dbe5f8;
+  --status-ok: #2d701e;
+  --status-ok-tint: #d7e6d9;
+  --status-warn: #895712;
+  --status-warn-tint: #ede3d7;
+  --status-err: #c10e34;
+  --status-err-tint: #f5e0e6;
+  --status-info: #036992;
+  --status-info-tint: #cee6f3;
+  --status-mauve: #7e28ee;
+  --status-mauve-tint: #e4d9f8;
+
+  --focus-ring: #5b3ddb;
+  --shadow-color: 76 79 105;
+}
+
+:root {
+  /* Type: system sans, six sizes, three weights */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 0.75rem; /* 12: badges, axis labels, never a primary editor */
+  --text-sm: 0.875rem; /* 14: metadata, table cells, helper text */
+  --text-md: 1rem; /* 16: body, inputs, narration */
+  --text-lg: 1.25rem; /* 20: section and stage titles */
+  --text-xl: 1.5rem; /* 24: page title */
+  --text-2xl: 2rem; /* 32: empty-state and first-run headline */
+  --leading-tight: 1.25;
+  --leading-body: 1.5;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+
+  /* Space: a 4 px grid, eight steps */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4 */
+  --space-2: 0.5rem; /* 8 */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.5rem; /* 24 */
+  --space-6: 2rem; /* 32 */
+  --space-7: 3rem; /* 48 */
+
+  /* Radius: five steps */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation: flat rows, a floating drawer, a dialog */
+  --shadow-1: 0 1px 2px rgb(var(--shadow-color) / 0.18);
+  --shadow-2: 0 8px 24px rgb(var(--shadow-color) / 0.28);
+  --shadow-3: 0 16px 48px rgb(var(--shadow-color) / 0.38);
+
+  /* Motion: functional only, one easing */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layers */
+  --layer-sticky: 20;
+  --layer-drawer: 40;
+  --layer-overlay: 50;
+  --layer-dialog: 60;
+  --layer-toast: 70;
+
+  /* Layout */
+  --measure: 68ch; /* prose and narration stay in a readable column */
+  --header-h: 3.5rem;
+  --strip-h: 2.5rem;
+  --list-w: 20rem;
+  --inspector-min: 28rem;
+  --target-min: 2rem; /* interactive targets: 32 px, above the 24 px WCAG floor */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+  }
+}

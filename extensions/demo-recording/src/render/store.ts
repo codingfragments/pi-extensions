@@ -126,14 +126,43 @@ export function saveRecord(projectDir: string, rec: RenderRecord): void {
   fs.writeFileSync(recordFile(projectDir, rec.version), `${JSON.stringify(rec, null, 2)}\n`);
 }
 
-/** Folder name of a variant: brand + what's different from the default (all annotations, logo bug on). */
-export function variantName(brand: string, o: RenderOptionsRec): string {
-  let k = brand;
+/**
+ * The flavor of a variant: brand + what differs from the default (all
+ * annotations, logo bug on) — "neutral", "acme_callouts-only",
+ * "neutral_plain", "acme_chapters-only_nobug". Also the variant's folder name.
+ */
+export function flavorName(brand: string, o: RenderOptionsRec): string {
+  const parts = [brand];
   if (Array.isArray(o.annotationTypes))
-    k += o.annotationTypes.length ? `+a-${[...o.annotationTypes].sort().join("-")}` : "+plain";
-  if (!o.logoBug) k += "+nobug";
-  return k;
+    parts.push(
+      !o.annotationTypes.length
+        ? "plain"
+        : o.annotationTypes.length === 1
+          ? `${o.annotationTypes[0]}s-only`
+          : `${[...o.annotationTypes].sort().join("-")}-only`,
+    );
+  if (!o.logoBug) parts.push("nobug");
+  return parts.join("_");
 }
+export const variantName = flavorName;
+
+/** File names of a variant: <project>_<kind>-v<N>_<flavor>… (relative to the variant folder). */
+export function renderNames(project: string, kind: RenderKind, version: number, flavor: string) {
+  const base = `${project}_${kind}-v${version}_${flavor}`;
+  const scene = (id: string) => `scenes/${base}_${id}`;
+  return {
+    base,
+    full: `${base}.mp4`,
+    fullSubtitled: `${base}_subtitled.mp4`,
+    vtt: `${base}_transcript.vtt`,
+    callouts: `${base}_callouts.srt`,
+    poster: `${base}_poster.jpg`,
+    scene: (id: string) => `${scene(id)}.mp4`,
+    sceneSubtitled: (id: string) => `${scene(id)}_subtitled.mp4`,
+    sceneVtt: (id: string) => `${scene(id)}_transcript.vtt`,
+  };
+}
+export type RenderNames = ReturnType<typeof renderNames>;
 
 export function dirBytes(dir: string): number {
   if (!fs.existsSync(dir)) return 0;

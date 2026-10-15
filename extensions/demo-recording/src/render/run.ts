@@ -34,6 +34,7 @@ import {
   dirBytes,
   listRenders,
   pruneDrafts,
+  renderNames,
   saveRecord,
   startRecord,
   variantName,
@@ -42,7 +43,7 @@ import {
 } from "./store.ts";
 
 /** Bump when render output changes for the same inputs, so older variants aren't reused. */
-export const RENDER_REVISION = "r2";
+export const RENDER_REVISION = "r3";
 
 export const DRAFT_SIZE = { width: 960, height: 540 };
 export const DRAFT_ENCODE = { preset: "veryfast", crf: 26 };
@@ -224,12 +225,13 @@ export function reuseKey(plan: RenderPlan, brand: string, fps: number): string {
     .slice(0, 24);
 }
 
-function linkTree(from: string, to: string): void {
+/** Hard-link a variant folder (copy if linking fails), renaming its files from one base to another. */
+function linkTree(from: string, to: string, rename: (name: string) => string = (n) => n): void {
   fs.mkdirSync(to, { recursive: true });
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
     const a = path.join(from, e.name);
-    const b = path.join(to, e.name);
-    if (e.isDirectory()) linkTree(a, b);
+    const b = path.join(to, e.isDirectory() ? e.name : rename(e.name));
+    if (e.isDirectory()) linkTree(a, b, rename);
     else
       try {
         fs.linkSync(a, b);
@@ -265,6 +267,7 @@ export async function runRender(o: {
   try {
     for (const [bi, brand] of plan.brands.entries()) {
       const key = variantName(brand, plan.options);
+      const names = renderNames(path.basename(o.projectDir), plan.kind, rec.version, key);
       const rel = path.join("render", `v${rec.version}`, key);
       const dir = path.join(o.projectDir, rel);
       const rk = reuseKey(plan, brand, o.config.fps);
@@ -278,8 +281,44 @@ export async function runRender(o: {
           total: plan.brands.length,
           label: `${key}: reusing render v${same.r.version}`,
         });
-        linkTree(path.join(o.projectDir, same.v.dir), dir);
-        variant = { ...same.v, key, dir: rel, reusedFrom: same.r.version };
+        const oldBase = renderNames(
+          path.basename(o.projectDir),
+          same.r.kind,
+          same.r.version,
+          same.v.key,
+        ).base;
+        const rn = (n: string) =>
+          n.startsWith(oldBase) ? names.base + n.slice(oldBase.length) : n;
+        linkTree(path.join(o.projectDir, same.v.dir), dir, rn);
+        const f = same.v.files;
+        variant = {
+          ...same.v,
+          key,
+          dir: rel,
+          reusedFrom: same.r.version,
+          files: {
+            full: rn(f.full),
+            scenes: f.scenes.map((x) => path.join(path.dirname(x), rn(path.basename(x)))),
+            ...(f.fullSubtitled ? { fullSubtitled: rn(f.fullSubtitled) } : {}),
+            ...(f.scenesSubtitled
+              ? {
+                  scenesSubtitled: f.scenesSubtitled.map((x) =>
+                    path.join(path.dirname(x), rn(path.basename(x))),
+                  ),
+                }
+              : {}),
+            ...(f.vtt ? { vtt: rn(f.vtt) } : {}),
+            ...(f.scenesVtt
+              ? {
+                  scenesVtt: f.scenesVtt.map((x) =>
+                    path.join(path.dirname(x), rn(path.basename(x))),
+                  ),
+                }
+              : {}),
+            ...(f.callouts ? { callouts: rn(f.callouts) } : {}),
+            ...(f.poster ? { poster: rn(f.poster) } : {}),
+          },
+        };
       } else {
         const cut: CutResult = await renderCut({
           projectDir: o.projectDir,
@@ -293,6 +332,7 @@ export async function runRender(o: {
             logoBug: plan.options.logoBug,
             ...(plan.kind === "draft" ? { encode: DRAFT_ENCODE, stamp: "draft" as const } : {}),
             outDir: dir,
+            names: { full: names.full, scene: (id) => names.scene(id) },
           },
           ...(o.signal ? { signal: o.signal } : {}),
           onProgress: (p) =>
@@ -309,6 +349,7 @@ export async function runRender(o: {
           plan,
           brand,
           dir,
+          names,
           ...(o.signal ? { signal: o.signal } : {}),
         });
         variant = {
@@ -316,7 +357,7 @@ export async function runRender(o: {
           brand,
           dir: rel,
           files: {
-            full: "full.mp4",
+            full: names.full,
             scenes: cut.scenes.map((s) => path.relative(dir, s.file)),
             ...side.files,
           },

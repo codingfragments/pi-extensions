@@ -1,11 +1,10 @@
 /**
  * Sidecars of a render variant (S5 part 9, D61, D62):
  *
- *   poster.jpg          the title card at its fullest (1 s in without one)
- *   full.vtt            transcript of the full video (WebVTT, from the TTS word timings)
- *   scenes/*.vtt        per-scene transcripts (finals)
- *   full.callouts.srt   the callout texts and times (when the render has callouts)
- *   *.subtitled.mp4     with burned-in subtitles, in addition to the clean files (option)
+ * Names: <project>_<kind>-v<N>_<flavor> + _poster.jpg (the title card at its
+ * fullest), _transcript.vtt (WebVTT from the TTS word timings; per scene for
+ * finals), _callouts.srt (when the render has callouts), _subtitled.mp4
+ * (burned-in subtitles, in addition to the clean files; option).
  */
 
 import fs from "node:fs";
@@ -16,7 +15,7 @@ import type { DemoRecConfig } from "../config.ts";
 import { type CutResult, prepareBrand } from "../edit/pipeline.ts";
 import { ffmpeg } from "../media/ffmpeg.ts";
 import type { RenderPlan } from "./run.ts";
-import type { RenderFiles } from "./store.ts";
+import type { RenderFiles, RenderNames } from "./store.ts";
 import {
   type Cue,
   buildCues,
@@ -34,6 +33,7 @@ export async function writeSidecars(o: {
   plan: RenderPlan;
   brand: string;
   dir: string;
+  names: RenderNames;
   signal?: AbortSignal;
 }): Promise<{ files: Partial<RenderFiles>; warnings: string[] }> {
   const files: Partial<RenderFiles> = {};
@@ -42,7 +42,8 @@ export async function writeSidecars(o: {
 
   // Poster
   const at = o.cut.titleMs ? Math.min(o.cut.titleMs * 0.5, 2000) : 1000;
-  const poster = path.join(o.dir, "poster.jpg");
+  const n = o.names;
+  const poster = path.join(o.dir, n.poster);
   await ffmpeg([
     "-ss",
     (at / 1000).toFixed(3),
@@ -55,13 +56,13 @@ export async function writeSidecars(o: {
     "-y",
     poster,
   ]);
-  if (fs.existsSync(poster)) files.poster = "poster.jpg";
+  if (fs.existsSync(poster)) files.poster = n.poster;
 
   // Transcript
   const fullCues = buildCues(fullWords(o.projectDir, t, o.cut.itemStart));
   if (fullCues.length) {
-    fs.writeFileSync(path.join(o.dir, "full.vtt"), toVtt(fullCues));
-    files.vtt = "full.vtt";
+    fs.writeFileSync(path.join(o.dir, n.vtt), toVtt(fullCues));
+    files.vtt = n.vtt;
   } else warnings.push("no word timings for this voice-over — no transcript");
   const sceneCues: Record<string, Cue[]> = {};
   if (o.cut.scenes.length) {
@@ -69,9 +70,8 @@ export async function writeSidecars(o: {
     for (const sc of o.cut.scenes) {
       const cues = buildCues(sceneWords(o.projectDir, t, sc.id));
       sceneCues[sc.id] = cues;
-      const vtt = sc.file.replace(/\.mp4$/, ".vtt");
-      fs.writeFileSync(vtt, toVtt(cues));
-      files.scenesVtt.push(path.relative(o.dir, vtt));
+      fs.writeFileSync(path.join(o.dir, n.sceneVtt(sc.id)), toVtt(cues));
+      files.scenesVtt.push(n.sceneVtt(sc.id));
     }
   }
 
@@ -93,10 +93,10 @@ export async function writeSidecars(o: {
     });
     if (fullCallouts.length) {
       fs.writeFileSync(
-        path.join(o.dir, "full.callouts.srt"),
+        path.join(o.dir, n.callouts),
         toSrt(fullCallouts.map((c) => ({ startMs: c.startMs, endMs: c.endMs, lines: [c.text] }))),
       );
-      files.callouts = "full.callouts.srt";
+      files.callouts = n.callouts;
     }
   }
 
@@ -115,7 +115,7 @@ export async function writeSidecars(o: {
       cacheDir: path.join(o.config.root, ".cache", "render-assets"),
     };
     if (o.signal?.aborted) throw new Error("render cancelled");
-    const full = path.join(o.dir, "full.subtitled.mp4");
+    const full = path.join(o.dir, n.fullSubtitled);
     await burnSubtitles({
       ...common,
       input: o.cut.full.file,
@@ -123,12 +123,12 @@ export async function writeSidecars(o: {
       cues: fullCues,
       avoid: fullCallouts,
     });
-    files.fullSubtitled = "full.subtitled.mp4";
+    files.fullSubtitled = n.fullSubtitled;
     if (o.cut.scenes.length) {
       files.scenesSubtitled = [];
       for (const sc of o.cut.scenes) {
         if (o.signal?.aborted) throw new Error("render cancelled");
-        const out = sc.file.replace(/\.mp4$/, ".subtitled.mp4");
+        const out = path.join(o.dir, n.sceneSubtitled(sc.id));
         await burnSubtitles({
           ...common,
           input: sc.file,
@@ -136,7 +136,7 @@ export async function writeSidecars(o: {
           cues: sceneCues[sc.id] ?? [],
           avoid: sceneCallouts[sc.id] ?? [],
         });
-        files.scenesSubtitled.push(path.relative(o.dir, out));
+        files.scenesSubtitled.push(n.sceneSubtitled(sc.id));
       }
     }
   }

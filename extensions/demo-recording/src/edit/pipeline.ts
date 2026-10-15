@@ -179,6 +179,8 @@ export interface CutOptions {
   /** Small corner tag over everything (drafts, D60). */
   stamp?: "draft";
   outDir: string;
+  /** File names relative to outDir (default full.mp4, scenes/NN-<id>.mp4). */
+  names?: { full: string; scene: (id: string, i: number) => string };
 }
 
 export interface CutResult {
@@ -236,6 +238,10 @@ export async function renderCut(o: {
       })
     : undefined;
   const label = path.basename(o.cut.outDir);
+  const names = o.cut.names ?? {
+    full: "full.mp4",
+    scene: (id: string, i: number) => `scenes/${sceneFileName(id, i)}`,
+  };
   fs.mkdirSync(o.cut.scenes ? path.join(o.cut.outDir, "scenes") : o.cut.outDir, {
     recursive: true,
   });
@@ -261,7 +267,7 @@ export async function renderCut(o: {
     for (const [i, sc] of timeline.scenes.entries()) {
       if (o.signal?.aborted) throw new Error("render cancelled");
       o.onProgress?.({ done: i, total, label: `scene ${sc.id} (${label})` });
-      const file = path.join(o.cut.outDir, "scenes", sceneFileName(sc.id, i));
+      const file = path.join(o.cut.outDir, names.scene(sc.id, i));
       const ops = sceneOps(prepared, sc.id);
       const r = await renderJob(sceneJob(timeline, sc.id, o.projectDir), raw, file, {
         ...base,
@@ -295,7 +301,7 @@ export async function renderCut(o: {
         }
       : {}),
   };
-  const fullFile = path.join(o.cut.outDir, "full.mp4");
+  const fullFile = path.join(o.cut.outDir, names.full);
   const fj = fullJob(timeline, o.projectDir, { titleMs });
   const fops = fullOps(prepared, fj.sceneStart);
   const r = await renderJob(fj, raw, fullFile, {

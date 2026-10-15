@@ -39,7 +39,7 @@ Decisions D59–D68 in [VISION.md](VISION.md).
 | For | watching the whole thing quickly | the deliverable |
 | Needs | any annotation version — also your unsaved changes, or none | an **accepted** annotation version (the whole line accepted) |
 | Size | 960×540, fast encoder preset | the configured output size (1920×1080) |
-| Files | `full.mp4`, `full.vtt`, `poster.jpg` | `full.mp4`, `scenes/*.mp4`, transcripts, callouts, poster |
+| Files | the video, its transcript and poster | the video, per-scene clips, transcripts, callouts, poster |
 | Marked | a small **DRAFT** tag in a corner (never across the picture) | — |
 | QA | — | "not checked" until S5 part 10 adds the QA gate |
 | Accept | no | yes — the deliverable |
@@ -76,12 +76,12 @@ again ("reused from v5").
 
 ### Subtitles
 
-- A **transcript** (WebVTT) is always written: `full.vtt`, and per scene
-  `scenes/<id>.vtt` for finals. It comes from the voice's word timings, mapped
+- A **transcript** (WebVTT) is always written: `…_transcript.vtt`, and per
+  scene for finals. It comes from the voice's word timings, mapped
   through the edit (cuts, holds, speed changes) and the intro/bridge/outro cards.
   The players in the Render tab show it as a subtitle track.
-- **Burn in subtitles** is an option: it writes `full.subtitled.mp4` (and
-  `scenes/*.subtitled.mp4`) **in addition** to the clean files.
+- **Burn in subtitles** is an option: it writes `…_subtitled.mp4` (full video and
+  scenes) **in addition** to the clean files.
   - Cues: ≤ 2 lines of ≤ 42 characters, ≤ 6 s, split at sentence ends and
     pauses; held 0.3 s after the last word, never into the next cue.
   - Style: the brand's font and callout pill colours, bottom centre of the
@@ -97,26 +97,32 @@ out of this render.
 
 ## What a render produces
 
+Every file is named **`<project>_<kind>-v<N>_<flavor>`** — the flavor is the
+brand plus what differs from the default — so files from several renders can
+sit in one folder without clashing:
+
 ```
 render/
-  v7.json                    the record (below)
+  v7.json                                         the record (below)
   v7/
     neutral/
-      full.mp4               the video
-      full.subtitled.mp4     with burned-in subtitles (option)
-      full.vtt               transcript (WebVTT)
-      full.callouts.srt      callout texts and times (when the render has callouts)
-      poster.jpg             the title card frame (1 s in without one)
+      my-demo_final-v7_neutral.mp4                the video
+      my-demo_final-v7_neutral_subtitled.mp4      with burned-in subtitles (option)
+      my-demo_final-v7_neutral_transcript.vtt     transcript (WebVTT)
+      my-demo_final-v7_neutral_callouts.srt       callout texts and times (when the render has callouts)
+      my-demo_final-v7_neutral_poster.jpg         the title card frame (1 s in without one)
       scenes/
-        01-dashboard.mp4     per-scene clips (finals) — no chapter titles
-        01-dashboard.vtt
-        01-dashboard.subtitled.mp4
-    acme/                    a second brand of the same render
+        my-demo_final-v7_neutral_01-dashboard.mp4             per-scene clips (finals) — no chapter titles
+        my-demo_final-v7_neutral_01-dashboard_transcript.vtt
+        my-demo_final-v7_neutral_01-dashboard_subtitled.mp4
+    acme_callouts-only/                           a second brand, only callouts
+      my-demo_final-v7_acme_callouts-only.mp4
 ```
 
-Variant folders are named by brand plus what differs from the default:
-`+plain` (no annotations), `+a-callout-chapter` (only those types), `+nobug`
-(no logo bug).
+Flavors: `neutral` (all annotations), `acme_plain` (no annotations),
+`acme_callouts-only`, `acme_callout-chapter-only`, `…_nobug` (no logo bug); the
+subtitled file adds `_subtitled`. A reused variant gets its new version's
+names (`…_final-v8_…`), never the old one's.
 
 ---
 
@@ -136,12 +142,15 @@ Variant folders are named by brand plus what differs from the default:
 - **Renders** — the history, newest first (accepted deliverables on top), one
   collapsible card per version: kind, status, QA, what it was made from
   (annotation version, types, subtitles, logo bug, edit, size, time, who
-  started it), and per variant:
-  - a **player** with the poster and the transcript track, and a switch to
-    the subtitled version;
-  - **downloads**: full video, subtitled, transcript, callouts, poster, scenes;
-  - **Open folder** (Finder / file manager);
-  - **Accept** (finals) and **Delete files**.
+  started it), **Accept** (finals) and **Delete files**, and:
+  - a **flavor table** — one row per flavor (each brand, and its subtitled
+    version): length, size, **⬇ mp4** (the video itself, under its full name)
+    and the extras as downloads (**transcript**, **callouts**, **poster**) plus
+    **folder** (opens it in Finder / the file manager); **▸ scenes** expands
+    the per-scene clips with their own ⬇ mp4 and transcript;
+  - a **player** for the selected row (click a row or ▶; scenes too), with the
+    poster and the transcript as a subtitle track (CC). It sits to the left
+    of the table when the window is wide enough, below it otherwise.
 - **Legacy renders** — collapsed at the bottom ([below](#legacy-renders)).
 
 ---
@@ -222,8 +231,10 @@ annotationTypes, subtitles, logoBug), `status`, `cancel`, `list`.
   "brands": ["neutral"], "size": { "width": 1920, "height": 1080 },
   "variants": [{
     "key": "neutral", "brand": "neutral", "dir": "render/v7/neutral",
-    "files": { "full": "full.mp4", "fullSubtitled": "full.subtitled.mp4", "scenes": ["scenes/01-dashboard.mp4"],
-               "vtt": "full.vtt", "scenesVtt": ["scenes/01-dashboard.vtt"], "callouts": "full.callouts.srt", "poster": "poster.jpg" },
+    "files": { "full": "my-demo_final-v7_neutral.mp4", "fullSubtitled": "my-demo_final-v7_neutral_subtitled.mp4",
+               "scenes": ["scenes/my-demo_final-v7_neutral_01-dashboard.mp4"],
+               "vtt": "my-demo_final-v7_neutral_transcript.vtt", "callouts": "my-demo_final-v7_neutral_callouts.srt",
+               "poster": "my-demo_final-v7_neutral_poster.jpg" },
     "bytes": 8234567, "durationSec": 39.7, "reuseKey": "…"
   }],
   "qa": null

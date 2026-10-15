@@ -85,13 +85,13 @@ node "$CLI" render --project "$PROJ" --kind final --subtitles | grep -E "reused|
 
 step "7/8  watch: draft v2, final v3 (subtitled), callouts-only v4"
 if test (uname) = Darwin
-    open "$OUT/v2/neutral/full.mp4"
-    open "$OUT/v3/neutral/full.subtitled.mp4"
-    open "$OUT/v4/neutral+a-callout/full.mp4"
+    open "$OUT/v2/neutral/$PROJ"_draft-v2_neutral.mp4
+    open "$OUT/v3/neutral/$PROJ"_final-v3_neutral_subtitled.mp4
+    open "$OUT/v4/neutral_callouts-only/$PROJ"_final-v4_neutral_callouts-only.mp4
 else
-    echo "videos: $OUT/v2/neutral/full.mp4  $OUT/v3/neutral/full.subtitled.mp4  $OUT/v4/neutral+a-callout/full.mp4"
+    echo "videos: $OUT/v2/neutral/ $OUT/v3/neutral/ $OUT/v4/neutral_callouts-only/"
 end
-echo "transcript: $OUT/v3/neutral/full.vtt"
+echo "transcript: $OUT/v3/neutral/$PROJ"_final-v3_neutral_transcript.vtt
 
 step "8/8  automated tests (~1 min, expect 34 pass)"
 env DEMO_REC_E2E=1 node --test "$TESTS/s5-render.test.ts" "$TESTS/s5-annotations.test.ts" "$TESTS/s5-annotations-stage.test.ts" "$TESTS/s5-annotations-panel.test.ts" 2>&1 | grep -E '^ℹ (tests|pass|fail)'

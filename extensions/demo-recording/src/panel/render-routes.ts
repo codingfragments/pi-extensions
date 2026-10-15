@@ -68,7 +68,28 @@ export function rendersView(rt: Runtime) {
       ...r,
       accepted: !!accepted[String(r.version)],
       onLine: state.line.render === r.version,
-      variants: r.variants.map((v) => ({ ...v, present: variantPresent(p.dir, v) })),
+      variants: r.variants.map((v) => {
+        const present = variantPresent(p.dir, v);
+        // Size of every file (the table shows them per row).
+        const f = v.files;
+        const all = [
+          f.full,
+          f.fullSubtitled,
+          f.vtt,
+          f.callouts,
+          f.poster,
+          ...(f.scenes ?? []),
+          ...(f.scenesSubtitled ?? []),
+          ...(f.scenesVtt ?? []),
+        ].filter((x): x is string => !!x);
+        const sizes: Record<string, number> = {};
+        if (present)
+          for (const rel of all) {
+            const file = path.join(p.dir, v.dir, rel);
+            if (fs.existsSync(file)) sizes[rel] = fs.statSync(file).size;
+          }
+        return { ...v, present, sizes };
+      }),
     })),
     legacy: legacyRenders(p.dir),
   };

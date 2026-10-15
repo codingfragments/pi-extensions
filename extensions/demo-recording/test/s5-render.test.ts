@@ -29,6 +29,7 @@ import {
   listRenders,
   pruneDrafts,
   readRender,
+  renderNames,
   saveRecord,
   startRecord,
   variantName,
@@ -260,10 +261,28 @@ test("options and variant names", () => {
   );
   assert.throws(() => normalizeOptions({ annotationTypes: ["arrow" as never] }), /annotationTypes/);
   assert.equal(variantName("neutral", normalizeOptions({})), "neutral");
-  assert.equal(variantName("acme", normalizeOptions({ annotationTypes: [] })), "acme+plain");
+  assert.equal(variantName("acme", normalizeOptions({ annotationTypes: [] })), "acme_plain");
   assert.equal(
     variantName("acme", normalizeOptions({ annotationTypes: ["chapter"], logoBug: false })),
-    "acme+a-chapter+nobug",
+    "acme_chapters-only_nobug",
+  );
+  assert.equal(
+    variantName("acme", normalizeOptions({ annotationTypes: ["chapter", "callout"] })),
+    "acme_callout-chapter-only",
+  );
+  const n = renderNames("my-demo", "final", 3, "acme_callouts-only");
+  assert.equal(n.full, "my-demo_final-v3_acme_callouts-only.mp4");
+  assert.equal(n.fullSubtitled, "my-demo_final-v3_acme_callouts-only_subtitled.mp4");
+  assert.equal(n.vtt, "my-demo_final-v3_acme_callouts-only_transcript.vtt");
+  assert.equal(n.callouts, "my-demo_final-v3_acme_callouts-only_callouts.srt");
+  assert.equal(n.poster, "my-demo_final-v3_acme_callouts-only_poster.jpg");
+  assert.equal(
+    n.scene("01-dashboard"),
+    "scenes/my-demo_final-v3_acme_callouts-only_01-dashboard.mp4",
+  );
+  assert.equal(
+    n.sceneSubtitled("01-dashboard"),
+    "scenes/my-demo_final-v3_acme_callouts-only_01-dashboard_subtitled.mp4",
   );
 });
 
@@ -580,7 +599,8 @@ test(
     assert.equal(draft.status, "done");
     const dv = draft.variants[0];
     assert.ok(dv);
-    const dfull = path.join(dir, dv.dir, "full.mp4");
+    const dfull = path.join(dir, dv.dir, dv.files.full);
+    assert.equal(dv.files.full, "p_draft-v1_neutral.mp4", "project_kind-vN_flavor");
     assert.equal(size(dfull), "960,540");
     assert.deepEqual(dv.files.scenes, [], "drafts: full video only");
     assert.ok(dv.files.vtt && dv.files.poster);
@@ -602,11 +622,13 @@ test(
     const fv = final.variants[0];
     assert.ok(fv);
     const f = (x: string) => path.join(dir, fv.dir, x);
-    assert.equal(size(f("full.mp4")), "1280,720");
-    assert.deepEqual(fv.files.scenes, ["scenes/01-a.mp4"]);
-    assert.deepEqual(fv.files.scenesVtt, ["scenes/01-a.vtt"]);
-    assert.ok(fs.existsSync(f("poster.jpg")));
-    const vtt = fs.readFileSync(f("full.vtt"), "utf8");
+    const base = `p_final-v${final.version}_neutral`;
+    assert.equal(fv.files.full, `${base}.mp4`);
+    assert.equal(size(f(fv.files.full)), "1280,720");
+    assert.deepEqual(fv.files.scenes, [`scenes/${base}_01-a.mp4`]);
+    assert.deepEqual(fv.files.scenesVtt, [`scenes/${base}_01-a_transcript.vtt`]);
+    assert.ok(fs.existsSync(f(`${base}_poster.jpg`)));
+    const vtt = fs.readFileSync(f(`${base}_transcript.vtt`), "utf8");
     assert.match(vtt, /^WEBVTT/);
     // The brand's title card is longer than the intro card: the video opens on a hold first.
     const hold = Number(/\n00:00:(\d\d)\.(\d{3}) -->/.exec(vtt)?.slice(1).join("")) - 500;
@@ -617,7 +639,7 @@ test(
       vtt.includes(`${at(hold + 2000 + 500)}.${String((hold + 2500) % 1000).padStart(3, "0")} -->`),
       "scene words: scene start + the audio placement (0.5 s)",
     );
-    const srt = fs.readFileSync(f("full.callouts.srt"), "utf8");
+    const srt = fs.readFileSync(f(`${base}_callouts.srt`), "utf8");
     const co = hold + 2000 + 1500 - 150;
     assert.ok(
       srt.startsWith(`1\n${at(co)},${String(co % 1000).padStart(3, "0")} --> `),
@@ -625,17 +647,17 @@ test(
     );
     assert.match(srt, /Headline churn/);
     // burned-in subtitles: an extra file, same frames, differs at the bottom centre while a cue shows
-    assert.ok(fv.files.fullSubtitled && fs.existsSync(f("full.subtitled.mp4")));
-    assert.equal(frames(f("full.subtitled.mp4")), frames(f("full.mp4")));
+    assert.ok(fv.files.fullSubtitled && fs.existsSync(f(`${base}_subtitled.mp4`)));
+    assert.equal(frames(f(`${base}_subtitled.mp4`)), frames(f(`${base}.mp4`)));
     const bottom = { x: 440, y: 560, w: 400, h: 110 };
     assert.ok(
       diff(
-        crop(f("full.subtitled.mp4"), (hold + 2900) / 1000, bottom),
-        crop(f("full.mp4"), (hold + 2900) / 1000, bottom),
+        crop(f(`${base}_subtitled.mp4`), (hold + 2900) / 1000, bottom),
+        crop(f(`${base}.mp4`), (hold + 2900) / 1000, bottom),
       ) > 8,
       "subtitle visible",
     );
-    assert.deepEqual(fv.files.scenesSubtitled, ["scenes/01-a.subtitled.mp4"]);
+    assert.deepEqual(fv.files.scenesSubtitled, [`scenes/${base}_01-a_subtitled.mp4`]);
     // a second render with the same inputs reuses the files; another type selection renders anew
     const again = await runRender({
       projectDir: dir,
@@ -643,12 +665,24 @@ test(
       request: { kind: "final", options: { subtitles: true }, by: "cli" },
     });
     assert.equal(again.variants[0]?.reusedFrom, final.version);
+    const ab = `p_final-v${again.version}_neutral`;
+    assert.equal(
+      again.variants[0]?.files.full,
+      `${ab}.mp4`,
+      "reused files carry the new version in their names",
+    );
+    assert.ok(fs.existsSync(path.join(dir, again.variants[0]?.dir ?? "", `${ab}_subtitled.mp4`)));
+    assert.deepEqual(again.variants[0]?.files.scenes, [`scenes/${ab}_01-a.mp4`]);
     const chapterOnly = await runRender({
       projectDir: dir,
       config: cfg,
       request: { kind: "final", options: { annotationTypes: ["chapter"] }, by: "cli" },
     });
-    assert.equal(chapterOnly.variants[0]?.key, "neutral+a-chapter");
+    assert.equal(chapterOnly.variants[0]?.key, "neutral_chapters-only");
+    assert.equal(
+      chapterOnly.variants[0]?.files.full,
+      `p_final-v${chapterOnly.version}_neutral_chapters-only.mp4`,
+    );
     assert.equal(chapterOnly.variants[0]?.reusedFrom, undefined);
     assert.equal(
       chapterOnly.variants[0]?.files.callouts,

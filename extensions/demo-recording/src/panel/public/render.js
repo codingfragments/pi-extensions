@@ -138,39 +138,152 @@ function NewRender({ data, events, onStarted }) {
   </section>`;
 }
 
-function Files({ v }) {
-  const f = v.files;
-  const links = [
-    ["full video", f.full],
-    ["subtitled", f.fullSubtitled],
-    ["transcript (VTT)", f.vtt],
-    ["callouts (SRT)", f.callouts],
-    ["poster", f.poster],
-  ].filter(([, x]) => x);
-  return html`<div class="render-files small-text">
-    ${links.map(([label, file]) => html`<a href=${media("project", join(v.dir, file))} download>${label}</a>`)}
-    ${f.scenes?.length ? html`<span class="muted">· scenes:</span> ${f.scenes.map((s, i) => html`<a href=${media("project", join(v.dir, s))} download>${s.replace(/^scenes\//, "").replace(/\.mp4$/, "")}</a>${f.scenesSubtitled?.[i] ? html` <a class="muted" href=${media("project", join(v.dir, f.scenesSubtitled[i]))} download>(sub)</a>` : null}`)}` : null}
-  </div>`;
+/** "neutral_callouts-only_nobug" → { brand: "neutral", tags: ["callouts only", "no logo"] } */
+function flavorParts(key) {
+  const [brand, ...rest] = key.split("_");
+  const tags = rest.map((t) =>
+    t === "plain"
+      ? "no annotations"
+      : t === "nobug"
+        ? "no logo"
+        : t.replace(/-only$/, " only").replace(/-/g, " + "),
+  );
+  return { brand, tags };
 }
 
-function VariantPlayer({ r, v }) {
-  const [sub, setSub] = useState(false);
-  const file = sub && v.files.fullSubtitled ? v.files.fullSubtitled : v.files.full;
-  if (!v.present)
-    return html`<div class="variant gone"><b>${v.key}</b> <span class="muted small-text">files ${r.deleted ? "deleted" : r.pruned ? "pruned" : "missing"} — render again to watch</span></div>`;
-  return html`<div class="variant">
-    <div class="row">
-      <b>${v.key}</b>
-      <span class="muted small-text">${v.durationSec.toFixed(1)} s · ${mb(v.bytes)}${v.reusedFrom ? ` · reused from v${v.reusedFrom}` : ""}</span>
-      <span class="grow"></span>
-      ${v.files.fullSubtitled ? html`<label class="check small-text"><input type="checkbox" checked=${sub} onChange=${(e) => setSub(e.target.checked)} /> burned-in subtitles</label>` : null}
-      <button class="ghost" onClick=${() => post("/api/render-open", { version: r.version, variant: v.key }).catch((e) => alert(e.message))}>Open folder</button>
+/** Rows of a render's flavor table: per variant the clean video, then the subtitled one. */
+function flavorRows(r) {
+  const rows = [];
+  for (const v of r.variants) {
+    const f = v.files;
+    const { brand, tags } = flavorParts(v.key);
+    const scenes = (sub) =>
+      (f.scenes ?? [])
+        .map((s, i) => ({
+          id: s.replace(/^scenes\//, "").replace(/\.mp4$/, ""),
+          label: (s.match(/_(\d+-[^_/]+?)(?:_subtitled)?\.mp4$/)?.[1] ?? s).replace(/\.mp4$/, ""),
+          file: sub ? f.scenesSubtitled?.[i] : s,
+          vtt: sub ? undefined : f.scenesVtt?.[i],
+        }))
+        .filter((x) => x.file);
+    rows.push({
+      key: v.key,
+      v,
+      brand,
+      tags,
+      file: f.full,
+      vtt: f.vtt,
+      poster: f.poster,
+      extras: [
+        ["transcript", f.vtt],
+        ["callouts", f.callouts],
+        ["poster", f.poster],
+      ],
+      scenes: scenes(false),
+    });
+    if (f.fullSubtitled)
+      rows.push({
+        key: `${v.key}#sub`,
+        v,
+        brand,
+        tags: [...tags, "subtitled"],
+        file: f.fullSubtitled,
+        poster: f.poster,
+        extras: [["transcript", f.vtt]],
+        scenes: scenes(true),
+      });
+  }
+  return rows;
+}
+
+const fileName = (rel) => rel.split("/").at(-1);
+
+function FlavorTable({ r }) {
+  const rows = flavorRows(r);
+  const [sel, setSel] = useState(null);
+  const [open, setOpen] = useState({});
+  const first = rows.find((x) => x.v.present);
+  const cur =
+    sel ??
+    (first
+      ? {
+          row: first.key,
+          v: first.v,
+          file: first.file,
+          vtt: first.vtt,
+          poster: first.poster,
+          label: [first.brand, ...first.tags].join(" · "),
+        }
+      : null);
+  const pick = (row, file, vtt, label) =>
+    setSel({ row: row.key, v: row.v, file, vtt, poster: row.poster, label });
+  const size = (v, rel) => (v.sizes?.[rel] !== undefined ? mb(v.sizes[rel]) : "");
+  const dl = (v, rel, label) =>
+    rel
+      ? html`<a href=${media("project", join(v.dir, rel))} download=${fileName(rel)} title=${fileName(rel)} onClick=${(e) => e.stopPropagation()}>${label}</a>`
+      : null;
+  return html`<div class="flavor-view">
+    <div class="flavor-player">
+      ${
+        cur
+          ? html`<video key=${cur.file} class="render-video" controls preload="metadata" src=${media("project", join(cur.v.dir, cur.file))} poster=${cur.poster ? media("project", join(cur.v.dir, cur.poster)) : undefined}>
+              ${cur.vtt ? html`<track kind="subtitles" srclang="en" label="Transcript" src=${media("project", join(cur.v.dir, cur.vtt))} />` : null}
+            </video>
+            <div class="small-text muted">▶ ${cur.label} · <span class="mono">${fileName(cur.file)}</span>${cur.vtt ? " · transcript track available (CC)" : ""}</div>`
+          : html`<div class="render-video gone-player">files ${r.deleted ? "deleted" : r.pruned ? "pruned" : "missing"} — render again to watch</div>`
+      }
     </div>
-    <video class="render-video" controls preload="metadata" src=${media("project", join(v.dir, file))} poster=${v.files.poster ? media("project", join(v.dir, v.files.poster)) : undefined}>
-      ${v.files.vtt && !sub ? html`<track kind="subtitles" srclang="en" label="Transcript" src=${media("project", join(v.dir, v.files.vtt))} />` : null}
-    </video>
-    <${Files} v=${v} />
-    ${v.warnings?.length ? html`<details class="small-text"><summary>${v.warnings.length} warning(s)</summary><ul>${v.warnings.map((w) => html`<li>${w}</li>`)}</ul></details>` : null}
+    <table class="flavor-table">
+      <thead><tr><th></th><th>Flavor</th><th>Length</th><th>Size</th><th>Video</th><th>Extras</th></tr></thead>
+      <tbody>
+        ${rows.map((row) => {
+          const v = row.v;
+          const label = [row.brand, ...row.tags].join(" · ");
+          const on = cur?.file === row.file && cur?.v === v;
+          return html`
+            <tr class=${`fv-row ${on ? "on" : ""} ${v.present ? "" : "gone"}`} onClick=${() => v.present && pick(row, row.file, row.vtt, label)}>
+              <td>${v.present ? html`<button class="ghost tiny play" title="preview" aria-label=${`preview ${label}`}>${on ? "●" : "▶"}</button>` : null}</td>
+              <td><b>${row.brand}</b>${row.tags.map((t) => html` <span class="tag">${t}</span>`)}${v.reusedFrom && !row.key.endsWith("#sub") ? html` <span class="muted small-text">reused from v${v.reusedFrom}</span>` : null}</td>
+              <td>${v.durationSec.toFixed(1)} s</td>
+              <td>${v.present ? size(v, row.file) : ""}</td>
+              <td>${v.present ? dl(v, row.file, "⬇ mp4") : html`<span class="muted small-text">${r.deleted ? "deleted" : "pruned"}</span>`}</td>
+              <td><span class="extras">${v.present ? row.extras.map(([l, rel]) => dl(v, rel, l)) : null}
+                ${
+                  v.present && !row.key.endsWith("#sub")
+                    ? html`<button class="ghost tiny" title="open this variant's folder" onClick=${(
+                        e,
+                      ) => {
+                        e.stopPropagation();
+                        post("/api/render-open", { version: r.version, variant: v.key }).catch(
+                          (err) => alert(err.message),
+                        );
+                      }}>folder</button>`
+                    : null
+                }</span></td>
+            </tr>
+            ${
+              row.scenes.length && v.present
+                ? html`<tr class="fv-toggle"><td></td><td colspan="5"><button class="ghost tiny" onClick=${() => setOpen({ ...open, [row.key]: !open[row.key] })}>${open[row.key] ? "▾" : "▸"} scenes (${row.scenes.length})</button></td></tr>
+                  ${
+                    open[row.key]
+                      ? row.scenes.map((sc) => {
+                          const on2 = cur?.file === sc.file && cur?.v === v;
+                          return html`<tr class=${`fv-scene ${on2 ? "on" : ""}`} onClick=${() => pick(row, sc.file, sc.vtt, `${label} · ${sc.label}`)}>
+                            <td><button class="ghost tiny play" aria-label=${`preview ${sc.label}`}>${on2 ? "●" : "▶"}</button></td>
+                            <td class="fv-scene-name">${sc.label}</td>
+                            <td></td>
+                            <td>${size(v, sc.file)}</td>
+                            <td>${dl(v, sc.file, "⬇ mp4")}</td>
+                            <td><span class="extras">${dl(v, sc.vtt, "transcript")}</span></td>
+                          </tr>`;
+                        })
+                      : null
+                  }`
+                : null
+            }`;
+        })}
+      </tbody>
+    </table>
   </div>`;
 }
 
@@ -219,7 +332,8 @@ function RenderCard({ r, stages, open, reload }) {
       ${!gone && r.status !== "running" ? html`<button class="ghost" onClick=${del}>Delete files</button>` : null}
     </div>
     ${r.error ? html`<p class="small-text error">${r.error}</p>` : null}
-    ${r.variants.map((v) => html`<${VariantPlayer} key=${v.key} r=${r} v=${v} />`)}
+    ${r.variants.length ? html`<${FlavorTable} r=${r} />` : null}
+    ${r.variants.flatMap((v) => (v.warnings ?? []).map((w) => `${v.key}: ${w}`)).length ? html`<details class="small-text"><summary>warnings</summary><ul>${r.variants.flatMap((v) => (v.warnings ?? []).map((w) => html`<li>${v.key}: ${w}</li>`))}</ul></details>` : null}
   </details>`;
 }
 

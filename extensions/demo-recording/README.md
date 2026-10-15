@@ -22,7 +22,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
 6. After the take, the agent analyzes it (`demo_rec_take`) and writes the voice-over (`demo_rec_vo`, **demo-voiceover** skill). It's written from the actual run and quotes real on-screen values.
 7. The panel **Voice over** tab shows each section with a speech-vs-footage timing bar. You can edit inline (each save is a new version), mark sections, send the review, and **Approve**. Approval unlocks the paid voice synthesis.
-8. `demo_rec_tts` generates the voice and `demo_rec_edit` syncs the take to it (`edit/timeline.vN.json`) and renders a **draft**. Finals come from the Render stage: `projects/<p>/render/vN/<brand>/full.mp4`, `scenes/`, transcripts and a poster. See [docs/RENDER.md](docs/RENDER.md).
+8. `demo_rec_tts` generates the voice and `demo_rec_edit` syncs the take to it (`edit/timeline.vN.json`) and renders a **draft**. Finals come from the Render stage: `projects/<p>/render/vN/<flavor>/<project>_final-vN_<flavor>.mp4`, per-scene clips, transcripts and a poster. See [docs/RENDER.md](docs/RENDER.md).
 
 ### Voice-over and edit (S4)
 

@@ -355,7 +355,7 @@ export function formatRender(r: RenderRecord): string {
       ? "all annotations"
       : r.options.annotationTypes.length
         ? `only ${r.options.annotationTypes.join(", ")}`
-        : "no annotations",
+        : "none included",
     r.options.subtitles ? "+ burned-in subtitles" : "",
     r.options.logoBug ? "" : "no logo bug",
   ].filter(Boolean);

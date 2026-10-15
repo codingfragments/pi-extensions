@@ -9,6 +9,7 @@ import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
 import { LivePanel } from "./live.js";
 import { Project } from "./project.js";
 import { Recording } from "./recording.js";
+import { Render } from "./render.js";
 import { StageHeader, VersionActions, stageOf, useStages } from "./stages.js";
 
 const TABS = [
@@ -673,58 +674,6 @@ function Brand({ events }) {
 
 // ---------------- RENDER ----------------
 
-/** Render stage (part 9 brings draft/final versions): rendered variants + re-render with a brand. */
-function Render({ events, stages }) {
-  const { data, error, reload } = useApi(
-    "/api/brands",
-    events,
-    /^(brand\.|config\.|edit\.|project\.)/,
-  );
-  const [brand, setBrand] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState(null);
-  if (error) return html`<section class="card error">${error}</section>`;
-  if (!data) return html`<section class="card muted">loading…</section>`;
-  const selected = brand ?? data.default;
-  const running = data.job?.status === "running";
-  const lastProgress = events.filter((e) => e.type === "edit.progress").at(-1);
-  const rerender = async () => {
-    setBusy(true);
-    try {
-      await post("/api/export-render", { brand: selected });
-      setFlash(`re-rendering with ${selected} — no new voice, takes a minute`);
-      reload();
-    } catch (e) {
-      setFlash(`⚠ ${e.message}`);
-    } finally {
-      setBusy(false);
-      setTimeout(() => setFlash(null), 6000);
-    }
-  };
-  return html`
-    <${StageHeader} stages=${stages} stage="render" />
-    <section class="card">
-      <div class="row">
-        <h2>Rendered videos${data.edit ? ` · edit v${data.edit.version}` : ""}</h2><span class="grow"></span>
-        ${flash ? html`<span class="flash">${flash}</span>` : null}
-        ${running ? html`<span class="muted small-text">${lastProgress?.data?.message ?? "rendering…"}</span>` : null}
-        <label class="small-text">brand <select value=${selected} onChange=${(e) => setBrand(e.target.value)}>
-          ${data.brands.filter((b) => !b.error).map((b) => html`<option value=${b.name}>${b.name}${b.name === data.default ? " (default)" : ""}</option>`)}
-        </select></label>
-        <button class="primary" disabled=${busy || running || !data.edit} title=${data.edit ? "" : "no edit yet"} onClick=${rerender}>Re-render with ${selected}</button>
-      </div>
-      ${
-        data.edit?.variants.length
-          ? html`<div class="variants">${data.edit.variants.map(
-              (v) =>
-                html`<figure><figcaption>${v.name}</figcaption><video controls preload="metadata" src=${`${media("project", v.full)}&v=${Math.round(v.mtime)}`}></video></figure>`,
-            )}</div>`
-          : html`<p class="muted small-text">${data.edit ? "No branded render of this edit yet." : "No edit yet — once the voice-over is rendered, the videos show up here."} Re-rendering only redoes the picture: same timeline, same voice, no LLM or TTS.</p>`
-      }
-      <p class="muted small-text">Brands are edited under Config → Brands. Draft and final renders with QA arrive in S5 part 9.</p>
-    </section>`;
-}
-
 // ---------------- CONFIG ----------------
 
 function Config({ events }) {
@@ -778,6 +727,10 @@ function App() {
   useEffect(() => {
     if (lastVo) setTab("voice");
   }, [lastVo]);
+  const lastRender = events.filter((e) => e.type === "render.started").at(-1)?.seq;
+  useEffect(() => {
+    if (lastRender) setTab("render");
+  }, [lastRender]);
   const lastAnn = events
     .filter((e) => e.type === "annotations.updated" && e.data?.by === "agent")
     .at(-1)?.seq;

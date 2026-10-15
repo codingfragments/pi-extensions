@@ -41,7 +41,7 @@ Decisions D59–D68 in [VISION.md](VISION.md).
 | Size | 960×540, fast encoder preset | the configured output size (1920×1080) |
 | Files | the video, its transcript and poster | the video, per-scene clips, transcripts, callouts, poster |
 | Marked | a small **DRAFT** tag in a corner (never across the picture) | — |
-| QA | — | "not checked" until S5 part 10 adds the QA gate |
+| QA | — | checked automatically; blocking items gate Accept ([QA.md](QA.md)) |
 | Accept | no | yes — the deliverable |
 
 **Every sync edit renders a draft** (`demo_rec_edit`), so you can watch the
@@ -164,7 +164,8 @@ names (`…_final-v8_…`), never the old one's.
 
 ## Accepting the deliverable
 
-Finals can be **accepted** — one or several, like every stage (D67). An
+Every final is QA-checked first; accepting needs QA run and no open blocking
+item (fix or confirm it — [QA.md](QA.md)). Finals can be **accepted** — one or several, like every stage (D67). An
 accepted final is the delivered version: shown first, never pruned, and on the
 working line (`… → annotations v4 → render v7`); the stage header then says
 "delivered — final render v7". Drafts can't be accepted.
@@ -244,7 +245,7 @@ annotationTypes, subtitles, logoBug), `status`, `cancel`, `list`.
                "poster": "my-demo_final-v7_neutral_poster.jpg" },
     "bytes": 8234567, "durationSec": 39.7, "reuseKey": "…"
   }],
-  "qa": null
+  "qa": { "status": "pass", "blocking": 0, "confirmed": 0, "warnings": 1, "info": 6, "ranAt": "…" }
 }
 ```
 

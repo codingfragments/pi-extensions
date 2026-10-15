@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { AnnotationType } from "../annotations/types.ts";
+import type { QaSummary } from "../qa/types.ts";
 import { writeZip } from "../util/zip.ts";
 import { listVersions, writeNextVersion } from "../workdir/versioning.ts";
 
@@ -49,6 +50,8 @@ export interface RenderVariantRec {
   reuseKey: string;
   reusedFrom?: number;
   warnings?: string[];
+  /** Where things are in the full video (for QA and sidecars). */
+  timing?: { titleMs: number; sceneStart: Record<string, number>; itemStart: number[] };
 }
 
 export interface RenderRecord {
@@ -70,8 +73,10 @@ export interface RenderRecord {
   brands: string[];
   size: { width: number; height: number };
   variants: RenderVariantRec[];
-  /** QA report (part 10); null = not checked. */
-  qa: null | Record<string, unknown>;
+  /** QA summary (part 10, D69); null = not run. The report: render/vN.qa.json. */
+  qa: null | QaSummary;
+  /** Mechanical fixes applied on top of another render (D74): render/vN.overrides.json. */
+  overrides?: { fromRender: number; shifts: number };
   /** Files deleted by the user (record kept, D64). */
   deleted?: string;
   /** Files removed by draft pruning (record kept, D64). */

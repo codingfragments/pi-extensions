@@ -22,6 +22,8 @@ import { resolveBrand } from "../brand/brand.ts";
 import type { DemoRecConfig } from "../config.ts";
 import { type CutResult, renderCut } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
+import { type RenderOverrides, applyShifts } from "../qa/overrides.ts";
+import { runQaSafe } from "../qa/run.ts";
 import { isUsable } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
 import { listVersions } from "../workdir/versioning.ts";
@@ -60,6 +62,10 @@ export interface RenderRequest {
   options?: Partial<RenderOptionsRec>;
   /** Required when enabled redactions would be left out (D66). */
   confirmUnredacted?: boolean;
+  /** Mechanical fixes on a copy of the timeline (D74). */
+  overrides?: RenderOverrides;
+  /** Skip the automatic QA of a final (tests). */
+  skipQa?: boolean;
   by: RenderRecord["by"];
 }
 
@@ -75,6 +81,9 @@ export interface RenderPlan {
   brands: string[];
   options: RenderOptionsRec;
   size: { width: number; height: number };
+  overrides?: RenderOverrides;
+  /** True when `timeline` is a modified copy (overrides). */
+  modified: boolean;
 }
 
 const readTimeline = (projectDir: string, v: number) =>
@@ -168,7 +177,9 @@ export function planRender(
         ? `no edit for VO v${file.basedOn.vo} yet — run the sync edit first`
         : "no edit yet — run the sync edit first",
     );
-  const timeline = readTimeline(projectDir, timelineVersion);
+  let timeline = readTimeline(projectDir, timelineVersion);
+  if (req.overrides?.shifts.length)
+    timeline = applyShifts(projectDir, timeline, req.overrides.shifts).timeline;
   if (file && file.take !== timeline.take)
     throw new Error(
       `annotations v${annotationVersion} are for ${file.take}, the edit uses ${timeline.take}`,
@@ -201,6 +212,8 @@ export function planRender(
     brands,
     options,
     size: req.kind === "draft" ? DRAFT_SIZE : config.output,
+    ...(req.overrides?.shifts.length ? { overrides: req.overrides } : {}),
+    modified: !!req.overrides?.shifts.length,
   };
 }
 
@@ -217,6 +230,7 @@ export function reuseKey(plan: RenderPlan, brand: string, fps: number): string {
         brand,
         plan.options,
         plan.size,
+        plan.overrides?.shifts ?? [],
         fps,
         RENDER_REVISION,
       ]),
@@ -260,7 +274,20 @@ export async function runRender(o: {
     options: plan.options,
     brands: plan.brands,
     size: plan.size,
+    ...(plan.overrides
+      ? {
+          overrides: {
+            fromRender: plan.overrides.fromRender,
+            shifts: plan.overrides.shifts.length,
+          },
+        }
+      : {}),
   });
+  if (plan.overrides)
+    fs.writeFileSync(
+      path.join(o.projectDir, "render", `v${rec.version}.overrides.json`),
+      `${JSON.stringify(plan.overrides, null, 2)}\n`,
+    );
   const earlier = listRenders(o.projectDir).filter(
     (r) => r.version !== rec.version && r.status === "done" && !r.deleted && !r.pruned,
   );
@@ -324,6 +351,7 @@ export async function runRender(o: {
           projectDir: o.projectDir,
           config: o.config,
           timelineVersion: plan.timelineVersion,
+          ...(plan.modified ? { timeline: plan.timeline } : {}),
           cut: {
             brand,
             ...(plan.file ? { annotations: plan.file } : {}),
@@ -363,6 +391,7 @@ export async function runRender(o: {
           },
           bytes: 0,
           durationSec: cut.full.durationSec,
+          timing: { titleMs: cut.titleMs, sceneStart: cut.sceneStart, itemStart: cut.itemStart },
           reuseKey: rk,
           ...(cut.annotations?.warnings.length || side.warnings.length
             ? { warnings: [...(cut.annotations?.warnings ?? []), ...side.warnings] }
@@ -376,6 +405,17 @@ export async function runRender(o: {
     rec.status = "done";
     rec.finishedAt = new Date().toISOString();
     saveRecord(o.projectDir, rec);
+    // QA every final (D69): same job, right after the render.
+    if (plan.kind === "final" && !o.request.skipQa) {
+      o.onProgress?.({ done: plan.brands.length, total: plan.brands.length, label: "QA" });
+      rec.qa = await runQaSafe({
+        projectDir: o.projectDir,
+        config: o.config,
+        rec,
+        ...(o.signal ? { signal: o.signal } : {}),
+      });
+      saveRecord(o.projectDir, rec);
+    }
     pruneDrafts(o.projectDir, o.config.render.keepDrafts);
     return rec;
   } catch (err) {
@@ -404,7 +444,7 @@ export function formatRender(r: RenderRecord): string {
   ].filter(Boolean);
   const lines = [
     head,
-    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? " · QA: not checked (part 10)" : ""}`,
+    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? ` · QA: ${r.qa ? `${r.qa.status}${r.qa.blocking ? ` (${r.qa.blocking} blocking${r.qa.confirmed ? `, ${r.qa.confirmed} confirmed` : ""})` : ""}` : "not run"}` : ""}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}`,
   ];
   for (const v of r.variants)
     lines.push(

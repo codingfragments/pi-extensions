@@ -663,7 +663,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 7 | Annotation rendering (engine) — [docs/ANNOTATIONS.md](ANNOTATIONS.md) | ✅ |
 | 8 | Annotations stage (designer, tab, review, approve, import) | ✅ |
 | 9 | Render stage (draft/final, render versions, variants, subtitles) | ✅ |
-| 10 | Deterministic QA + mechanical auto-fix | |
+| 10 | Deterministic QA + mechanical auto-fix | ✅ |
 | 11 | Confidence-guided review + voice direction | |
 | 12 | Actor & dependency model document, per-role model config | |
 | 13 | **Panel modals + cost warnings** (user backlog): in-panel modal dialogs instead of native `alert` / `confirm` / `prompt`, plus a warning before any action that may start a paid AI step (LLM, improvise model, TTS) | backlog |
@@ -938,19 +938,26 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - panel routes; agent note on finish.
 - **Docs:** `docs/RENDER.md` (stage, options, outputs, sidecars, retention), README, skills (render hand-off after accepting annotations).
 
-*10. Deterministic QA (D13, D21) and mechanical auto-fix (D22)* — the **QA reviewer** role (D40), reports only.
-- **Checks:**
-  - `qa/media.ts`: ffmpeg `freezedetect`, `silencedetect`, `blackdetect`.
-  - `qa/values.ts`: every number or name in the final narration must exist in the page text at its anchor (or the nearest snapshot in the scene).
-  - Alerts and console errors in **used** footage.
-  - `qa/drift.ts`: Whisper on the rendered audio vs the timeline, per anchor.
-  - **Annotation checks (new):** a target missing from its snapshot, overlapping annotations, zoom headroom, a callout over a burned-in subtitle, a redaction that doesn't cover its element through the window.
-- **Blocking:** value mismatch, error toast or console error in used footage, anchor drift above 300 ms, a redaction gap. **Warnings:** holds, silences, narrator pauses, filler, annotation overlaps. Output goes to `render/vN.qa.json`, `report.md` and panel flags.
-- **The Director runs the final gate** (D40); blocking items need a user "confirm & export anyway" per item.
-- **Auto-fix (mechanical only):** anchor re-time or move, alignment re-run, hold handling, re-render.
-  - Stored as `render/vN.overrides.json`; the approved script, audio and annotations stay untouched.
-  - Every fix is listed in the report.
-  - Content changes (narration, values, re-takes, storyboard, annotation choices) are always asked.
+*10. Deterministic QA (D13, D21) and mechanical auto-fix (D22, D69–D75)* — the **QA reviewer** role (D40). ✅ done; user-facing reference: [QA.md](QA.md)
+- **As built:**
+  - **Names:** names (guessed from capitals) never block — only numbers follow D71's blocking rule; an absent name is a warning.
+  - **Drift:** raw Whisper word starts are refined on the audio envelope (`refineOnsets` + `snapToOnset`, like the voice pipeline) — without it, pauses produced ±0.5 s false drift.
+  - **Fixes:** a fix render carries its source's overrides plus the new ones, shifts of the same segment added up (verified: inject +600 ms → QA measures +601 → fix → −1 ms → pass).
+  - **Timing:** each render variant records `timing` (title hold, scene and item starts) for QA.
+  - **Re-runs:** QA keeps confirmations of issues found again.
+- **When (D69):** automatically after **every final render**, in the same background job (drafts get none); **Re-run QA** in the Render tab. The report: `render/vN.qa.json` + `render/vN/qa-report.md`; the record's `qa` holds the summary (status, counts). Finals from before part 10 show "QA not run" until re-run.
+- **Checks (`src/qa/`):**
+  - `media.ts` — ffmpeg `freezedetect`, `silencedetect`, `blackdetect` on the full video; freezes explained by the edit's own holds and silences by narrator pauses are info, the rest warnings.
+  - `values.ts` — every number and name in the narration (bindings resolved; spoken numbers normalised: "fourteen point two percent" = 14.2 %) against the page text **at its anchor** (DOM snapshot at the mark, else the layout snapshot): found → ok; only elsewhere in the scene → **warning** + re-time fix ("shown at 4.2 s, said at 6.1 s"); nowhere in the scene → **blocking** (D71).
+  - `footage.ts` — error toasts (alert level error) and console/page errors inside the **used** footage (the edit's pieces) → **blocking**; other toasts → warning.
+  - `drift.ts` — Whisper (config `align.model`) on the rendered audio vs. each anchor's event time in the full video: > 300 ms **blocking**, 150–300 ms warning (D72), with a re-time fix; Whisper missing → one warning, drift not checked (D75).
+  - `annotations.ts` — items that can't be placed, zooms lowered for headroom, overlaps (warnings); a **redaction that doesn't cover its element** through its window (the element's box in later snapshots outside the redaction) → **blocking**; privacy-scan hits left unredacted → warning.
+- **Gate (D70):** Accept of a final needs QA run and no unconfirmed blocking item. Warnings never block.
+- **Confirm & export anyway (D73):** per blocking item with a required reason → stored in the QA report, logged in the project's inputs.
+- **Auto-fix (D74):** fixable items carry a proposed mechanical fix (shift a narration segment by Δ ms so it lands on its event). **Apply fixes** (all or selected) writes `render/vN.overrides.json` and starts a **new final render** (a new version on the same annotations) with the overrides applied to a copy of the timeline; it gets its own QA. The approved script, audio and annotations stay untouched; content issues (wrong value, error in footage) are never auto-fixed.
+- **Panel:** a QA section on each final card — status (pass / N blocking / confirmed), items grouped blocking → warnings → info, each with a **time link** that seeks the player, the fix (checkbox) or a **confirm** with reason; **Apply fixes**, **Re-run QA**. Accept explains what's missing.
+- **Agent:** the render report includes the QA summary; `demo_rec_render action=qa version=N` shows the report; the agent can't confirm items.
+- **Tests:** each check on synthetic inputs (number normalisation, value lookup at anchor / in scene / missing, toast/console in used vs. cut footage, drift thresholds, redaction gap), media checks on a generated clip, the gate and confirms over the routes, overrides → new render with shifted narration, the walkthrough.
 
 *11. Confidence-guided review (D23) and voice direction (D29)*
 - **Confidence:**

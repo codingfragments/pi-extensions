@@ -3,8 +3,8 @@
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
-import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
-import { media, post, useApi } from "./core.js";
+import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { api, media, post, useApi } from "./core.js";
 import { StageHeader, VersionActions } from "./stages.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
@@ -221,9 +221,23 @@ function ZipButton({ r, v }) {
   return html`<button class="ghost tiny zip" disabled=${busy} title="download everything of this flavor as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
 }
 
-function FlavorTable({ r }) {
+function FlavorTable({ r, seek }) {
   const rows = flavorRows(r);
   const [sel, setSel] = useState(null);
+  const video = useRef(null);
+  // A QA time link: show the main flavor (not a scene clip) and jump there.
+  useEffect(() => {
+    if (!seek) return;
+    const main = rows.find((x) => x.v.present && !x.key.endsWith("#sub"));
+    if (main && (sel?.file ?? "") !== main.file && sel !== null) setSel(null);
+    const go = () => {
+      if (!video.current) return;
+      video.current.currentTime = Math.max(0, seek.t / 1000 - 1);
+      video.current.play?.().catch(() => {});
+    };
+    if (video.current?.readyState >= 1) go();
+    else video.current?.addEventListener("loadedmetadata", go, { once: true });
+  }, [seek?.n]);
   const [open, setOpen] = useState({});
   const first = rows.find((x) => x.v.present);
   const cur =
@@ -249,7 +263,7 @@ function FlavorTable({ r }) {
     <div class="flavor-player">
       ${
         cur
-          ? html`<video key=${cur.file} class="render-video" controls preload="metadata" src=${media("project", join(cur.v.dir, cur.file))} poster=${cur.poster ? media("project", join(cur.v.dir, cur.poster)) : undefined}>
+          ? html`<video ref=${video} key=${cur.file} class="render-video" controls preload="metadata" src=${media("project", join(cur.v.dir, cur.file))} poster=${cur.poster ? media("project", join(cur.v.dir, cur.poster)) : undefined}>
               ${cur.vtt ? html`<track kind="subtitles" srclang="en" label="Transcript" src=${media("project", join(cur.v.dir, cur.vtt))} />` : null}
             </video>
             <div class="small-text muted">▶ ${cur.label} · <span class="mono">${fileName(cur.file)}</span>${cur.vtt ? " · transcript track available (CC)" : ""}</div>`
@@ -310,7 +324,102 @@ function FlavorTable({ r }) {
   </div>`;
 }
 
+const fmt = (ms) =>
+  `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
+const QA_LABEL = {
+  pass: "QA passed",
+  blocked: "QA blocked",
+  confirmed: "QA passed (confirmed)",
+  error: "QA failed to run",
+};
+
+function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
+  const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState(null);
+  const confirmIt = async () => {
+    try {
+      await post("/api/render-qa-confirm", { version: r.version, id: it.id, reason });
+      setConfirming(false);
+      reload();
+    } catch (e) {
+      setErr(e.message);
+    }
+  };
+  return html`<li class=${`qa-item ${it.level} ${it.confirmed ? "confirmed" : ""}`}>
+    <div class="row">
+      ${it.atMs !== undefined ? html`<button class="ghost tiny time" title="play from here" onClick=${() => onSeek(it.atMs)}>▶ ${fmt(it.atMs)}</button>` : null}
+      <span class="qa-msg">${it.message}</span>
+    </div>
+    ${it.fix ? html`<label class="check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
+    ${it.confirmed ? html`<p class="small-text muted">✔ confirmed: “${it.confirmed.reason}”</p>` : null}
+    ${
+      it.level === "blocking" && !it.confirmed
+        ? confirming
+          ? html`<div class="row qa-confirm"><input class="note" placeholder="why is it fine to export anyway? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><button class="primary" disabled=${reason.trim().length < 3} onClick=${confirmIt}>Confirm</button><button class="ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div>`
+          : html`<button class="ghost tiny" onClick=${() => setConfirming(true)}>Confirm & export anyway…</button>`
+        : null
+    }
+  </li>`;
+}
+
+function QaSection({ r, onSeek, reload }) {
+  const [rep, setRep] = useState(null);
+  const [picked, setPicked] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const stamp = r.qa?.ranAt ?? "";
+  useEffect(() => {
+    if (!r.qa) return;
+    api(`/api/render-qa?version=${r.version}`).then(setRep, () => setRep(null));
+  }, [stamp, r.qa?.confirmed]);
+  const rerun = async () => {
+    setBusy(true);
+    try {
+      await post("/api/render-qa-run", { version: r.version });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const items = rep?.report?.items ?? [];
+  const fixable = items.filter((i) => i.fix);
+  const chosen = picked ?? new Set(fixable.map((i) => i.id));
+  const apply = async () => {
+    setBusy(true);
+    try {
+      await post("/api/render-qa-fix", { version: r.version, ids: [...chosen] });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const status = r.qa?.status;
+  const by = (lvl) => items.filter((i) => i.level === lvl);
+  const row = (it) =>
+    html`<${QaItemRow} key=${it.id} r=${r} it=${it} picked=${chosen.has(it.id)} togglePick=${() => {
+      const n = new Set(chosen);
+      n.has(it.id) ? n.delete(it.id) : n.add(it.id);
+      setPicked(n);
+    }} onSeek=${onSeek} reload=${reload} />`;
+  return html`<div class=${`qa-section ${status ?? "none"}`}>
+    <div class="row">
+      <b>${status ? QA_LABEL[status] : "QA not run"}</b>
+      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} blocking${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.warnings} warning(s) · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}</span>` : null}
+      ${status === "error" ? html`<span class="small-text error">${r.qa.error}</span>` : null}
+      <span class="grow"></span>
+      ${fixable.length ? html`<button class="primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
+      <button class="ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
+    </div>
+    ${by("blocking").length ? html`<ul class="qa-list">${by("blocking").map(row)}</ul>` : null}
+    ${by("warning").length ? html`<details open=${by("blocking").length === 0}><summary class="small-text">${by("warning").length} warning(s)</summary><ul class="qa-list">${by("warning").map(row)}</ul></details>` : null}
+    ${by("info").length ? html`<details><summary class="small-text muted">${by("info").length} info</summary><ul class="qa-list">${by("info").map(row)}</ul></details>` : null}
+  </div>`;
+}
+
 function RenderCard({ r, stages, open, reload }) {
+  const [seek, setSeek] = useState(null);
   const del = async () => {
     const size = mb(r.variants.reduce((n, v) => n + (v.present ? v.bytes : 0), 0));
     if (
@@ -345,17 +454,20 @@ function RenderCard({ r, stages, open, reload }) {
       <h3>${r.kind === "final" ? "Final" : "Draft"} v${r.version}</h3>
       ${r.accepted ? html`<span class="badge approved">accepted · deliverable</span>` : null}
       <span class=${`pill ${r.status === "done" ? "" : r.status === "running" ? "" : "fail-pill"}`}>${r.status}</span>
-      ${r.kind === "final" && r.status === "done" ? html`<span class="pill muted-pill" title="QA arrives in S5 part 10">QA: not checked</span>` : null}
+      ${r.kind === "final" && r.status === "done" ? html`<span class=${`pill qa-pill ${r.qa?.status ?? "none"}`} title=${r.qaBlocker ?? "QA passed"}>${r.qa ? (r.qa.status === "blocked" ? `QA: ${r.qa.blocking - r.qa.confirmed} blocking` : r.qa.status === "pass" ? "QA ✓" : r.qa.status === "confirmed" ? "QA ✓ (confirmed)" : "QA error") : "QA not run"}</span>` : null}
       ${gone ? html`<span class="badge old">${r.deleted ? `deleted ${when(r.deleted)}` : "files pruned"}</span>` : null}
       <span class="muted small-text">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}</span>
     </summary>
     <div class="row render-actions">
-      ${r.kind === "final" && r.status === "done" && !gone ? html`<${VersionActions} stages=${stages} stage="render" version=${r.version} label=${`final render v${r.version}`} unlocks="It becomes the deliverable." onDone=${reload} />` : null}
+      ${r.kind === "final" && r.status === "done" && !gone ? html`<${VersionActions} stages=${stages} stage="render" version=${r.version} label=${`final render v${r.version}`} unlocks="It becomes the deliverable." disabled=${!!r.qaBlocker && !r.accepted} disabledWhy=${r.qaBlocker ?? ""} onDone=${reload} />` : null}
+      ${r.kind === "final" && r.qaBlocker && !r.accepted ? html`<span class="small-text warn-text">${r.qaBlocker}</span>` : null}
+      ${r.overrides ? html`<span class="muted small-text">${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}</span>` : null}
       <span class="grow"></span>
       ${!gone && r.status !== "running" ? html`<button class="ghost" onClick=${del}>Delete files</button>` : null}
     </div>
     ${r.error ? html`<p class="small-text error">${r.error}</p>` : null}
-    ${r.variants.length ? html`<${FlavorTable} r=${r} />` : null}
+    ${r.kind === "final" && r.status === "done" && !gone ? html`<${QaSection} r=${r} onSeek=${(t) => setSeek({ t, n: Date.now() })} reload=${reload} />` : null}
+    ${r.variants.length ? html`<${FlavorTable} r=${r} seek=${seek} />` : null}
     ${r.variants.flatMap((v) => (v.warnings ?? []).map((w) => `${v.key}: ${w}`)).length ? html`<details class="small-text"><summary>warnings</summary><ul>${r.variants.flatMap((v) => (v.warnings ?? []).map((w) => html`<li>${v.key}: ${w}</li>`))}</ul></details>` : null}
   </details>`;
 }

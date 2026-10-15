@@ -207,6 +207,8 @@ export async function renderCut(o: {
   projectDir: string;
   config: DemoRecConfig;
   timelineVersion: number;
+  /** A modified copy of that timeline (render overrides, D74). */
+  timeline?: Timeline;
   cut: CutOptions;
   signal?: AbortSignal;
   onProgress?: (p: { done: number; total: number; label: string }) => void;
@@ -214,7 +216,7 @@ export async function renderCut(o: {
   const timelineFile = path.join(o.projectDir, "edit", `timeline.v${o.timelineVersion}.json`);
   if (!fs.existsSync(timelineFile))
     throw new Error(`edit timeline v${o.timelineVersion} does not exist`);
-  const timeline = JSON.parse(fs.readFileSync(timelineFile, "utf8")) as Timeline;
+  const timeline = o.timeline ?? (JSON.parse(fs.readFileSync(timelineFile, "utf8")) as Timeline);
   const raw = path.join(o.projectDir, "takes", timeline.take, "raw.mp4");
   if (!fs.existsSync(raw)) throw new Error(`${timeline.take}/raw.mp4 is missing`);
   const cfg = o.cut.size ? { ...o.config, output: o.cut.size } : o.config;

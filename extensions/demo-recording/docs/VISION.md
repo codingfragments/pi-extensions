@@ -101,6 +101,13 @@ Each stage is versioned and links to exactly one parent version (D30). Several v
 | D66 | Annotation selection per render (user note) | **Which annotation types to include is a render option** (default: all enabled; none, chapters only, …); the annotation version stays as approved; switching redactions off needs a confirm; plus **Use no annotations** (an empty version) in the Annotations tab | Approve once, cut several ways |
 | D67 | Accepting a render | Finals can be accepted (several): the **deliverable**, shown first, protected from pruning, on the working line; drafts can't be accepted | The stage chain ends in a decision |
 | D68 | Brands per render | One render version, **several brands** (× subtitled); each a variant folder; existing variants with the same key are reused | One decision ("the v3 cut"), several looks |
+| D69 | When QA runs (part 10 grill) | **Automatically after every final render** (same job); drafts get none; **Re-run QA** in the Render tab | Every deliverable is checked without a step to forget |
+| D70 | QA gate | Only **blocking** items block accepting a final; warnings are listed, never block | A clear bar; no noise-driven blocking |
+| D71 | Value check | A said value **absent from the whole scene** blocks; shown elsewhere in the scene → warning with a re-time fix; spoken numbers normalised | Catches wrong numbers, tolerates timing |
+| D72 | Drift | Whisper on the rendered audio: **> 300 ms blocks**, 150–300 ms warns | Sync is the product's core promise |
+| D73 | Export anyway | Per blocking item, **reason required**; stored in the QA report and the project's inputs | Overrides are deliberate and traceable |
+| D74 | Auto-fix | **Proposed, one click to apply**: overrides + a new final render with its own QA; approved script, audio, annotations untouched | Mechanical fixes are cheap; nothing changes behind your back |
+| D75 | Whisper in QA | Every final's QA runs Whisper with `align.model`; missing Whisper → a warning, drift not checked | Full QA by default, graceful without Python |
 
 ## Explicit non-goals for v1
 

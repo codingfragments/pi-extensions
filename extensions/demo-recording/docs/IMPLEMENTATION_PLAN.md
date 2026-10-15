@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass** (user request, after part 13): a simpler story **and** design quality — a design system (tokens, one component per job), readable layout and good use of screen estate, one interaction language, accessibility (WCAG 2.2 AA) and a usability review, with measurable bars. A UX spec first (a design grill with mockups), then a foundations slice, then screens — see the entry below | backlog |
+| **UX** | **UX pass**: stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D109; slices UX1–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1030,8 +1030,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **A latent bug found on the way:** `Modal` (bugfix sprint 1) created and appended its host element during render. When Preact discarded a render under load, the host stayed behind and a second popup appeared (the log-popup test failed about 1 run in 6 once more tests ran in parallel). The host is now created in a layout effect; 0 failures in 36 parallel runs.
 - **Not in this part:** a running per-project spend ledger and budget caps (§7 mentions them); a follow-up if wanted.
 
-*UX. UX pass (user request, after part 13)* — backlog
-- **Why:** after twelve parts built one at a time, the panel works but doesn't tell a simple story. Measured on the fixture project (Playwright, 1500 px wide):
+*UX. UX pass (user request, after part 13)* — **spec drafted; review pending; implementation not authorised**
+- **Historical baseline (before part 13; not re-measured in the UX grill):** the panel works but does not tell a simple story. Measured on the fixture project (Playwright, 1500 px wide):
   - **Controls per screen:** Render 196, Annotations 102, Voice over 46, Config 58, Project 30, Storyboard 22, Recording 5. Page heights run up to 3000 px.
   - **No clear "where am I, what's next, what needs me".** The stepper marks only the step that waits for you (a dot); it shows nothing for done or running, and every tab is a detail view. The other hint is one status line in Live.
   - **The version machinery is on every screen.** Each stage tab opens with an input picker, "N versions on this input", ACCEPTED and WORKING LINE badges — concepts a first-time user doesn't need up front.
@@ -1040,59 +1040,47 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - **Repeated controls:** every card carries the same three review buttons plus a notes box.
   - **First impression:** the Project tab opens on a large, empty facts form; findings and memory sit in sub-tabs.
   - **Forms stay open:** the Render tab's "New render" form sits above the list of renders it produces.
-  - Native `alert` / `confirm` / `prompt` dialogs (part 13 replaces them).
+  - Native `alert` / `confirm` / `prompt` dialogs were present at baseline; **resolved in part 13**. The UX pass reuses and restyles its dialogs/toasts.
   - **No design system.** Measured on `style.css` and the panel scripts:
     - 14 distinct font sizes (mixed `px` and `em`), 14 `gap` values, 51 `padding` combinations, 10 border radii, 30 hard-coded hex colours outside the theme tokens;
     - 18 button-like selectors (`st`, `ghost`, `chip`, `config-btn`, `tiny`, …) and no single button system;
     - five responsive mechanisms (two media queries, three container queries);
     - 2 `:focus-visible` rules, no reduced-motion handling.
   - **Contrast.** Macchiato (dark) passes AA for text, accent and status colours on cards; muted text and the accent on the darkest surfaces are borderline (about 5:1 worst case). **Latte (light) fails** at text size: muted text is 4.4:1 on cards and 3.7:1 on the page background, the green and amber status colours are about 3:1 and 2.3:1.
-- **How (decided in the grill):** *story first, then slices.*
-  1. **UX spec** (a short document, `docs/UX.md`, approved by you before any code): a design grill with mockups.
-     - **The story:** the panel's one-sentence story, and what a person should see within a glance (where am I, what's next, what needs me, what is running).
-     - **The screens:** what each screen is for, and what moves, merges or hides by default.
-     - **Vocabulary:** one word per concept, used in the panel, the skills and the docs.
-     - **Progressive disclosure:** what a first-time user sees, and what an expert can open.
-     - **Constraints:** both themes, 900 and 1400 px, keyboard use, no new framework.
-  2. **Slices**, each a small PR with before/after screenshots and the existing panel tests kept green, in the order that helps most. Likely order, to be confirmed by the spec:
-     - **foundations** (tokens and components, described below) first;
-     - frame and navigation: a stepper with state, a "next step" summary, a collapsible or contextual Live;
-     - the stage header, with the version machinery behind one control;
-     - the densest tabs (Render, Annotations, Voice over);
-     - the Project first-run;
-     - the vocabulary pass;
-     - Config, **with a search bar** (user request): filter every setting by key, label, docs text and current value, across the groups and both scopes, with matches highlighted and the groups that have none collapsed; focus it with `/` (and Cmd/Ctrl+K), clear it with Escape. It fits the interaction language and keyboard bars below.
-- **Design quality is half of this part, not a footnote.** The spec has a **design-system section**, and the slices deliver it:
-  1. **Foundations first** (the first slice, before any screen is reworked; everything after builds on it, and part 13's dialog is restyled to match):
-     - **tokens:** a type scale, a spacing scale on a 4/8 px grid, a radius scale, elevation, and semantic status colours (ok, warn, error, info, accent) that pass AA on every surface in **both** themes;
-     - **one component per job:** buttons (primary, secondary, ghost, danger; sizes), form controls, chips, badges and status pills, cards, tables, empty / loading / error states, the dialog.
-  2. **Screen estate and readability:** a page grid with a maximum content width, a line length of about 60–80 characters for prose, a consistent whitespace rhythm, sticky headers and primary actions, no long pages that hide controls, **one** breakpoint system, and a sensible density (optionally a compact mode for the power-user tabs, decided in the grill).
-  3. **An interaction language:** one pattern per intent.
-     - **Confirm:** a dialog that states the consequence and, for paid steps, the cost (part 13).
-     - **Undo:** offered where it is cheap.
-     - **Feedback:** inline status or a toast, used consistently.
-     - **Busy state:** a standard one.
-     - **Disabled controls:** always say why.
-     - **Destructive actions:** always styled as such.
-     - **Saving:** explicit save or auto-save, never mixed on one screen.
-  4. **A scored usability review** of every screen, before and after, against the usual heuristics: visibility of status, match with the real world, user control and freedom, consistency, error prevention, recognition over recall, flexibility, minimal design, error recovery, help.
-  5. **Accessibility as a hard bar (WCAG 2.2 AA):** contrast for every text/background pair in both themes, a visible focus ring on every interactive element, a logical keyboard order, target sizes of at least 24 px, labels and roles, reduced motion.
-  6. **Microcopy:** one verb per action (the accept / approve mix goes), sentence case, empty-state wording, units.
-- **To decide in the design grill:** whether to take an established design system's principles (for example GitHub Primer or Material) as the reference or stay bespoke on the Catppuccin palette; whether to offer a density toggle; how much motion; the panel's width behaviour.
-- **Starting points to challenge, not decisions:** one clear primary action per screen; versions and lineage on demand; state shown in the navigation; the review controls shown once per list, not per card; forms collapsed once used; Live as a status line that expands.
-- **Measurable bars** (enforced by a test or an audit script, not by taste; the numbers are proposals the spec confirms):
-  - at most 8 font sizes, 6 radii and 8 spacing steps, all from tokens; **zero** hard-coded colours outside the tokens; **one** button component;
-  - AA contrast for every text/background pair in **both** themes; a focus ring on every interactive element; reduced motion honoured;
-  - before/after screenshots at 900 and 1400 px in both themes in every slice PR;
-  - an audit script (`panel-audit`, in the spirit of `render-diagrams`: axe-core loaded from a CDN in Playwright, so no new dependency) that checks contrast, focus, accessible names and token use, run by a test that is skipped where Chromium is missing.
-- **Exit criteria:**
-  - a new user can say, from the first screen of any stage, what has been done, what needs them and what the next step is;
-  - the controls on the densest tabs are cut by about half without removing a capability;
-  - the measurable bars above hold, and the scored usability review improves on every screen;
-  - every panel test still passes (updated where the structure moved).
-- **Then part 14:** the guide, the control room doc and the tutorial are written against the new UI, and their screenshots are generated by the script.
+- **Design grill completed 2026-10-15:** the selected direction is recorded as **D98–D109** in [VISION.md](VISION.md). [UX.md](UX.md) contains the draft specification, wide/narrow mockups, graph contracts, vocabulary, save/approval rules and acceptance scenarios. **Writing the spec was approved; the spec itself and implementation still need review/go-ahead.**
+- **Agreed direction:**
+  - stage workspaces with a next-action summary; no automatic tab switching on background results;
+  - compact version/source/status header plus History; browsing does not change the production line;
+  - a **connected dependency graph in a large overlay**, grouped by stage, with All paths / Approved paths / Production line, expand/collapse, search/filter, dim dependency context, focus and exact-item navigation; focus is not a production change;
+  - Activity as a persistent status strip + on-demand overlay drawer, not an idle column;
+  - list/table + one detail inspector; direct annotation toggles remain available;
+  - **Approve & use**, with **Approve only** separately available, showing downstream selection consequences;
+  - calm workbench principles on both Catppuccin themes, 16 px base, fluid workspace with capped reading widths and **one comfortable density**;
+  - autosaved working drafts for narration/annotations; explicit immutable version creation and separate approval;
+  - Project first-run as a brief summary and missing essentials, not a wizard;
+  - **Config search**: one result per setting across groups and both scopes, matching keys/labels/docs/safe displayed values, highlighting matches and showing effective value/source plus global/project values together. Edit scope is always explicit; environment overrides are read-only. Proposed shortcuts are scoped to Config and must not steal typing or overlay Escape.
+- **Scope warning:** the graph, durable drafts and explicit approval intents require data/action contracts and tests, not just CSS. Their implementation must preserve existing tool callers, approvals, history, safety and part 13 cost gates. See the spec's technical planning section; no graph package is selected yet.
+- **Proposed delivery slices** (each a separate branch/PR; implementation only after explicit consent):
 
-*14. User guide + control room 101 (user backlog)* — after part 13, once the panel stages are complete
+  | Slice | Scope | State |
+  |---|---|---|
+  | UX1 | Foundations: tokens, shared components, contrast/focus and audit baseline/harness | planned |
+  | UX2 | Frame, stateful navigation/next action and Activity strip/drawer; shared Recording frame | planned |
+  | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary | planned |
+  | UX4 | Dependency graph overlay, artifact data, path filters, collapse/focus/quick navigation | planned |
+  | UX5 | Durable drafts and storyboard/voice list-detail review | planned |
+  | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | planned |
+  | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |
+  | UX8 | Project brief-summary first-run and grouped context | planned |
+  | UX9 | Config search/scope presentation and full-workbench audit | planned |
+
+- **Design/accessibility bars retained:** at most 8 font sizes, 6 radii and 8 spacing steps; semantic tokens only for colours; one shared button system; text contrast in both themes, visible unobscured focus, keyboard equivalents, at least 24 px targets and reduced motion. Specific starting scales and functional motion are proposals in the spec. No density toggle and no new UI framework.
+- **Saving language refined:** artifact working drafts autosave, but publishing a numbered version is explicit. These are different states/actions, not two unexplained save policies on one form. Config remains explicit Apply + diff; no autosave runs a job or changes approval.
+- **Validation:** before/after screenshots at **900 and 1400 px in both themes** for every slice, consistent fixtures, scored per-screen heuristic review, keyboard/focus/reflow/manual checks as well as automated audit. Start `panel-audit` in UX1 (pinned/cached axe-core as tooling plus token/contrast checks); do not claim axe alone proves WCAG conformance. Browser tests skip explicitly without Chromium; no real model calls or real-config writes.
+- **Exit criteria:** from each stage identify current view, production selection, next action and running work; roughly halve initially exposed controls on the densest screens without removing capabilities or slowing representative tasks; improve each screen's usability score with no hidden safety/accessibility regression; keep all existing behaviours/tests green. Measure task steps/errors/scroll as well as control counts.
+- **Then part 14:** guide, control-room doc and tutorial against the new UI, with regenerated screenshots. The separate keycraft re-record and real-designer acceptance checks remain outstanding S5 work.
+
+*14. User guide + control room 101 (user backlog)* — after the UX pass, against the redesigned panel
 - **What (user request):** complete documentation of the whole process and of the panel as a control room, written for a first-time user, not for developers.
 - **Builds on part 12:** [ARCHITECTURE.md](ARCHITECTURE.md) and [ACTORS.md](ACTORS.md) are the developer-level map (flow, principles, cast, diagrams). The guide and the 101 reuse their diagrams and legend (human orange, model purple, engine blue, script green) but are written for a first-time user.
 - **`docs/GUIDE.md` (the process):**

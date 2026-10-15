@@ -31,6 +31,12 @@ Each stage is versioned and links to exactly one parent version (D30). Several v
 
 ## Decisions
 
+**2026-10-15 UX grill:** D98–D109 record the selected design direction. The
+[UX specification](UX.md) is a **draft for review**, not an implementation
+approval or a claim that the new UI has shipped. These decisions refine the
+presentation of D39/D48, the browsing and approval semantics of D46, and the
+draft workflow of D58; existing safety, lineage and cost gates remain.
+
 | # | Area | Decision | Rationale |
 |---|---|---|---|
 | D1 | Recording engine | **Playwright + DOM-injected virtual cursor** for the MVP. Bezier/Fitts paths come from `@playwright-labs/ghost-cursor`, typing is human-like. An **OS-capture backend (`--cursor=native`, macOS) comes later** | Deterministic, cross-platform, all tooling in-repo. The native cursor is an optional upgrade, not a dependency |
@@ -130,6 +136,18 @@ Each stage is versioned and links to exactly one parent version (D30). Several v
 | D95 | Skipping | **TTS never skips.** A new take and a designer run offer "Don't ask again this session" (sessionStorage) | The step that bills you stays guarded; repeated re-takes don't nag |
 | D96 | The dialog component | One `ask()` (promise): confirm, text, a list, a diff, facts, warnings, an optional required reason, a danger style. Escape cancels; Enter confirms, but **a danger dialog starts on Cancel**; the focus stays inside and returns to where it was; labelled for screen readers. **Only CSS custom properties**, so the UX pass restyles it through tokens. It replaces all **25** native `alert` / `confirm` / `prompt` calls; a test fails if one comes back | Consistent, accessible, themeable, and testable |
 | D97 | Small extras | The session model is captured (session start and model change) for the hints; `demo_rec_tts check` prints the cost of the working line's voice-over; the part 11 "Generate" modal is replaced by the shared dialog | The Director sees the cost before spending, too |
+| D98 | Panel story (UX grill, 2026-10-15) | **Stage workspace**: review what the agent produced, steer the next step and always know what is running. Freely navigable stages plus a next-action summary; incoming results never switch tabs automatically | Orientation without another dashboard or interruption |
+| D99 | Version presentation (UX grill, 2026-10-15) | Compact version/source/status summary plus **History**. Browsing a version does not change production inputs; show when the viewed version differs from the production line. Using a version remains explicit | Hiding machinery must not hide which version a job will use |
+| D100 | Project map (UX grill, 2026-10-15) | A **connected dependency graph**, grouped by stage, in a **large overlay** accessible globally and from History. All paths / approved paths / current production line; expand/collapse, search/filter, focus ancestors and descendants, quick navigation. Filter matches retain visually secondary dependency context; hidden branches show counts. Closing restores the workspace; Open in stage navigates to the exact item. Focus never changes production selection | See the whole branching project without squeezing a graph into History or making it a pipeline editor |
+| D101 | Live activity (UX grill, 2026-10-15) | A compact persistent **status strip + drawer**. The drawer overlays rather than squeezes the workspace and never opens automatically. Failures remain visible with the drawer closed | Reclaim the idle column without hiding work or errors |
+| D102 | Review layout (UX grill, 2026-10-15) | **List/table + one detail inspector**, shared review actions and stage-specific previews/editors. Annotation enable switches can remain in rows. Narrow layouts use an item picker/Back route rather than compressing every pane | Reduce repeated controls while keeping scanning and direct actions fast |
+| D103 | Approval intent (UX grill, 2026-10-15) | Main action **Approve & use**; alternative **Approve only**. Explicitly show production-line/downstream selection consequences; preserve prior versions and approvals. Keep individual-item review, version approval and production selection distinct | Remove today's parent-dependent hidden selection side effect; make the normal loop fast and alternatives deliberate |
+| D104 | Visual direction (UX grill, 2026-10-15) | **Calm workbench**, with restrained Primer-like hierarchy on Catppuccin Macchiato/Latte and a readable 16 px base. Mostly flat surfaces, limited nested cards, meaningful colour, shared components; no new UI framework | A coherent interface instead of a collection of individually styled parts |
+| D105 | Config search (UX grill, 2026-10-15) | **One result per setting**, searching keys, labels, descriptions and displayed non-secret values across groups/scopes. Show effective value/source and both global/project values; editing explicitly names its scope. Environment overrides are read-only sources; search never changes scope | Find settings without editing the wrong scope or mistaking a shadowed value for the effective one |
+| D106 | Working drafts (UX grill, 2026-10-15) | **Autosaved working drafts, explicit immutable versions** for narration and annotations. Visible saving/saved/error state, recovery on return; Save new version creates a version and approval is separate. Never edit an approved version in place or start paid work from saving | Safe navigation without a version per keystroke or a misleading Saved label |
+| D107 | Width behaviour (UX grill, 2026-10-15) | **Fluid workspace, capped prose**. Tables, footage and the map use available width; reading columns stay comfortable. Collapse secondary panes when narrow rather than shrinking everything | Use large screens while keeping 900 px layouts usable |
+| D108 | Density (UX grill, 2026-10-15) | **One comfortable density** for this sprint. Naturally tighter table rows are fine; no global or list-only compact toggle | Fix the main layout before multiplying the layout/test matrix |
+| D109 | Project first-run (UX grill, 2026-10-15) | **Brief summary + missing essentials**, with grouped editing on demand and sources/findings/history nearby. No mandatory setup wizard or wall of empty fields | Explain the demo and the next decision, not the storage schema |
 
 ## Explicit non-goals for v1
 

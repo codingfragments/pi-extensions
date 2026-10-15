@@ -35,6 +35,7 @@ import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
 import { formatRender, runRender } from "./src/render/run.ts";
+import { readRender } from "./src/render/store.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
 import { toSuggestion } from "./src/tools/annotations.ts";
@@ -43,6 +44,8 @@ import { takeSummary } from "./src/tools/record.ts";
 import { voiceSummary } from "./src/tools/tts.ts";
 import { listElevenLabsVoices, sortVoices } from "./src/tts/engines.ts";
 import { ensureProject, listProjects, openProject } from "./src/workdir/layout.ts";
+import { formatLine, isStage } from "./src/workdir/stages.ts";
+import { acceptStage } from "./src/workdir/state.ts";
 import { listVersions } from "./src/workdir/versioning.ts";
 
 const HELP = `demo-recording engine CLI
@@ -64,6 +67,7 @@ Commands:
   record [--fixture | --url U] [--storyboard F] [--project P] [--headed] [--seed N] [--no-model]
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
+  accept --project P --stage S --version N   accept a version (the panel's Accept, from the shell)
   annotate context --project P [--base N] [--instructions T]
                                            the Annotation designer's input pack for the latest edit
   annotate suggest --project P --file F [--base N] [--instructions T]
@@ -269,6 +273,34 @@ async function main(argv: string[]): Promise<number> {
       log: (m) => console.log(m),
     });
     console.log(`\n${voiceSummary(r.voice)}\n\n${editJobSummary(r.edit)}`);
+    return 0;
+  }
+
+  if (command === "accept") {
+    // You accepting a version from the shell (the same gate as the panel's Accept button).
+    const args = sub ? [sub, ...rest] : rest;
+    const { values } = parseArgs({
+      args,
+      options: {
+        project: { type: "string" },
+        stage: { type: "string" },
+        version: { type: "string" },
+      },
+    });
+    if (!values.project || !values.stage || !values.version)
+      throw new Error(
+        "usage: accept --project P --stage storyboard|recording|vo|annotations|render --version N",
+      );
+    if (!isStage(values.stage)) throw new Error(`unknown stage "${values.stage}"`);
+    const project = openProject(cfg.root, values.project);
+    const v = Number(values.version);
+    if (values.stage === "render") {
+      const r = readRender(project.dir, v);
+      if (!r || r.kind !== "final" || r.status !== "done")
+        throw new Error("only finished final renders can be accepted");
+    }
+    const state = acceptStage(project.dir, values.stage, v);
+    console.log(`accepted ${values.stage} v${v} · working line: ${formatLine(state.line)}`);
     return 0;
   }
 

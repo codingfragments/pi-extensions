@@ -959,6 +959,10 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Agent:** the render report includes the QA summary; `demo_rec_render action=qa version=N` shows the report; the agent can't confirm items.
 - **Tests:** each check on synthetic inputs (number normalisation, value lookup at anchor / in scene / missing, toast/console in used vs. cut footage, drift thresholds, redaction gap), media checks on a generated clip, the gate and confirms over the routes, overrides → new render with shifted narration, the walkthrough.
 
+*Bugfix sprint 1 (user feedback after part 10)* — ✅
+- **Log popups:** the Live panel's **Log** header opens the full log in a popup at 80 % of the window (text and type filters, follow newest, copy); a click (or Enter) on any log line — side panel or full log — opens that event whole (full time, type, project, message, all data pretty-printed, copy). Popups stack; Esc closes the top one, a click outside closes it. A reusable `Modal` in `public/core.js` (rendered on `<body>`, since the Live panel's CSS container would trap a fixed popup; a layout effect, since Preact skips deferred effects of a root rendered from an effect) — the base for part 13's panel dialogs.
+- **Walkthrough:** `scripts/fixture-walkthrough.fish --no-open` (or `DEMO_REC_NO_OPEN=1` set by the caller) doesn't open the videos at the "watch" step — automated runs stay silent.
+
 *11. Confidence-guided review (D23) and voice direction (D29)*
 - **Confidence:**
   - measured signals → a high/medium/low level with reasons, per storyboard scene, VO section and annotation;

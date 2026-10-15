@@ -23,6 +23,7 @@ import { panelRoutes } from "./panel/routes.ts";
 import { type PanelHandle, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
 import { readManifest } from "./tts/synthesize.ts";
+import { MAX_EVENT_TEXT, capText, firstLine } from "./util/events.ts";
 import { projectContext } from "./workdir/context.ts";
 import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/layout.ts";
 
@@ -42,6 +43,31 @@ export interface StatusSink {
 }
 
 export const STATUS_KEY = "demo-rec";
+
+/**
+ * What was sent to the agent (log cleanup): the log line is the first line;
+ * the event keeps the text (≤ 4 KB) and how it was delivered.
+ *   report — a background job's result, starts a turn
+ *   action — a panel action as a user message, starts a turn
+ *   note   — for the next turn, starts none
+ */
+function agentEvent(text: string, kind: "report" | "action" | "note"): Record<string, unknown> {
+  return {
+    message: firstLine(text),
+    kind,
+    startsTurn: kind !== "note",
+    text: capText(text),
+    ...(text.length > MAX_EVENT_TEXT ? { truncated: text.length } : {}),
+  };
+}
+
+function failedEvent(err: unknown, text: string): Record<string, unknown> {
+  return {
+    message: `couldn't reach the agent: ${(err as Error).message}`,
+    error: (err as Error).stack ?? String(err),
+    about: capText(firstLine(text), 300),
+  };
+}
 
 export class Runtime {
   readonly bus = new EventBus();
@@ -101,7 +127,12 @@ export class Runtime {
 
   setActiveProject(slug: string | undefined): void {
     this.activeSlug = slug;
-    if (slug) this.bus.publish("project.active", { message: `active project: ${slug}` }, slug);
+    if (slug)
+      this.bus.publish(
+        "project.active",
+        { message: `active project: ${slug}`, project: slug },
+        slug,
+      );
   }
 
   get activeProjectSlug(): string | undefined {
@@ -143,7 +174,7 @@ export class Runtime {
 
   /** Report a finished background job into the session (triggers a turn when idle). */
   reportToAgent(content: string, details?: unknown): void {
-    this.bus.publish("agent.notified", { message: content.split("\n")[0] ?? "" }, this.activeSlug);
+    this.bus.publish("agent.notified", agentEvent(content, "report"), this.activeSlug);
     try {
       if (this.agent?.sendMessage) {
         this.agent.sendMessage(
@@ -152,7 +183,7 @@ export class Runtime {
         );
       } else this.agent?.sendUserMessage(content, { deliverAs: "followUp" });
     } catch (err) {
-      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+      this.bus.publish("agent.notify-failed", failedEvent(err, content), this.activeSlug);
     }
   }
 
@@ -175,13 +206,13 @@ export class Runtime {
         { triggerTurn: false, deliverAs: "nextTurn" },
       );
     } catch (err) {
-      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+      this.bus.publish("agent.notify-failed", failedEvent(err, "project context"), this.activeSlug);
     }
   }
 
   /** A note for the agent's next turn that does not start a turn (e.g. working-line changes). */
   tellAgent(text: string): void {
-    this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
+    this.bus.publish("agent.notified", agentEvent(text, "note"), this.activeSlug);
     if (!this.agent?.sendMessage) return;
     try {
       this.agent.sendMessage(
@@ -189,17 +220,17 @@ export class Runtime {
         { triggerTurn: false, deliverAs: "nextTurn" },
       );
     } catch (err) {
-      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+      this.bus.publish("agent.notify-failed", failedEvent(err, text), this.activeSlug);
     }
   }
 
   notifyAgent(text: string): void {
-    this.bus.publish("agent.notified", { message: text.split("\n")[0] ?? "" }, this.activeSlug);
+    this.bus.publish("agent.notified", agentEvent(text, "action"), this.activeSlug);
     if (!this.agent) return;
     try {
       this.agent.sendUserMessage(text, { deliverAs: "followUp" });
     } catch (err) {
-      this.bus.publish("agent.notify-failed", { message: (err as Error).message }, this.activeSlug);
+      this.bus.publish("agent.notify-failed", failedEvent(err, text), this.activeSlug);
     }
   }
 
@@ -315,7 +346,12 @@ export class Runtime {
         },
       }).then((handle) => {
         this.panel = handle;
-        this.bus.publish("panel.started", { port: handle.port });
+        // The URL without its token (the token never goes into events).
+        this.bus.publish("panel.started", {
+          port: handle.port,
+          url: `http://127.0.0.1:${handle.port}/`,
+          message: `panel on http://127.0.0.1:${handle.port}/`,
+        });
         return handle;
       });
       this.panelStarting.catch(() => {

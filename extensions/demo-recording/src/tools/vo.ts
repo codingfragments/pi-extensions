@@ -94,7 +94,14 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
       const stored = writeVo(p.dir, params.markdown);
       rt.bus.publish(
         "vo.written",
-        { version: stored.version, message: `voice-over v${stored.version} written`, by: "agent" },
+        {
+          version: stored.version,
+          by: "agent",
+          take: stored.validated.script.take,
+          sections: stored.validated.script.sections.length,
+          issues: stored.validated.issues,
+          message: `voice-over v${stored.version} written · ${stored.validated.script.sections.length} section(s)${stored.validated.issues.length ? ` · ${stored.validated.issues.filter((i) => i.level === "error").length} error(s), ${stored.validated.issues.filter((i) => i.level === "warning").length} warning(s)` : ""}`,
+        },
         p.slug,
       );
       const panel = await rt.ensurePanel();

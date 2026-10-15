@@ -1,9 +1,10 @@
+import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { Modal, SegmentBar, api, copyText, media, mmss, summarize } from "./core.js";
 // demo-recording panel — Live control room (S5 part 4, D39): a collapsible
 // side panel (bottom drawer on narrow windows) with progress rows for every
 // running activity, a frame preview, safety, project summary and the log.
 // Collapsed it is a one-line strip: stage · activity / waiting-for · progress.
-import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { Modal, SegmentBar, api, copyText, media, mmss, summarize } from "./core.js";
+import { collapseProgress } from "./logview.js";
 
 const last = (events, types) => events.filter((e) => types.includes(e.type)).at(-1);
 
@@ -245,6 +246,7 @@ function LogList({ events, onPick, follow = true, className = "log" }) {
         onClick=${() => onPick(e)} onKeyDown=${(k) => onKey(k, e)}>
         <time>${new Date(e.at).toLocaleTimeString()}</time>
         <span class="type">${e.type}</span>
+        ${e.ticks > 1 ? html`<span class="ticks" title=${`${e.ticks} progress updates since ${new Date(e.firstAt).toLocaleTimeString()}`}>×${e.ticks}</span>` : null}
         ${e.data ? html`<span class="data">${summarize(e.data)}</span>` : null}
       </li>`,
     )}
@@ -268,6 +270,7 @@ function LogLineModal({ e, onClose }) {
       <dt>Time</dt><dd class="mono">${new Date(e.at).toLocaleString()} <span class="muted">(${e.at})</span></dd>
       <dt>Event</dt><dd class="mono">#${e.seq} · ${e.type}</dd>
       ${e.project ? html`<dt>Project</dt><dd>${e.project}</dd>` : null}
+      ${e.ticks > 1 ? html`<dt>Progress</dt><dd>latest of ${e.ticks} updates since ${new Date(e.firstAt).toLocaleTimeString()}</dd>` : null}
       ${msg ? html`<dt>Message</dt><dd class="log-msg">${msg}</dd>` : null}
     </dl>
     ${e.data ? html`<h3 class="small-text muted">Data</h3><pre class="log-json">${JSON.stringify(e.data, null, 2)}</pre>` : html`<p class="muted">No data.</p>`}
@@ -280,9 +283,10 @@ function FullLogModal({ events, onClose, onPick }) {
   const [prefix, setPrefix] = useState("");
   const [follow, setFollow] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [allTicks, setAllTicks] = useState(false);
   const prefixes = [...new Set(events.map((e) => e.type.split(".")[0]))].sort();
   const needle = q.trim().toLowerCase();
-  const shown = events.filter(
+  const shown = (allTicks ? events : collapseProgress(events)).filter(
     (e) =>
       (!prefix || e.type.startsWith(`${prefix}.`)) &&
       (!needle ||
@@ -294,7 +298,7 @@ function FullLogModal({ events, onClose, onPick }) {
     setCopied(await copyText(shown.map(eventText).join("\n\n")));
     setTimeout(() => setCopied(false), 1500);
   };
-  return html`<${Modal} title=${`Log · ${shown.length}${shown.length !== events.length ? ` of ${events.length}` : ""} events`} size="large" onClose=${onClose}
+  return html`<${Modal} title=${`Log · ${shown.length} line(s) · ${events.length} event(s)`} size="large" onClose=${onClose}
       actions=${html`<button class="ghost" onClick=${copy} title="copy the shown events">${copied ? "copied ✓" : "Copy"}</button>`}>
     <div class="row log-filters">
       <input class="note" type="search" placeholder="filter: text, type, project …" value=${q} onInput=${(e) => setQ(e.target.value)} aria-label="filter the log" />
@@ -302,6 +306,7 @@ function FullLogModal({ events, onClose, onPick }) {
         <option value="">all types</option>
         ${prefixes.map((p) => html`<option value=${p}>${p}.*</option>`)}
       </select>
+      <label class="check small-text" title="every progress update as its own line, instead of one line per job"><input type="checkbox" checked=${allTicks} onChange=${(e) => setAllTicks(e.target.checked)} /> show all progress</label>
       <label class="check small-text"><input type="checkbox" checked=${follow} onChange=${(e) => setFollow(e.target.checked)} /> follow newest</label>
       <span class="muted small-text">click a line for the whole event</span>
     </div>
@@ -310,7 +315,7 @@ function FullLogModal({ events, onClose, onPick }) {
 }
 
 function Log({ events, onPick }) {
-  return html`<${LogList} events=${events.slice(-300)} onPick=${onPick} />`;
+  return html`<${LogList} events=${collapseProgress(events).slice(-300)} onPick=${onPick} />`;
 }
 
 export const LIVE_SECTIONS = [

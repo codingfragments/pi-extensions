@@ -216,7 +216,16 @@ export function runSuggest(
     {
       version: r.version,
       by: "agent",
-      message: `annotations v${r.version} suggested (${r.enabled} on)`,
+      message: `annotations v${r.version} suggested · ${r.added} placed, ${r.enabled} on${r.kept.length ? `, ${r.kept.length} kept` : ""}${r.dropped.length ? `, ${r.dropped.length} not placed` : ""}`,
+      placed: r.added,
+      enabled: r.enabled,
+      kept: r.kept,
+      dropped: r.dropped,
+      privacy: r.privacy,
+      budget: r.budget,
+      ...(o.base !== undefined ? { base: o.base } : {}),
+      ...(o.instructions ? { instructions: o.instructions } : {}),
+      ...(r.warnings.length ? { warnings: r.warnings } : {}),
     },
     p.slug,
   );
@@ -306,7 +315,10 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
             {
               version: stored.version,
               by: "agent",
-              message: `annotations v${stored.version} written by the agent`,
+              message: `annotations v${stored.version} written by the agent · ${stored.items.length} item(s), ${stored.items.filter((x) => x.enabled).length} on`,
+              items: stored.items.map(
+                (x) => `${x.enabled ? "[x]" : "[ ]"} ${x.id} ${x.type} ${x.scene}`,
+              ),
             },
             p.slug,
           );
@@ -324,7 +336,10 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
             {
               version: r.version,
               by: "agent",
-              message: `annotations v${r.version} imported from v${params.from}`,
+              message: `annotations v${r.version} imported from v${params.from} · ${r.carried.length} carried${r.notCarried.length ? `, ${r.notCarried.length} not` : ""}`,
+              from: params.from,
+              carried: r.carried,
+              notCarried: r.notCarried,
             },
             p.slug,
           );

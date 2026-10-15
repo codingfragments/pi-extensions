@@ -12,7 +12,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { ANNOTATION_TYPES } from "../annotations/types.ts";
 import type { Job } from "../jobs.ts";
-import { fixRequest, formatQa, readQa, runQaSafe } from "../qa/run.ts";
+import { fixRequest, formatQa, readQa, renderEvent, runQaSafe } from "../qa/run.ts";
 import {
   type RenderRequest,
   finalBlocker,
@@ -28,6 +28,7 @@ import {
   saveRecord,
 } from "../render/store.ts";
 import type { Runtime } from "../runtime.ts";
+import { firstLine, jobFacts } from "../util/events.ts";
 import { readState } from "../workdir/state.ts";
 import { result } from "./common.ts";
 
@@ -59,13 +60,14 @@ export function startRender(rt: Runtime, request: RenderRequest): Job<RenderReco
       rt.bus.publish(
         "render.finished",
         {
-          job: j.id,
-          status: j.status,
-          kind: request.kind,
-          ...(rec ? { version: rec.version } : {}),
-          message: rec
-            ? `${request.kind} render v${rec.version} ready`
-            : `render ${j.status}: ${j.error}`,
+          ...jobFacts(j),
+          by: request.by,
+          ...(rec
+            ? renderEvent(p.dir, rec)
+            : {
+                kind: request.kind,
+                message: `${request.kind} render ${j.status}: ${firstLine(j.error ?? "")}`,
+              }),
         },
         p.slug,
       );
@@ -106,9 +108,12 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
       rt.bus.publish(
         "render.qa",
         {
+          ...jobFacts(j),
           version,
-          status: j.result?.qa?.status ?? j.status,
-          message: `QA of render v${version}: ${j.result?.qa?.status ?? j.error}`,
+          ...(j.result?.qa ? { qa: renderEvent(p.dir, j.result).qa } : {}),
+          message: j.result?.qa
+            ? `QA of render v${version}: ${j.result.qa.status} · ${j.result.qa.blocking} blocking${j.result.qa.confirmed ? ` (${j.result.qa.confirmed} confirmed)` : ""} · ${j.result.qa.warnings} warning(s)`
+            : `QA of render v${version} ${j.status}: ${firstLine(j.error ?? "")}`,
         },
         p.slug,
       );

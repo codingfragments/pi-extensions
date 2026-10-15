@@ -12,9 +12,11 @@ import { resolveBrand } from "../brand/brand.ts";
 import { type EditResult, buildEdit } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import type { Job } from "../jobs.ts";
+import { renderEvent } from "../qa/run.ts";
 import { formatRender, runRender } from "../render/run.ts";
 import type { RenderRecord } from "../render/store.ts";
 import type { Runtime } from "../runtime.ts";
+import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { latestVersion } from "../workdir/versioning.ts";
 import { result } from "./common.ts";
 
@@ -147,23 +149,37 @@ export function startEdit(
       rt.bus.publish(
         "edit.finished",
         {
-          job: j.id,
-          status: j.status,
-          ...(j.result ? { version: j.result.version, render: j.result.render.version } : {}),
+          ...jobFacts(j),
+          action,
+          ...(j.result
+            ? {
+                version: j.result.version,
+                render: j.result.render.version,
+                voVersion: j.result.timeline.voVersion,
+                take: j.result.timeline.take,
+                totals: j.result.timeline.totals,
+                offSync: j.result.timeline.scenes.flatMap((s) =>
+                  s.anchors
+                    .filter((a) => Math.abs(a.drift) > 150)
+                    .map((a) => ({ scene: s.id, mark: a.mark, driftMs: a.drift })),
+                ),
+                scenes: j.result.timeline.scenes.map((s) => ({
+                  id: s.id,
+                  ms: s.durationMs,
+                  ...s.stats,
+                })),
+              }
+            : {}),
           message: j.result
-            ? `edit v${j.result.version} · draft render v${j.result.render.version}`
-            : `edit ${j.status}: ${j.error}`,
+            ? `edit v${j.result.version} · ${secs(j.result.timeline.totals.fullMs)} · cut ${secs(j.result.timeline.totals.cutMs)} · worst drift ${j.result.timeline.totals.worstDriftMs} ms · draft render v${j.result.render.version}`
+            : `edit ${j.status}: ${firstLine(j.error ?? "")}`,
         },
         p.slug,
       );
       if (j.result)
         rt.bus.publish(
           "render.finished",
-          {
-            version: j.result.render.version,
-            kind: "draft",
-            message: `draft render v${j.result.render.version} ready`,
-          },
+          { ...renderEvent(p.dir, j.result.render), by: "edit" },
           p.slug,
         );
       rt.setStatus(undefined, true);

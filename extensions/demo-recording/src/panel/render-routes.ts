@@ -146,7 +146,19 @@ export function renderRoutes(rt: Runtime): {
         const job = startRender(rt, req);
         rt.bus.publish(
           "render.started",
-          { job: job.id, kind, message: `${kind} render started` },
+          {
+            job: job.id,
+            kind,
+            by: "panel",
+            request: {
+              annotations: req.annotations ?? "working line",
+              fromDraft: !!req.fromDraft,
+              brands: req.brands ?? "config",
+              options: req.options ?? {},
+              ...(req.confirmUnredacted ? { confirmUnredacted: true } : {}),
+            },
+            message: `${kind} render started · ${req.brands?.join(", ") ?? "default brand"}${req.fromDraft ? " · unsaved annotation changes" : req.annotations === null ? " · no annotations" : req.annotations !== undefined ? ` · annotations v${req.annotations}` : ""}`,
+          },
           p.slug,
         );
         return { job: job.id };
@@ -188,7 +200,16 @@ export function renderRoutes(rt: Runtime): {
           {
             version: v,
             status: summary.status,
-            message: `QA item confirmed on render v${v} (${summary.status})`,
+            item: it
+              ? {
+                  id: it.id,
+                  check: it.check,
+                  message: it.message,
+                  ...(it.atMs !== undefined ? { atMs: it.atMs } : {}),
+                }
+              : body.id,
+            reason: String(body.reason),
+            message: `render v${v}: confirmed ${String(body.id)} — QA now ${summary.status}`,
           },
           p.slug,
         );
@@ -204,7 +225,10 @@ export function renderRoutes(rt: Runtime): {
           {
             job: job.id,
             kind: "final",
-            message: `fixes of render v${String(body.version)} → a new final render`,
+            by: "panel",
+            fixesOf: Number(body.version),
+            items: ids,
+            message: `${ids === "all" ? "all fixes" : `${ids.length} fix(es)`} of render v${String(body.version)} → a new final render`,
           },
           p.slug,
         );

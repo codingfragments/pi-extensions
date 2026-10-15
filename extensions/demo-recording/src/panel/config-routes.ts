@@ -298,7 +298,17 @@ export function configRoutes(deps: ConfigRouteDeps): {
         const slug = deps.activeProject()?.slug;
         deps.publish(
           "config.changed",
-          { key, scope, message: `${key} ${unset ? "unset" : "set"} (${scope})` },
+          {
+            key,
+            scope,
+            by: "panel",
+            file: change.file,
+            before: change.before ?? null,
+            after: change.after ?? null,
+            effective: change.effective ?? null,
+            ...(change.shadowedBy ? { shadowedBy: change.shadowedBy } : {}),
+            message: `${key}: ${fmtVal(change.before)} → ${unset ? "unset" : fmtVal(change.after)} (${scope})`,
+          },
           slug,
         );
         return { saved: true, file: change.file, effective: change.effective ?? null };
@@ -322,4 +332,11 @@ export function configRoutes(deps: ConfigRouteDeps): {
       },
     },
   };
+}
+
+/** A config value for a log line: short JSON, cut at 60 characters (the event keeps it whole). */
+function fmtVal(v: unknown): string {
+  if (v === undefined) return "unset";
+  const j = JSON.stringify(v) ?? String(v);
+  return j.length > 60 ? `${j.slice(0, 59)}…` : j;
 }

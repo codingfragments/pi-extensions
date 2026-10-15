@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { ACTIVE_ENTRY } from "../commands/demo.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
+import { capText } from "../util/events.ts";
 import { appDirOf, projectContext } from "../workdir/context.ts";
 import {
   AGENT_KINDS,
@@ -216,7 +217,12 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           const panel = await rt.ensurePanel();
           rt.bus.publish(
             h.created ? "project.created" : "project.opened",
-            { dir: h.dir, app: h.app.slug },
+            {
+              dir: h.dir,
+              app: h.app.slug,
+              url: h.app.baseUrl,
+              message: `project ${h.slug} ${h.created ? "created" : "opened"} · ${h.app.name ?? h.app.slug}`,
+            },
             h.slug,
           );
           return result(
@@ -239,11 +245,20 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           const p = rt.requireProject();
           if (!params.content?.trim())
             throw new Error("write_brief needs content (the full brief markdown)");
+          const before = fs.existsSync(path.join(p.dir, "brief.md"))
+            ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")
+            : "";
           const v = writeNextVersion(path.join(p.dir, "brief"), "v", ".md", params.content);
           fs.writeFileSync(path.join(p.dir, "brief.md"), params.content);
+          const fields = changedBriefFields(before, params.content);
           rt.bus.publish(
             "brief.written",
-            { version: v.version, message: `brief v${v.version} written` },
+            {
+              version: v.version,
+              by: "agent",
+              changed: fields,
+              message: `brief v${v.version} written${fields.length ? ` (${fields.slice(0, 4).join(", ")}${fields.length > 4 ? ", …" : ""})` : ""}`,
+            },
             p.slug,
           );
           const count = listVersions(path.join(p.dir, "brief"), "v", ".md").length;
@@ -274,7 +289,15 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           });
           rt.bus.publish(
             "input.recorded",
-            { id: e?.id, message: `noted ${e?.id}: ${params.text.slice(0, 60)}` },
+            {
+              id: e?.id,
+              stage: e?.stage,
+              kind: e?.kind,
+              source: e?.source,
+              text: capText(params.text),
+              ...(params.refs?.length ? { refs: params.refs } : {}),
+              message: `noted ${e?.id} (${e?.stage}): ${params.text.length > 80 ? `${params.text.slice(0, 79)}…` : params.text}`,
+            },
             p.slug,
           );
           return result(
@@ -287,7 +310,12 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           const e = markInput(p.dir, params.id, params.outdated ?? true, params.reason ?? "");
           rt.bus.publish(
             "input.marked",
-            { id: e.id, message: `${e.id} ${e.outdated ? "marked outdated" : "restored"}` },
+            {
+              id: e.id,
+              text: e.text,
+              ...(e.outdated ? { reason: e.outdated.reason } : {}),
+              message: `${e.id} ${e.outdated ? "marked outdated" : "restored"}${e.outdated?.reason ? `: ${e.outdated.reason}` : ""}`,
+            },
             p.slug,
           );
           return result(
@@ -307,7 +335,16 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           });
           rt.bus.publish(
             "finding.recorded",
-            { id: f.id, message: `finding ${f.id} (${f.kind}): ${f.text.slice(0, 60)}` },
+            {
+              id: f.id,
+              kind: f.kind,
+              stage: f.stage,
+              text: f.text,
+              ...(f.suggestion ? { suggestion: f.suggestion } : {}),
+              ...(f.scene ? { scene: f.scene } : {}),
+              ...(f.evidence?.length ? { evidence: f.evidence } : {}),
+              message: `finding ${f.id} (${f.kind}): ${f.text.length > 80 ? `${f.text.slice(0, 79)}…` : f.text}`,
+            },
             p.slug,
           );
           return result(
@@ -332,7 +369,13 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           });
           rt.bus.publish(
             "finding.marked",
-            { id: f.id, state: f.state, message: `${f.id} → ${f.state}` },
+            {
+              id: f.id,
+              state: f.state,
+              by: "agent",
+              text: f.text,
+              message: `${f.id} → ${f.state}`,
+            },
             p.slug,
           );
           return result(`${f.id} is now "${f.state}".`);
@@ -342,4 +385,19 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
       }
     },
   });
+}
+
+/** Brief fields (bold "**Label:**" lines) that differ between two brief texts. */
+export function changedBriefFields(before: string, after: string): string[] {
+  const fields = (t: string) => {
+    const m = new Map<string, string>();
+    for (const line of t.split("\n")) {
+      const r = /^\s*[-*]?\s*\*\*([^*:]+):?\*\*:?\s*(.*)$/.exec(line);
+      if (r) m.set((r[1] as string).trim(), (r[2] as string).trim());
+    }
+    return m;
+  };
+  const a = fields(before);
+  const b = fields(after);
+  return [...new Set([...a.keys(), ...b.keys()])].filter((k) => a.get(k) !== b.get(k));
 }

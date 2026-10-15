@@ -150,8 +150,26 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
     if (!Number.isInteger(v) || v < 1) throw new Error('"version" is required');
     return v;
   };
-  const changed = (p: ProjectHandle, message: string, version?: number) =>
-    deps.publish("annotations.updated", { ...(version ? { version } : {}), message }, p.slug);
+  const changed = (
+    p: ProjectHandle,
+    message: string,
+    version?: number,
+    extra: Record<string, unknown> = {},
+  ) =>
+    deps.publish(
+      "annotations.updated",
+      { ...(version ? { version } : {}), by: "user", message, ...extra },
+      p.slug,
+    );
+  /** "toggle co-kpi → on", "text co-kpi: “…”", "nudge zoom-emea start +0.5 s", "target zoom-emea → alternative 1". */
+  const describeOp = (op: DraftOp, after?: { enabled?: boolean }) =>
+    op.op === "toggle"
+      ? `toggle ${op.id} → ${after?.enabled ? "on" : "off"}`
+      : op.op === "text"
+        ? `text ${op.id}: “${op.text}”`
+        : op.op === "nudge"
+          ? `nudge ${op.id} ${op.field} ${op.deltaMs > 0 ? "+" : ""}${(op.deltaMs / 1000).toFixed(1)} s`
+          : `target ${op.id} → alternative ${op.alternative + 1}`;
 
   return {
     get: {
@@ -172,7 +190,26 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
         };
         Reflect.deleteProperty(op, "version");
         const d = editDraft(p.dir, version, op);
-        changed(p, `annotations draft on v${version}: ${d.changes} unsaved change(s)`);
+        const item = d.file.items.find((x) => x.id === op.id);
+        const what = describeOp(op, item);
+        changed(p, `draft on v${version}: ${what} (${d.changes} unsaved)`, undefined, {
+          draftOf: version,
+          op,
+          change: what,
+          unsaved: d.changes,
+          ...(item
+            ? {
+                item: {
+                  id: item.id,
+                  type: item.type,
+                  scene: item.scene,
+                  enabled: item.enabled,
+                  ...(item.text ? { text: item.text } : {}),
+                  anchor: item.anchor,
+                },
+              }
+            : {}),
+        });
         return annotationsView(p, deps.getConfig(), version);
       },
       "annotations-save": () => {
@@ -186,14 +223,28 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
           kind: "review",
           text: `annotation edits on v${d?.base}: ${d?.changes ?? 0} change(s) saved as v${stored.version}`,
         });
-        changed(p, `annotations v${stored.version} saved from the panel`, stored.version);
+        changed(
+          p,
+          `annotations v${stored.version} saved from the panel (${d?.changes ?? 0} change(s) on v${d?.base})`,
+          stored.version,
+          {
+            editedFrom: d?.base,
+            changes: d?.changes ?? 0,
+            edited: stored.items.filter((x) => (x.edits?.length ?? 0) > 0).map((x) => x.id),
+          },
+        );
         return annotationsView(p, deps.getConfig(), stored.version);
       },
       "annotations-discard": () => {
         const p = requireProject();
         const d = readDraft(p.dir);
         discardDraft(p.dir);
-        changed(p, "annotation draft discarded");
+        changed(
+          p,
+          `annotation draft on v${d?.base} discarded (${d?.changes ?? 0} change(s))`,
+          undefined,
+          { draftOf: d?.base, changes: d?.changes ?? 0 },
+        );
         return annotationsView(p, deps.getConfig(), d?.base);
       },
       /** Ask the agent to (re-)suggest, with the user's instructions (D53, D56). */
@@ -224,8 +275,11 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
           {
             message:
               base === undefined
-                ? "annotation suggestions requested"
-                : `re-suggest on v${base} requested`,
+                ? `annotation suggestions requested${instructions ? " (with instructions)" : ""}`
+                : `re-suggest on v${base} requested${instructions ? " (with instructions)" : ""}`,
+            ...(base !== undefined ? { base } : {}),
+            voVersion: state.line.vo,
+            ...(instructions ? { instructions } : {}),
           },
           p.slug,
         );

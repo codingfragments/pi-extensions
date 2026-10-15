@@ -268,7 +268,9 @@ export function stageRoutes(deps: StageRouteDeps): {
           {
             stage,
             version,
+            by: "panel",
             orphaned,
+            line: state.line,
             message: `${label} un-accepted${orphaned.length ? ` — orphaned: ${orphaned.map((o) => o.label).join(", ")}` : ""}`,
           },
           p.slug,
@@ -316,7 +318,11 @@ export function stageRoutes(deps: StageRouteDeps): {
         );
         deps.publish(
           "recording.requested",
-          { storyboard: sb, message: `new take of storyboard v${sb} requested` },
+          {
+            storyboard: sb,
+            ...(note ? { note } : {}),
+            message: `new take of storyboard v${sb} requested${note ? " (with notes)" : ""}`,
+          },
           p.slug,
         );
         return { requested: true, storyboard: sb };

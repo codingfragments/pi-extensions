@@ -68,14 +68,33 @@ test(
         box && Math.abs(box.width - 1200) <= 2 && Math.abs(box.height - 800) <= 2,
         `80 % × 80 %: ${box?.width}×${box?.height}`,
       );
+      // the 30 progress ticks of the job are one line (its newest state) …
+      assert.equal(await big.locator(".log li .ticks").count(), 1, "one collapsed progress line");
+      assert.equal(await big.locator(".log li .ticks").innerText(), "×30");
+      assert.match(
+        await big.locator(".log li", { has: page.locator(".ticks") }).innerText(),
+        /step 29/,
+      );
+      assert.equal(
+        await page.locator("aside .log li .ticks").innerText(),
+        "×30",
+        "the side log too",
+      );
+      // … until "show all progress" shows every tick
+      await big.getByLabel("show all progress").check();
+      await page.waitForFunction(`document.querySelectorAll(".modal.large .log li").length >= 31`);
       assert.ok(
         (await big.locator(".log li").count()) >= 31,
         "every event, not only the side panel's tail",
       );
+      assert.equal(await big.locator(".log li .ticks").count(), 0);
       // filter
       await page.getByRole("searchbox", { name: "filter the log" }).fill("v7 ready");
       await page.waitForFunction(`document.querySelectorAll(".modal.large .log li").length === 1`);
-      assert.match(await big.locator(".modal-head h2").innerText(), /Log · 1 of \d+ events/);
+      assert.match(
+        await big.locator(".modal-head h2").innerText(),
+        /Log · 1 line\(s\) · \d+ event\(s\)/,
+      );
       // a line opens on top, with the whole event
       await big.locator(".log li").first().click();
       const one = page.locator(".modal.medium");

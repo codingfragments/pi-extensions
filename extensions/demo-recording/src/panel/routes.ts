@@ -13,10 +13,11 @@ import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
+import { capText } from "../util/events.ts";
 import { editVoSection, readVo, voVersions } from "../vo/store.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
-import { acceptedVersions, formatLine, parentOf, versionLabel } from "../workdir/stages.ts";
+import { PARENT, acceptedVersions, formatLine, parentOf, versionLabel } from "../workdir/stages.ts";
 import {
   type GatedArtifact,
   PHASES,
@@ -215,7 +216,18 @@ export function panelRoutes(deps: RouteDeps): {
           typeof body.note === "string" ? body.note : undefined,
           artifact,
         );
-        deps.bus.publish("review.updated", { artifact, version, scene, status }, p.slug);
+        deps.bus.publish(
+          "review.updated",
+          {
+            artifact,
+            version,
+            scene,
+            status,
+            ...(typeof body.note === "string" && body.note ? { note: body.note } : {}),
+            message: `${artifact === "vo" ? "voice-over" : "storyboard"} v${version} · ${scene} → ${status ?? "cleared"}`,
+          },
+          p.slug,
+        );
         return { review: getReview(state, version, artifact) };
       },
       "review-note": (body) => {
@@ -247,7 +259,12 @@ export function panelRoutes(deps: RouteDeps): {
           });
           deps.bus.publish(
             "review.submitted",
-            { artifact, version, message: `storyboard v${version} review sent to the agent` },
+            {
+              artifact,
+              version,
+              review: capText(reviewText(review)),
+              message: `storyboard v${version} review sent to the agent`,
+            },
             p.slug,
           );
           deps.notifyAgent(reviewMessage(p.slug, sb.storyboard, review));
@@ -265,7 +282,12 @@ export function panelRoutes(deps: RouteDeps): {
         });
         deps.bus.publish(
           "review.submitted",
-          { artifact, version, message: `voice-over v${version} review sent to the agent` },
+          {
+            artifact,
+            version,
+            review: capText(reviewText(review)),
+            message: `voice-over v${version} review sent to the agent`,
+          },
           p.slug,
         );
         deps.notifyAgent(
@@ -299,6 +321,9 @@ export function panelRoutes(deps: RouteDeps): {
             version: stored.version,
             message: `voice-over v${stored.version} (edited ${section} in the panel)`,
             by: "user",
+            from: version,
+            section,
+            text: capText(body.text),
           },
           p.slug,
         );
@@ -364,8 +389,10 @@ export function panelRoutes(deps: RouteDeps): {
           artifact === "recording" ? "take.accepted" : `${artifact}.approved`,
           {
             version,
+            by: "panel",
             onLine,
             line: formatLine(state.line),
+            ...(PARENT[artifact] ? { basedOn: parentOf(p.dir, artifact, version) ?? null } : {}),
             message: `${label} accepted${onLine ? " (working line)" : ""}`,
           },
           p.slug,

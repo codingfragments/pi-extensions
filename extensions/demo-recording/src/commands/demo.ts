@@ -89,7 +89,12 @@ async function cmdNew(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   pi.appendEntry(ACTIVE_ENTRY, { project: handle.slug });
   rt.bus.publish(
     handle.created ? "project.created" : "project.opened",
-    { dir: handle.dir, app: handle.app.slug },
+    {
+      dir: handle.dir,
+      app: handle.app.slug,
+      url: handle.app.baseUrl,
+      message: `project ${handle.slug} ${handle.created ? "created" : "opened"} · ${handle.app.name ?? handle.app.slug}`,
+    },
     handle.slug,
   );
   const panel = await rt.ensurePanel();
@@ -431,7 +436,15 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
               ...(ctx.model ? { sessionModel: ctx.model } : {}),
             });
             rt.bus.publish("doctor.result", {
-              message: results.map((r) => `${r.name}:${r.status}`).join(" "),
+              message: `doctor: ${["fail", "warn", "pass"].map((st) => `${results.filter((r) => r.status === st).length} ${st}`).join(", ")}${
+                results.some((r) => r.status === "fail")
+                  ? ` — failing: ${results
+                      .filter((r) => r.status === "fail")
+                      .map((r) => r.name)
+                      .join(", ")}`
+                  : ""
+              }`,
+              checks: results,
             });
             const failing = results.some((r) => r.status === "fail");
             return report(ctx, formatDoctor(results), failing ? "warning" : "info");

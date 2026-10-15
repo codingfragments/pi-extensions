@@ -110,7 +110,10 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         "storyboard.written",
         {
           version: written.version,
+          by: "agent",
           scenes: written.storyboard.scenes.length,
+          ...(written.diff ? { diff: written.diff } : {}),
+          ...(warnings.length ? { warnings } : {}),
           message: written.diff
             ? formatDiff(written.diff)
             : `storyboard v${written.version} (first version)`,

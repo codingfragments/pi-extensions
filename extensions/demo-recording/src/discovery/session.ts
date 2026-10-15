@@ -185,6 +185,16 @@ export function targetKey(t: Target): string | undefined {
   return "role" in t && t.name ? `${t.role}|${t.name}` : undefined;
 }
 
+/** "/search?q=x" from a full URL (log messages); the URL itself stays in data. */
+function pathOf(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.pathname}${u.search}${u.hash}` || "/";
+  } catch {
+    return url;
+  }
+}
+
 export class DiscoverySession {
   readonly id: string;
   readonly dir: string;
@@ -238,7 +248,13 @@ export class DiscoverySession {
       await session.close();
       throw err;
     }
-    ds.emit("discovery.opened", { session: id, url: session.page.url(), headed: !!opts.headed });
+    ds.emit("discovery.opened", {
+      session: id,
+      url: session.page.url(),
+      headed: !!opts.headed,
+      budgets: opts.budgets,
+      message: `discovery ${id} opened on ${pathOf(session.page.url())}${opts.headed ? " (headed)" : ""}`,
+    });
     return ds;
   }
 
@@ -394,6 +410,7 @@ export class DiscoverySession {
       title,
       media: `discovery/${this.id}/screens/${file}.jpg`,
       budget: this.budget(),
+      message: `look ${screen}${title ? ` “${title}”` : ""} · ${pathOf(url)}`,
     });
     this.emitProgress();
     return { screen, url, title, jpeg, digest, truncated, budget: this.budget() };
@@ -456,7 +473,10 @@ export class DiscoverySession {
     };
     this.append("audit.jsonl", record);
     if (verdict.level !== "safe")
-      this.emit(verdict.level === "blocked" ? "safety.blocked" : "safety.mutation", record);
+      this.emit(verdict.level === "blocked" ? "safety.blocked" : "safety.mutation", {
+        ...record,
+        message: `${verdict.level === "blocked" ? "blocked" : "state change"}: ${ctx.action}${ctx.name ? ` “${ctx.name}”` : ""}${verdict.reason ? ` — ${verdict.reason}` : ""}`,
+      });
     if (verdict.level === "blocked") {
       throw new BlockedActionError(
         `BLOCKED by the safety net: ${verdict.reason}. Don't work around it; if this action is genuinely safe in this tenant, ` +
@@ -607,11 +627,15 @@ export class DiscoverySession {
     if (verifiedTarget) result.verifiedTarget = verifiedTarget;
     if (note) result.note = note;
     this.append("actions.jsonl", { kind: "act", ...p, level: verdict.level, url });
+    const target = p.target ? describeTarget(p.target) : undefined;
     this.emit("discovery.act", {
       action: p.action,
-      ...(p.target ? { target: describeTarget(p.target) } : {}),
+      ...(target ? { target } : {}),
       level: verdict.level,
       url,
+      ...(url !== before ? { from: before } : {}),
+      ...(note ? { note } : {}),
+      message: `${p.action}${target ? ` ${target}` : ""}${p.action === "goto" && p.url ? ` ${p.url}` : ""}${p.action === "press" && p.key ? ` ${p.key}` : ""} (${verdict.level})${url !== before ? ` → ${pathOf(url)}` : ""}`,
     });
     this.emitProgress();
     return result;
@@ -639,6 +663,8 @@ export class DiscoverySession {
       session: this.id,
       screens: this.screens,
       actions: this.actions,
+      budget: this.budget(),
+      message: `discovery ${this.id} closed · ${this.screens} screen(s), ${this.actions} action(s)`,
     });
   }
 

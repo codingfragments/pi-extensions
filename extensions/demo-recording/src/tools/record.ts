@@ -16,6 +16,7 @@ import { formatProgress } from "../recorder/progress.ts";
 import { type TakeResult, recordTake } from "../recorder/runner.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard } from "../storyboard/store.ts";
+import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { briefFieldValue } from "../workdir/brief.ts";
 import { appDir } from "../workdir/layout.ts";
 import { readState, requireSelected, setPhase } from "../workdir/state.ts";
@@ -155,10 +156,14 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
               rt.bus.publish(
                 "take.event",
                 {
+                  message: `${e.type}${e.mark ? ` @${e.mark}` : ""}${e.scene ? ` · ${e.scene}` : ""} · ${(e.t / 1000).toFixed(2)} s`,
                   type: e.type,
                   t: e.t,
                   ...(e.scene ? { scene: e.scene } : {}),
+                  ...(e.step !== undefined ? { step: e.step } : {}),
                   ...(e.mark ? { mark: e.mark } : {}),
+                  ...(e.box ? { box: e.box } : {}),
+                  ...(e.data ? { detail: e.data } : {}),
                 },
                 p.slug,
               ),
@@ -175,11 +180,26 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
           rt.bus.publish(
             "take.finished",
             {
-              job: j.id,
-              status: j.status,
+              ...jobFacts(j),
+              storyboard: version,
               message: j.result
-                ? `${j.result.takeId} recorded`
-                : `recording ${j.status}: ${j.error}`,
+                ? `${j.result.takeId} recorded · ${secs(j.result.durationMs)} · ${j.result.scenes.length} scene(s)${j.result.segments.length > 1 ? ` · ${j.result.segments.length - 1} resume(s)` : ""}`
+                : `recording ${j.status}: ${firstLine(j.error ?? "")}`,
+              ...(j.result
+                ? {
+                    take: j.result.takeId,
+                    lengthMs: j.result.durationMs,
+                    scenes: j.result.scenes.map((sc) => ({
+                      id: sc.id,
+                      title: sc.title,
+                      ms: sc.end - sc.start,
+                    })),
+                    resumes: j.result.segments
+                      .filter((g) => g.resumedAfter)
+                      .map((g) => g.resumedAfter),
+                    capture: j.result.capture,
+                  }
+                : {}),
             },
             p.slug,
           );
@@ -192,7 +212,13 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
       );
       rt.bus.publish(
         "take.started",
-        { job: job.id, version, message: `recording storyboard v${version}` },
+        {
+          job: job.id,
+          version,
+          url: p.app.baseUrl,
+          ...(params.headed ? { headed: true } : {}),
+          message: `recording storyboard v${version} on ${p.app.baseUrl}`,
+        },
         p.slug,
       );
       return result(

@@ -1,7 +1,3 @@
-// demo-recording side panel — the control room (S5 part 4): stage tabs
-// Storyboard · Recording · Voice over · Annotations · Render · Config, each
-// with a shared stage header, plus the collapsible Live panel. Preact + htm,
-// vendored, no build.
 import { html, render, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { Annotations } from "./annotations.js";
 import {
@@ -15,7 +11,13 @@ import {
   useCollapse,
 } from "./confidence.js";
 import { Settings } from "./config.js";
-import { Modal, api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
+import { api, media, post, screenUrl, token, useApi, useBus } from "./core.js";
+import { CostHint, confirmCost, setModels } from "./cost.js";
+// demo-recording side panel — the control room (S5 part 4): stage tabs
+// Storyboard · Recording · Voice over · Annotations · Render · Config, each
+// with a shared stage header, plus the collapsible Live panel. Preact + htm,
+// vendored, no build.
+import { askText, confirmAsk, errorToast } from "./dialog.js";
 import { LivePanel } from "./live.js";
 import { Project } from "./project.js";
 import { Recording } from "./recording.js";
@@ -259,7 +261,7 @@ function Review({ events, stages }) {
                 if (overall !== (data.review?.note ?? ""))
                   await post("/api/review-note", { version: data.version, note: overall });
                 await post("/api/review-submit", { version: data.version });
-              }, "review sent to the agent")}>Send review to agent</button>
+              }, "review sent to the agent")}>Send review to agent</button><${CostHint} />
           </div>
         </section>`
     }`;
@@ -437,57 +439,9 @@ function Direction({ data, onSent }) {
       <label class="check small-text"><input type="checkbox" checked=${save} onChange=${(e) => setSave(e.target.checked)} /> save as the project's default direction (brief)</label>
       <span class="grow"></span>
       ${err ? html`<span class="error small-text">${err}</span>` : null}
-      <button class="primary" disabled=${busy} onClick=${send}>Draft new version</button>
+      <button class="primary" disabled=${busy} onClick=${send}>Draft new version</button><${CostHint} />
     </div>
   </details>`;
-}
-
-/** D84: the estimate first (sections to synthesize vs cached, characters, credits, money), then TTS → edit → draft. */
-function GenerateModal({ version, onClose, onStarted }) {
-  const [plan, setPlan] = useState(null);
-  const [err, setErr] = useState(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    post("/api/vo-generate", { version })
-      .then(setPlan)
-      .catch((e) => setErr(e.message));
-  }, [version]);
-  const go = async () => {
-    setBusy(true);
-    try {
-      await post("/api/vo-generate", { version, confirm: true });
-      onStarted();
-    } catch (e) {
-      setErr(e.message);
-      setBusy(false);
-    }
-  };
-  const e = plan?.estimate;
-  const money = e && e.price > 0 ? `≈ ${e.currency}${e.cost.toFixed(2)}` : "free";
-  return html`<${Modal} title=${`Generate voice & render · VO v${version}`} onClose=${onClose}
-      actions=${html`<button class="primary" disabled=${busy || !e} onClick=${go}>Generate${e ? ` (${money})` : ""}</button>`}>
-    ${err ? html`<p class="error">${err}</p>` : null}
-    ${
-      !e
-        ? err
-          ? null
-          : html`<p class="muted">estimating (checks the engine, no synthesis)…</p>`
-        : html`<div class="estimate">
-          <p><b>${e.engine}</b> “${e.voice.name}”${e.model ? html` <span class="muted">· ${e.model}</span>` : null}</p>
-          <dl class="kv">
-            <dt>Sections</dt><dd><b>${e.toSynthesize}</b> to synthesize · ${e.cached} cached (free)</dd>
-            <dt>Characters</dt><dd>${e.chars.toLocaleString()}</dd>
-            ${e.credits !== null ? html`<dt>Credits</dt><dd>≈ ${e.credits.toLocaleString()}${e.model && /flash|turbo/i.test(e.model) ? " (0.5 per character)" : ""}</dd>` : null}
-            <dt>Cost</dt><dd>${e.price > 0 ? html`${money} <span class="muted small-text">at ${e.currency}${e.price} ${e.priceUnit} — tts.pricePer1kChars in ⚙ Config</span>` : "free"}</dd>
-          </dl>
-          <details class="small-text"><summary>per section</summary>
-            <table class="est-table"><tbody>${e.sections.map((x) => html`<tr><td class="mono">${x.key}</td><td>${x.chars} chars</td><td>${x.cached ? html`<span class="muted">cached</span>` : "synthesize"}</td></tr>`)}</tbody></table>
-          </details>
-          ${e.skipped.length ? html`<p class="muted small-text">skipped engines: ${e.skipped.map((x) => `${x.engine} (${x.reason})`).join("; ")}</p>` : null}
-          <p class="muted small-text">Then the sync edit and a draft render run as engine jobs (no agent turn); the agent gets the edit report.</p>
-        </div>`
-    }
-  </${Modal}>`;
 }
 
 function Voice({ events, stages }) {
@@ -496,7 +450,6 @@ function Voice({ events, stages }) {
   const [showChanges, setShowChanges] = useState(true);
   const [riskFirst, setRiskFirst] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
-  const [generateOpen, setGenerateOpen] = useState(false);
   const fold = useCollapse();
   const input = stageOf(stages, "vo")?.input;
   useEffect(() => setVersion(null), [input]);
@@ -543,6 +496,17 @@ function Voice({ events, stages }) {
       setTimeout(() => setFlash(null), 5000);
     }
   };
+  /** D84, D91: the cost first (a dialog that never skips), then TTS → edit → draft as engine jobs. */
+  const generate = async () => {
+    try {
+      if (!(await confirmCost("vo-generate", { version: data.version }))) return;
+      await post("/api/vo-generate", { version: data.version, confirm: true });
+      setFlash("voice synthesis started — then the edit and a draft render (progress in Live)");
+      setTimeout(() => setFlash(null), 6000);
+    } catch (e) {
+      errorToast(e);
+    }
+  };
   const onReview = (scene, status, note) =>
     run(() => post("/api/review", { artifact: "vo", version: data.version, scene, status, note }));
   const onEdit = (section, text) =>
@@ -569,7 +533,7 @@ function Voice({ events, stages }) {
         </select>
         <${VersionActions} stages=${stages} stage="vo" version=${data.version} disabled=${hasErrors} disabledWhy=${hasErrors ? "fix the errors first" : ""}
           unlocks="Voice synthesis is unlocked for it (uses TTS credits)." onDone=${reload} />
-        ${data.canGenerate ? html`<button class="primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${() => setGenerateOpen(true)}>Generate voice & render…</button>` : null}
+        ${data.canGenerate ? html`<button class="primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${generate}>Generate voice & render…</button>` : null}
       </div>
       ${
         data.base !== null && data.base !== undefined
@@ -637,17 +601,6 @@ function Voice({ events, stages }) {
         : null
     }
     ${
-      generateOpen
-        ? html`<${GenerateModal} version=${data.version} onClose=${() => setGenerateOpen(false)} onStarted=${() => {
-            setGenerateOpen(false);
-            setFlash(
-              "voice synthesis started — then the edit and a draft render (progress in Live)",
-            );
-            setTimeout(() => setFlash(null), 6000);
-          }} />`
-        : null
-    }
-    ${
       readOnly
         ? null
         : html`<section class="card review-foot">
@@ -666,7 +619,7 @@ function Voice({ events, stages }) {
                     note: overall,
                   });
                 await post("/api/review-submit", { artifact: "vo", version: data.version });
-              }, "review sent to the agent")}>Send review to agent</button>
+              }, "review sent to the agent")}>Send review to agent</button><${CostHint} />
           </div>
         </section>`
     }`;
@@ -863,12 +816,13 @@ function Brand({ events }) {
   const save = () =>
     run(async () => {
       const plan = await post("/api/brand-save", { name: selected, patch });
-      if (
-        !confirm(
-          `Save brand "${selected}"?\n\n${plan.diff}${plan.warnings?.length ? `\n\nwarnings:\n- ${plan.warnings.join("\n- ")}` : ""}`,
-        )
-      )
-        return;
+      const ok = await confirmAsk({
+        title: `Save brand "${selected}"?`,
+        diff: plan.diff,
+        warnings: plan.warnings,
+        confirmLabel: "Save",
+      });
+      if (!ok) return;
       await post("/api/brand-save", { name: selected, patch, confirm: true });
       setPatch({});
       say(`saved ${selected}`);
@@ -876,7 +830,16 @@ function Brand({ events }) {
     });
   const duplicate = () =>
     run(async () => {
-      const to = prompt("Name for the copy (lowercase, digits, dashes):", `${selected}-custom`);
+      const to = await askText({
+        title: `Copy brand "${selected}"`,
+        input: {
+          label: "Name for the copy",
+          hint: "lowercase, digits, dashes",
+          value: `${selected}-custom`,
+          required: true,
+        },
+        confirmLabel: "Create copy",
+      });
       if (!to) return;
       await post("/api/brand-duplicate", { name: selected, to });
       if (dirty) await post("/api/brand-save", { name: to, patch, confirm: true });
@@ -887,12 +850,15 @@ function Brand({ events }) {
   const makeDefault = (scope) =>
     run(async () => {
       const plan = await post("/api/brand-use", { name: selected, scope });
-      if (
-        !confirm(
-          `Set the default brand (${scope})?\n\n${plan.diff}${plan.shadowedBy ? `\n\n⚠ overridden by ${plan.shadowedBy}` : ""}`,
-        )
-      )
-        return;
+      const ok = await confirmAsk({
+        title: `Set the default brand (${scope})?`,
+        diff: plan.diff,
+        warnings: plan.shadowedBy
+          ? [`Overridden by ${plan.shadowedBy}, so it has no effect right now.`]
+          : [],
+        confirmLabel: "Set default",
+      });
+      if (!ok) return;
       await post("/api/brand-use", { name: selected, scope, confirm: true });
       say(`default brand: ${selected}`);
       reload();
@@ -986,6 +952,7 @@ function App() {
   };
   const { events, status } = useBus();
   const { data: state, error: stateError } = useApi("/api/state", events, /./);
+  setModels(state?.models);
   const { data: stages } = useStages(events);
   // Jump to the stage where something new arrived.
   const lastWrite = events.filter((e) => e.type === "storyboard.written").at(-1)?.seq;

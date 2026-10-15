@@ -1,10 +1,11 @@
+import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { post, useApi } from "./core.js";
 // demo-recording panel — ⚙ Config → Settings (S5 part 5b, D41/D48): every
 // setting grouped with its effective value, source and per-layer values;
 // edits are global or for this project only, always through a diff
 // confirmation (same two-phase write as demo_rec_config). The raw files are
 // shown read-only; API keys only as "set / not set".
-import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
-import { post, useApi } from "./core.js";
+import { confirmAsk, errorToast } from "./dialog.js";
 
 const CONFIG_EVENTS = /^(config|project|brand)\./;
 
@@ -76,20 +77,21 @@ function SettingRow({ s, scope, project, onSaved }) {
     setBusy(true);
     try {
       const plan = await post("/api/config-set", { key: s.key, scope, ...body });
-      const shadow = plan.shadowedBy
-        ? `\n\n⚠ This change has no effect right now: it is overridden by ${plan.shadowedBy}.`
-        : "";
-      if (
-        !confirm(
-          `${what} ${s.key} (${scope === "project" ? `project ${project}` : "global"})?\n\n${plan.file}\n${plan.diff}${shadow}`,
-        )
-      )
-        return;
+      const ok = await confirmAsk({
+        title: `${what} ${s.key}?`,
+        text: `${scope === "project" ? `Project ${project}` : "Global"} · ${plan.file}`,
+        diff: plan.diff,
+        warnings: plan.shadowedBy
+          ? [`This change has no effect right now: it is overridden by ${plan.shadowedBy}.`]
+          : [],
+        confirmLabel: "Save",
+      });
+      if (!ok) return;
       await post("/api/config-set", { key: s.key, scope, ...body, confirm: true });
       setDraft(undefined);
       onSaved(`${s.key} saved (${scope})`);
     } catch (e) {
-      alert(`${s.key}: ${e.message}`);
+      errorToast(e, s.key);
     } finally {
       setBusy(false);
     }
@@ -137,7 +139,7 @@ export function Settings({ events }) {
       const r = await post("/api/config-open", { scope: sc });
       say(r.opened ? `opened ${r.file}` : `open it yourself: ${r.file}`);
     } catch (e) {
-      alert(e.message);
+      errorToast(e);
     }
   };
   const reloadFiles = async () => {

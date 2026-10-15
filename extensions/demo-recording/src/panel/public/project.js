@@ -1,10 +1,11 @@
+import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
+import { media, post, useApi } from "./core.js";
 // demo-recording panel — Project tab (S5 part 5a, D48): the first step.
 // Facts (brief fields as a form, saved as a new brief version after a diff),
 // Findings (auto / use / ignore, with evidence) and Memory (brief history,
 // input log with mark outdated / restore, sources, working line).
 // Tool configuration — also project-scope overrides — lives in ⚙ Config.
-import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
-import { media, post, useApi } from "./core.js";
+import { askText, confirmAsk, errorToast } from "./dialog.js";
 
 const PROJECT_EVENTS =
   /^(brief|input|finding|project|stage|line|storyboard|take|vo|edit|discovery)\./;
@@ -148,8 +149,13 @@ function Facts({ events }) {
     try {
       const plan = await post("/api/project-facts", { patch });
       if (plan.unchanged) return setFlash("nothing changed");
-      if (!confirm(`Save the project facts? This writes a new brief version:\n\n${plan.diff}`))
-        return;
+      const ok = await confirmAsk({
+        title: "Save the project facts?",
+        text: "This writes a new brief version.",
+        diff: plan.diff,
+        confirmLabel: "Save facts",
+      });
+      if (!ok) return;
       const r = await post("/api/project-facts", { patch, confirm: true });
       setFlash(`saved as brief v${r.version}`);
       setPatch({});
@@ -283,7 +289,7 @@ function Findings({ events }) {
       await post("/api/finding-mark", { id: f.id, state: s });
       reload();
     } catch (e) {
-      alert(e.message);
+      errorToast(e);
     }
   };
   return html`<section class="card">
@@ -332,13 +338,18 @@ function Memory({ events }) {
   const toggle = async (i) => {
     const reason = i.outdated
       ? ""
-      : prompt(`Mark ${i.id} outdated — why? (the agent will ignore it)`, "");
+      : await askText({
+          title: `Mark ${i.id} outdated`,
+          text: "The agent will ignore it from now on.",
+          input: { label: "Why?", required: true, multiline: true },
+          confirmLabel: "Mark outdated",
+        });
     if (!i.outdated && !reason) return;
     try {
       await post("/api/input-mark", { id: i.id, outdated: !i.outdated, reason });
       reload();
     } catch (e) {
-      alert(e.message);
+      errorToast(e);
     }
   };
   const b = brief.data;

@@ -6,6 +6,8 @@ import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 // draft with every enabled annotation.
 import { ConfBadge, ConfReasons, NeedsEyes, byRisk, confOf, itemDomId } from "./confidence.js";
 import { media, post, useApi } from "./core.js";
+import { CostHint, confirmCost, getModels } from "./cost.js";
+import { confirmAsk } from "./dialog.js";
 import { StageHeader, VersionActions } from "./stages.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
@@ -274,6 +276,13 @@ function Resuggest({ data, onDone }) {
   const go = async () => {
     setBusy(true);
     try {
+      if (
+        !(await confirmCost("annotations-resuggest", {
+          version: has ? data.version : null,
+          instructions: text,
+        }))
+      )
+        return;
       await post("/api/annotations-resuggest", {
         version: has ? data.version : null,
         instructions: text,
@@ -298,6 +307,7 @@ function Resuggest({ data, onDone }) {
     <div class="row">
       <button class="primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "accept a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
       <span class="muted small-text">${has ? "Keeps every item you added, edited or toggled; regenerates the rest." : data.autoSuggest ? "Auto-suggest is on: this also starts by itself after each sync edit." : "Auto-suggest is off (Config → Settings → Annotations)."}</span>
+      <${CostHint} what=${getModels()?.designer ? "a separate designer call" : "starts the Director"} model=${getModels()?.designer ? getModels().designer[0] : undefined} />
       ${flash ? html`<span class="flash">${flash}</span>` : null}
     </div>
     <div class="row small-text">
@@ -344,7 +354,13 @@ export function Annotations({ events, stages }) {
     }
   };
   const discard = async () => {
-    if (!confirm(`Discard ${d.draft.changes} unsaved change(s)?`)) return;
+    const ok = await confirmAsk({
+      title: "Discard unsaved changes?",
+      text: `${d.draft.changes} unsaved change(s) on v${d.draft.base} will be lost.`,
+      confirmLabel: "Discard",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       setView(await post("/api/annotations-discard", {}));
     } catch (e) {

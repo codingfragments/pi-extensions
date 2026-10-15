@@ -41,6 +41,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     rt.bindModels((ctx as { modelRegistry?: unknown }).modelRegistry);
+    rt.bindSessionModel((ctx as { model?: unknown }).model);
     // Restore the active project from the session's custom entries.
     let active: string | undefined;
     for (const entry of ctx.sessionManager.getEntries()) {
@@ -52,6 +53,10 @@ export default function (pi: ExtensionAPI) {
       rt.setActiveProject(active);
       rt.primeContext();
     }
+  });
+
+  pi.on("model_select", async (event, ctx) => {
+    rt.bindSessionModel((event as { model?: unknown }).model ?? (ctx as { model?: unknown }).model);
   });
 
   pi.on("session_shutdown", async () => {

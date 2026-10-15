@@ -14,13 +14,15 @@ import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
 import { voiceFit } from "./edit/pipeline.ts";
 import { Jobs } from "./jobs.ts";
+import type { RegistryLike } from "./models.ts";
 import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
+import { costRoutes } from "./panel/cost.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
 import { renderRoutes } from "./panel/render-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
-import { type PanelHandle, startPanel } from "./panel/server.ts";
+import { type GetRoute, type PanelHandle, type PostRoute, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
@@ -161,9 +163,21 @@ export class Runtime {
   /** pi's model access (for separate role runs, S5 part 12), remembered from the session. */
   modelAccess: ModelAccess | undefined;
 
+  /** pi's registry itself (for credential checks in cost estimates and the doctor). */
+  registry: RegistryLike | undefined;
+  /** The session model ("provider/id") the Director runs on — shown in the panel's cost hints. */
+  sessionModel: string | undefined;
+
   bindModels(registry: unknown): void {
-    if (registry && typeof (registry as { complete?: unknown }).complete === "function")
+    if (registry && typeof (registry as { complete?: unknown }).complete === "function") {
       this.modelAccess = modelAccessFrom(registry as Parameters<typeof modelAccessFrom>[0]);
+      this.registry = registry as RegistryLike;
+    }
+  }
+
+  bindSessionModel(model: unknown): void {
+    const m = model as { provider?: string; id?: string } | undefined;
+    if (m?.provider && m.id) this.sessionModel = `${m.provider}/${m.id}`;
   }
 
   /** Remember the latest UI context (for footer status from background jobs). */
@@ -251,6 +265,11 @@ export class Runtime {
     const p = this.activeProject();
     return {
       root: cfg.root,
+      models: {
+        session: this.sessionModel ?? null,
+        operator: cfg.improvise.models,
+        designer: cfg.roles.annotationDesigner?.model ?? null,
+      },
       config: {
         viewport: cfg.viewport,
         fps: cfg.fps,
@@ -276,82 +295,93 @@ export class Runtime {
     };
   }
 
+  /** Every route the panel serves (also used by the cost-class test and the estimate route). */
+  routeTables(): { get: Record<string, GetRoute>; post: Record<string, PostRoute> } {
+    const routes = panelRoutes({
+      bus: this.bus,
+      activeProject: () => this.activeProject(),
+      discovery: () =>
+        this.discovery && !this.discovery.isClosed
+          ? { id: this.discovery.id, dir: this.discovery.dir, budget: this.discovery.budget() }
+          : undefined,
+      notifyAgent: (text) => this.notifyAgent(text),
+      audio: (version) => {
+        const p = this.activeProject();
+        const m = p ? readManifest(p.dir, version) : undefined;
+        return m
+          ? Object.fromEntries(Object.values(m.sections).map((sec) => [sec.key, sec.file]))
+          : null;
+      },
+      fit: (version) => {
+        const p = this.activeProject();
+        try {
+          return p ? (voiceFit(p.dir, version, this.getConfig()) ?? null) : null;
+        } catch {
+          return null;
+        }
+      },
+    });
+    const brand = brandRoutes(this);
+    const stages = stageRoutes({
+      activeProject: () => this.activeProject(),
+      notifyAgent: (text) => this.notifyAgent(text),
+      tellAgent: (text) => this.tellAgent(text),
+      publish: (type, data, project) => this.bus.publish(type, data, project),
+    });
+    const project = projectRoutes({
+      activeProject: () => this.activeProject(),
+      publish: (type, data, slug) => this.bus.publish(type, data, slug),
+      tellAgent: (text) => this.tellAgent(text),
+    });
+    const annotations = annotationRoutes({
+      activeProject: () => this.activeProject(),
+      getConfig: () => this.getConfig(),
+      notifyAgent: (text) => this.notifyAgent(text),
+      publish: (type, data, slug) => this.bus.publish(type, data, slug),
+      designer: (o) => !!startDesigner(this, { ...o, trigger: "panel" }).job,
+    });
+    const renders = renderRoutes(this);
+    const voice = voiceRoutes(this);
+    const config = configRoutes({
+      activeProject: () => this.activeProject(),
+      reloadConfig: () => this.getConfig(true),
+      publish: (type, data, slug) => this.bus.publish(type, data, slug),
+    });
+    const cost = costRoutes(this);
+    return {
+      get: {
+        ...routes.get,
+        ...brand.get,
+        ...stages.get,
+        ...project.get,
+        ...config.get,
+        ...annotations.get,
+        ...renders.get,
+      },
+      post: {
+        ...routes.post,
+        ...brand.post,
+        ...stages.post,
+        ...project.post,
+        ...config.post,
+        ...annotations.post,
+        ...renders.post,
+        ...voice.post,
+        ...cost.post,
+      },
+    };
+  }
+
   async ensurePanel(): Promise<PanelHandle> {
     if (this.panel) return this.panel;
     if (!this.panelStarting) {
-      const routes = panelRoutes({
-        bus: this.bus,
-        activeProject: () => this.activeProject(),
-        discovery: () =>
-          this.discovery && !this.discovery.isClosed
-            ? { id: this.discovery.id, dir: this.discovery.dir, budget: this.discovery.budget() }
-            : undefined,
-        notifyAgent: (text) => this.notifyAgent(text),
-        audio: (version) => {
-          const p = this.activeProject();
-          const m = p ? readManifest(p.dir, version) : undefined;
-          return m
-            ? Object.fromEntries(Object.values(m.sections).map((sec) => [sec.key, sec.file]))
-            : null;
-        },
-        fit: (version) => {
-          const p = this.activeProject();
-          try {
-            return p ? (voiceFit(p.dir, version, this.getConfig()) ?? null) : null;
-          } catch {
-            return null;
-          }
-        },
-      });
-      const brand = brandRoutes(this);
-      const stages = stageRoutes({
-        activeProject: () => this.activeProject(),
-        notifyAgent: (text) => this.notifyAgent(text),
-        tellAgent: (text) => this.tellAgent(text),
-        publish: (type, data, project) => this.bus.publish(type, data, project),
-      });
-      const project = projectRoutes({
-        activeProject: () => this.activeProject(),
-        publish: (type, data, slug) => this.bus.publish(type, data, slug),
-        tellAgent: (text) => this.tellAgent(text),
-      });
-      const annotations = annotationRoutes({
-        activeProject: () => this.activeProject(),
-        getConfig: () => this.getConfig(),
-        notifyAgent: (text) => this.notifyAgent(text),
-        publish: (type, data, slug) => this.bus.publish(type, data, slug),
-        designer: (o) => !!startDesigner(this, { ...o, trigger: "panel" }).job,
-      });
-      const renders = renderRoutes(this);
-      const voice = voiceRoutes(this);
-      const config = configRoutes({
-        activeProject: () => this.activeProject(),
-        reloadConfig: () => this.getConfig(true),
-        publish: (type, data, slug) => this.bus.publish(type, data, slug),
-      });
+      const tables = this.routeTables();
       this.panelStarting = startPanel({
         bus: this.bus,
         port: this.getConfig().panelPort,
         getState: () => this.snapshot(),
-        get: {
-          ...routes.get,
-          ...brand.get,
-          ...stages.get,
-          ...project.get,
-          ...config.get,
-          ...annotations.get,
-          ...renders.get,
-        },
-        post: {
-          ...routes.post,
-          ...brand.post,
-          ...stages.post,
-          ...project.post,
-          ...config.post,
-          ...annotations.post,
-          ...renders.post,
-          ...voice.post,
-        },
+        get: tables.get,
+        post: tables.post,
         media: () => {
           const root = this.getConfig().root;
           const p = this.activeProject();

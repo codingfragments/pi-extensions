@@ -293,6 +293,14 @@ per-session **token**. It has three kinds of traffic:
 | `reportToAgent` | a custom message `[demo-recording] …` | yes | the result of an engine job (take, edit, render) |
 | `tellAgent` | a note for the next turn | **no** | "voice generation started from the panel", a working-line change, a designer result |
 
+- **Cost classes and the estimate route.** Every route is classed by what it may
+  start: nothing, a local job, an agent turn, TTS, a take, or a separate
+  designer run (`src/panel/cost.ts`; a test fails for an unclassified route).
+  `POST /api/estimate` is a free dry run of those, with exact numbers where they
+  are known. The panel **asks first** only for money and long jobs (voice, a
+  new take, a designer run); a turn gets a visible hint. Decisions are in-panel
+  dialogs, errors are toasts (`public/dialog.js`).
+
 **Why quiet notes exist:** the Director should know everything that happened,
 but a turn costs tokens and time. If nothing is needed from it, it gets a note
 and reads it with its next turn.

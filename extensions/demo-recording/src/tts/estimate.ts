@@ -10,8 +10,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DemoRecConfig } from "../config.ts";
+import type { Runtime } from "../runtime.ts";
 import type { VoSection } from "../vo/script.ts";
+import { readVo } from "../vo/store.ts";
+import { readState, requireSelected } from "../workdir/state.ts";
 import type { TtsEngine } from "./engines.ts";
+import { buildEngines } from "./factory.ts";
 import { audioDir, cacheKey, modelFromIdentity, selectEngine } from "./synthesize.ts";
 
 export interface TtsEstimate {
@@ -95,4 +99,33 @@ export function formatEstimate(e: TtsEstimate): string {
     `${e.chars.toLocaleString("en-US")} characters${e.credits !== null ? ` · ≈ ${e.credits.toLocaleString("en-US")} credits` : ""}` +
     `${e.price > 0 ? ` · ≈ ${e.currency}${e.cost.toFixed(2)} (at ${e.currency}${e.price} ${e.priceUnit})` : " · free"}`
   );
+}
+
+const briefText = (dir: string) =>
+  fs.existsSync(path.join(dir, "brief.md"))
+    ? fs.readFileSync(path.join(dir, "brief.md"), "utf8")
+    : "";
+
+/**
+ * The gate and the free estimate of "Generate voice & render" (D84): the voice-over must be
+ * accepted, usable and on the working line. Used by the route and by `POST /api/estimate` (D94).
+ */
+export async function voiceEstimate(rt: Runtime, version: number) {
+  const p = rt.requireProject();
+  const state = readState(p.dir) ?? p.state;
+  requireSelected(p.dir, state, "vo", version);
+  if (state.line.vo !== version)
+    throw new Error(
+      `voice-over v${version} is not on the working line (v${state.line.vo ?? "none"}) — switch to it first`,
+    );
+  const vo = readVo(p.dir, version);
+  if (!vo) throw new Error(`voice-over v${version} is missing on disk`);
+  const cfg = rt.getConfig(true);
+  const estimate = await estimateTts(
+    p.dir,
+    vo.validated.resolved,
+    buildEngines(cfg, { brief: briefText(p.dir) }),
+    cfg,
+  );
+  return { estimate, vo, project: p };
 }

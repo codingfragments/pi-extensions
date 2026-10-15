@@ -13,6 +13,7 @@ import { voiceFit } from "../edit/pipeline.ts";
 import type { Job } from "../jobs.ts";
 import type { Runtime } from "../runtime.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
+import { formatEstimate, voiceEstimate } from "../tts/estimate.ts";
 import { briefVoice, buildEngines } from "../tts/factory.ts";
 import { type VoiceManifest, readManifest, renderVoice, selectEngine } from "../tts/synthesize.ts";
 import { firstLine, jobFacts } from "../util/events.ts";
@@ -121,6 +122,18 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
         lines.push(
           pick ? `→ would use ${pick.engine.id} (${pick.health.reason})` : "→ no engine available",
         );
+        // D97: the cost, before anything is spent — for the working line's accepted voice-over.
+        try {
+          const line = rt.activeProject()
+            ? (readState(rt.activeProject()?.dir ?? "")?.line.vo ?? undefined)
+            : undefined;
+          if (line !== undefined) {
+            const { estimate } = await voiceEstimate(rt, line);
+            lines.push(`cost of voice-over v${line}: ${formatEstimate(estimate)}`);
+          }
+        } catch {
+          // no accepted voice-over on the working line yet: nothing to estimate
+        }
         return result(lines.join("\n"));
       }
 

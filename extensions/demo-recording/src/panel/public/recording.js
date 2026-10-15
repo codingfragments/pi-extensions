@@ -1,8 +1,10 @@
+import { html, useState } from "/vendor/preact-htm.module.js";
+import { media, mmss, post, useApi } from "./core.js";
 // demo-recording panel — Recording tab (S5 part 4, D44–D46): pick an accepted
 // storyboard (the input), see its takes, accept several, put one on the
 // working line, and ask for a new take of that storyboard.
-import { html, useState } from "/vendor/preact-htm.module.js";
-import { media, mmss, post, useApi } from "./core.js";
+import { confirmCost } from "./cost.js";
+import { errorToast } from "./dialog.js";
 import { StageHeader, VersionActions, stageOf } from "./stages.js";
 
 function TakeCard({ t, stages, reload }) {
@@ -51,11 +53,12 @@ export function Recording({ events, stages }) {
   const request = async () => {
     setBusy(true);
     try {
+      if (!(await confirmCost("rerecord", { storyboard: data.storyboard }))) return;
       await post("/api/rerecord", { storyboard: data.storyboard, note });
       setNote("");
       setFlash(`new take of storyboard v${data.storyboard} requested — the agent records it`);
     } catch (e) {
-      setFlash(`⚠ ${e.message}`);
+      errorToast(e);
     } finally {
       setBusy(false);
       setTimeout(() => setFlash(null), 6000);

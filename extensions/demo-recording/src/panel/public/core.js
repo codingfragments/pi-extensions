@@ -1,5 +1,13 @@
 // demo-recording panel — shared helpers (token, API, bus, media, small components).
-import { html, useCallback, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import {
+  html,
+  render,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "/vendor/preact-htm.module.js";
 
 // The token arrives once via ?token=; keep it in sessionStorage (this tab only)
 // so reloads keep working, and strip it from the visible URL / history.
@@ -117,4 +125,71 @@ export function SegmentBar({ segments }) {
       </div>`,
     )}
   </div>`;
+}
+
+/**
+ * A popup over the panel: × / Esc / a click outside closes it. `size`
+ * "large" = 80 % of the window (width and height), "medium" = a dialog.
+ * Popups stack (a line opened from the full log sits on top of it).
+ */
+export function Modal(props) {
+  // Rendered into its own element on <body>: the Live panel is a CSS container
+  // (container-type), which would trap a position:fixed popup inside it.
+  const host = useRef(null);
+  if (!host.current) {
+    host.current = document.createElement("div");
+    document.body.appendChild(host.current);
+  }
+  useEffect(
+    () => () => {
+      render(null, host.current);
+      host.current.remove();
+    },
+    [],
+  );
+  useEffect(() => {
+    render(html`<${ModalBox} ...${props} />`, host.current);
+  });
+  return null;
+}
+
+function ModalBox({ title, onClose, size = "medium", actions, children }) {
+  const box = useRef(null);
+  // A layout effect: this root is rendered from inside another component's effect,
+  // where Preact's deferred (after-paint) effects of the new root never run.
+  useLayoutEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      // only the top-most popup closes
+      const all = document.querySelectorAll(".modal-backdrop");
+      if (all[all.length - 1] === box.current?.parentElement) {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    box.current?.focus();
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return html`<div class="modal-backdrop" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+    <div class=${`modal ${size}`} role="dialog" aria-modal="true" aria-label=${title} tabindex="-1" ref=${box}>
+      <header class="modal-head">
+        <h2>${title}</h2>
+        <span class="grow"></span>
+        ${actions ?? null}
+        <button class="ghost modal-close" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
+      </header>
+      <div class="modal-body">${children}</div>
+    </div>
+  </div>`;
+}
+
+/** Copy text to the clipboard; returns true on success. */
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }

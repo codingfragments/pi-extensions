@@ -3,7 +3,7 @@
 // running activity, a frame preview, safety, project summary and the log.
 // Collapsed it is a one-line strip: stage · activity / waiting-for · progress.
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { SegmentBar, api, media, mmss, summarize } from "./core.js";
+import { Modal, SegmentBar, api, copyText, media, mmss, summarize } from "./core.js";
 
 const last = (events, types) => events.filter((e) => types.includes(e.type)).at(-1);
 
@@ -223,23 +223,94 @@ function Project({ state, stages }) {
   </dl>`;
 }
 
-function Log({ events }) {
+const logClass = (e) => (e.type.startsWith("safety.") ? e.type.replace(".", "-") : "");
+
+/** The log list (side panel and full log): click a line for the whole event. */
+function LogList({ events, onPick, follow = true, className = "log" }) {
   const ref = useRef(null);
+  const onKey = (k, e) => {
+    if (k.key !== "Enter" && k.key !== " ") return;
+    k.preventDefault();
+    onPick(e);
+  };
   useEffect(() => {
     const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [events.length]);
-  return html`<ol class="log" ref=${ref}>
-    ${events.slice(-300).map(
+    if (el && follow) el.scrollTop = el.scrollHeight;
+  }, [events.length, follow]);
+  return html`<ol class=${className} ref=${ref}>
+    ${events.map(
       (
         e,
-      ) => html`<li key=${e.seq} class=${e.type.startsWith("safety.") ? e.type.replace(".", "-") : ""}>
+      ) => html`<li key=${e.seq} class=${`log-line ${logClass(e)}`} tabindex="0" title="click for the whole event"
+        onClick=${() => onPick(e)} onKeyDown=${(k) => onKey(k, e)}>
         <time>${new Date(e.at).toLocaleTimeString()}</time>
         <span class="type">${e.type}</span>
         ${e.data ? html`<span class="data">${summarize(e.data)}</span>` : null}
       </li>`,
     )}
   </ol>`;
+}
+
+const eventText = (e) =>
+  `${e.at}  #${e.seq}  ${e.type}${e.project ? `  [${e.project}]` : ""}${e.data ? `\n${JSON.stringify(e.data, null, 2)}` : ""}`;
+
+/** One event, whole: time, type, project, message and all of its data. */
+function LogLineModal({ e, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    setCopied(await copyText(eventText(e)));
+    setTimeout(() => setCopied(false), 1500);
+  };
+  const msg = typeof e.data?.message === "string" ? e.data.message : null;
+  return html`<${Modal} title=${e.type} onClose=${onClose}
+      actions=${html`<button class="ghost" onClick=${copy}>${copied ? "copied ✓" : "Copy"}</button>`}>
+    <dl class="kv log-detail">
+      <dt>Time</dt><dd class="mono">${new Date(e.at).toLocaleString()} <span class="muted">(${e.at})</span></dd>
+      <dt>Event</dt><dd class="mono">#${e.seq} · ${e.type}</dd>
+      ${e.project ? html`<dt>Project</dt><dd>${e.project}</dd>` : null}
+      ${msg ? html`<dt>Message</dt><dd class="log-msg">${msg}</dd>` : null}
+    </dl>
+    ${e.data ? html`<h3 class="small-text muted">Data</h3><pre class="log-json">${JSON.stringify(e.data, null, 2)}</pre>` : html`<p class="muted">No data.</p>`}
+  </${Modal}>`;
+}
+
+/** The whole log in a large popup: filter by text and type, follow the newest. */
+function FullLogModal({ events, onClose, onPick }) {
+  const [q, setQ] = useState("");
+  const [prefix, setPrefix] = useState("");
+  const [follow, setFollow] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const prefixes = [...new Set(events.map((e) => e.type.split(".")[0]))].sort();
+  const needle = q.trim().toLowerCase();
+  const shown = events.filter(
+    (e) =>
+      (!prefix || e.type.startsWith(`${prefix}.`)) &&
+      (!needle ||
+        `${e.type} ${e.project ?? ""} ${JSON.stringify(e.data ?? {})}`
+          .toLowerCase()
+          .includes(needle)),
+  );
+  const copy = async () => {
+    setCopied(await copyText(shown.map(eventText).join("\n\n")));
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return html`<${Modal} title=${`Log · ${shown.length}${shown.length !== events.length ? ` of ${events.length}` : ""} events`} size="large" onClose=${onClose}
+      actions=${html`<button class="ghost" onClick=${copy} title="copy the shown events">${copied ? "copied ✓" : "Copy"}</button>`}>
+    <div class="row log-filters">
+      <input class="note" type="search" placeholder="filter: text, type, project …" value=${q} onInput=${(e) => setQ(e.target.value)} aria-label="filter the log" />
+      <select value=${prefix} onChange=${(e) => setPrefix(e.target.value)} aria-label="event type">
+        <option value="">all types</option>
+        ${prefixes.map((p) => html`<option value=${p}>${p}.*</option>`)}
+      </select>
+      <label class="check small-text"><input type="checkbox" checked=${follow} onChange=${(e) => setFollow(e.target.checked)} /> follow newest</label>
+      <span class="muted small-text">click a line for the whole event</span>
+    </div>
+    <${LogList} events=${shown} onPick=${onPick} follow=${follow} className="log log-full" />
+  </${Modal}>`;
+}
+
+function Log({ events, onPick }) {
+  return html`<${LogList} events=${events.slice(-300)} onPick=${onPick} />`;
 }
 
 export const LIVE_SECTIONS = [
@@ -301,6 +372,8 @@ export function liveSummary(rows, stages) {
 export function LivePanel({ events, state, stages, tab, open, setOpen, status }) {
   const rows = activityRows(events);
   const [sections, toggle] = useSections(tab);
+  const [fullLog, setFullLog] = useState(false);
+  const [line, setLine] = useState(null);
   const sum = liveSummary(rows, stages);
   const recording = rows.some((r) => r.key === "take" && r.state === "running");
   const stageLabel = stages?.next?.stage
@@ -332,6 +405,8 @@ export function LivePanel({ events, state, stages, tab, open, setOpen, status })
     ${show("preview") ? html`<section class="live-sec"><h3>Preview</h3><${FramePreview} events=${events} recording=${recording} /></section>` : null}
     ${show("safety") ? html`<section class="live-sec"><h3>Safety</h3><${Safety} events=${events} /></section>` : null}
     ${show("project") ? html`<section class="live-sec"><h3>Project</h3><${Project} state=${state} stages=${stages} /></section>` : null}
-    ${show("log") ? html`<section class="live-sec grow"><h3>Log</h3><${Log} events=${events} /></section>` : null}
+    ${show("log") ? html`<section class="live-sec grow"><h3><button class="ghost log-head" title="open the full log (80 % of the window)" onClick=${() => setFullLog(true)}>Log <span aria-hidden="true">⤢</span></button></h3><${Log} events=${events} onPick=${setLine} /></section>` : null}
+    ${fullLog ? html`<${FullLogModal} events=${events} onClose=${() => setFullLog(false)} onPick=${setLine} />` : null}
+    ${line ? html`<${LogLineModal} e=${line} onClose=${() => setLine(null)} />` : null}
   </aside>`;
 }

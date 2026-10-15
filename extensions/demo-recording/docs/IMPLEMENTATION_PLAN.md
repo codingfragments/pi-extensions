@@ -881,23 +881,57 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - `annotations-scene-draft {scene}`;
   - accept through the stage routes.
 
-*9. Render stage (D27, D38)*
-- **Render versions** `render/vN.json`: `{ basedOn: { annotations: N }, kind: draft|final, brand, variants: { subtitles, callouts, logoBug }, outputs, qa }`.
-- **Draft vs final:**
-  - **Draft** works from any annotation version (watermarked "DRAFT", 960×540, fast preset), for a look at the whole thing.
-  - **Final** needs approved annotations and a passing QA gate (part 10), or explicit per-item "confirm & export anyway".
-- **Variants:**
-  - the brand dropdown per render (brands are presentation only and never touch approvals);
-  - subtitles: VTT sidecars always (full and per scene, from word timings); burned-in optional, and when enabled every video exists in both versions;
-  - toggles for callouts and the logo bug;
-  - variant cache key = timeline + annotations + brand + variant options; only missing variants render.
+*9. Render stage (D27, D38, D59–D68)* — planned (grill after part 8)
+- **Render versions** `render/vN.json`, never overwritten:
+  ```json
+  { "version": 3, "kind": "final", "basedOn": { "annotations": 4 }, "timeline": 2,
+    "createdAt": "…", "status": "done", "by": "panel",
+    "options": { "annotationTypes": "all", "subtitles": true, "logoBug": true },
+    "variants": [ { "key": "neutral", "brand": "neutral", "dir": "render/v3/neutral",
+                    "files": { "full": "full.mp4", "fullSubtitled": "full.subtitled.mp4", "scenes": ["scenes/01-dashboard.mp4", "…"],
+                               "vtt": "full.vtt", "callouts": "full.callouts.srt", "poster": "poster.jpg" },
+                    "bytes": 81234567, "durationSec": 39.7 } ],
+    "qa": null, "deleted": null }
+  ```
+  The stage engine already reads `render/vN.json` and its `basedOn.annotations` (the chain storyboard → take → VO → annotations → render).
+- **Draft and final (D59, D60):**
+  - **Draft:** any annotation version, including the panel's unsaved draft. Full video only, 960×540, fast x264 preset, a small "DRAFT" tag in a corner (not across the picture). About 3–4× faster than a final.
+  - **Final:** needs an **accepted, usable annotation version** (the whole chain accepted). Full + scenes + sidecars at output size. `qa` stays `null` ("not checked") until part 10 adds the gate without changing the format. Finals made before part 10 show "no QA" in the history.
+- **Annotation selection is a render option (D66, user note):** default: all enabled items of the annotation version. Per-type toggles (zoom, highlight, spotlight, callout, chapter, redact) select a subset, e.g. none, chapters only, or everything but spotlights. The version itself stays as approved. Redactions can be switched off for a render only with an explicit confirm ("this shows what was redacted"). The Annotations tab also gets **Use no annotations** (an empty version you accept), for demos that never had any.
+- **Variants (D68):** one render version can list **several brands**. Each brand × (subtitled or not) becomes a folder `render/vN/<brand>/`. The variant key covers timeline + annotation version + types + brand + options; variants that already exist with the same key are copied/linked, never re-rendered. Toggles: logo bug on/off. Callouts and chapters are annotation types.
+- **Outputs of a final (D62):** `full.mp4`, `scenes/*.mp4`, `full.vtt` and `scenes/*.vtt` (the transcript, from the TTS word timings), `full.callouts.srt` (callout texts and times), `poster.jpg` (the title card frame), `render.json`.
+- **Subtitles (D61):**
+  - VTT sidecars are always written.
+  - **Burn in subtitles** is an option that writes `full.subtitled.mp4` (and per-scene `.subtitled.mp4`) **in addition to** the clean files.
+  - **Styling:** from the brand (font, pill colours), bottom centre above the callout row, ≤ 2 lines × ~42 chars, ≤ 6 s per cue, split at sentence ends and pauses.
+  - **Rendering:** cue PNGs via Playwright like callouts, as screen-space overlays (ffmpeg 9 has no drawtext/libass).
+- **The sync edit renders a draft (D65):** `demo_rec_edit start` builds the timeline and then a **draft render version**, so you can watch right away; finals only come from the Render stage. `rerender` (brand / annotations) becomes a draft render as well. Existing `out/edit-vN/<variant>/` folders stay readable: they show as **legacy renders** in the history.
+- **Who renders (D63):** panel renders are **background engine jobs** (no agent turn, no LLM, no TTS, no cost; progress in the Live panel). When one finishes, a quiet note goes to the agent's next turn ("final v3 rendered: …"). The agent renders with `demo_rec_render` (and `/demo render`).
+- **Accept = the deliverable (D67):** finals can be accepted (several allowed). An accepted final is the delivered version: shown first, protected from pruning, on the working line ("working line: render v3"). Drafts can't be accepted.
+- **Retention and delete (D64, user note):** finals are kept. Of the drafts, the newest `render.keepDrafts` (default 3) keep their files; older drafts keep their record but their MP4s are deleted ("files pruned — re-render"). **Delete** in the Render tab removes a render's files after a confirm that shows the space freed. The record stays as "deleted <date>", so lineage and numbers never break. Deleting an accepted final needs a second confirm.
 - **Render tab:**
-  - players with transcript track, downloads, and "open folder";
-  - toggles and the brand dropdown;
-  - the QA report with jump-to-time (part 10);
-  - the render history (draft/final, brand, `basedOn`).
-- **Panel route:** `POST /api/render {kind, brand, variants}`, a background engine job with no agent turn, no LLM and no TTS.
-- **`demo_rec_render`** tool and `/demo render`. The current `demo_rec_edit` keeps working as "voice + timeline + draft".
+  - **New render form:** kind (draft / final, with the gate reason when final isn't possible), annotation version (default: the working line; the draft is offered for drafts), annotation types, brands (multi-select), burn-in subtitles, logo bug, and **Render**.
+  - **History:** a card per render version with kind, based on, variants, status/progress, QA ("not checked"), size and time. Per variant: a player with the transcript track (VTT), the subtitled version, scenes, downloads, **Open folder**, **Accept** (finals) and **Delete**. Legacy renders are listed below.
+- **Routes:**
+  - `GET renders`
+  - `POST render {kind, annotations, draft?, brands, options}`
+  - `POST render-cancel`
+  - `POST render-delete {version}`
+  - `POST render-open {version, variant}`
+  - accept through the approve route (artifact `render`, finals only)
+- **Tool `demo_rec_render`:** `start` (kind, annotations, brands, options), `status`, `cancel`, `list`. No delete and no accept: only the user does those, in the panel.
+- **Tests:**
+  - render version lifecycle (running → done/failed, never overwritten);
+  - gate (final refused without accepted annotations, with the reason);
+  - type selection (only chapters → no zoom ops);
+  - variants reuse (a second brand renders only the missing variant);
+  - sidecars (VTT cue times match the word timings within one frame; SRT callouts);
+  - burned-in subtitle cues (≤ 2 lines, within the footage, not over callouts);
+  - draft tag and size;
+  - pruning (keepDrafts, accepted finals protected), delete (files gone, record stays);
+  - edit → draft render; legacy listing;
+  - panel routes; agent note on finish.
+- **Docs:** `docs/RENDER.md` (stage, options, outputs, sidecars, retention), README, skills (render hand-off after accepting annotations).
 
 *10. Deterministic QA (D13, D21) and mechanical auto-fix (D22)* — the **QA reviewer** role (D40), reports only.
 - **Checks:**

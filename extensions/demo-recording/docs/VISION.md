@@ -91,6 +91,16 @@ Each stage is versioned and links to exactly one parent version (D30). Several v
 | D56 | Re-suggest | A new suggestion run **keeps every item the user added, edited or toggled**, regenerates the rest, and says what was kept | Steering never throws away your work |
 | D57 | Import from an older version | **Deterministic**: carry what still matches (scene, mark, resolvable target) with its edits; list the rest with a reason. No model call | Predictable carry-over after a new take or VO |
 | D58 | Saving annotation edits | Panel edits go to a **draft** (instant stills and budget); **Save as vN** writes one version; the draft survives reloads | No version per click, nothing lost |
+| D59 | Final render gate (part 9 grill) | A final needs an **accepted, usable annotation version**; `qa` stays `null` ("not checked", "no QA" in the history) until part 10 adds the QA gate without changing the format | Finals are possible now; QA slots in later |
+| D60 | Draft renders | **Full video only, 960×540, fast preset, a small DRAFT corner tag**; from any annotation version, including the panel's unsaved draft | Watch the whole thing quickly without mistaking it for the deliverable |
+| D61 | Subtitles | VTT transcripts always; **burn in** is an option that writes `*.subtitled.mp4` **in addition** to the clean files (brand-styled, ≤ 2 lines) | Clean and subtitled versions side by side |
+| D62 | Final outputs | full + scenes + `full.vtt`/scene VTTs + `full.callouts.srt` + `poster.jpg` + `render.json` in `render/vN/<variant>/` | Everything a hand-off needs |
+| D63 | Who renders | Panel renders are **background engine jobs** (no agent turn, no cost); a **quiet note** tells the agent when one finishes | Rendering is mechanical; the agent stays informed |
+| D64 | Retention and delete (user note) | Finals kept; the newest `render.keepDrafts` (3) drafts keep files, older drafts keep only their record; **Delete** in the panel removes files, the record stays as "deleted"; deleting an accepted final asks twice | Disk stays in check; lineage never breaks |
+| D65 | The edit renders a draft | `demo_rec_edit` builds the timeline and a **draft render version**; finals only from the Render stage; old `out/edit-vN/` show as legacy renders | One full-quality render per decision, not per change |
+| D66 | Annotation selection per render (user note) | **Which annotation types to include is a render option** (default: all enabled; none, chapters only, …); the annotation version stays as approved; switching redactions off needs a confirm; plus **Use no annotations** (an empty version) in the Annotations tab | Approve once, cut several ways |
+| D67 | Accepting a render | Finals can be accepted (several): the **deliverable**, shown first, protected from pruning, on the working line; drafts can't be accepted | The stage chain ends in a decision |
+| D68 | Brands per render | One render version, **several brands** (× subtitled); each a variant folder; existing variants with the same key are reused | One decision ("the v3 cut"), several looks |
 
 ## Explicit non-goals for v1
 

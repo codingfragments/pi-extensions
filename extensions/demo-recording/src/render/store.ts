@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { AnnotationType } from "../annotations/types.ts";
+import { writeZip } from "../util/zip.ts";
 import { listVersions, writeNextVersion } from "../workdir/versioning.ts";
 
 export type RenderKind = "draft" | "final";
@@ -251,4 +252,42 @@ export function legacyRenders(projectDir: string): LegacyRender[] {
     }
   }
   return res.sort((a, b) => b.edit - a.edit || a.variant.localeCompare(b.variant));
+}
+
+function filesUnder(dir: string, rel = ""): string[] {
+  const out: string[] = [];
+  for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) out.push(...filesUnder(dir, r));
+    else if (!e.name.endsWith(".part") && !e.name.endsWith(".filter.txt")) out.push(r);
+  }
+  return out.sort();
+}
+
+/**
+ * One zip with everything of a variant (videos, subtitled versions, scenes,
+ * transcripts, callouts, poster) at render/vN/<base>.zip — next to, not in,
+ * the variant folder, so Delete removes it with the version. Built on first
+ * request, rebuilt only when a file is newer than the zip.
+ */
+export async function variantZip(
+  projectDir: string,
+  rec: RenderRecord,
+  v: RenderVariantRec,
+): Promise<{ rel: string; bytes: number; built: boolean }> {
+  const dir = path.join(projectDir, v.dir);
+  if (!variantPresent(projectDir, v))
+    throw new Error(`render v${rec.version} (${v.key}) has no files any more`);
+  const base = renderNames(path.basename(projectDir), rec.kind, rec.version, v.key).base;
+  const rel = path.join("render", `v${rec.version}`, `${base}.zip`);
+  const out = path.join(projectDir, rel);
+  const files = filesUnder(dir);
+  const newest = Math.max(...files.map((f) => fs.statSync(path.join(dir, f)).mtimeMs));
+  if (fs.existsSync(out) && fs.statSync(out).mtimeMs >= newest)
+    return { rel, bytes: fs.statSync(out).size, built: false };
+  const bytes = await writeZip(
+    out,
+    files.map((f) => ({ name: `${base}/${f}`, file: path.join(dir, f) })),
+  );
+  return { rel, bytes, built: true };
 }

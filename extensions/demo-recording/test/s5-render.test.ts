@@ -43,6 +43,7 @@ import {
   wrap,
 } from "../src/render/subtitles.ts";
 import { Runtime } from "../src/runtime.ts";
+import { writeZip } from "../src/util/zip.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
 import { nextStep } from "../src/workdir/stages.ts";
 import { acceptStage, acceptTake, approve, readState } from "../src/workdir/state.ts";
@@ -424,6 +425,40 @@ test("render versions: never overwritten; drafts pruned beyond keepDrafts (final
   );
 });
 
+test(
+  "zip writer: stored entries that unzip verifies, byte for byte, with sub-folders and UTF-8 names",
+  { skip: !hasBinary("unzip") && "needs unzip" },
+  async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zip-"));
+    fs.mkdirSync(path.join(dir, "src", "scenes"), { recursive: true });
+    const big = Buffer.alloc(3 * 1024 * 1024 + 17);
+    for (let i = 0; i < big.length; i++) big[i] = (i * 31) & 255;
+    fs.writeFileSync(path.join(dir, "src", "a.mp4"), big);
+    fs.writeFileSync(path.join(dir, "src", "scenes", "b_ünïcode.vtt"), "WEBVTT\n");
+    const out = path.join(dir, "out.zip");
+    const bytes = await writeZip(out, [
+      { name: "base/a.mp4", file: path.join(dir, "src", "a.mp4") },
+      { name: "base/scenes/b_ünïcode.vtt", file: path.join(dir, "src", "scenes", "b_ünïcode.vtt") },
+    ]);
+    assert.equal(bytes, fs.statSync(out).size);
+    assert.match(execFileSync("unzip", ["-t", out]).toString(), /No errors detected/);
+    // Names via Python's zipfile (macOS's old Info-ZIP unzip can't display UTF-8 names; Finder/ditto can).
+    const list = JSON.parse(
+      execFileSync("python3", [
+        "-c",
+        "import json,sys,zipfile; print(json.dumps(zipfile.ZipFile(sys.argv[1]).namelist()))",
+        out,
+      ]).toString(),
+    );
+    assert.deepEqual(list, ["base/a.mp4", "base/scenes/b_ünïcode.vtt"]);
+    assert.ok(
+      execFileSync("unzip", ["-p", out, "base/a.mp4"], { maxBuffer: 64 * 1024 * 1024 }).equals(big),
+    );
+    assert.ok(!fs.existsSync(`${out}.part`), "written via a temp file");
+    fs.rmSync(dir, { recursive: true, force: true });
+  },
+);
+
 // --- transcripts and cues ---------------------------------------------------------------
 
 test("words in output time: scene narration via its audio placement, cards at their start + 0.5 s", () => {
@@ -765,6 +800,25 @@ test(
       r = await post("approve", { artifact: "render", version: 1 });
       assert.equal(r.status, 200, String(r.json.error));
       assert.equal(readState(dir)?.line.render, 1);
+      // ⬇ zip (all): everything of the variant in one archive, cached
+      r = await post("render-zip", { version: 1, variant: "neutral" });
+      assert.equal(r.status, 200, String(r.json.error));
+      assert.equal(r.json.zip, "render/v1/p_final-v1_neutral.zip");
+      const zip = path.join(dir, String(r.json.zip));
+      const entries = execFileSync("unzip", ["-Z1", zip]).toString().trim().split("\n");
+      for (const want of [
+        "p_final-v1_neutral/p_final-v1_neutral.mp4",
+        "p_final-v1_neutral/p_final-v1_neutral_transcript.vtt",
+        "p_final-v1_neutral/p_final-v1_neutral_poster.jpg",
+        "p_final-v1_neutral/scenes/p_final-v1_neutral_01-a.mp4",
+      ])
+        assert.ok(entries.includes(want), `${want} in the zip`);
+      assert.match(execFileSync("unzip", ["-t", zip]).toString(), /No errors detected/);
+      const mtime = fs.statSync(zip).mtimeMs;
+      r = await post("render-zip", { version: 1, variant: "neutral" });
+      assert.equal(fs.statSync(zip).mtimeMs, mtime, "second request: the cached zip");
+      r = await post("render-zip", { version: 1, variant: "nope" });
+      assert.ok(r.status >= 400);
       // delete: the accepted deliverable needs an explicit confirm; the record stays
       r = await post("render-delete", { version: 1 });
       assert.ok(r.status >= 400 && /accepted deliverable/.test(String(r.json.error)));
@@ -772,6 +826,7 @@ test(
       assert.equal(r.status, 200, String(r.json.error));
       assert.ok(Number(r.json.bytes) > 10_000);
       assert.ok(readRender(dir, 1)?.deleted);
+      assert.ok(!fs.existsSync(zip), "the zip goes with the files");
       r = await post("approve", { artifact: "render", version: 1 });
       assert.ok(r.status >= 400 && /no files any more/.test(String(r.json.error)));
     } finally {

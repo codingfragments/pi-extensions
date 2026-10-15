@@ -198,6 +198,29 @@ function flavorRows(r) {
 
 const fileName = (rel) => rel.split("/").at(-1);
 
+/** ⬇ zip (all): everything of a variant in one archive — built on first click, then cached. */
+function ZipButton({ r, v }) {
+  const [busy, setBusy] = useState(false);
+  const go = async (e) => {
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      const z = await post("/api/render-zip", { version: r.version, variant: v.key });
+      const a = document.createElement("a");
+      a.href = media("project", z.zip);
+      a.download = fileName(z.zip);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return html`<button class="ghost tiny zip" disabled=${busy} title="download everything of this flavor as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
+}
+
 function FlavorTable({ r }) {
   const rows = flavorRows(r);
   const [sel, setSel] = useState(null);
@@ -246,7 +269,7 @@ function FlavorTable({ r }) {
               <td><b>${row.brand}</b>${row.tags.map((t) => html` <span class="tag">${t}</span>`)}${v.reusedFrom && !row.key.endsWith("#sub") ? html` <span class="muted small-text">reused from v${v.reusedFrom}</span>` : null}</td>
               <td>${v.durationSec.toFixed(1)} s</td>
               <td>${v.present ? size(v, row.file) : ""}</td>
-              <td>${v.present ? dl(v, row.file, "⬇ mp4") : html`<span class="muted small-text">${r.deleted ? "deleted" : "pruned"}</span>`}</td>
+              <td>${v.present ? html`<span class="extras">${dl(v, row.file, "⬇ mp4")}${row.key.endsWith("#sub") ? null : html`<${ZipButton} r=${r} v=${v} />`}</span>` : html`<span class="muted small-text">${r.deleted ? "deleted" : "pruned"}</span>`}</td>
               <td><span class="extras">${v.present ? row.extras.map(([l, rel]) => dl(v, rel, l)) : null}
                 ${
                   v.present && !row.key.endsWith("#sub")

@@ -117,7 +117,12 @@ render/
         my-demo_final-v7_neutral_01-dashboard_subtitled.mp4
     acme_callouts-only/                           a second brand, only callouts
       my-demo_final-v7_acme_callouts-only.mp4
+    my-demo_final-v7_neutral.zip                  ⬇ zip (all) of a flavor, built on request
 ```
+
+The zip (stored, not compressed — videos don't shrink) unpacks into a folder
+of the same name. It sits next to the flavor folders, so **Delete files**
+removes it too.
 
 Flavors: `neutral` (all annotations), `acme_plain` (no annotations),
 `acme_callouts-only`, `acme_callout-chapter-only`, `…_nobug` (no logo bug); the
@@ -144,8 +149,10 @@ names (`…_final-v8_…`), never the old one's.
   (annotation version, types, subtitles, logo bug, edit, size, time, who
   started it), **Accept** (finals) and **Delete files**, and:
   - a **flavor table** — one row per flavor (each brand, and its subtitled
-    version): length, size, **⬇ mp4** (the video itself, under its full name)
-    and the extras as downloads (**transcript**, **callouts**, **poster**) plus
+    version): length, size, **⬇ mp4** (the video itself, under its full name),
+    **⬇ zip (all)** (everything of that brand in one archive — clean and
+    subtitled videos, scenes, transcripts, callouts, poster; built on the
+    first click, then cached) and the extras as downloads (**transcript**, **callouts**, **poster**) plus
     **folder** (opens it in Finder / the file manager); **▸ scenes** expands
     the per-scene clips with their own ⬇ mp4 and transcript;
   - a **player** for the selected row (click a row or ▶; scenes too), with the

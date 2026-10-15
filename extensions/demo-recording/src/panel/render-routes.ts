@@ -18,6 +18,7 @@ import {
   listRenders,
   readRender,
   variantPresent,
+  variantZip,
 } from "../render/store.ts";
 import type { Runtime } from "../runtime.ts";
 import { startRender } from "../tools/render.ts";
@@ -168,6 +169,28 @@ export function renderRoutes(rt: Runtime): {
           p.slug,
         );
         return { deleted: v, bytes };
+      },
+      /** { version, variant } → one zip with everything of the variant (built once, cached). */
+      "render-zip": async (body) => {
+        const p = requireProject();
+        const v = Number(body.version);
+        const rec = readRender(p.dir, v);
+        if (!rec) throw new Error(`render v${v} does not exist`);
+        const variant = rec.variants.find((x) => x.key === body.variant);
+        if (!variant) throw new Error(`render v${v} has no variant "${String(body.variant)}"`);
+        const z = await variantZip(p.dir, rec, variant);
+        if (z.built)
+          rt.bus.publish(
+            "render.zipped",
+            {
+              version: v,
+              variant: variant.key,
+              bytes: z.bytes,
+              message: `zip of render v${v} ${variant.key} (${(z.bytes / 1e6).toFixed(1)} MB)`,
+            },
+            p.slug,
+          );
+        return { zip: z.rel.split(path.sep).join("/"), bytes: z.bytes };
       },
       /** Open a variant's folder in the file manager. */
       "render-open": (body) => {

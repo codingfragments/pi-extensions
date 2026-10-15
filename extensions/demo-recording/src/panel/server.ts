@@ -33,11 +33,12 @@ const MIME: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".mp4": "video/mp4",
   ".vtt": "text/vtt; charset=utf-8",
+  ".zip": "application/zip",
   ".srt": "application/x-subrip; charset=utf-8",
   ".wav": "audio/wav",
   ".json": "application/json; charset=utf-8",
 };
-const MEDIA_EXT = new Set([".jpg", ".jpeg", ".png", ".mp4", ".wav", ".vtt", ".srt"]);
+const MEDIA_EXT = new Set([".jpg", ".jpeg", ".png", ".mp4", ".wav", ".vtt", ".srt", ".zip"]);
 const MAX_BODY = 64 * 1024;
 
 export type GetRoute = (query: URLSearchParams) => unknown | Promise<unknown>;

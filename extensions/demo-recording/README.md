@@ -103,7 +103,7 @@ The first step, with three views:
 
 ### Style tile (UX0)
 
-[docs/ux/](docs/ux/README.md) holds the design-system proof for the control room redesign: tokens with measured WCAG contrast in Macchiato and Latte, a showcase of every shared component, four mock screens (Voice over, Render, Config, Map), with working map and settings-search prototypes. Open `docs/ux/tile.html` in a browser. `test/ux-tile.test.ts` keeps it honest.
+[docs/ux/](docs/ux/README.md) holds the design-system proof for the control room redesign: tokens with measured WCAG contrast in Macchiato and Latte, a showcase of every shared component, four mock screens (Voice over, Render, Config, Map), with working map and settings-search prototypes. Open `docs/ux/tile.html` in a browser. `test/ux-tile.test.ts` keeps it honest. The design system (`src/panel/public/ds/`) is the panel's own since UX1 ([report](docs/ux/UX1.md)); `scripts/panel-audit.ts` (axe-core, focus, target sizes), `scripts/ux-ratchet.ts` and `scripts/panel-shots.ts` measure and guard it.
 
 ### Dialogs, errors and cost warnings (S5)
 

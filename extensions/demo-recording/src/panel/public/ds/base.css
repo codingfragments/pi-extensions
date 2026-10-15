@@ -1,0 +1,133 @@
+/*
+ * Base styles for the design system. Tokens only, no colour literals.
+ *
+ * Two parts:
+ *  1. GLOBAL (safe for the legacy panel): box-sizing, the hidden attribute, ONE focus ring, reduced motion.
+ *  2. SCOPED to `.ds-root` (element defaults: type, headings, links): an area opts in by carrying
+ *     the class. The style tile pages carry it on <html>; each panel screen adds it when it is
+ *     migrated (UX2 onwards). Specificity is zero (`:where`), so a component class always wins.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* The hidden attribute must win over any display rule */
+[hidden] {
+  display: none !important;
+}
+
+/* One focus ring for everything interactive: 2 px, offset, 3:1 on every surface in both themes */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- Scoped element defaults ---------- */
+
+:where(.ds-root) {
+  font: var(--weight-regular) var(--text-md) / var(--leading-body) var(--font-sans);
+  color: var(--text-body);
+  -webkit-text-size-adjust: 100%;
+}
+html.ds-root,
+body.ds-root {
+  background: var(--surface-page);
+}
+body.ds-root,
+html.ds-root > body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+:where(.ds-root) :is(h1, h2, h3, h4) {
+  margin: 0;
+  color: var(--text-strong);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-strong);
+}
+:where(.ds-root) h1 {
+  font-size: var(--text-xl);
+}
+:where(.ds-root) h2 {
+  font-size: var(--text-lg);
+}
+:where(.ds-root) h3 {
+  font-size: var(--text-md);
+}
+:where(.ds-root) h4 {
+  font-size: var(--text-sm);
+}
+:where(.ds-root) p {
+  margin: 0;
+}
+:where(.ds-root) a {
+  color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+:where(.ds-root) a:hover {
+  color: var(--accent-hover);
+}
+:where(.ds-root) :is(code, kbd, samp),
+.ds-mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+:where(.ds-root) hr {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: var(--space-4) 0;
+}
+
+/* ---------- Helpers (class-based, safe anywhere) ---------- */
+.ds-muted {
+  color: var(--text-muted);
+}
+.ds-small {
+  font-size: var(--text-sm);
+}
+.ds-xs {
+  font-size: var(--text-xs);
+}
+.ds-measure {
+  max-inline-size: var(--measure);
+}
+.ds-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ds-grow {
+  flex: 1;
+  min-inline-size: 0;
+}
+.ds-row-flex {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.ds-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}

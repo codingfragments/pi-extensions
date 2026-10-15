@@ -11,6 +11,8 @@ import path from "node:path";
 import { test } from "node:test";
 
 const UX = path.join(import.meta.dirname, "..", "docs", "ux");
+// The design system lives in the panel (one source); the tile pages link to it.
+const DS = path.join(import.meta.dirname, "..", "src", "panel", "public", "ds");
 const read = (f: string) => fs.readFileSync(path.join(UX, f), "utf8");
 
 type Tokens = Record<string, string>;
@@ -27,7 +29,7 @@ function declared(source: string, selector: RegExp): Tokens {
   return out;
 }
 
-const css = read("tokens.css");
+const css = fs.readFileSync(path.join(DS, "tokens.css"), "utf8");
 const dark = { ...declared(css, /^:root\s*,\s*:root\[data-theme="macchiato"\]$/) };
 const light = { ...dark, ...declared(css, /^:root\[data-theme="latte"\]$/) };
 const scales = declared(css, /^:root$/);
@@ -116,6 +118,17 @@ test("tokens: the scales stay inside the spec's limits", () => {
   assert.ok(Number.parseFloat(scales["--target-min"] ?? "0") >= 1.5, "targets ≥ 24 px");
 });
 
+test("tile pages link to the panel's design system, not to copies of it", () => {
+  for (const f of ["tile.html", "voice.html", "render.html", "map.html", "config.html"]) {
+    const src = read(f);
+    for (const n of ["tokens", "base", "components"])
+      assert.ok(src.includes(`../../src/panel/public/ds/${n}.css`), `${f} links ds/${n}.css`);
+    assert.match(src, /<html[^>]*class="ds-root"/, `${f} opts in to the scoped element defaults`);
+  }
+  for (const n of ["tokens.css", "base.css", "components.css"])
+    assert.ok(!fs.existsSync(path.join(UX, n)), `docs/ux/${n} is not a second copy`);
+});
+
 test("only tokens.css holds colour literals; the tile uses declared tokens", () => {
   // CSS and HTML: any hex or colour function. JS: only string literals (its helper functions
   // named rgb() are code, not colour values).
@@ -123,9 +136,13 @@ test("only tokens.css holds colour literals; the tile uses declared tokens", () 
   const jsColour = /["'`]#[0-9a-f]{3,8}["'`]|["'`](rgba?|hsla?)\(/i;
   const problems: string[] = [];
   const names = new Set(Object.keys({ ...dark, ...scales }));
-  for (const f of fs.readdirSync(UX)) {
+  const files = [
+    ...fs.readdirSync(UX).map((f) => ({ f, dir: UX })),
+    ...fs.readdirSync(DS).map((f) => ({ f, dir: DS })),
+  ];
+  for (const { f, dir } of files) {
     if (f === "tokens.css" || !/\.(css|html|js)$/.test(f)) continue;
-    const src = read(f);
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
     // Strip text content such as "#/voice" routes or anchors before looking for colours.
     const code = src.replace(/href="#[^"]*"/g, "").replace(/\burl\(#[^)]*\)/g, "");
     for (const [i, line] of code.split("\n").entries())

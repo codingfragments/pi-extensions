@@ -34,11 +34,14 @@ const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
 function Diff({ text }) {
-  return html`<pre class="dlg-diff" aria-label="changes">${String(text)
+  return html`<pre class="ds-diff dlg-diff" aria-label="changes">${String(text)
     .split("\n")
-    .map(
-      (l) =>
-        html`<span class=${l.startsWith("+") ? "d-add" : l.startsWith("-") ? "d-rem" : ""}>${l}\n</span>`,
+    .map((l) =>
+      l.startsWith("+")
+        ? html`<ins class="d-add">${l}\n</ins>`
+        : l.startsWith("-")
+          ? html`<del class="d-rem">${l}\n</del>`
+          : html`<span>${l}\n</span>`,
     )}</pre>`;
 }
 
@@ -49,6 +52,7 @@ function Dialog({ o, done }) {
   const id = useRef(`dlg-${++counter}`);
   const [value, setValue] = useState(o.input?.value ?? "");
   const [skip, setSkip] = useState(false);
+  const [touched, setTouched] = useState(false);
   const missing = !!o.input?.required && !value.trim();
   const live = useRef({});
   live.current = {
@@ -96,18 +100,18 @@ function Dialog({ o, done }) {
     };
   }, []);
   const paragraphs = o.text ? String(o.text).split(/\n{2,}/) : [];
-  return html`<div class="modal-backdrop dlg-backdrop" onClick=${(e) => e.target === e.currentTarget && !o.danger && !value && live.current.cancel()}>
-    <div class=${`modal medium dialog${o.danger ? " danger" : ""}`} role=${o.danger ? "alertdialog" : "dialog"} aria-modal="true"
+  return html`<div class="modal-backdrop ds-backdrop dlg-backdrop" onClick=${(e) => e.target === e.currentTarget && !o.danger && !value && live.current.cancel()}>
+    <div class=${`modal medium ds-dialog dialog${o.danger ? " danger" : ""}`} data-danger=${o.danger ? "true" : undefined} role=${o.danger ? "alertdialog" : "dialog"} aria-modal="true"
       aria-labelledby=${`${id.current}-t`} aria-describedby=${`${id.current}-b`} tabindex="-1" ref=${box}>
-      <header class="modal-head"><h2 id=${`${id.current}-t`}>${o.title}</h2></header>
-      <div class="modal-body dialog-body" id=${`${id.current}-b`}>
+      <header class="modal-head ds-dialog-head">${o.danger ? html`<span class="ds-status" data-tone="err" aria-hidden="true">!</span>` : null}<h2 id=${`${id.current}-t`}>${o.title}</h2></header>
+      <div class="modal-body ds-dialog-body dialog-body" id=${`${id.current}-b`}>
         ${paragraphs.map((p) => html`<p>${p}</p>`)}
         ${
           o.facts?.length
-            ? html`<dl class="dlg-facts">${o.facts.map(([k, v]) => html`<dt>${k}</dt><dd>${v}</dd>`)}</dl>`
+            ? html`<dl class="ds-facts dlg-facts">${o.facts.map(([k, v]) => html`<dt>${k}</dt><dd>${v}</dd>`)}</dl>`
             : null
         }
-        ${o.warnings?.map((w) => html`<p class="dlg-warn" role="note">⚠ ${w}</p>`)}
+        ${o.warnings?.map((w) => html`<div class="ds-notice dlg-warn" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${w}</div></div>`)}
         ${
           o.list?.items?.length
             ? html`<div class="dlg-list">${o.list.title ? html`<p>${o.list.title}</p>` : null}<ul>${o.list.items.map((i) => html`<li>${i}</li>`)}</ul></div>`
@@ -117,25 +121,35 @@ function Dialog({ o, done }) {
         ${o.node ?? null}
         ${
           o.input
-            ? html`<label class="dlg-input">${o.input.label}
+            ? html`<label class="ds-field dlg-input" data-invalid=${missing && touched ? "true" : undefined}><span class="ds-label">${o.input.label}</span>
               ${
                 o.input.multiline
-                  ? html`<textarea value=${value} placeholder=${o.input.placeholder ?? ""} onInput=${(e) => setValue(e.target.value)}></textarea>`
-                  : html`<input value=${value} placeholder=${o.input.placeholder ?? ""} onInput=${(e) => setValue(e.target.value)} />`
+                  ? html`<textarea class="ds-textarea ds-textarea--compact" value=${value} placeholder=${o.input.placeholder ?? ""} aria-describedby=${`${id.current}-h`} onInput=${(
+                      e,
+                    ) => {
+                      setTouched(true);
+                      setValue(e.target.value);
+                    }}></textarea>`
+                  : html`<input class="ds-input" value=${value} placeholder=${o.input.placeholder ?? ""} aria-describedby=${`${id.current}-h`} onInput=${(
+                      e,
+                    ) => {
+                      setTouched(true);
+                      setValue(e.target.value);
+                    }} />`
               }
-              ${o.input.hint ? html`<span class="muted small-text">${o.input.hint}</span>` : null}
+              ${missing ? html`<span class="ds-field-error" id=${`${id.current}-h`}>${touched ? html`<span aria-hidden="true">!</span>` : null}${o.input.required === true ? "Required to continue." : "Required."}</span>` : o.input.hint ? html`<span class="ds-hint-text" id=${`${id.current}-h`}>${o.input.hint}</span>` : html`<span id=${`${id.current}-h`}></span>`}
             </label>`
             : null
         }
         ${
           o.skipKey
-            ? html`<label class="check small-text dlg-skip"><input type="checkbox" checked=${skip} onChange=${(e) => setSkip(e.target.checked)} /> Don't ask again this session</label>`
+            ? html`<label class="ds-check dlg-skip"><input type="checkbox" checked=${skip} onChange=${(e) => setSkip(e.target.checked)} /> Don't ask again this session</label>`
             : null
         }
       </div>
-      <footer class="dialog-foot">
-        <button class="ghost" data-cancel onClick=${() => live.current.cancel()}>${o.cancelLabel ?? "Cancel"}</button>
-        <button class=${o.danger ? "danger" : "primary"} data-confirm disabled=${missing} onClick=${() => live.current.confirm()}>${o.confirmLabel ?? "OK"}</button>
+      <footer class="ds-dialog-foot dialog-foot">
+        <button class="ds-btn" data-cancel onClick=${() => live.current.cancel()}>${o.cancelLabel ?? "Cancel"}</button>
+        <button class=${`ds-btn ${o.danger ? "ds-btn--danger-solid" : "ds-btn--primary"}`} data-confirm disabled=${missing} onClick=${() => live.current.confirm()}>${o.confirmLabel ?? "OK"}</button>
       </footer>
     </div>
   </div>`;
@@ -179,14 +193,15 @@ const toasts = [];
 let toastSeq = 0;
 
 function Toasts({ items }) {
-  return html`<div class="toasts" role="region" aria-label="notifications">
+  return html`<div class="toasts ds-toasts" role="region" aria-label="notifications">
     ${items.map(
       (
         t,
-      ) => html`<div key=${t.id} class=${`toast ${t.kind}`} role=${t.kind === "error" ? "alert" : "status"}>
-        <span class="toast-msg">${t.message}${t.count > 1 ? html` <span class="toast-count">×${t.count}</span>` : null}</span>
-        ${t.kind === "error" ? html`<button class="ghost tiny" onClick=${() => copyText(t.detail ?? t.message)}>Copy</button>` : null}
-        <button class="ghost tiny" aria-label="dismiss" onClick=${() => dismiss(t.id)}>×</button>
+      ) => html`<div key=${t.id} class=${`toast ds-toast ${t.kind}`} data-tone=${t.kind === "error" ? "err" : "info"} role=${t.kind === "error" ? "alert" : "status"}>
+        <span class="ds-status" data-tone=${t.kind === "error" ? "err" : "info"} aria-hidden="true">${t.kind === "error" ? "!" : "i"}</span>
+        <span class="toast-msg ds-grow">${t.message}${t.count > 1 ? html` <span class="toast-count ds-muted">×${t.count}</span>` : null}</span>
+        ${t.kind === "error" ? html`<button class="ds-btn ds-btn--sm" onClick=${() => copyText(t.detail ?? t.message)}>Copy</button>` : null}
+        <button class="ds-btn ds-btn--ghost ds-btn--icon ds-btn--sm" aria-label="dismiss" onClick=${() => dismiss(t.id)}>×</button>
       </div>`,
     )}
   </div>`;

@@ -152,6 +152,9 @@
   line-height: var(--leading-body);
   resize: vertical;
 }
+.ds-textarea--compact {
+  min-block-size: 4.5rem;
+}
 .ds-input::placeholder {
   color: var(--text-muted);
 }
@@ -807,6 +810,16 @@
   gap: var(--space-3);
   padding: var(--space-4) var(--space-4) var(--space-2);
 }
+.ds-dialog-head :is(h2, h3) {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-md);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-tight);
+}
+.ds-dialog[data-danger="true"] {
+  border-color: var(--status-err);
+}
 .ds-dialog-body {
   display: grid;
   gap: var(--space-3);
@@ -837,6 +850,10 @@
   color: var(--text-strong);
 }
 .ds-diff {
+  margin: 0;
+  max-block-size: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
   padding: var(--space-3);
   border-radius: var(--radius-md);
   background: var(--surface-sunken);

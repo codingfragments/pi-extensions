@@ -1,40 +1,23 @@
-/* Catppuccin palettes — https://catppuccin.com/palette
-   Macchiato (dark, default) and Latte (light); toggled via <html data-theme>. */
-:root,
-:root[data-theme="macchiato"] {
-  --bg: #1e2030; /* mantle */
-  --card: #24273a; /* base */
-  --inset: #181926; /* crust */
-  --line: #363a4f; /* surface0 */
-  --chip: #363a4f; /* surface0 */
-  --chip-strong: #494d64; /* surface1 */
-  --text: #cad3f5;
-  --muted: #a5adcb; /* subtext0 */
-  --accent: #8aadf4; /* blue */
-  --mauve: #c6a0f6;
-  --ok: #a6da95; /* green */
-  --warn: #eed49f; /* yellow */
-  --err: #ed8796; /* red */
-  --on-accent: #181926;
-  color-scheme: dark;
+/* Legacy variable names, aliased to the design tokens (ds/tokens.css; UX1, D114).
+   The palette lives in tokens.css (Catppuccin Macchiato and Latte, WCAG 2.2 AA verified by
+   test/ux-tile.test.ts). Each screen moves off these names when it is migrated (UX2–UX9);
+   test/ux-ratchet.test.ts counts what is left and fails if it grows. */
+:root {
+  --bg: var(--surface-page);
+  --card: var(--surface-panel);
+  --inset: var(--surface-sunken);
+  --line: var(--border-subtle);
+  --chip: var(--border-subtle);
+  --border: var(--border-subtle);
+  --text: var(--text-body);
+  --muted: var(--text-muted);
+  --mauve: var(--status-mauve);
+  --ok: var(--status-ok);
+  --warn: var(--status-warn);
+  --err: var(--status-err);
+  --on-accent: var(--text-on-accent);
+  --mono: var(--font-mono);
   font: 16px / 1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-:root[data-theme="latte"] {
-  --bg: #dce0e8; /* crust */
-  --card: #eff1f5; /* base */
-  --inset: #e6e9ef; /* mantle */
-  --line: #ccd0da; /* surface0 */
-  --chip: #ccd0da;
-  --chip-strong: #bcc0cc; /* surface1 */
-  --text: #4c4f69;
-  --muted: #6c6f85; /* subtext0 */
-  --accent: #1e66f5; /* blue */
-  --mauve: #8839ef;
-  --ok: #40a02b; /* green */
-  --warn: #df8e1d; /* yellow */
-  --err: #d20f39; /* red */
-  --on-accent: #eff1f5;
-  color-scheme: light;
 }
 * {
   box-sizing: border-box;
@@ -581,10 +564,10 @@ audio {
   border-radius: 8px;
   margin-top: 8px;
   display: block;
-  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border: 1px solid var(--border);
 }
 .brand-form fieldset {
-  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border: 1px solid var(--border);
   border-radius: 8px;
   margin: 0 0 10px;
   padding: 6px 10px 8px;
@@ -612,7 +595,7 @@ audio {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  border: 1px solid var(--border, rgba(127, 127, 127, 0.4));
+  border: 1px solid var(--border);
 }
 .variants {
   display: grid;
@@ -1671,7 +1654,7 @@ button.tiny {
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--layer-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1927,7 +1910,7 @@ button.tiny {
 .flavor-table .fv-scene-name {
   white-space: nowrap;
   padding-left: 22px;
-  font-family: var(--mono, ui-monospace, monospace);
+  font-family: var(--mono);
   font-size: 0.9em;
 }
 .flavor-table tr.fv-toggle td {
@@ -1981,7 +1964,7 @@ button.tiny {
   border-left-color: var(--warn);
 }
 .qa-item .time {
-  font-family: var(--mono, ui-monospace, monospace);
+  font-family: var(--mono);
 }
 .qa-item .qa-fix {
   margin: 4px 0 0 4px;
@@ -1999,59 +1982,37 @@ button.tiny {
   background: color-mix(in srgb, var(--err) 30%, var(--chip));
 }
 /* Popups (bugfix sprint: log popups; reused by part 13) */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-}
-.modal {
-  display: flex;
-  flex-direction: column;
-  max-width: 94vw;
-  max-height: 90vh;
-  border-radius: 12px;
-  background: var(--card);
-  color: var(--text);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  outline: none;
-}
+/* Popups and dialogs: the markup carries the ds-dialog classes (ds/components.css);
+   these keep the popup sizes and the body layout, token values only. */
 .modal.medium {
-  width: min(760px, 92vw);
+  max-inline-size: 94vw;
 }
 .modal.large {
-  width: 80vw;
-  height: 80vh;
-  max-height: 80vh;
-}
-.modal-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  inline-size: 80vw;
+  block-size: 80vh;
+  max-block-size: 80vh;
+  max-inline-size: none;
 }
 .modal-head h2 {
-  margin: 0;
-  font-size: 1.1em;
   word-break: break-all;
-}
-.modal-close {
-  font-size: 22px;
-  line-height: 1;
-  padding: 0 10px;
 }
 .modal-body {
   flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 12px 16px 16px;
+  min-block-size: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
+  overflow: auto;
+}
+.dialog-body p {
+  white-space: pre-wrap;
+}
+.dlg-list ul {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-5);
+}
+.cost-hint {
+  white-space: nowrap;
 }
 .log-head {
   font: inherit;
@@ -2067,7 +2028,6 @@ button.tiny {
 .log-line:hover,
 .log-line:focus-visible {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
-  outline: none;
 }
 .log.log-full {
   flex: 1;
@@ -2254,127 +2214,6 @@ button.tiny {
 }
 
 /* ---------- S5 part 13: decisions, errors and cost hints (D91–D96) ---------- */
-.dialog {
-  max-height: 86vh;
-}
-.dialog-body {
-  gap: 12px;
-}
-.dialog-body p {
-  margin: 0;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-.dialog.danger {
-  border: 1px solid color-mix(in srgb, var(--err) 55%, var(--line));
-}
-.dialog.danger .modal-head h2 {
-  color: var(--err);
-}
-.dialog-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--line);
-}
-button.danger {
-  background: var(--err);
-  color: var(--on-accent);
-  border-color: var(--err);
-}
-button.danger:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-.dlg-facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--inset);
-}
-.dlg-facts dt {
-  color: var(--muted);
-}
-.dlg-facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.dlg-warn {
-  color: var(--warn);
-}
-.dlg-list ul {
-  margin: 4px 0 0;
-  padding-left: 20px;
-}
-.dlg-diff {
-  margin: 0;
-  padding: 10px 12px;
-  max-height: 40vh;
-  overflow: auto;
-  border-radius: 8px;
-  background: var(--inset);
-  font-size: 13px;
-  line-height: 1.45;
-  white-space: pre-wrap;
-}
-.dlg-diff .d-add {
-  color: var(--ok);
-}
-.dlg-diff .d-rem {
-  color: var(--err);
-}
-.dlg-input {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.dlg-input input,
-.dlg-input textarea {
-  font: inherit;
-}
-.dlg-input textarea {
-  min-height: 72px;
-}
 .dlg-skip {
   align-self: flex-start;
-}
-.toasts {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 300;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: min(520px, 92vw);
-}
-.toast {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--line);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-}
-.toast.error {
-  border-color: color-mix(in srgb, var(--err) 60%, var(--line));
-}
-.toast-msg {
-  flex: 1;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-.toast-count {
-  color: var(--muted);
-}
-.cost-hint {
-  color: var(--muted);
-  font-size: 13px;
-  white-space: nowrap;
 }

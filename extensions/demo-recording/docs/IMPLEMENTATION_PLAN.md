@@ -1066,7 +1066,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | Slice | Scope | State |
   |---|---|---|
   | UX0 | **Style tile and component/dialog showcase** ([docs/ux](ux/README.md): tokens with measured contrast, 14 showcase sections, mock Voice over, Render and Config screens, working map and settings-search prototypes; both themes, 900/1400 px). **Built; your approval gates UX1** | built, awaiting approval |
-  | UX1 | Foundations exactly as approved in UX0: tokens, shared components, contrast/focus, audit harness, ratchet test | planned |
+  | UX1 | Foundations exactly as approved in UX0: tokens, shared components, contrast/focus, audit harness, ratchet test ([report](ux/UX1.md): serious axe findings 2019 → 524, Latte 1823 → 328, focus gaps 28 → 0, hard-coded colours 51 → 17) | built, awaiting review |
   | UX2 | **Hash routes**, frame, stateful navigation/next action and Activity strip/drawer; shared Recording frame | planned |
   | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary | planned |
   | UX4 | Dependency graph overlay (own SVG), `GET /api/graph`, path filters, collapse/focus/quick navigation | planned |

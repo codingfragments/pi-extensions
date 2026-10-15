@@ -797,6 +797,33 @@ test(
       await waitDone();
       r = await post("approve", { artifact: "render", version: 2 });
       assert.ok(r.status >= 400 && /only final renders/.test(String(r.json.error)));
+      // QA ran with the final (D69): the synthetic page shows no text, so the said "3.1" blocks (D71).
+      r = await post("approve", { artifact: "render", version: 1 });
+      assert.ok(
+        r.status >= 400 && /QA found 1 blocking/.test(String(r.json.error)),
+        String(r.json.error),
+      );
+      const qa = (await get("render-qa?version=1")) as {
+        report: { items: { id: string; level: string; check: string; message: string }[] };
+        summary: { status: string };
+      };
+      assert.equal(qa.summary.status, "blocked");
+      const blocking = qa.report.items.filter((i) => i.level === "blocking");
+      assert.equal(blocking.length, 1);
+      assert.equal(blocking[0]?.check, "values");
+      assert.match(
+        blocking[0]?.message ?? "",
+        /“Three point one” \(3\.1\) — it isn't on screen anywhere in 01-a/,
+      );
+      r = await post("render-qa-confirm", { version: 1, id: blocking[0]?.id, reason: "" });
+      assert.ok(r.status >= 400 && /reason is required/.test(String(r.json.error)));
+      r = await post("render-qa-confirm", {
+        version: 1,
+        id: blocking[0]?.id,
+        reason: "synthetic page without text",
+      });
+      assert.equal(r.status, 200, String(r.json.error));
+      assert.equal((r.json.summary as { status: string }).status, "confirmed");
       r = await post("approve", { artifact: "render", version: 1 });
       assert.equal(r.status, 200, String(r.json.error));
       assert.equal(readState(dir)?.line.render, 1);

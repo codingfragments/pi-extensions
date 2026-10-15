@@ -156,7 +156,10 @@ export function checkValues(c: Ctx): QaItem[] {
           seg.anchor ? domText(c.takeDir, seg.anchor) : "",
         ].join("\n");
         if (pageHas(atText, v)) continue;
-        const label = v.kind === "number" ? `“${v.said}”` : `the name “${v.said}”`;
+        const label =
+          v.kind === "number"
+            ? `“${v.said}”${v.said.replace(/[^\d.]/g, "") !== v.value ? ` (${v.value})` : ""}`
+            : `the name “${v.said}”`;
         if (pageHas(sceneText, v)) {
           const shownSnap = sceneSnaps.find((s) => pageHas(snapText(s), v));
           const shown = shownSnap ? takeToSceneMs(sc, shownSnap.t) : undefined;

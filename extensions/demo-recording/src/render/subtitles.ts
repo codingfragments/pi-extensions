@@ -99,6 +99,9 @@ export function wrap(words: string[]): string[] {
   return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
 }
 
+/** Do these words fit in ≤ 2 lines of ≤ MAX_LINE chars? */
+const fits = (words: string[]) => wrap(words).every((l) => l.length <= MAX_LINE);
+
 /** Cut words into cues: sentence ends, pauses, ≤ 2 lines, ≤ 6 s. */
 export function buildCues(words: TimedWord[]): Cue[] {
   const cues: Cue[] = [];
@@ -114,8 +117,8 @@ export function buildCues(words: TimedWord[]): Cue[] {
   };
   for (const w of words) {
     const prev = cur.at(-1);
-    const text = [...cur.map((x) => x.w), w.w].join(" ");
-    const tooLong = text.length > MAX_LINE * 2 || (cur[0] && w.endMs - cur[0].startMs > MAX_CUE_MS);
+    const cand = [...cur.map((x) => x.w), w.w];
+    const tooLong = !fits(cand) || (cur[0] && w.endMs - cur[0].startMs > MAX_CUE_MS);
     const pause = prev && w.startMs - prev.endMs >= PAUSE_MS;
     if (cur.length && (tooLong || pause)) flush();
     cur.push(w);

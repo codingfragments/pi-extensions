@@ -44,11 +44,13 @@ export function reviewMessage(
 
 export function approvalMessage(
   project: string,
-  artifact: "storyboard" | "vo" | "recording" | "annotations",
+  artifact: "storyboard" | "vo" | "recording" | "annotations" | "render",
   version: number,
 ): string {
+  if (artifact === "render")
+    return `${PANEL_PREFIX} Final render v${version} for project "${project}" is ACCEPTED by the user as the deliverable (Render tab). Tell them where the files are (demo_rec_render action=list); nothing else to do unless they ask.`;
   if (artifact === "annotations")
-    return `${PANEL_PREFIX} Annotations v${version} for project "${project}" are ACCEPTED by the user (Annotations tab). Render the video with them: demo_rec_edit action=rerender annotations=${version} (the full render stage with drafts and QA comes in S5 part 9).`;
+    return `${PANEL_PREFIX} Annotations v${version} for project "${project}" are ACCEPTED by the user (Annotations tab). A final render is now possible: offer it (demo_rec_render action=start kind=final annotations=${version}; ask which brands and whether to burn in subtitles) — or the user renders it in the Render tab.`;
   if (artifact === "recording")
     return `${PANEL_PREFIX} Recording take-${String(version).padStart(3, "0")} for project "${project}" is ACCEPTED by the user (Recording tab). Write the voice-over for this take (demo-voiceover skill).`;
   return artifact === "storyboard"

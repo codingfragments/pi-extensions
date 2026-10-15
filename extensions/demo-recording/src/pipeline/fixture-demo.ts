@@ -10,10 +10,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeTake } from "../analysis/take.ts";
 import type { DemoRecConfig } from "../config.ts";
-import { type EditResult, runEdit } from "../edit/pipeline.ts";
+import { buildEdit } from "../edit/pipeline.ts";
 import { serveFixture } from "../fixture/server.ts";
 import { recordTake } from "../recorder/runner.ts";
+import { runRender } from "../render/run.ts";
 import { writeStoryboard } from "../storyboard/store.ts";
+import type { EditJobResult } from "../tools/edit.ts";
 import { buildEngines } from "../tts/factory.ts";
 import { type VoiceManifest, renderVoice } from "../tts/synthesize.ts";
 import { writeVo } from "../vo/store.ts";
@@ -55,7 +57,7 @@ Two questions, and the regional churn problem is on the table.
 export interface FixtureDemoResult {
   projectDir: string;
   voice: VoiceManifest;
-  edit: EditResult;
+  edit: EditJobResult;
 }
 
 export async function runFixtureDemo(
@@ -110,13 +112,19 @@ export async function runFixtureDemo(
     log(
       `voice: ${voice.engine} "${voice.voice.name}"${voice.skipped.length ? ` (skipped: ${voice.skipped.map((s) => `${s.engine}: ${s.reason}`).join("; ")})` : ""}`,
     );
-    log("editing + rendering …");
-    const edit = await runEdit({
+    log("editing + rendering a draft …");
+    const built = buildEdit({ projectDir: project.dir, config });
+    const render = await runRender({
       projectDir: project.dir,
       config,
-      onProgress: (p) => log(`  render ${p.done}/${p.total} ${p.label}`),
+      request: { kind: "draft", timeline: built.version, by: "cli" },
+      onProgress: (p) => log(`  render ${p.label}`),
     });
-    return { projectDir: project.dir, voice, edit };
+    return {
+      projectDir: project.dir,
+      voice,
+      edit: { version: built.version, timeline: built.timeline, render },
+    };
   } finally {
     await fixture.close();
   }

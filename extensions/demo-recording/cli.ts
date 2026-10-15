@@ -38,7 +38,7 @@ import { formatRender, runRender } from "./src/render/run.ts";
 import { runCaptureSpike, spikeTable } from "./src/spike/capture.ts";
 import { parseStoryboard } from "./src/storyboard/parse.ts";
 import { toSuggestion } from "./src/tools/annotations.ts";
-import { editSummary } from "./src/tools/edit.ts";
+import { editJobSummary } from "./src/tools/edit.ts";
 import { takeSummary } from "./src/tools/record.ts";
 import { voiceSummary } from "./src/tools/tts.ts";
 import { listElevenLabsVoices, sortVoices } from "./src/tts/engines.ts";
@@ -268,7 +268,7 @@ async function main(argv: string[]): Promise<number> {
       ...(values.voice ? { voiceName: values.voice } : {}),
       log: (m) => console.log(m),
     });
-    console.log(`\n${voiceSummary(r.voice)}\n\n${editSummary(r.edit)}`);
+    console.log(`\n${voiceSummary(r.voice)}\n\n${editJobSummary(r.edit)}`);
     return 0;
   }
 

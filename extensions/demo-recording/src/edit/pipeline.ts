@@ -374,15 +374,13 @@ export async function renderVariant(o: {
   };
 }
 
-export async function runEdit(o: {
+/** The sync edit itself: accepted VO + its voice + the take analysis → edit/timeline.vN.json. */
+export function buildEdit(o: {
   projectDir: string;
   config: DemoRecConfig;
-  signal?: AbortSignal;
-  variant?: VariantOptions;
   /** Voice-over to edit (default: the working line's). Must be accepted and usable. */
   voVersion?: number;
-  onProgress?: (p: { done: number; total: number; label: string }) => void;
-}): Promise<EditResult> {
+}): { version: number; timeline: Timeline; timelineFile: string } {
   const state = readState(o.projectDir);
   if (!state) throw new Error("project state missing");
   const voVersion = requireSelected(o.projectDir, state, "vo", o.voVersion);
@@ -403,6 +401,23 @@ export async function runEdit(o: {
     ".json",
     `${JSON.stringify(timeline, null, 2)}\n`,
   );
+  return { version: stored.version, timeline, timelineFile: stored.file };
+}
+
+/** S4 path: the edit + a full-quality render to out/edit-vN/ (kept for the S4 tests and the CLI). */
+export async function runEdit(o: {
+  projectDir: string;
+  config: DemoRecConfig;
+  signal?: AbortSignal;
+  variant?: VariantOptions;
+  voVersion?: number;
+  onProgress?: (p: { done: number; total: number; label: string }) => void;
+}): Promise<EditResult> {
+  const stored = buildEdit({
+    projectDir: o.projectDir,
+    config: o.config,
+    ...(o.voVersion !== undefined ? { voVersion: o.voVersion } : {}),
+  });
   return renderVariant({
     projectDir: o.projectDir,
     config: o.config,

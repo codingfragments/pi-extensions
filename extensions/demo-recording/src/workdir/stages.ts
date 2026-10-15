@@ -413,6 +413,20 @@ export function nextStep(
     const drafts = childrenOf(projectDir, stage, input);
     if ((stage === "annotations" || stage === "render") && !stageVersions(projectDir, stage).length)
       break;
+    if (stage === "render") {
+      // Drafts can't be accepted (D67): the user renders a final, then accepts it.
+      const finals = drafts.filter((v) => {
+        const r = readJson(path.join(projectDir, "render", `v${v}.json`));
+        return r?.kind === "final" && r.status === "done" && !r.deleted && !r.pruned;
+      });
+      if (finals.length)
+        return {
+          who: "user",
+          stage,
+          text: `review and accept final ${versionLabel(stage, finals.at(-1) as number)}`,
+        };
+      return { who: "user", stage, text: "render a final in the Render tab" };
+    }
     if (drafts.length) {
       const latest = drafts.at(-1) as number;
       const what =
@@ -430,6 +444,12 @@ export function nextStep(
     };
     return { who: "agent", stage, text: waiting[stage] };
   }
+  if (line.render !== undefined)
+    return {
+      who: null,
+      stage: null,
+      text: `delivered — final ${versionLabel("render", line.render)} (Render tab)`,
+    };
   return opts.rendered
     ? { who: null, stage: null, text: "rendered — see the Render tab" }
     : {

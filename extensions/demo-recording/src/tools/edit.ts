@@ -2,14 +2,18 @@
  * demo_rec_edit — audio-led sync edit + render (background job).
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { annotationVersions, readAnnotations } from "../annotations/file.ts";
 import { resolveBrand } from "../brand/brand.ts";
-import { type EditResult, renderVariant, runEdit } from "../edit/pipeline.ts";
+import { type EditResult, buildEdit } from "../edit/pipeline.ts";
+import type { Timeline } from "../edit/timeline.ts";
 import type { Job } from "../jobs.ts";
+import { formatRender, runRender } from "../render/run.ts";
+import type { RenderRecord } from "../render/store.ts";
 import type { Runtime } from "../runtime.ts";
 import { latestVersion } from "../workdir/versioning.ts";
 import { result } from "./common.ts";
@@ -20,13 +24,13 @@ function latestTimeline(projectDir: string): number {
   return v;
 }
 
-export function editSummary(r: EditResult): string {
-  const t = r.timeline.totals;
+/** The sync edit's stats (no outputs). */
+export function timelineSummary(version: number, timeline: Timeline): string[] {
+  const t = timeline.totals;
   const lines = [
-    `Rendered edit v${r.version} (brand ${r.brand}${r.rim ? `, footage rim ${r.rim.color} (${r.rim.reason})` : ""}): full video ${r.full.durationSec.toFixed(1)} s (${r.full.file}).`,
-    `edits: ${(t.cutMs / 1000).toFixed(1)} s cut, ${(t.frozenMs / 1000).toFixed(1)} s held, narration pauses ${(t.silenceMs / 1000).toFixed(1)} s; worst anchor drift ${t.worstDriftMs} ms.`,
+    `Edit v${version}: ${(t.fullMs / 1000).toFixed(1)} s · ${(t.cutMs / 1000).toFixed(1)} s cut, ${(t.frozenMs / 1000).toFixed(1)} s held, narration pauses ${(t.silenceMs / 1000).toFixed(1)} s; worst anchor drift ${t.worstDriftMs} ms.`,
   ];
-  for (const s of r.timeline.scenes) {
+  for (const s of timeline.scenes) {
     const late = s.anchors.filter((a) => Math.abs(a.drift) > 150);
     lines.push(
       `- ${s.id}: ${(s.durationMs / 1000).toFixed(1)} s` +
@@ -37,18 +41,41 @@ export function editSummary(r: EditResult): string {
         `${late.length ? ` ⚠ off-sync: ${late.map((a) => `@${a.mark} ${a.drift > 0 ? "+" : ""}${a.drift} ms`).join(", ")}` : ""}`,
     );
   }
-  lines.push(`per-scene videos: ${r.outDir}/scenes/`);
+  if (t.worstDriftMs > 150)
+    lines.push(
+      "Narration runs past its moment somewhere: shorten that section's text before the anchor, or move the anchor.",
+    );
+  return lines;
+}
+
+/** S4 report (legacy full render into out/edit-vN/). */
+export function editSummary(r: EditResult): string {
+  const lines = [
+    `Rendered edit v${r.version} (brand ${r.brand}${r.rim ? `, footage rim ${r.rim.color} (${r.rim.reason})` : ""}): full video ${r.full.durationSec.toFixed(1)} s (${r.full.file}).`,
+    ...timelineSummary(r.version, r.timeline),
+    `per-scene videos: ${r.outDir}/scenes/`,
+  ];
   if (r.annotations) {
     lines.push(`annotations v${r.annotations.version}: ${r.annotations.applied} burned in`);
     for (const w of r.annotations.warnings) lines.push(`  ! ${w}`);
   }
-  if (r.timeline.totals.worstDriftMs > 150) {
-    lines.push(
-      "Narration runs past its moment somewhere: shorten that section's text before the anchor, or move the anchor.",
-    );
-  }
   return lines.join("\n");
 }
+
+/** What a demo_rec_edit job produces (S5 part 9, D65): the timeline and a DRAFT render version. */
+export interface EditJobResult {
+  version: number;
+  timeline: Timeline;
+  render: RenderRecord;
+}
+
+export const editJobSummary = (r: EditJobResult) =>
+  [
+    ...timelineSummary(r.version, r.timeline),
+    "",
+    formatRender(r.render),
+    "Drafts are for watching; the final render (full quality, scenes, transcripts) comes from the Render stage once annotations are accepted.",
+  ].join("\n");
 
 /**
  * D53: after a new sync edit whose voice-over has no annotations yet, hand
@@ -58,7 +85,7 @@ export function autoSuggestNote(
   projectDir: string,
   enabled: boolean,
   action: "start" | "rerender",
-  r: EditResult,
+  r: { timeline: Timeline },
 ): string {
   if (!enabled || action !== "start") return "";
   const has = annotationVersions(projectDir).some(
@@ -71,62 +98,78 @@ export function autoSuggestNote(
   );
 }
 
-/** Start an edit (new timeline) or a re-render of the latest timeline as a background job. */
+/**
+ * Start an edit (new timeline + a draft render) or a re-render of the latest
+ * timeline (a draft render with another brand / annotations) as a background job.
+ */
 export function startEdit(
   rt: Runtime,
   action: "start" | "rerender",
   brand?: string,
   annotations?: number,
-): Job<EditResult> {
+): Job<EditJobResult> {
   const p = rt.requireProject();
   const cfg = rt.getConfig();
   if (brand) resolveBrand(cfg.root, brand); // fail fast on unknown brands
-  const timelineVersion = action === "rerender" ? latestTimeline(p.dir) : 0;
   const progress = (verb: string) => (pr: { done: number; total: number; label: string }) =>
     rt.bus.publish(
       "edit.progress",
-      { ...pr, message: `✂ ${verb} ${pr.done}/${pr.total} · ${pr.label}` },
+      { ...pr, message: `✂ ${verb} ${pr.done.toFixed(0)}/${pr.total} · ${pr.label}` },
       p.slug,
     );
-  return rt.jobs.start<EditResult>(
+  return rt.jobs.start<EditJobResult>(
     "edit",
     p.slug,
-    (signal) =>
-      action === "rerender"
-        ? renderVariant({
-            projectDir: p.dir,
-            config: cfg,
-            timelineVersion,
-            variant: { brand: brand ?? cfg.brand, ...(annotations ? { annotations } : {}) },
-            signal,
-            onProgress: progress("re-rendering"),
-          })
-        : runEdit({
-            projectDir: p.dir,
-            config: cfg,
-            ...(brand ? { variant: { brand } } : {}),
-            signal,
-            onProgress: progress("rendering"),
-          }),
-    (j: Job<EditResult>) => {
+    async (signal) => {
+      const edit =
+        action === "rerender"
+          ? { version: latestTimeline(p.dir) }
+          : buildEdit({ projectDir: p.dir, config: cfg });
+      const render = await runRender({
+        projectDir: p.dir,
+        config: cfg,
+        request: {
+          kind: "draft",
+          timeline: edit.version,
+          ...(annotations !== undefined ? { annotations } : {}),
+          ...(brand ? { brands: [brand] } : {}),
+          by: "edit",
+        },
+        signal,
+        onProgress: progress(action === "rerender" ? "draft render" : "rendering a draft"),
+      });
+      const timeline = JSON.parse(
+        fs.readFileSync(path.join(p.dir, "edit", `timeline.v${edit.version}.json`), "utf8"),
+      ) as Timeline;
+      return { version: edit.version, timeline, render };
+    },
+    (j: Job<EditJobResult>) => {
       rt.bus.publish(
         "edit.finished",
         {
           job: j.id,
           status: j.status,
-          ...(j.result
-            ? { version: j.result.version, variant: j.result.variant, file: j.result.full.file }
-            : {}),
+          ...(j.result ? { version: j.result.version, render: j.result.render.version } : {}),
           message: j.result
-            ? `edit v${j.result.version} rendered (${j.result.variant})`
+            ? `edit v${j.result.version} · draft render v${j.result.render.version}`
             : `edit ${j.status}: ${j.error}`,
         },
         p.slug,
       );
+      if (j.result)
+        rt.bus.publish(
+          "render.finished",
+          {
+            version: j.result.render.version,
+            kind: "draft",
+            message: `draft render v${j.result.render.version} ready`,
+          },
+          p.slug,
+        );
       rt.setStatus(undefined, true);
       if (j.result)
         rt.reportToAgent(
-          `[demo-recording] ${editSummary(j.result)}${autoSuggestNote(p.dir, cfg.annotations.autoSuggest, action, j.result)}`,
+          `[demo-recording] ${editJobSummary(j.result)}${autoSuggestNote(p.dir, cfg.annotations.autoSuggest, action, j.result)}`,
         );
       else rt.reportToAgent(`[demo-recording] Edit ${j.status}: ${j.error ?? "unknown error"}`);
     },
@@ -138,9 +181,10 @@ export function registerEditTool(pi: ExtensionAPI, rt: Runtime): void {
     name: "demo_rec_edit",
     label: "Demo sync edit",
     description:
-      "Audio-led edit and render (background). rerender: re-render the latest edit with another brand only (no LLM/TTS, fast). start: bends the take to the approved voice-over — cuts dead time, gently speeds up or slows down " +
-      "static stretches, holds settled frames, never alters typing/clicks or freezes in-app motion — so every [@mark] phrase lands on its event. " +
-      "Renders per-scene MP4s and the full video (intro, bridges, outro) to out/edit-vN/. You get a [demo-recording] message with sync stats.",
+      "Audio-led edit (background). start: bends the take to the approved voice-over — cuts dead time, gently speeds up or slows down " +
+      "static stretches, holds settled frames, never alters typing/clicks or freezes in-app motion — so every [@mark] phrase lands on its event — " +
+      "then makes a DRAFT render version (full video, 960×540, DRAFT tag) to watch. rerender: a new draft of the latest edit with another brand " +
+      "or annotation version (no LLM/TTS, fast). Final renders (full quality, scenes, transcripts) come from demo_rec_render. You get a [demo-recording] message with sync stats.",
     parameters: Type.Object({
       action: Type.Optional(
         StringEnum(["start", "rerender", "status", "cancel"] as const, {
@@ -150,13 +194,12 @@ export function registerEditTool(pi: ExtensionAPI, rt: Runtime): void {
       annotations: Type.Optional(
         Type.Number({
           description:
-            "rerender: burn in this annotations version (out/edit-vN/<brand>+aN/, next to the clean render)",
+            "rerender: the annotations version for the draft (default: the working line's, else the newest for this voice-over)",
         }),
       ),
       brand: Type.Optional(
         Type.String({
-          description:
-            "brand package for this render (default: config brand); rerender: re-render the latest edit with this brand — no LLM, no TTS",
+          description: "brand package for the draft (default: config brand) — no LLM, no TTS",
         }),
       ),
     }),

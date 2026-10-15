@@ -10,6 +10,7 @@ import { registerConfigTool } from "./src/tools/config.ts";
 import { registerEditTool } from "./src/tools/edit.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
 import { registerRecordTool } from "./src/tools/record.ts";
+import { registerRenderTool } from "./src/tools/render.ts";
 import { registerStoryboardTool } from "./src/tools/storyboard.ts";
 import { registerTakeTool } from "./src/tools/take.ts";
 import { registerTtsTool } from "./src/tools/tts.ts";
@@ -68,4 +69,5 @@ export default function (pi: ExtensionAPI) {
   registerConfigTool(pi, rt);
   registerBrandTool(pi, rt);
   registerAnnotationsTool(pi, rt);
+  registerRenderTool(pi, rt);
 }

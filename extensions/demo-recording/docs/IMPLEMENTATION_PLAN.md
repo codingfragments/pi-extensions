@@ -959,6 +959,26 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 - **Agent:** the render report includes the QA summary; `demo_rec_render action=qa version=N` shows the report; the agent can't confirm items.
 - **Tests:** each check on synthetic inputs (number normalisation, value lookup at anchor / in scene / missing, toast/console in used vs. cut footage, drift thresholds, redaction gap), media checks on a generated clip, the gate and confirms over the routes, overrides → new render with shifted narration, the walkthrough.
 
+*Bugfix sprint 1 (user feedback after part 10)* — ✅
+- **Log popups:** the Live panel's **Log** header opens the full log in a popup at 80 % of the window (text and type filters, follow newest, copy); a click (or Enter) on any log line — side panel or full log — opens that event whole (full time, type, project, message, all data pretty-printed, copy). Popups stack; Esc closes the top one, a click outside closes it. A reusable `Modal` in `public/core.js` (rendered on `<body>`, since the Live panel's CSS container would trap a fixed popup; a layout effect, since Preact skips deferred effects of a root rendered from an effect) — the base for part 13's panel dialogs.
+- **Walkthrough:** `scripts/fixture-walkthrough.fish --no-open` (or `DEMO_REC_NO_OPEN=1` set by the caller) doesn't open the videos at the "watch" step — automated runs stay silent.
+- **Log cleanup** (all 76 publish sites). The line shows `message`; the popup shows the whole `data`, so the context goes into structured fields:
+  - **Every event has a one-line `message`.** This includes `take.event`, `project.created/opened`, `panel.started` (URL without the token), `review.updated`, `discovery.opened/look/act/closed` and `safety.blocked/mutation` ("blocked: click “Delete” — reason"). A test scans every publish call for it.
+  - **Agent messages:** the text is kept up to ~4 KB (then "…", plus the original length), with how it was sent (report / action / note, whether it starts a turn). Failures carry the full error and which message failed.
+  - **Finished jobs:** `durationMs`, plus the full `error` on failure, and a summary:
+    - **take:** length, scenes, resumes, capture stats;
+    - **voice:** engine, voice, seconds, billed characters, sections with cache hits;
+    - **edit:** totals, worst drift, off-sync anchors;
+    - **render:** flavors with files, size, QA with the first blocking items.
+    Also `take.analyzed` (scenes, toasts, idle, improvised), `doctor.result` (every check).
+  - **What an action did:**
+    - **requests:** `render.started` (the request), the user's instructions for annotation re-suggests, notes for re-recordings;
+    - **annotations:** draft edits (`toggle co-kpi → on`, `nudge … +0.5 s`), suggest results (placed / kept / dropped with reasons, privacy, budget);
+    - **writes:** `vo.written` (sections, issues, the edited section), `storyboard.written` (diff, warnings), brief and brand changes (which fields);
+    - **config:** `config.changed` with before → after;
+    - **who:** panel, agent or CLI on approvals, accepts and marks.
+  - **Progress ticks collapse:** one log line per job run (its newest state, a ×N badge); the full log's "show all progress" shows every tick.
+
 *11. Confidence-guided review (D23) and voice direction (D29)*
 - **Confidence:**
   - measured signals → a high/medium/low level with reasons, per storyboard scene, VO section and annotation;

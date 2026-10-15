@@ -192,7 +192,11 @@ async function main(argv: string[]): Promise<number> {
         project: project ? { ...openProject(cfg.root, project.slug) } : null,
       }),
     });
-    bus.publish("panel.started", { message: "standalone panel (cli)" });
+    bus.publish("panel.started", {
+      port: panel.port,
+      url: `http://127.0.0.1:${panel.port}/`,
+      message: `standalone panel (cli) on http://127.0.0.1:${panel.port}/`,
+    });
     let n = 0;
     const timer = values.ticker
       ? setInterval(() => bus.publish("test.tick", { n: ++n, message: `tick ${n}` }), 2000)

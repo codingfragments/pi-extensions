@@ -12,6 +12,8 @@
 #   fish extensions/demo-recording/scripts/fixture-walkthrough.fish [--no-pi] [--keep]
 #     --no-pi   skip the interactive pi/panel step at the end
 #     --keep    keep the temp workspace (its path is printed) instead of deleting it
+#     --no-open don't open the videos at the "watch" step (also when DEMO_REC_NO_OPEN=1
+#               is set before the script starts — e.g. for automated runs)
 #
 # Uses a temp workspace: ~/DemoRecordings and your config are never touched.
 
@@ -27,6 +29,9 @@ set -g SCRIPT_DIR (path dirname (path resolve (status filename)))
 set -g REPO (path resolve "$SCRIPT_DIR/../../..")
 cd "$REPO"; or bail $argv
 echo "repo: $REPO ($(git branch --show-current 2>/dev/null))"
+
+# The caller's DEMO_REC_NO_OPEN (before this script sets its own for the CLI steps).
+set -g CALLER_NO_OPEN "$DEMO_REC_NO_OPEN"
 
 set -gx DEMO_REC_ROOT (mktemp -d)
 echo '{}' >"$DEMO_REC_ROOT/none.json"
@@ -89,7 +94,9 @@ node "$CLI" render --project "$PROJ" --kind final --types callout; or bail $argv
 node "$CLI" render --project "$PROJ" --kind final --subtitles | grep -E "reused|Final"
 
 step "8/9  watch: draft v2, final v3 (subtitled), callouts-only v4"
-if test (uname) = Darwin
+if contains -- --no-open $argv; or test "$CALLER_NO_OPEN" = 1
+    echo "videos (not opened): $OUT/v2/neutral/ $OUT/v3/neutral/ $OUT/v4/neutral_callouts-only/"
+else if test (uname) = Darwin
     open "$OUT/v2/neutral/$PROJ"_draft-v2_neutral.mp4
     open "$OUT/v3/neutral/$PROJ"_final-v3_neutral_subtitled.mp4
     open "$OUT/v4/neutral_callouts-only/$PROJ"_final-v4_neutral_callouts-only.mp4

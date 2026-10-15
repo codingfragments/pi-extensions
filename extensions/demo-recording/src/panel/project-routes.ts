@@ -240,7 +240,12 @@ export function projectRoutes(deps: ProjectRouteDeps): {
         });
         deps.publish(
           "brief.written",
-          { version: v.version, message: `brief v${v.version} (project facts: ${changed})` },
+          {
+            version: v.version,
+            by: "user",
+            changed: changed.split(", "),
+            message: `brief v${v.version} (project facts: ${changed})`,
+          },
           p.slug,
         );
         deps.tellAgent(
@@ -259,7 +264,13 @@ export function projectRoutes(deps: ProjectRouteDeps): {
         );
         deps.publish(
           "input.marked",
-          { id: e.id, message: `${e.id} ${e.outdated ? "marked outdated" : "restored"}` },
+          {
+            id: e.id,
+            by: "user",
+            text: e.text,
+            ...(e.outdated ? { reason: e.outdated.reason } : {}),
+            message: `${e.id} ${e.outdated ? "marked outdated" : "restored"}${e.outdated?.reason ? `: ${e.outdated.reason}` : ""}`,
+          },
           p.slug,
         );
         return { input: e };
@@ -272,7 +283,11 @@ export function projectRoutes(deps: ProjectRouteDeps): {
           throw new Error(`"state" must be ${FINDING_STATES.join(" | ")}`);
         const st = readState(p.dir) ?? p.state;
         const f = markFinding(p.dir, body.id, state, { appDir: appDirOf(p.dir, st.app) });
-        deps.publish("finding.marked", { id: f.id, state, message: `${f.id} → ${state}` }, p.slug);
+        deps.publish(
+          "finding.marked",
+          { id: f.id, state, by: "user", text: f.text, message: `${f.id} → ${state}` },
+          p.slug,
+        );
         if (state !== "auto")
           deps.tellAgent(
             `[demo-panel] The user marked finding ${f.id} ("${f.text.slice(0, 80)}") as ${state.toUpperCase()}${state === "use" ? " — it must appear in the recording and the narration (list it in a scene's findings:)" : " — never bring it up"}.`,

@@ -682,3 +682,51 @@ function readRenderRecord(projectDir: string, v: number): RenderRecord {
   if (!fs.existsSync(f)) throw new Error(`render v${v} does not exist`);
   return JSON.parse(fs.readFileSync(f, "utf8")) as RenderRecord;
 }
+
+/** A render version for bus events (log cleanup): one line + the facts the popup shows. */
+export function renderEvent(projectDir: string, rec: RenderRecord): Record<string, unknown> {
+  const bytes = rec.variants.reduce((n, v) => n + v.bytes, 0);
+  const q = rec.qa ? readQa(projectDir, rec.version) : undefined;
+  const qa = rec.qa
+    ? {
+        ...rec.qa,
+        firstBlocking: (q?.items ?? [])
+          .filter((i) => i.level === "blocking" && !i.confirmed)
+          .slice(0, 3)
+          .map((i) => i.message),
+      }
+    : null;
+  const qaText =
+    rec.kind !== "final"
+      ? ""
+      : !rec.qa
+        ? " · QA not run"
+        : rec.qa.status === "blocked"
+          ? ` · QA: ${rec.qa.blocking - rec.qa.confirmed} blocking`
+          : rec.qa.status === "error"
+            ? " · QA error"
+            : " · QA ✓";
+  return {
+    message: `${rec.kind} render v${rec.version} ${rec.status === "done" ? "ready" : rec.status} · ${rec.variants.length} flavor(s) · ${(bytes / 1e6).toFixed(1)} MB${qaText}`,
+    version: rec.version,
+    kind: rec.kind,
+    status: rec.status,
+    basedOn: rec.basedOn,
+    timeline: rec.timeline,
+    options: rec.options,
+    brands: rec.brands,
+    size: rec.size,
+    lengthSec: rec.variants[0]?.durationSec ?? null,
+    bytes,
+    flavors: rec.variants.map((v) => ({
+      key: v.key,
+      dir: v.dir,
+      files: v.files,
+      bytes: v.bytes,
+      ...(v.reusedFrom ? { reusedFrom: v.reusedFrom } : {}),
+    })),
+    ...(qa ? { qa } : {}),
+    ...(rec.overrides ? { overrides: rec.overrides } : {}),
+    ...(rec.error ? { error: rec.error } : {}),
+  };
+}

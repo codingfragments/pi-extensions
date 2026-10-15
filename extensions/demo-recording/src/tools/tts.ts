@@ -15,6 +15,7 @@ import type { Runtime } from "../runtime.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
 import { briefVoice, buildEngines } from "../tts/factory.ts";
 import { type VoiceManifest, readManifest, renderVoice, selectEngine } from "../tts/synthesize.ts";
+import { firstLine, jobFacts } from "../util/events.ts";
 import { readVo } from "../vo/store.ts";
 import { readState, requireSelected } from "../workdir/state.ts";
 import { result } from "./common.ts";
@@ -154,11 +155,30 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
           rt.bus.publish(
             "tts.finished",
             {
-              job: j.id,
-              status: j.status,
+              ...jobFacts(j),
+              voVersion: version,
               message: j.result
-                ? `voice ready (${j.result.engine})`
-                : `voice ${j.status}: ${j.error}`,
+                ? `voice ready · ${j.result.engine} “${j.result.voice.name}” · ${j.result.totalSec.toFixed(1)} s · ${Object.keys(j.result.sections).length} section(s)`
+                : `voice ${j.status}: ${firstLine(j.error ?? "")}`,
+              ...(j.result
+                ? {
+                    engine: j.result.engine,
+                    voice: j.result.voice,
+                    models: j.result.models,
+                    totalSec: j.result.totalSec,
+                    billedChars: j.result.billedChars,
+                    sections: Object.values(j.result.sections).map((s) => ({
+                      key: s.key,
+                      sec: +s.durationSec.toFixed(2),
+                      cached: s.cached,
+                      chars: s.chars,
+                    })),
+                    ...(j.result.skipped.length ? { skipped: j.result.skipped } : {}),
+                    ...(j.result.modelFallbacks.length
+                      ? { modelFallbacks: j.result.modelFallbacks }
+                      : {}),
+                  }
+                : {}),
             },
             p.slug,
           );

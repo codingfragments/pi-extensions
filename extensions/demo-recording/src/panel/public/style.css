@@ -174,6 +174,14 @@ code,
   color: var(--accent);
   flex: none;
 }
+.log .ticks {
+  flex: none;
+  color: var(--muted);
+  background: var(--chip);
+  border-radius: 6px;
+  padding: 0 0.35em;
+  font-size: 0.85em;
+}
 .log .data {
   color: var(--text);
   overflow: hidden;
@@ -1988,4 +1996,107 @@ button.tiny {
 .qa-pill.blocked,
 .qa-pill.error {
   background: color-mix(in srgb, var(--err) 30%, var(--chip));
+}
+/* Popups (bugfix sprint: log popups; reused by part 13) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+.modal {
+  display: flex;
+  flex-direction: column;
+  max-width: 94vw;
+  max-height: 90vh;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  outline: none;
+}
+.modal.medium {
+  width: min(760px, 92vw);
+}
+.modal.large {
+  width: 80vw;
+  height: 80vh;
+  max-height: 80vh;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head h2 {
+  margin: 0;
+  font-size: 1.1em;
+  word-break: break-all;
+}
+.modal-close {
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 10px;
+}
+.modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.log-head {
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  color: inherit;
+  cursor: zoom-in;
+}
+.log-line {
+  cursor: pointer;
+}
+.log-line:hover,
+.log-line:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: none;
+}
+.log.log-full {
+  flex: 1;
+  min-height: 0;
+}
+.log.log-full .data {
+  white-space: normal;
+}
+.log-filters {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.log-filters .note {
+  flex: 1;
+  min-width: 240px;
+}
+.log-detail dd {
+  margin: 0;
+}
+.log-msg {
+  white-space: pre-wrap;
+}
+.log-json {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--inset);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
 }

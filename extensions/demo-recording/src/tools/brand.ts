@@ -222,7 +222,14 @@ export function registerBrandTool(pi: ExtensionAPI, rt: Runtime): void {
           });
           rt.bus.publish(
             "brand.changed",
-            { name: l.brand.name, message: `brand ${l.brand.name} created` },
+            {
+              name: l.brand.name,
+              by: "agent",
+              dir: l.dir,
+              ...(params.source ? { source: params.source } : {}),
+              ...(l.warnings.length ? { warnings: l.warnings } : {}),
+              message: `brand ${l.brand.name} created${params.source ? ` from ${params.source}` : ""}`,
+            },
             rt.activeProjectSlug,
           );
           const pv = await safePreview(rt, l.brand.name);
@@ -239,7 +246,14 @@ export function registerBrandTool(pi: ExtensionAPI, rt: Runtime): void {
           const l = updateBrand(cfg.root, need(params.name, "name"), s);
           rt.bus.publish(
             "brand.changed",
-            { name: l.brand.name, message: `brand ${l.brand.name} updated` },
+            {
+              name: l.brand.name,
+              by: "agent",
+              changed: Object.keys(s),
+              settings: s,
+              ...(l.warnings.length ? { warnings: l.warnings } : {}),
+              message: `brand ${l.brand.name} updated (${Object.keys(s).join(", ")})`,
+            },
             rt.activeProjectSlug,
           );
           const pv = await safePreview(rt, l.brand.name);
@@ -254,7 +268,12 @@ export function registerBrandTool(pi: ExtensionAPI, rt: Runtime): void {
           const l = duplicateBrand(cfg.root, need(params.name, "name"), need(params.to, "to"));
           rt.bus.publish(
             "brand.changed",
-            { name: l.brand.name, message: `brand ${l.brand.name} created (copy)` },
+            {
+              name: l.brand.name,
+              by: "agent",
+              from: params.name,
+              message: `brand ${l.brand.name} created (copy of ${params.name})`,
+            },
             rt.activeProjectSlug,
           );
           return result(`Duplicated into "${l.brand.name}" at ${l.dir}. Edit it with update.`);

@@ -96,7 +96,13 @@ export function registerConfigTool(pi: ExtensionAPI, rt: Runtime): void {
         {
           key: change.key,
           scope,
-          message: `config: ${change.key} → ${JSON.stringify(change.after)} (${scope})`,
+          by: "agent",
+          file: change.file,
+          before: change.before ?? null,
+          after: change.after ?? null,
+          effective: change.effective ?? null,
+          ...(change.shadowedBy ? { shadowedBy: change.shadowedBy } : {}),
+          message: `config: ${change.key}: ${JSON.stringify(change.before) ?? "unset"} → ${JSON.stringify(change.after) ?? "unset"} (${scope})`,
         },
         rt.activeProjectSlug,
       );

@@ -98,7 +98,14 @@ export function brandRoutes(rt: Runtime): {
         updateBrand(cfg.root, name, patch);
         rt.bus.publish(
           "brand.changed",
-          { name, message: `brand ${name} saved` },
+          {
+            name,
+            by: "panel",
+            file: plan.file,
+            changed: Object.keys(patch),
+            diff: plan.diff,
+            message: `brand ${name} saved (${Object.keys(patch).join(", ") || "no changes"})`,
+          },
           rt.activeProjectSlug,
         );
         return { saved: true, file: plan.file };
@@ -107,7 +114,12 @@ export function brandRoutes(rt: Runtime): {
         const l = duplicateBrand(rt.getConfig().root, str(body, "name"), str(body, "to"));
         rt.bus.publish(
           "brand.changed",
-          { name: l.brand.name, message: `brand ${l.brand.name} created (copy)` },
+          {
+            name: l.brand.name,
+            by: "panel",
+            from: str(body, "name"),
+            message: `brand ${l.brand.name} created (copy of ${str(body, "name")})`,
+          },
           rt.activeProjectSlug,
         );
         return { name: l.brand.name, dir: l.dir };

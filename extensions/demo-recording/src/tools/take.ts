@@ -101,7 +101,7 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
         acceptTake(p.dir, take);
         rt.bus.publish(
           "take.accepted",
-          { take, message: `${take} accepted for the voice-over` },
+          { take, by: "agent", message: `${take} accepted for the voice-over` },
           p.slug,
         );
         return result(
@@ -111,7 +111,22 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
 
       rt.bus.publish("take.analyzing", { take, message: `analyzing ${take}` }, p.slug);
       const analysis = readAnalysis(takeDir) ?? (await analyzeTake(takeDir));
-      rt.bus.publish("take.analyzed", { take, message: `${take} analyzed` }, p.slug);
+      rt.bus.publish(
+        "take.analyzed",
+        {
+          take,
+          message: `${take} analyzed · ${analysis.scenes.length} scene(s)${analysis.scenes.some((s) => s.alerts.length) ? ` · ${analysis.scenes.reduce((n, s) => n + s.alerts.length, 0)} toast(s)` : ""}`,
+          scenes: analysis.scenes.map((s) => ({
+            id: s.id,
+            ms: s.end - s.start,
+            marks: s.marks.map((m) => m.mark),
+            alerts: s.alerts.map((a) => `${a.level}: ${a.text}`),
+            idleMs: s.idle.reduce((n, r) => n + r.end - r.start, 0),
+            improvised: s.typed.filter((t) => t.improvised).map((t) => t.text),
+          })),
+        },
+        p.slug,
+      );
       const vision = visionWarning(ctx?.model);
       if (vision) rt.bus.publish("model.warning", { message: vision }, p.slug);
       const content: ToolContent[] = [

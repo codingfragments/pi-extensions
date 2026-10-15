@@ -41,6 +41,9 @@ import {
   versionDir,
 } from "./store.ts";
 
+/** Bump when render output changes for the same inputs, so older variants aren't reused. */
+export const RENDER_REVISION = "r2";
+
 export const DRAFT_SIZE = { width: 960, height: 540 };
 export const DRAFT_ENCODE = { preset: "veryfast", crf: 26 };
 
@@ -214,7 +217,7 @@ export function reuseKey(plan: RenderPlan, brand: string, fps: number): string {
         plan.options,
         plan.size,
         fps,
-        "r1",
+        RENDER_REVISION,
       ]),
     )
     .digest("hex")

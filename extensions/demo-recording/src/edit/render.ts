@@ -45,6 +45,8 @@ export interface RenderJob {
   durationMs: number;
   /** Output start of each scene (ms) — to place annotations in the full video. */
   sceneStart?: Record<string, number>;
+  /** Output start of each `timeline.full` item (ms), same order — for transcripts. */
+  itemStart?: number[];
 }
 
 const pieceDur = (p: Piece) => ("src" in p ? (p.src[1] - p.src[0]) / p.speed : p.freeze.dur);
@@ -76,6 +78,7 @@ export function fullJob(
   const video: VideoPiece[] = [];
   const audio: AudioClip[] = [];
   const sceneStart: Record<string, number> = {};
+  const itemStart: number[] = [];
   let at = 0;
   // A title card covers the start: make sure the video opens on a held frame long
   // enough for it (the intro card if there is one, else a silent hold).
@@ -93,6 +96,7 @@ export function fullJob(
     at += hold;
   }
   for (const item of t.full as FullItem[]) {
+    itemStart.push(at);
     if (item.type === "card") {
       video.push({ hold: item.holdAt, durMs: item.durationMs });
       if (item.audio)
@@ -110,7 +114,7 @@ export function fullJob(
     for (const a of job.audio) audio.push({ ...a, at: at + a.at });
     at += job.durationMs;
   }
-  return { video, audio, durationMs: at, sceneStart };
+  return { video, audio, durationMs: at, sceneStart, itemStart };
 }
 
 /** Frame counts per piece from cumulative output time (no drift). */

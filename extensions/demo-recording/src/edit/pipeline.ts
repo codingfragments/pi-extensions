@@ -193,6 +193,8 @@ export interface CutResult {
   titleMs: number;
   /** Output start of each scene in the full video (for sidecars). */
   sceneStart: Record<string, number>;
+  /** Output start of each `timeline.full` item (for sidecars). */
+  itemStart: number[];
   annotations?: { version: number; applied: number; warnings: string[] };
 }
 
@@ -312,6 +314,7 @@ export async function renderCut(o: {
     full: { file: fullFile, durationSec: r.durationSec },
     titleMs,
     sceneStart: fj.sceneStart ?? {},
+    itemStart: fj.itemStart ?? [],
     ...(prepared
       ? {
           annotations: {

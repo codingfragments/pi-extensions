@@ -602,6 +602,10 @@ unsaved-changes option per annotation draft.
 goal, depth, URL) as orientation only; one group (Brief, Sources & context, Findings, Project history) is open
 below at a time, in the address; first run offers *Ask the Director to draft it* or *Fill it in myself*.
 
+**Settled in the UX9a grill (D125):** every setting shows Effective / Global / Project override with a
+per-layer action (no page-level scope switch); search covers settings only; quick filters Changed, Overridden
+here and From environment; secrets are never indexed.
+
 ### 10.6 Still open, to settle inside the slice that needs it
 
 - Final token values and content-driven pane thresholds (settled in UX0 by looking

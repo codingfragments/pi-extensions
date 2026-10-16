@@ -235,6 +235,8 @@ const ANALYSIS = {
 
 /** Build the project under `root` (a fresh temp dir when omitted). */
 export function seedPanelProject(root = fs.mkdtempSync(path.join(os.tmpdir(), "panel-seed-"))) {
+  // a seeded panel never lists the voices of a real account (tests, screenshots and the audit use this)
+  process.env.DEMO_REC_NO_VOICE_LIST ??= "1";
   const p = ensureProject(root, {
     project: "keycraft",
     appName: "Keycraft",

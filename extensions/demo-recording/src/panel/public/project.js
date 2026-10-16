@@ -7,6 +7,7 @@ import { CostHint } from "./cost.js";
 // input log with mark outdated / restore, sources, working line).
 // Tool configuration — also project-scope overrides — lives in ⚙ Config.
 import { askText, confirmAsk, errorToast } from "./dialog.js";
+import { VoiceInput } from "./voices.js";
 
 const PROJECT_EVENTS =
   /^(brief|input|finding|project|stage|line|storyboard|take|vo|edit|discovery)\./;
@@ -141,7 +142,7 @@ function Facts({ events, focus }) {
     if (!focus || !data) return;
     document
       .querySelector(
-        `[data-fact="${focus}"] input, [data-fact="${focus}"] textarea, [data-fact="${focus}"] button`,
+        `[data-fact="${focus}"] input, [data-fact="${focus}"] textarea, [data-fact="${focus}"] select, [data-fact="${focus}"] button`,
       )
       ?.focus();
   }, [focus, !!data]);
@@ -229,6 +230,9 @@ function Facts({ events, focus }) {
         </${Field}>
         <${Field} label="Stance" hint=${!value("stance") && data.effective.stance ? `effective: ${data.effective.stance}${data.effective.stanceFromDepth ? " (depth default)" : ""}` : "the narrator's attitude"}>
           <${Segmented} options=${stanceOptions} value=${value("stance")} onChange=${(v) => set("stance", v)} />
+        </${Field}>
+        <${Field} fact="voice" label="Voice" hint="an ElevenLabs voice; leave empty to use the Config default">
+          <${VoiceInput} value=${value("voice")} onChange=${(v) => set("voice", v)} emptyLabel="Project default (from Config)" />
         </${Field}>
         <${Field} fact="length" label="Target length">
           <${LengthPicker} value=${value("length")} def=${def?.lengthSec ?? null} onChange=${(v) => set("length", v)} />

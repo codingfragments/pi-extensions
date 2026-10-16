@@ -28,6 +28,7 @@ import { panelRoutes } from "./panel/routes.ts";
 import { type GetRoute, type PanelHandle, type PostRoute, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
 import { versionRoutes } from "./panel/version-routes.ts";
+import { voiceListRoutes } from "./panel/voice-list-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
 import { startDesigner } from "./tools/designer.ts";
@@ -349,6 +350,11 @@ export class Runtime {
     });
     const renders = renderRoutes(this);
     const voice = voiceRoutes(this);
+    // DEMO_REC_NO_VOICE_LIST keeps tests, screenshots and audits from ever listing a real account's voices
+    const voiceList = voiceListRoutes({
+      apiKey: () =>
+        process.env.DEMO_REC_NO_VOICE_LIST ? undefined : process.env.ELEVENLABS_API_KEY,
+    });
     const config = configRoutes({
       activeProject: () => this.activeProject(),
       reloadConfig: () => this.getConfig(true),
@@ -380,6 +386,7 @@ export class Runtime {
         ...config.get,
         ...annotations.get,
         ...renders.get,
+        ...voiceList.get,
       },
       post: {
         ...routes.post,

@@ -38,6 +38,8 @@ const seed = fresh
   : seedPanelProject(root);
 
 process.env.DEMO_REC_NO_OPEN = "1";
+// by hand, the voice pickers list the voices of your own account (read-only, free), like the real panel
+Reflect.deleteProperty(process.env, "DEMO_REC_NO_VOICE_LIST");
 const rt = new Runtime(() => ({
   ...resolveConfig({ env: { DEMO_REC_CONFIG: path.join(root, "none.json") } }),
   root,

@@ -37,7 +37,7 @@
     "annotations|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 42,
+      "smallTargets": 14,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -163,7 +163,7 @@
     "annotations|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 42,
+      "smallTargets": 14,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -295,11 +295,11 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 6
+          "nodes": 1
         }
       },
-      "axeSerious": 6,
-      "smallTargets": 42,
+      "axeSerious": 1,
+      "smallTargets": 14,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -431,11 +431,11 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 6
+          "nodes": 1
         }
       },
-      "axeSerious": 6,
-      "smallTargets": 42,
+      "axeSerious": 1,
+      "smallTargets": 14,
       "focusMissing": 0,
       "focusChecked": 40
     },

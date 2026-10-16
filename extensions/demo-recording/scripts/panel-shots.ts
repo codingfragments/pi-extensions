@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --annotations # Annotations (UX6): list by scene + inspector, draft saved, conflict, privacy dialog
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --storyboard # Storyboard (UX5c): scene list + inspector, a marked scene
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --voice     # Voice over (UX5): list + inspector, draft saved, failed save, conflict, base moved
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --map       # the project map (UX4): all paths, search, focus, group open, History link
@@ -35,6 +36,7 @@ const versionsOnly = process.argv.includes("--versions");
 const mapOnly = process.argv.includes("--map");
 const voiceOnly = process.argv.includes("--voice");
 const storyboardOnly = process.argv.includes("--storyboard");
+const annotationsOnly = process.argv.includes("--annotations");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -78,7 +80,48 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (storyboardOnly) {
+      if (annotationsOnly) {
+        const { editAnnotationDraft, readAnnotationDraft } = await import(
+          "../src/drafts/annotations.ts"
+        );
+        // the previews need Chromium and ffmpeg per still: the shots show the screen, not the pictures
+        await page.route("**/api/annotation-preview", (r) =>
+          r.fulfill({
+            status: 400,
+            contentType: "application/json",
+            body: '{"error":"previews are not rendered for this screenshot"}',
+          }),
+        );
+        const saved = () =>
+          page.waitForFunction(
+            `/Draft saved/.test(document.querySelector(".ds-actionbar .ds-savestate")?.innerText ?? "")`,
+          );
+        await page.goto(`${panel.url}#/annotations?item=co-kpi`);
+        await page.waitForSelector(".ds-inspector h2");
+        await page.waitForTimeout(300);
+        await shot(page, `annotations-list-${tag}`, false);
+        await page.click("button[data-act=row-enabled][data-id='ch-dash']");
+        await saved();
+        await page.click(".ds-inspector button[title='0.5 s later']");
+        await saved();
+        await shot(page, `annotations-draft-${tag}`, false);
+        editAnnotationDraft(
+          seed.dir,
+          1,
+          { op: "toggle", id: "sp-row" },
+          { expected: readAnnotationDraft(seed.dir, 1)?.revision ?? null, author: "other-tab" },
+        );
+        await page.click("button[data-act=row-enabled][data-id='zoom-kpi']");
+        await page.waitForSelector("[data-act=reapply]");
+        await shot(page, `annotations-conflict-${tag}`, false);
+        await page.click("[data-act=keep-theirs]");
+        await page.click("button[data-act=row-enabled][data-id='rd-mail']");
+        await saved();
+        await page.click(".ds-item[data-key='rd-mail']");
+        await page.click("button[data-act=row-enabled][data-id='rd-mail']");
+        await page.waitForSelector(".modal.dialog");
+        await shot(page, `annotations-privacy-${tag}`, false);
+      } else if (storyboardOnly) {
         await page.goto(`${panel.url}#/storyboard?scene=02-search`);
         await page.waitForSelector(".ds-inspector h2");
         await page.waitForTimeout(300);

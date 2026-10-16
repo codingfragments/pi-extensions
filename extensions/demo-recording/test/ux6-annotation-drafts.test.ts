@@ -371,6 +371,7 @@ test("routes: revision is required; a conflict is data with the server's view; s
       [true, 1, 1, "tab-a"],
     );
     assert.deepEqual(a.resettable, ["co-kpi"]);
+    assert.deepEqual(a.draft.changedIds, ["co-kpi"], "what a discard would lose");
     const late = await post("annotations-edit", {
       version: 1,
       revision: null,

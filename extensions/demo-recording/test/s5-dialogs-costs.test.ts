@@ -443,7 +443,7 @@ test(
       await suggest.click();
       await dlg.waitFor();
       await dlg.locator("[data-confirm]").click();
-      await page.waitForSelector(".ann-card", { timeout: 30_000 }).catch((e) => {
+      await page.waitForSelector(".ds-split-list .ds-item", { timeout: 30_000 }).catch((e) => {
         throw new Error(
           `${e.message}\n${rt.bus
             .recent()

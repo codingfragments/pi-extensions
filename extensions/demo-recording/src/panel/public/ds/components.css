@@ -1334,3 +1334,32 @@ dialog.ds-dialog::backdrop {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
+
+/* ---------- Annotation list (UX6b): grouped by scene, a switch in every row ---------- */
+.ds-list-group {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ds-rowwrap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-1);
+}
+.ds-rowwrap > .ds-switch {
+  padding-inline-start: var(--space-2);
+}
+.ds-rowwrap[data-off="true"] .ds-item-title {
+  color: var(--text-muted);
+}
+.ann-shot {
+  max-inline-size: 36rem;
+}
+.ann-shot .ann-thumb {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}

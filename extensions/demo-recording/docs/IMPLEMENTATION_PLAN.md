@@ -1071,7 +1071,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary ([report](ux/UX3.md): the input picker that wrote the line is gone; plans, atomic actions, one vocabulary; serious axe findings 484 → 436) | ✅ merged (#59) |
   | UX4a | **Engine:** `GET /api/graph` (versions, draft groups, QA nodes; recorded links only; separate statuses; cached; 324 nodes in about 20 ms). First-cut scope and entry points settled in a grill (D119) | built, awaiting review |
   | UX4b | **Panel:** the map overlay (own SVG, from the UX0 prototype), `#/map?view=&q=&focus=` routes, the Map button, "Show in map" from History rows and the blocked band, path filters, dim context, focus, collapse, outline and keyboard | built, awaiting review (D120, [report](ux/UX4.md)) |
-  | UX5 | Durable drafts and storyboard/voice list-detail review | planned |
+  | UX5a | **Engine:** `drafts/<stage>/v<base>.json` (revision counter, atomic write, stale-revision rejection with the current draft, idempotent *Save new version*, base-change flags per D121); voice only, review notes unchanged; routes with cost class `none` | planned (decisions D121) |
+  | UX5b | **Panel:** voice and storyboard as list + inspector, the Saving / Draft saved / Save failed states, conflict choice (keep mine / take theirs / compare), base-change note, Discard that names its draft | planned |
   | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | planned |
   | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |
   | UX8 | Project brief-summary first-run and grouped context | planned |

@@ -585,6 +585,11 @@ project (spec §2) is the default when the hash is empty.
 - Draft routes are listed with cost class `none`; saving a draft never starts a
   model, TTS or render job and never changes approval or the production line.
 
+**Settled in the UX5 grill (D121):** drafts are private to the user (the Director sees only saved
+versions); voice editing autosaves a draft and *Save new version* is explicit; a draft stays on its base
+and is flagged when the base is approved, withdrawn or superseded (never rebased or dropped silently);
+review notes stay in `state.json` with their own *Send to Director* step and are not part of the draft files.
+
 ### 10.6 Still open, to settle inside the slice that needs it
 
 - Final token values and content-driven pane thresholds (settled in UX0 by looking

@@ -1363,3 +1363,27 @@ dialog.ds-dialog::backdrop {
   border-radius: var(--radius-md);
   overflow: hidden;
 }
+
+/* ---------- Run inspector sections (UX7) ---------- */
+.ds-section {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+}
+.ds-section > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-min);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+.ds-section-body {
+  padding: var(--space-3);
+  border-block-start: 1px solid var(--border-subtle);
+}
+.render-new .render-change > summary {
+  cursor: pointer;
+  padding-block: var(--space-2);
+  color: var(--accent);
+}

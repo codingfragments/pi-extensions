@@ -243,10 +243,9 @@ test(
     const { page, panel, dlg, state, close } = await setup();
     try {
       // Render: final v1 is blocked by QA. The button is disabled and the reason is next to it.
-      await page.goto(`${panel.url}#/render`);
-      await page.waitForSelector(".render-card");
-      const card = page.locator(".render-card", { hasText: "Final v1" });
-      await card.locator("summary").click();
+      await page.goto(`${panel.url}#/render/v1`);
+      await page.waitForSelector(".ds-inspector[data-version='1']");
+      const card = page.locator(".ds-inspector[data-version='1']");
       const btn = card.getByRole("button", { name: "Approve final v1" });
       assert.equal(await btn.getAttribute("aria-disabled"), "true");
       assert.match(await card.locator(".ds-why").first().innerText(), /blocking item/i);

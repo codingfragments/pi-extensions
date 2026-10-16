@@ -42,20 +42,11 @@
       "focusChecked": 40
     },
     "render|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 3
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 1
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 58,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 15,
       "focusMissing": 0,
-      "focusChecked": 36
+      "focusChecked": 32
     },
     "config|macchiato|1400": {
       "axe": {
@@ -168,20 +159,11 @@
       "focusChecked": 40
     },
     "render|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 3
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 1
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 58,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 15,
       "focusMissing": 0,
-      "focusChecked": 36
+      "focusChecked": 32
     },
     "config|macchiato|900": {
       "axe": {
@@ -307,17 +289,13 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 17
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 1
+          "nodes": 5
         }
       },
-      "axeSerious": 18,
-      "smallTargets": 58,
+      "axeSerious": 5,
+      "smallTargets": 15,
       "focusMissing": 0,
-      "focusChecked": 36
+      "focusChecked": 32
     },
     "config|latte|1400": {
       "axe": {
@@ -443,17 +421,13 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 17
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 1
+          "nodes": 5
         }
       },
-      "axeSerious": 18,
-      "smallTargets": 58,
+      "axeSerious": 5,
+      "smallTargets": 15,
       "focusMissing": 0,
-      "focusChecked": 36
+      "focusChecked": 32
     },
     "config|latte|900": {
       "axe": {

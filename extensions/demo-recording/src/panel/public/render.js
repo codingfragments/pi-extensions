@@ -1,18 +1,13 @@
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { api, media, post, useApi, useRouteVersion } from "./core.js";
+import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 // demo-recording panel — Render tab (S5 part 9, D59–D68): a form for a new
 // render (draft or final, annotation version and types, brands, subtitles,
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
 import { confirmAsk, errorToast } from "./dialog.js";
-import {
-  RowBadges,
-  StageSummary,
-  VersionActions,
-  runVersionAction,
-  useHistory,
-} from "./version-ui.js";
+import { NarrowSelect } from "./inspector.js";
+import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
 const TYPE_LABEL = {
@@ -45,13 +40,13 @@ function NewRender({ data, events, onStarted }) {
   const progress = events.filter((e) => e.type === "render.progress").at(-1);
   const running = data.job?.status === "running";
   const versions = data.annotationVersions;
-  const chosen = ann === "draft" ? null : versions.find((v) => String(v.version) === ann);
-  const available =
-    ann === "draft" ? TYPES : chosen ? TYPES.filter((t) => chosen.types.includes(t)) : [];
+  const isDraft = ann.startsWith("draft:");
+  const chosen = isDraft ? null : versions.find((v) => String(v.version) === ann);
+  const available = isDraft ? TYPES : chosen ? TYPES.filter((t) => chosen.types.includes(t)) : [];
   const selected = types ?? available;
   const finalOk = kind !== "final" || (chosen?.accepted && chosen.usable);
   useEffect(() => {
-    if (kind === "final" && (ann === "draft" || ann === "none")) {
+    if (kind === "final" && (ann.startsWith("draft:") || ann === "none")) {
       const acc = versions.find((v) => v.accepted && v.usable);
       setAnn(acc ? String(acc.version) : ann);
     }
@@ -80,8 +75,8 @@ function NewRender({ data, events, onStarted }) {
     try {
       await post("/api/render", {
         kind,
-        ...(ann === "draft"
-          ? { fromDraft: true }
+        ...(isDraft
+          ? { fromDraft: true, annotations: Number(ann.slice(6)) }
           : ann === "none"
             ? { annotations: null }
             : { annotations: Number(ann) }),
@@ -98,14 +93,42 @@ function NewRender({ data, events, onStarted }) {
       setTimeout(() => setFlash(null), 8000);
     }
   };
+  const annLabel = isDraft
+    ? `unsaved changes on v${ann.slice(6)}`
+    : ann === "none"
+      ? "no annotations"
+      : `annotations v${ann}`;
+  const typesLabel = !available.length
+    ? ""
+    : types === null || selected.length === available.length
+      ? " · all types"
+      : ` · ${selected.length ? selected.join(", ") : "no types"}`;
+  const why = !data.hasEdit
+    ? "no edit yet: run the sync edit first"
+    : kind === "final" && !finalOk
+      ? (data.finalBlocker ?? "this annotation version is not approved")
+      : !brands.length
+        ? "choose a brand"
+        : "";
+  const blocked = busy || running || !!why;
   return html`<section class="card render-new">
-    <div class="row"><h2>New render</h2><span class="grow"></span>${flash ? html`<span class="flash">${flash}</span>` : null}</div>
+    <div class="row render-summary">
+      <h2>New render</h2>
+      <span class="small-text" data-summary>${kind === "final" ? "Final" : "Draft"} · ${annLabel} · ${brands.join(", ") || "no brand"}${typesLabel}${subtitles ? " · subtitles" : ""}</span>
+      <span class="grow"></span>
+      ${flash ? html`<span class="flash">${flash}</span>` : null}
+      <button class="ds-btn ds-btn--primary" type="button" data-act="render-now" aria-disabled=${blocked ? "true" : undefined} aria-describedby=${why ? "why-render" : undefined} title="a background engine job: no agent turn, no LLM, no TTS" onClick=${() => !blocked && start()}>Render ${kind}${brands.length > 1 ? ` · ${brands.length} brands` : ""}</button>
+    </div>
+    ${why && !running ? html`<p class="ds-why" id="why-render" style="text-align: end">${why}</p>` : null}
+    ${running ? html`<div class="row"><span class="small-text">🎞 ${progress?.data?.label ?? "rendering…"}</span><button class="ghost" onClick=${() => post("/api/render-cancel", {})}>Cancel</button></div>` : null}
+    ${data.job?.status === "failed" ? html`<p class="small-text error">last render failed: ${data.job.error}</p>` : null}
+    <details class="render-change">
+    <summary>Change…</summary>
     <div class="render-form">
       <fieldset>
         <legend>Kind</legend>
         <label class="radio"><input type="radio" name="kind" checked=${kind === "draft"} onChange=${() => setKind("draft")} /> <b>Draft</b> <span class="muted small-text">full video, 960×540, DRAFT tag, fast — any annotations</span></label>
         <label class="radio"><input type="radio" name="kind" checked=${kind === "final"} onChange=${() => setKind("final")} /> <b>Final</b> <span class="muted small-text">full quality, scenes, transcripts, poster — needs approved annotations</span></label>
-        ${kind === "final" && data.finalBlocker && !finalOk ? html`<p class="small-text warn-text">⚠ ${data.finalBlocker}</p>` : null}
       </fieldset>
       <fieldset>
         <legend>Annotations</legend>
@@ -117,7 +140,7 @@ function NewRender({ data, events, onStarted }) {
             (v) =>
               html`<option value=${String(v.version)} disabled=${kind === "final" && !(v.accepted && v.usable)}>v${v.version}${v.accepted ? " ✔ approved" : ""}${v.onLine ? " · in the production line" : ""} · ${v.enabled} on${kind === "final" && !(v.accepted && v.usable) ? " (not accepted)" : ""}</option>`,
           )}
-          ${kind === "draft" && data.draft ? html`<option value="draft">unsaved changes on v${data.draft.base} (${data.draft.changes})</option>` : null}
+          ${kind === "draft" ? (data.drafts ?? []).map((d) => html`<option value=${`draft:${d.base}`}>unsaved changes on v${d.base} (${d.changes})</option>`) : null}
           ${kind === "draft" ? html`<option value="none">none</option>` : null}
         </select>
         ${
@@ -140,11 +163,7 @@ function NewRender({ data, events, onStarted }) {
         <label class="check"><input type="checkbox" checked=${logoBug} onChange=${(e) => setLogoBug(e.target.checked)} /> Logo bug</label>
       </fieldset>
     </div>
-    <div class="row">
-      <button class="primary" disabled=${busy || running || !brands.length || !data.hasEdit || !finalOk} title=${!data.hasEdit ? "no edit yet" : !finalOk ? (data.finalBlocker ?? "") : "a background engine job — no agent turn, no LLM, no TTS"} onClick=${start}>Render ${kind}${brands.length > 1 ? ` · ${brands.length} brands` : ""}</button>
-      ${running ? html`<span class="small-text">🎞 ${progress?.data?.label ?? "rendering…"}</span><button class="ghost" onClick=${() => post("/api/render-cancel", {})}>Cancel</button>` : null}
-      ${data.job?.status === "failed" ? html`<span class="small-text error">last render failed: ${data.job.error}</span>` : null}
-    </div>
+    </details>
   </section>`;
 }
 
@@ -428,12 +447,53 @@ function QaSection({ r, onSeek, reload }) {
   </div>`;
 }
 
-function RenderCard({ r, row, events, viewed, open, reload }) {
+const qaWord = (r) =>
+  r.kind !== "final" || r.status !== "done"
+    ? null
+    : r.qa
+      ? r.qa.status === "blocked"
+        ? `QA blocked: ${r.qa.blocking - r.qa.confirmed} blocking`
+        : r.qa.status === "pass"
+          ? "QA passed"
+          : r.qa.status === "confirmed"
+            ? "QA passed (confirmed)"
+            : "QA error"
+      : "QA not run";
+const bytesOf = (r) => r.variants.reduce((n, v) => n + (v.present ? v.bytes : 0), 0);
+const ago = (iso) => {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return m < 1
+    ? "just now"
+    : m < 60
+      ? `${m} min ago`
+      : m < 1440
+        ? `${Math.round(m / 60)} h ago`
+        : `${Math.round(m / 1440)} d ago`;
+};
+const runTone = (r) =>
+  r.status === "running"
+    ? ["info", "…"]
+    : r.status !== "done"
+      ? ["err", "!"]
+      : r.kind === "final" && r.qa?.status === "blocked"
+        ? ["err", "!"]
+        : r.accepted
+          ? ["ok", "✓"]
+          : r.deleted || r.pruned
+            ? ["", "○"]
+            : ["", "▶"];
+
+/** A section of the inspector with its state in the header; open by default where it matters. */
+function RunSection({ title, state, tone, open = true, children }) {
+  return html`<details class="ds-section" open=${open}>
+    <summary><strong>${title}</strong>${state ? html` <span class="ds-badge" data-tone=${tone ?? "neutral"}>${state}</span>` : null}</summary>
+    <div class="ds-section-body">${children}</div>
+  </details>`;
+}
+
+/** The selected run, in the order of the decision: what it is, QA (it gates approval), the variants and player, files. */
+function RunInspector({ r, row, events, viewed, reload }) {
   const [seek, setSeek] = useState(null);
-  const card = useRef(null);
-  useEffect(() => {
-    if (viewed) card.current?.scrollIntoView({ block: "nearest" });
-  }, [viewed]);
   const del = async () => {
     const size = mb(r.variants.reduce((n, v) => n + (v.present ? v.bytes : 0), 0));
     if (
@@ -473,60 +533,107 @@ function RenderCard({ r, row, events, viewed, open, reload }) {
         ? `only ${o.annotationTypes.join(", ")}`
         : "none included";
   const gone = r.deleted || r.pruned;
-  return html`<details ref=${card} id=${`render-${r.version}`} aria-current=${viewed ? "true" : undefined} class=${`card render-card ${r.kind} ${r.accepted ? "accepted" : ""}`} open=${open || viewed}>
-    <summary class="row">
-      <h3>${r.kind === "final" ? "Final" : "Draft"} v${r.version}</h3>
-      ${r.accepted ? html`<span class="badge approved">approved · deliverable</span>` : null}
+  const qa = qaWord(r);
+  const warnings = r.variants.flatMap((v) => (v.warnings ?? []).map((w) => `${v.key}: ${w}`));
+  const finalDone = r.kind === "final" && r.status === "done" && !gone;
+  const qaTone =
+    r.qa?.status === "blocked" || r.qa?.status === "error" ? "err" : r.qa ? "ok" : "warn";
+  return html`<div class="ds-stack ds-inspector" id=${`render-${r.version}`} data-version=${r.version}>
+    <div class="ds-row-flex">
+      <h2>${r.kind === "final" ? "Final" : "Draft"} render v${r.version}</h2>
+      <span class="ds-badge" data-tone=${r.status === "done" ? "neutral" : r.status === "running" ? "info" : "err"}>${r.status}</span>
+      ${r.accepted ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Approved · deliverable</span>` : null}
       ${row?.inLine && !r.accepted ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In production line</span>` : null}
-      <span class=${`pill ${r.status === "done" ? "" : r.status === "running" ? "" : "fail-pill"}`}>${r.status}</span>
-      ${r.kind === "final" && r.status === "done" ? html`<span class=${`pill qa-pill ${r.qa?.status ?? "none"}`} title=${r.qaBlocker ?? "QA passed"}>${r.qa ? (r.qa.status === "blocked" ? `QA: ${r.qa.blocking - r.qa.confirmed} blocking` : r.qa.status === "pass" ? "QA ✓" : r.qa.status === "confirmed" ? "QA ✓ (confirmed)" : "QA error") : "QA not run"}</span>` : null}
-      ${gone ? html`<span class="badge old">${r.deleted ? `deleted ${when(r.deleted)}` : "files pruned"}</span>` : null}
-      <span class="muted small-text">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}</span>
-    </summary>
-    <div class="row render-actions">
-      ${r.kind === "final" && r.status === "done" && !gone ? html`<${VersionActions} stage="render" row=${row} events=${events} eager=${false} knownWhy=${r.accepted ? "" : (r.qaBlocker ?? "")} label=${`final render v${r.version}`} onDone=${reload} />` : null}
-      ${r.kind === "final" && r.qaBlocker && !r.accepted ? html`<span class="small-text warn-text">${r.qaBlocker}</span>` : null}
-      ${r.overrides ? html`<span class="muted small-text">${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}</span>` : null}
-      <span class="grow"></span>
-      ${!gone && r.status !== "running" ? html`<button class="ghost" onClick=${del}>Delete files</button>` : null}
+      ${gone ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">!</span>${r.deleted ? `Files deleted ${when(r.deleted)}` : "Files pruned"}</span>` : null}
     </div>
-    ${r.error ? html`<p class="small-text error">${r.error}</p>` : null}
-    ${r.kind === "final" && r.status === "done" && !gone ? html`<${QaSection} r=${r} onSeek=${(t) => setSeek({ t, n: Date.now() })} reload=${reload} />` : null}
-    ${r.variants.length ? html`<${FlavorTable} r=${r} seek=${seek} />` : null}
-    ${r.variants.flatMap((v) => (v.warnings ?? []).map((w) => `${v.key}: ${w}`)).length ? html`<details class="small-text"><summary>warnings</summary><ul>${r.variants.flatMap((v) => (v.warnings ?? []).map((w) => html`<li>${v.key}: ${w}</li>`))}</ul></details>` : null}
-  </details>`;
+    <p class="ds-small ds-muted">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}</p>
+    <div class="ds-row-flex render-actions">
+      ${finalDone ? html`<${VersionActions} stage="render" row=${row} events=${events} eager=${false} knownWhy=${r.accepted ? "" : (r.qaBlocker ?? "")} label=${`final render v${r.version}`} onDone=${reload} />` : null}
+      ${r.kind === "final" && r.qaBlocker && !r.accepted ? html`<span class="ds-why">${r.qaBlocker}</span>` : null}
+      <span class="ds-grow"></span>
+      ${!gone && r.status !== "running" ? html`<button class="ds-btn ds-btn--ghost" type="button" data-act="delete-files" onClick=${del}>Delete files</button>` : null}
+    </div>
+    ${r.error ? html`<p class="ds-small" style="color: var(--status-err)">${r.error}</p>` : null}
+    ${finalDone ? html`<${RunSection} title="Quality check" state=${qa} tone=${qaTone}><${QaSection} r=${r} onSeek=${(t) => setSeek({ t, n: Date.now() })} reload=${reload} /></${RunSection}>` : null}
+    ${r.variants.length ? html`<${RunSection} title="Variants and player" state=${`${r.variants.length} variant${r.variants.length === 1 ? "" : "s"} · ${mb(bytesOf(r))}`}><${FlavorTable} r=${r} seek=${seek} /></${RunSection}>` : null}
+    ${warnings.length ? html`<${RunSection} title="Warnings" state=${String(warnings.length)} tone="warn" open=${false}><ul class="ds-small">${warnings.map((w) => html`<li>${w}</li>`)}</ul></${RunSection}>` : null}
+  </div>`;
 }
 
-export function Render({ events, stages }) {
+export function Render({ events }) {
   const hist = useHistory("render", events);
   const routeVersion = useRouteVersion("render");
+  const [, go] = useHashRoute();
   const { data, error, reload } = useApi(
     "/api/renders",
     events,
     /^(render|edit|annotations|stage|line|project|brand)\./,
   );
+  const [kind, setKind] = useState("all");
+  const [showGone, setShowGone] = useState(false);
   if (error) return html`<section class="card error">${error}</section>`;
   if (!data) return html`<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
   const finals = data.renders.filter((r) => r.kind === "final");
   const drafts = data.renders.filter((r) => r.kind === "draft");
-  const ordered = [
-    ...data.renders.filter((r) => r.accepted),
-    ...data.renders.filter((r) => !r.accepted),
-  ];
+  const goneDraft = (r) => r.kind === "draft" && (r.deleted || r.pruned) && !r.accepted;
+  const pool = data.renders.filter((r) => kind === "all" || r.kind === kind.slice(0, -1));
+  const older = pool.filter(goneDraft);
+  const ordered = [...pool.filter((r) => r.accepted), ...pool.filter((r) => !r.accepted)].filter(
+    (r) => showGone || !goneDraft(r),
+  );
+  const current = data.renders.find((r) => r.version === routeVersion) ?? ordered[0] ?? null;
+  const select = (v) => go({ screen: "render", version: v }, { replace: true });
+  const rowOf = (r) => hist.data?.rows?.find((x) => x.version === r.version);
   return html`
     <${StageSummary} stage="render" row=${routeVersion !== null ? hist.data?.rows?.find((r) => r.version === routeVersion) : null} rows=${hist.data?.rows}
       viewed=${routeVersion} onUse=${(v) => runVersionAction({ stage: "render", version: v, intent: "use" }).then(reload)}
       meta=${html`<span>${finals.length} final · ${drafts.length} draft render(s)</span>`} />
     <${NewRender} data=${data} events=${events} onStarted=${reload} />
-    <section class="card review-head">
-      <div class="row">
-        <h2>Renders</h2>
-        <span class="muted small-text">${finals.length} final · ${drafts.length} draft — drafts keep their files for the newest ${data.defaults.keepDrafts} (Config → render.keepDrafts); finals are kept</span>
+    ${data.renders.length ? null : html`<section class="card"><p class="muted">No renders yet. Every sync edit makes a draft; finals come from here once annotations are approved.</p></section>`}
+    ${
+      data.renders.length
+        ? html`<div class="ds-root ds-workspace">
+      <div class="ds-split">
+        <${NarrowSelect} label="Render" value=${current?.version} onChange=${(v) => select(Number(v))}
+          options=${ordered.map((r) => [r.version, `${r.kind === "final" ? "Final" : "Draft"} v${r.version}${r.accepted ? " · approved" : ""}`])} />
+        <section class="ds-split-list" aria-label="Renders">
+          <div class="ds-list-head">
+            <span><strong style="color: var(--text-strong)">${data.renders.length} renders</strong> · ${finals.length} final · ${drafts.length} draft</span>
+            <span class="ds-row-flex">
+              ${[
+                ["all", "All"],
+                ["finals", "Finals"],
+                ["drafts", "Drafts"],
+              ].map(
+                ([k, l]) =>
+                  html`<button class="ds-chip" type="button" key=${k} data-kind=${k} aria-pressed=${kind === k} onClick=${() => setKind(k)}>${l}</button>`,
+              )}
+            </span>
+            <span class="ds-small ds-muted">Drafts keep their files for the newest ${data.defaults.keepDrafts} (Config → render.keepDrafts); finals are kept.</span>
+          </div>
+          <ul class="ds-list">
+            ${ordered.map((r) => {
+              const [tone, icon] = runTone(r);
+              const qa = qaWord(r);
+              const gone = r.deleted || r.pruned;
+              return html`<li key=${r.version}><button class="ds-item" type="button" data-key=${r.version} aria-current=${current?.version === r.version ? "true" : undefined} onClick=${() => select(r.version)}>
+                <span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>
+                <span><span class="ds-item-title">${r.kind === "final" ? "Final" : "Draft"} v${r.version}</span><br />
+                  <span class="ds-item-meta">${[r.status !== "done" ? r.status : null, qa, gone ? (r.deleted ? "files deleted" : "files pruned") : mb(bytesOf(r)), ago(r.createdAt)].filter(Boolean).join(" · ")}</span></span>
+                <span class="ds-row-flex">${r.accepted ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Approved</span>` : rowOf(r)?.inLine ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In line</span>` : null}</span>
+              </button></li>`;
+            })}
+            ${older.length && !showGone ? html`<li><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="show-older" onClick=${() => setShowGone(true)}>${older.length} older draft${older.length === 1 ? "" : "s"} without files</button></li>` : null}
+          </ul>
+        </section>
+        <section class="ds-split-detail" aria-label="Selected render">
+          ${current ? html`<${RunInspector} key=${current.version} r=${current} row=${rowOf(current)} events=${events} viewed=${current.version === routeVersion} reload=${reload} />` : html`<p class="ds-small ds-muted" style="padding: var(--space-4)">No render matches the filter.</p>`}
+        </section>
       </div>
-      ${data.renders.length ? null : html`<p class="muted">No renders yet. Every sync edit makes a draft; finals come from here once annotations are approved.</p>`}
-    </section>
-    ${ordered.map((r, i) => html`<${RenderCard} key=${r.version} r=${r} row=${hist.data?.rows?.find((x) => x.version === r.version)} events=${events} viewed=${r.version === routeVersion} open=${i === 0 || r.status === "running"} reload=${reload} />`)}
+    </div>`
+        : null
+    }
     ${
       data.legacy.length
         ? html`<details class="card legacy">

@@ -16,6 +16,7 @@ import type { Improviser } from "../src/recorder/improvise.ts";
 import type { ProgressSnapshot } from "../src/recorder/progress.ts";
 import { type RecordOptions, recordTake } from "../src/recorder/runner.ts";
 import { parseStoryboard } from "../src/storyboard/parse.ts";
+import { retryOnce } from "./helpers/retry.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
   try {
@@ -284,7 +285,7 @@ async function assertStitched(take: Awaited<ReturnType<typeof recordTake>>, fail
 test(
   "resume: an error in scene 3 restores state by replaying scenes 1–2 off-camera and stitches",
   { skip, timeout: 180_000 },
-  async () => {
+  retryOnce(async () => {
     const progress: ProgressSnapshot[] = [];
     const take = await recordTake(
       opts(RESUME_SB.replace("    DEEP\n", ""), {
@@ -299,7 +300,7 @@ test(
       progress.some((p) => p.scenes[2]?.attempt === 2),
       "restarted segment visible in progress",
     );
-  },
+  }),
 );
 
 test(

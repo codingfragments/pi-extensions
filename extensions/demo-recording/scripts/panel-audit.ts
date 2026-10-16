@@ -105,7 +105,10 @@ const SMALL_TARGETS = `(() => {
       const label = el.closest('label');
       if (label) { const b = label.getBoundingClientRect(); if (b.width >= 24 && b.height >= 24) continue; }
     }
-    if (r.width < 24 || r.height < 24) n++;
+    if (r.width < 24 || r.height < 24) {
+      n++;
+      (window.__small = window.__small || []).push(el.tagName.toLowerCase() + (el.type ? '[' + el.type + ']' : '') + '.' + String(el.className).split(' ').slice(0, 3).join('.') + ' ' + Math.round(r.width) + 'x' + Math.round(r.height) + ' "' + (el.getAttribute('aria-label') || el.innerText || el.title || '').slice(0, 24).split(String.fromCharCode(10)).join(' ') + '"');
+    }
   }
   return n;
 })()`;
@@ -208,6 +211,11 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
             focusMissing: 0,
             focusChecked: 0,
           };
+          if (process.env.AUDIT_WHERE)
+            console.log(
+              `SMALL ${screen} ${theme} ${width}`,
+              await page.evaluate("window.__small || []"),
+            );
           if (axe) {
             await page.addScriptTag({ content: axe });
             const found = (await page.evaluate(`axe.run(document, {

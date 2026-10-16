@@ -519,6 +519,11 @@ audio {
   width: 100%;
 }
 
+/* a slider's thumb is drawn small; the control around it is at least the target size */
+input[type="range"] {
+  min-block-size: var(--target-min);
+}
+
 .brand-field input.hex {
   width: 9em;
   font-family: ui-monospace, monospace;
@@ -1478,13 +1483,6 @@ video.ann-thumb {
 }
 
 .radio,
-.check {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-
 .type-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1640,6 +1638,10 @@ video.ann-thumb {
 }
 
 .flavor-table a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target-min);
+  padding-inline: var(--space-1);
   color: var(--accent);
 }
 

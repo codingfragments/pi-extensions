@@ -158,9 +158,9 @@ function NewRender({ data, events, onStarted }) {
       <fieldset>
         <legend>Look</legend>
         <div class="type-chips">${data.brands.map((b) => html`<label class="ds-check"><input type="checkbox" checked=${brands.includes(b.name)} onChange=${() => toggleBrand(b.name)} /> ${b.name}</label>`)}</div>
-        <label class="check"><input type="checkbox" checked=${subtitles} onChange=${(e) => setSubtitles(e.target.checked)} /> Burn in subtitles</label>
+        <label class="ds-check"><input type="checkbox" checked=${subtitles} onChange=${(e) => setSubtitles(e.target.checked)} /> Burn in subtitles</label>
         <p class="muted small-text hint">Writes extra *.subtitled.mp4 files; the clean ones stay. Transcripts (VTT) are always written.</p>
-        <label class="check"><input type="checkbox" checked=${logoBug} onChange=${(e) => setLogoBug(e.target.checked)} /> Logo bug</label>
+        <label class="ds-check"><input type="checkbox" checked=${logoBug} onChange=${(e) => setLogoBug(e.target.checked)} /> Logo bug</label>
       </fieldset>
     </div>
     </details>
@@ -380,7 +380,7 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
       ${it.atMs !== undefined ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm time" title="play from here" onClick=${() => onSeek(it.atMs)}>▶ ${fmt(it.atMs)}</button>` : null}
       <span class="qa-msg">${it.message}</span>
     </div>
-    ${it.fix ? html`<label class="check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
+    ${it.fix ? html`<label class="ds-check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
     ${it.confirmed ? html`<p class="small-text muted">✔ confirmed: “${it.confirmed.reason}”</p>` : null}
     ${
       it.level === "blocking" && !it.confirmed

@@ -276,7 +276,7 @@ export function Brand({ events }) {
         )}
         <div class="row">
           <span class="muted small-text">${dirty ? "unsaved tweaks" : "no changes"}</span><span class="grow"></span>
-          <button disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
+          <button class="ds-btn ds-btn--ghost" type="button" disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
           <button disabled=${busy} onClick=${duplicate}>Save as copy…</button>
           <button class="ds-btn ds-btn--primary" disabled=${busy || !dirty || entry?.builtin} onClick=${save}>Save</button>
         </div>

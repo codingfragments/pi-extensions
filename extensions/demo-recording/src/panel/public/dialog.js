@@ -197,10 +197,12 @@ function Toasts({ items }) {
     ${items.map(
       (
         t,
-      ) => html`<div key=${t.id} class=${`toast ds-toast ${t.kind}`} data-tone=${t.kind === "error" ? "err" : "info"} role=${t.kind === "error" ? "alert" : "status"}>
+      ) => html`<div key=${t.id} class=${`toast ds-toast ${t.kind}`} data-tone=${t.kind === "error" ? "err" : "info"} role=${t.kind === "error" ? "alert" : "status"}
+        onMouseEnter=${() => hold(t)} onMouseLeave=${() => arm(t)} onFocusIn=${() => hold(t)} onFocusOut=${() => arm(t)}>
         <span class="ds-status" data-tone=${t.kind === "error" ? "err" : "info"} aria-hidden="true">${t.kind === "error" ? "!" : "i"}</span>
         <span class="toast-msg ds-grow">${t.message}${t.count > 1 ? html` <span class="toast-count ds-muted">×${t.count}</span>` : null}</span>
         ${t.kind === "error" ? html`<button class="ds-btn ds-btn--sm" onClick=${() => copyText(t.detail ?? t.message)}>Copy</button>` : null}
+        ${t.action ? html`<button class="ds-btn ds-btn--sm" type="button" data-act="toast-action" onClick=${() => runToastAction(t)}>${t.action.label}</button>` : null}
         <button class="ds-btn ds-btn--ghost ds-btn--icon ds-btn--sm" aria-label="dismiss" onClick=${() => dismiss(t.id)}>×</button>
       </div>`,
     )}
@@ -221,20 +223,54 @@ export function dismiss(id) {
   paint();
 }
 
-/** A non-blocking message. Errors stay until dismissed (with Copy); info disappears after a few seconds. */
+/** An info toast goes away by itself, but not under the pointer or the keyboard focus (WCAG 2.2.1). */
+function arm(t) {
+  if (t.kind === "error" || t.done) return;
+  clearTimeout(t.timer);
+  t.timer = setTimeout(() => dismiss(t.id), t.ms);
+}
+function hold(t) {
+  clearTimeout(t.timer);
+}
+
+async function runToastAction(t) {
+  const action = t.action;
+  t.done = true;
+  clearTimeout(t.timer);
+  dismiss(t.id);
+  try {
+    await action.onClick();
+  } catch (e) {
+    errorToast(e, action.label);
+  }
+}
+
+/**
+ * A non-blocking message. Errors stay until dismissed (with Copy); info disappears after a few seconds.
+ * `action: { label, onClick }` adds one button (Undo); such a toast stays longer.
+ */
 export function toast(message, o = {}) {
   const kind = o.kind ?? "error";
   const same = toasts.find((t) => t.message === message && t.kind === kind);
   if (same) {
     same.count++;
+    if (o.action) same.action = o.action;
     paint();
     return same.id;
   }
-  const t = { id: ++toastSeq, kind, message: String(message), detail: o.detail, count: 1 };
+  const t = {
+    id: ++toastSeq,
+    kind,
+    message: String(message),
+    detail: o.detail,
+    action: o.action,
+    count: 1,
+    ms: o.ms ?? (o.action ? 12000 : 6000),
+  };
   toasts.push(t);
   while (toasts.length > 5) toasts.shift();
   paint();
-  if (kind !== "error") setTimeout(() => dismiss(t.id), o.ms ?? 6000);
+  arm(t);
   return t.id;
 }
 

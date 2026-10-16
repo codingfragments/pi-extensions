@@ -1074,7 +1074,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX5a | **Engine:** `drafts/<stage>/v<base>.json` (revision counter, atomic write, stale-revision rejection with the current draft, idempotent *Save new version*, base-change flags per D121); voice only, review notes unchanged; routes with cost class `none` | built, awaiting review ([report](ux/UX5a.md)) |
   | UX5b | **Panel (Voice over):** section list + inspector, the narration as a working draft with Saving / Draft saved / Save failed, conflict choice (keep mine / take theirs / compare), base-change note, Discard that names its draft, review kept apart from editing | built, awaiting review ([report](ux/UX5b.md)) |
   | UX5c | **Panel (Storyboard):** scene list + inspector (screenshot, intent, steps, review and re-run requests) | built, awaiting review ([report](ux/UX5c.md)) |
-  | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | planned |
+  | UX6a | **Engine:** annotations drafts on the UX5 contract (`drafts/annotations/v<base>.json`, revisions, conflicts, idempotent Save new version, base-change flags), the legacy `draft.json` read once and retired, a `reset` op (*Reset to suggested*); routes keep cost class `none` (D122) | planned |
+  | UX6b | **Panel:** annotation list grouped by scene + inspector (preview, nudges, targets, text, reasons), direct toggles with save states, conflict choice, base-change note, privacy-off confirmation, *Reset to suggested*, *Suggest again…* disclosure | planned |
   | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |
   | UX8 | Project brief-summary first-run and grouped context | planned |
   | UX9 | Config search/scope presentation and full-workbench audit | planned |

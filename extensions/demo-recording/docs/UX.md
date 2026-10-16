@@ -590,6 +590,10 @@ versions); voice editing autosaves a draft and *Save new version* is explicit; a
 and is flagged when the base is approved, withdrawn or superseded (never rebased or dropped silently);
 review notes stay in `state.json` with their own *Send to Director* step and are not part of the draft files.
 
+**Settled in the UX6 grill (D122):** annotations adopt the same draft contract as voice (per base, revisions,
+conflicts, idempotent save); undo is a per-annotation *Reset to suggested*; turning off an enabled privacy
+redaction asks first; the list is grouped by scene with an inspector for the selected annotation.
+
 ### 10.6 Still open, to settle inside the slice that needs it
 
 - Final token values and content-driven pane thresholds (settled in UX0 by looking

@@ -1,4 +1,5 @@
 import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
+import { Brand } from "./brand.js";
 import {
   FILTERS,
   filterGroups,
@@ -28,15 +29,16 @@ function EnginesInput({ value, options, onChange }) {
   };
   return html`<div class="engines">
     ${list.map(
-      (e, i) => html`<span class="engine" key=${e}><span class="mono">${i + 1}. ${e}</span>
-        <button class="ghost" disabled=${i === 0} title="earlier" onClick=${() => move(i, -1)}>↑</button>
-        <button class="ghost" disabled=${i === list.length - 1} title="later" onClick=${() => move(i, 1)}>↓</button>
-        <button class="ghost" disabled=${list.length === 1} title="remove" onClick=${() => onChange(list.filter((x) => x !== e))}>✕</button></span>`,
+      (e, i) => html`<span class="cfg-engine" key=${e}><span class="mono">${i + 1}. ${e}</span>
+        <button class="ds-btn ds-btn--ghost" disabled=${i === 0} title="earlier" onClick=${() => move(i, -1)}>↑</button>
+        <button class="ds-btn ds-btn--ghost" disabled=${i === list.length - 1} title="later" onClick=${() => move(i, 1)}>↓</button>
+        <button class="ds-btn ds-btn--ghost" disabled=${list.length === 1} title="remove" onClick=${() => onChange(list.filter((x) => x !== e))}>✕</button></span>`,
     )}
     ${options
       .filter((o) => !list.includes(o))
       .map(
-        (o) => html`<button class="chip" onClick=${() => onChange([...list, o])}>+ ${o}</button>`,
+        (o) =>
+          html`<button class="ds-btn ds-btn--sm" onClick=${() => onChange([...list, o])}>+ ${o}</button>`,
       )}
   </div>`;
 }
@@ -355,4 +357,26 @@ export function ConfigHead() {
     </div>
     <button class="ds-btn" type="button" data-act="reload-files" title="Re-read the config files after editing them by hand" onClick=${reloadFiles}>Reload files</button>
   </div>`;
+}
+
+/** Config: the page head, the Settings | Brands tabs (in the address) and the chosen view. */
+export function Config({ events }) {
+  // Settings or Brands, in the address with the search (#/config?view=brands, #/config?q=voice)
+  const [route, go] = useHashRoute();
+  const st = searchFromQuery(route?.query);
+  const setView = (view) =>
+    go(
+      { screen: "config", query: queryFromSearch(view === "brands" ? { view } : { ...st, view }) },
+      { replace: true },
+    );
+  return html`
+    <div class="ds-root ds-cfg-head"><${ConfigHead} /></div>
+    <div class="ds-tabs" role="tablist" aria-label="Config sections">${[
+      ["settings", "Settings"],
+      ["brands", "Brands"],
+    ].map(
+      ([id, label]) =>
+        html`<button class="ds-tab" role="tab" type="button" key=${id} aria-selected=${st.view === id} onClick=${() => setView(id)}>${label}</button>`,
+    )}</div>
+    ${st.view === "settings" ? html`<${Settings} events=${events} />` : html`<${Brand} events=${events} />`}`;
 }

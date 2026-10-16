@@ -457,7 +457,7 @@ test(
         0,
         "the form is closed until chosen",
       );
-      await page.locator(".subtabs .chip", { hasText: "Brief" }).click();
+      await page.locator(".subtabs .ds-chip", { hasText: "Brief" }).click();
       await page.waitForSelector(".fact-groups");
       assert.equal(
         (await page.locator("header.top > a.ds-step").first().textContent())?.trim(),
@@ -475,10 +475,9 @@ test(
         "App & access",
         "Goal / key message",
       ]);
-      await page.locator(".segmented button", { hasText: "sales" }).click();
+      await page.locator(".ds-seg button", { hasText: "sales" }).click();
       assert.match(
-        (await page.locator(".segmented button", { hasText: "default" }).getAttribute("title")) ??
-          "",
+        (await page.locator(".ds-seg button", { hasText: "default" }).getAttribute("title")) ?? "",
         /champion/,
         "stance default follows depth",
       );
@@ -490,7 +489,7 @@ test(
         "Keyboards that sell",
         "live title-card preview",
       );
-      await page.locator(".length-picker .chip", { hasText: /^1 min–1:30$/ }).click();
+      await page.locator(".length-picker .ds-chip", { hasText: /^1 min–1:30$/ }).click();
       await page.locator(".length-picker .sliders input").nth(1).fill("1800");
       assert.match(
         (await page.locator(".length-picker small").textContent()) ?? "",
@@ -498,7 +497,7 @@ test(
         "max goes up to 30 min",
       );
       assert.equal(
-        await page.locator(".length-picker .chip", { hasText: /^15 min–30 min$/ }).count(),
+        await page.locator(".length-picker .ds-chip", { hasText: /^15 min–30 min$/ }).count(),
         1,
       );
       await page.locator(".length-picker .sliders input").nth(1).fill("120");
@@ -521,7 +520,7 @@ test(
       assert.match(brief, /\*\*Extra URLs:\*\* https:\/\/k\.test\/admin/);
       assert.match(brief, /\*\*Goal \/ key message:\*\* KeyCraft's cart is solid, its data is not/);
 
-      await page.locator(".subtabs .chip", { hasText: "Findings" }).click();
+      await page.locator(".subtabs .ds-chip", { hasText: "Findings" }).click();
       await page.waitForSelector("li.finding");
       await page
         .locator("li.finding", { hasText: "Ratings change" })
@@ -533,7 +532,7 @@ test(
       );
       assert.equal(st?.state, "use");
 
-      await page.locator(".subtabs .chip", { hasText: "Project history" }).click();
+      await page.locator(".subtabs .ds-chip", { hasText: "Project history" }).click();
       await page.waitForSelector("ul.inputs li");
       await page
         .locator("ul.inputs li")

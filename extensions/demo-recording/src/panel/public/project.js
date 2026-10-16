@@ -64,9 +64,9 @@ function parseLen(v) {
 }
 
 function Segmented({ options, value, onChange, title }) {
-  return html`<div class="segmented" role="radiogroup" title=${title ?? ""}>${options.map(
+  return html`<div class="ds-seg" role="group" title=${title ?? ""}>${options.map(
     (o) =>
-      html`<button type="button" role="radio" aria-checked=${value === o.value} class=${value === o.value ? "on" : ""} title=${o.title ?? ""} onClick=${() => onChange(o.value)}>${o.label}</button>`,
+      html`<button type="button" aria-pressed=${value === o.value} title=${o.title ?? ""} onClick=${() => onChange(o.value)}>${o.label}</button>`,
   )}</div>`;
 }
 
@@ -79,8 +79,8 @@ function LengthPicker({ value, onChange, def }) {
   const isPreset = (p) => parsed && p[0] === parsed[0] && p[1] === parsed[1];
   return html`<div class="length-picker">
     <div class="presets">
-      ${LENGTH_PRESETS.map((p) => html`<button type="button" class=${`chip ${isPreset(p) ? "on" : ""}`} onClick=${() => setRange(p[0], p[1])}>${fmtSec(p[0])}–${fmtSec(p[1])}</button>`)}
-      ${def ? html`<button type="button" class=${`chip ${fromDefault ? "on" : ""}`} title="no length in the brief: use the depth default" onClick=${() => onChange("")}>depth default (${fmtSec(def[0])}–${fmtSec(def[1])})</button>` : null}
+      ${LENGTH_PRESETS.map((p) => html`<button type="button" class="ds-chip" aria-pressed=${isPreset(p)} onClick=${() => setRange(p[0], p[1])}>${fmtSec(p[0])}–${fmtSec(p[1])}</button>`)}
+      ${def ? html`<button type="button" class="ds-chip" aria-pressed=${fromDefault} title="no length in the brief: use the depth default" onClick=${() => onChange("")}>depth default (${fmtSec(def[0])}–${fmtSec(def[1])})</button>` : null}
     </div>
     <div class=${`sliders ${fromDefault ? "from-default" : ""}`}>
       <label>min <input type="range" min=${LEN_MIN} max=${LEN_MAX} step=${LEN_STEP} value=${range[0]}
@@ -114,7 +114,7 @@ function UrlList({ value, onChange }) {
         ? html`<ul>${urls.map(
             (u, i) => html`<li key=${`${i}-${u}`}>
         <input type="url" value=${u} onChange=${(e) => write(urls.map((x, j) => (j === i ? e.target.value.trim() : x)).filter(Boolean))} />
-        <button type="button" class="ghost" title="remove" onClick=${() => write(urls.filter((_, j) => j !== i))}>✕</button>
+        <button type="button" class="ds-btn ds-btn--ghost" title="remove" onClick=${() => write(urls.filter((_, j) => j !== i))}>✕</button>
       </li>`,
           )}</ul>`
         : html`<p class="muted small-text">no extra URLs</p>`
@@ -199,7 +199,7 @@ function Facts({ events, focus }) {
       <span class="grow"></span>
       ${flash ? html`<span class="flash">${flash}</span>` : null}
       <button disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
-      <button class="primary" disabled=${busy || !dirty} onClick=${save}>Save facts</button>
+      <button class="ds-btn ds-btn--primary" disabled=${busy || !dirty} onClick=${save}>Save facts</button>
     </div>
 
     <div class="fact-groups">
@@ -306,9 +306,9 @@ function Findings({ events }) {
     <div class="row"><h2>Findings</h2>
       <span class="muted small-text">${data.findings.length} · use ${counts.use} · auto ${counts.auto} · ignore ${counts.ignore}</span>
       <span class="grow"></span>
-      ${["all", "use", "auto", "ignore"].map((s) => html`<button class=${`chip ${state === s ? "on" : ""}`} onClick=${() => setState(s)}>${s}</button>`)}
+      ${["all", "use", "auto", "ignore"].map((s) => html`<button class="ds-chip" aria-pressed=${state === s} onClick=${() => setState(s)}>${s}</button>`)}
       <span class="muted">·</span>
-      ${["all", "agent", "engine"].map((s) => html`<button class=${`chip ${source === s ? "on" : ""}`} onClick=${() => setSource(s)}>${s}</button>`)}
+      ${["all", "agent", "engine"].map((s) => html`<button class="ds-chip" aria-pressed=${source === s} onClick=${() => setSource(s)}>${s}</button>`)}
     </div>
     <p class="muted small-text"><b>use</b> = always part of the recording and the narration · <b>auto</b> = the director decides · <b>ignore</b> = never brought up. Agent findings come from discovery and analysis; engine findings are detected (errors, fallbacks, retries, dead time, blocked or state-changing actions, length).</p>
     ${
@@ -384,13 +384,13 @@ function Memory({ events, part }) {
     <section class="card">
       <div class="row"><h2>Brief</h2>
         ${b?.versions?.length ? html`<select value=${b.version ?? ""} onChange=${(e) => setVersion(Number(e.target.value))}>${b.versions.map((v) => html`<option value=${v}>v${v}</option>`).reverse()}</select>` : null}
-        ${b?.diff ? html`<button class="ghost" onClick=${() => setShowDiff(!showDiff)}>${showDiff ? "show text" : "diff to previous"}</button>` : null}
+        ${b?.diff ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => setShowDiff(!showDiff)}>${showDiff ? "show text" : "diff to previous"}</button>` : null}
         <span class="grow"></span><span class="muted small-text">edit facts above, prose via the agent (demo-brief skill)</span></div>
       <pre class="brief-text">${showDiff && b?.diff ? b.diff : (b?.text ?? "")}</pre>
     </section>
     <section class="card">
       <div class="row"><h2>Inputs</h2><span class="muted small-text">${data.inputs.length} · the agent reads the active ones</span><span class="grow"></span>
-        ${stages.map((s) => html`<button class=${`chip ${stage === s ? "on" : ""}`} onClick=${() => setStage(s)}>${s}</button>`)}</div>
+        ${stages.map((s) => html`<button class="ds-chip" aria-pressed=${stage === s} onClick=${() => setStage(s)}>${s}</button>`)}</div>
       ${
         inputs.length
           ? html`<ul class="inputs">${inputs.map(
@@ -398,7 +398,7 @@ function Memory({ events, part }) {
                 <span class="mono small-text">${i.id}</span>
                 <span class="muted small-text">${new Date(i.at).toLocaleString()} · ${i.stage}${i.version !== undefined ? ` v${i.version}` : ""} · ${i.kind}/${i.source}</span>
                 <div class="i-text">${i.text}${i.refs?.length ? html` <span class="muted small-text">(${i.refs.join(", ")})</span>` : null}${i.outdated ? html`<div class="small-text warn">outdated: ${i.outdated.reason}</div>` : null}</div>
-                <button class="ghost" onClick=${() => toggle(i)}>${i.outdated ? "restore" : "mark outdated"}</button>
+                <button class="ds-btn ds-btn--ghost" onClick=${() => toggle(i)}>${i.outdated ? "restore" : "mark outdated"}</button>
               </li>`,
             )}</ul>`
           : html`<p class="muted small-text">No inputs yet — commands, panel reviews and chat directions show up here.</p>`
@@ -505,7 +505,7 @@ export function Project({ events }) {
     ${data?.summary ? html`<${Summary} data=${data} openGroup=${openGroup} ask=${ask} asked=${asked} />` : data && !data.project ? html`<section class="card muted">No active project. Run <code>/demo new</code> or <code>/demo open</code> in pi.</section>` : null}
     <div class="subtabs" role="group" aria-label="Project groups">${GROUPS.map(
       ([id, label]) =>
-        html`<button class=${`chip ${group === id ? "on" : ""}`} type="button" key=${id} data-group=${id} aria-pressed=${group === id} onClick=${() => openGroup(group === id ? null : id)}>${label}${count[id] !== undefined && count[id] !== null ? html` <span class="muted">${count[id]}</span>` : null}</button>`,
+        html`<button class="ds-chip" aria-pressed=${group === id} type="button" key=${id} data-group=${id} onClick=${() => openGroup(group === id ? null : id)}>${label}${count[id] !== undefined && count[id] !== null ? html` <span class="muted">${count[id]}</span>` : null}</button>`,
     )}</div>
     ${group === "brief" ? html`<${Facts} events=${events} focus=${field} />` : null}
     ${group === "sources" ? html`<${Memory} events=${events} part="sources" />` : null}

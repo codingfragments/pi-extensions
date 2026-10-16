@@ -158,7 +158,7 @@ export function Review({ events }) {
           : null
       }
       <${NeedsEyes} summary=${data.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} onJump=${select}>
-        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence scene reviewed — you see the list first" onClick=${() => setApproveOpen(true)}>Mark high-confidence reviewed…</button>`}
+        ${readOnly || !data.confidence ? null : html`<button class="ds-btn ds-btn--ghost" title="mark every unmarked high-confidence scene reviewed — you see the list first" onClick=${() => setApproveOpen(true)}>Mark high-confidence reviewed…</button>`}
       </${NeedsEyes}>
     </section>
     <div class="ds-root ds-workspace">

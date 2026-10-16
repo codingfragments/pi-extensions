@@ -24,12 +24,12 @@ function TakeCard({ t, row, events, viewed, reload }) {
     <div class="row">
       <h3>${t.id}</h3>
       ${row ? html`<${RowBadges} row=${row} viewing=${viewed} />` : null}
-      <span class=${`pill ${t.status === "ok" ? "" : "fail-pill"}`}>${t.status === "ok" ? "complete" : t.status}</span>
+      ${t.status ? html`<span class="ds-badge" data-tone=${t.status === "ok" ? "ok" : "err"}>${t.status === "ok" ? "complete" : t.status}</span>` : null}
       <span class="muted small-text">${t.durationMs ? `raw ${mmss(t.durationMs)}` : ""}${t.startedAt ? ` · recorded ${new Date(t.startedAt).toLocaleString()}` : ""}</span>
       <span class="grow"></span>
       ${t.analyzed ? html`<span class="muted small-text">analyzed · ${t.scenes.length} scenes</span>` : html`<span class="muted small-text">not analyzed yet</span>`}
       <span class="muted small-text" title="positions of visible elements, for annotations (S5 part 6)">${t.layoutSnapshots !== null && t.layoutSnapshots !== undefined ? `${t.layoutSnapshots} layout snapshots` : "no layout snapshots (recorded before S5 part 6)"}</span>
-      ${t.video ? html`<button class="ghost" onClick=${() => setShowVideo(!showVideo)}>${showVideo ? "hide video" : "play raw take"}</button>` : null}
+      ${t.video ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => setShowVideo(!showVideo)}>${showVideo ? "hide video" : "play raw take"}</button>` : null}
       <${VersionActions} stage="recording" row=${row} events=${events} eager=${false} compact label=${t.id} onDone=${reload} />
     </div>
     ${showVideo && t.video ? html`<video class="take-video" controls preload="metadata" src=${media("project", t.video)}></video>` : null}

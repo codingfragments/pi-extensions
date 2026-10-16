@@ -25,6 +25,14 @@
   --surface-raised: #2c3048; /* controls, hovered rows, popovers */
   --surface-overlay: #313550; /* dialogs, drawer */
   --surface-scrim: rgb(14 15 24 / 0.62);
+  --surface-media: #000000; /* behind video and stills: black in every theme */
+  --surface-lightbox: rgb(0 0 0 / 0.72); /* the large preview's backdrop */
+  /* the title card preview mimics the video, so it does not follow the theme */
+  --preview-from: #14161d;
+  --preview-to: #262a36;
+  --preview-text: #f2f4f8;
+  --preview-muted: #a3a9b8;
+  --preview-accent: #8aa4f8;
 
   /* Text */
   --text-strong: #e4e9ff;
@@ -65,6 +73,13 @@
   --surface-raised: #ffffff;
   --surface-overlay: #ffffff;
   --surface-scrim: rgb(76 79 105 / 0.42);
+  --surface-media: #000000;
+  --surface-lightbox: rgb(0 0 0 / 0.72);
+  --preview-from: #14161d;
+  --preview-to: #262a36;
+  --preview-text: #f2f4f8;
+  --preview-muted: #a3a9b8;
+  --preview-accent: #8aa4f8;
 
   --text-strong: #30334a;
   --text-body: #4c4f69;

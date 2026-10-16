@@ -6,7 +6,7 @@
  *   node extensions/demo-recording/scripts/ux-ratchet.ts            # print the counts and the baseline
  *   node extensions/demo-recording/scripts/ux-ratchet.ts --update   # write the current counts as the baseline
  *
- * What is counted (style.css and the panel scripts; ds/ is the design system and is not counted):
+ * What is counted (ds/screens.css and the panel scripts; the rest of ds/ is the design system and is not counted):
  *   colourLiterals        hard-coded colours (hex, rgb(), hsl()) outside the tokens
  *   fontSizeLiterals      font-size declarations that are not a token
  *   radiusLiterals        border-radius declarations that are not a token (0 and 50% excepted)
@@ -114,7 +114,12 @@ export function countScripts(files: string[]): {
   let colourLiterals = 0;
   let inlineStyleLiterals = 0;
   for (const f of files) {
-    const src = fs.readFileSync(f, "utf8");
+    // a line may say why a literal is data and not styling (`ratchet-ok: …`), e.g. a colour input's default
+    const src = fs
+      .readFileSync(f, "utf8")
+      .split("\n")
+      .filter((l) => !l.includes("ratchet-ok"))
+      .join("\n");
     legacyVarUses += (
       src.match(new RegExp(`var\\(--(${LEGACY_VARS.join("|")})(?![\\w-])`, "g")) ?? []
     ).length;
@@ -132,7 +137,7 @@ export function countScripts(files: string[]): {
 }
 
 export function measure(): Counts {
-  const css = fs.readFileSync(path.join(PUBLIC, "style.css"), "utf8");
+  const css = fs.readFileSync(path.join(PUBLIC, "ds", "screens.css"), "utf8");
   const scripts = fs
     .readdirSync(PUBLIC)
     .filter((f) => f.endsWith(".js"))

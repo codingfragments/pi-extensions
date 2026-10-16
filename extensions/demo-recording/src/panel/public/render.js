@@ -120,7 +120,7 @@ function NewRender({ data, events, onStarted }) {
       <button class="ds-btn ds-btn--primary" type="button" data-act="render-now" aria-disabled=${blocked ? "true" : undefined} aria-describedby=${why ? "why-render" : undefined} title="a background engine job: no agent turn, no LLM, no TTS" onClick=${() => !blocked && start()}>Render ${kind}${brands.length > 1 ? ` · ${brands.length} brands` : ""}</button>
     </div>
     ${why && !running ? html`<p class="ds-why" id="why-render" style="text-align: end">${why}</p>` : null}
-    ${running ? html`<div class="row"><span class="small-text">🎞 ${progress?.data?.label ?? "rendering…"}</span><button class="ghost" onClick=${() => post("/api/render-cancel", {})}>Cancel</button></div>` : null}
+    ${running ? html`<div class="row"><span class="small-text">🎞 ${progress?.data?.label ?? "rendering…"}</span><button class="ds-btn ds-btn--ghost" onClick=${() => post("/api/render-cancel", {})}>Cancel</button></div>` : null}
     ${data.job?.status === "failed" ? html`<p class="small-text error">last render failed: ${data.job.error}</p>` : null}
     <details class="render-change">
     <summary>Change…</summary>
@@ -147,9 +147,9 @@ function NewRender({ data, events, onStarted }) {
           available.length
             ? html`<div class="type-chips">
               <span class="muted small-text">include:</span>
-              ${available.map((t) => html`<label class=${`chip ${selected.includes(t) ? "on" : ""}`}><input type="checkbox" checked=${selected.includes(t)} onChange=${() => toggleType(t)} /> ${TYPE_LABEL[t]}</label>`)}
-              <button class="ghost tiny" onClick=${() => setTypes(null)}>all</button>
-              <button class="ghost tiny" onClick=${() => setTypes([])}>none</button>
+              ${available.map((t) => html`<label class="ds-check"><input type="checkbox" checked=${selected.includes(t)} onChange=${() => toggleType(t)} /> ${TYPE_LABEL[t]}</label>`)}
+              <button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setTypes(null)}>all</button>
+              <button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setTypes([])}>none</button>
             </div>
             <p class="muted small-text">The annotation version stays as approved — this only chooses what this render shows.</p>`
             : null
@@ -157,7 +157,7 @@ function NewRender({ data, events, onStarted }) {
       </fieldset>
       <fieldset>
         <legend>Look</legend>
-        <div class="type-chips">${data.brands.map((b) => html`<label class=${`chip ${brands.includes(b.name) ? "on" : ""}`}><input type="checkbox" checked=${brands.includes(b.name)} onChange=${() => toggleBrand(b.name)} /> ${b.name}</label>`)}</div>
+        <div class="type-chips">${data.brands.map((b) => html`<label class="ds-check"><input type="checkbox" checked=${brands.includes(b.name)} onChange=${() => toggleBrand(b.name)} /> ${b.name}</label>`)}</div>
         <label class="check"><input type="checkbox" checked=${subtitles} onChange=${(e) => setSubtitles(e.target.checked)} /> Burn in subtitles</label>
         <p class="muted small-text hint">Writes extra *.subtitled.mp4 files; the clean ones stay. Transcripts (VTT) are always written.</p>
         <label class="check"><input type="checkbox" checked=${logoBug} onChange=${(e) => setLogoBug(e.target.checked)} /> Logo bug</label>
@@ -247,7 +247,7 @@ function ZipButton({ r, v }) {
       setBusy(false);
     }
   };
-  return html`<button class="ghost tiny zip" disabled=${busy} title="download everything of this variant as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
+  return html`<button class="ds-btn ds-btn--ghost ds-btn--sm zip" disabled=${busy} title="download everything of this variant as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
 }
 
 function FlavorTable({ r, seek }) {
@@ -308,7 +308,7 @@ function FlavorTable({ r, seek }) {
           const on = cur?.file === row.file && cur?.v === v;
           return html`
             <tr class=${`fv-row ${on ? "on" : ""} ${v.present ? "" : "gone"}`} onClick=${() => v.present && pick(row, row.file, row.vtt, label)}>
-              <td>${v.present ? html`<button class="ghost tiny play" title="preview" aria-label=${`preview ${label}`}>${on ? "●" : "▶"}</button>` : null}</td>
+              <td>${v.present ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm play" title="preview" aria-label=${`preview ${label}`}>${on ? "●" : "▶"}</button>` : null}</td>
               <td><b>${row.brand}</b>${row.tags.map((t) => html` <span class="tag">${t}</span>`)}${v.reusedFrom && !row.key.endsWith("#sub") ? html` <span class="muted small-text">reused from v${v.reusedFrom}</span>` : null}</td>
               <td>${v.durationSec.toFixed(1)} s</td>
               <td>${v.present ? size(v, row.file) : ""}</td>
@@ -316,7 +316,7 @@ function FlavorTable({ r, seek }) {
               <td><span class="extras">${v.present ? row.extras.map(([l, rel]) => dl(v, rel, l)) : null}
                 ${
                   v.present && !row.key.endsWith("#sub")
-                    ? html`<button class="ghost tiny" title="open this variant's folder" onClick=${(
+                    ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm" title="open this variant's folder" onClick=${(
                         e,
                       ) => {
                         e.stopPropagation();
@@ -329,13 +329,13 @@ function FlavorTable({ r, seek }) {
             </tr>
             ${
               row.scenes.length && v.present
-                ? html`<tr class="fv-toggle"><td></td><td colspan="5"><button class="ghost tiny" onClick=${() => setOpen({ ...open, [row.key]: !open[row.key] })}>${open[row.key] ? "▾" : "▸"} scenes (${row.scenes.length})</button></td></tr>
+                ? html`<tr class="fv-toggle"><td></td><td colspan="5"><button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setOpen({ ...open, [row.key]: !open[row.key] })}>${open[row.key] ? "▾" : "▸"} scenes (${row.scenes.length})</button></td></tr>
                   ${
                     open[row.key]
                       ? row.scenes.map((sc) => {
                           const on2 = cur?.file === sc.file && cur?.v === v;
                           return html`<tr class=${`fv-scene ${on2 ? "on" : ""}`} onClick=${() => pick(row, sc.file, sc.vtt, `${label} · ${sc.label}`)}>
-                            <td><button class="ghost tiny play" aria-label=${`preview ${sc.label}`}>${on2 ? "●" : "▶"}</button></td>
+                            <td><button class="ds-btn ds-btn--ghost ds-btn--sm play" aria-label=${`preview ${sc.label}`}>${on2 ? "●" : "▶"}</button></td>
                             <td class="fv-scene-name">${sc.label}</td>
                             <td></td>
                             <td>${size(v, sc.file)}</td>
@@ -377,7 +377,7 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
   };
   return html`<li class=${`qa-item ${it.level} ${it.confirmed ? "confirmed" : ""}`}>
     <div class="row">
-      ${it.atMs !== undefined ? html`<button class="ghost tiny time" title="play from here" onClick=${() => onSeek(it.atMs)}>▶ ${fmt(it.atMs)}</button>` : null}
+      ${it.atMs !== undefined ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm time" title="play from here" onClick=${() => onSeek(it.atMs)}>▶ ${fmt(it.atMs)}</button>` : null}
       <span class="qa-msg">${it.message}</span>
     </div>
     ${it.fix ? html`<label class="check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
@@ -385,8 +385,8 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
     ${
       it.level === "blocking" && !it.confirmed
         ? confirming
-          ? html`<div class="row qa-confirm"><input class="note" placeholder="why is it fine to export anyway? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><button class="primary" disabled=${reason.trim().length < 3} onClick=${confirmIt}>Confirm</button><button class="ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div>`
-          : html`<button class="ghost tiny" onClick=${() => setConfirming(true)}>Confirm & export anyway…</button>`
+          ? html`<div class="row qa-confirm"><input class="note" placeholder="why is it fine to export anyway? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><button class="ds-btn ds-btn--primary" disabled=${reason.trim().length < 3} onClick=${confirmIt}>Confirm</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div>`
+          : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setConfirming(true)}>Confirm & export anyway…</button>`
         : null
     }
   </li>`;
@@ -438,8 +438,8 @@ function QaSection({ r, onSeek, reload }) {
       ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} blocking${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.warnings} warning(s) · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}</span>` : null}
       ${status === "error" ? html`<span class="small-text error">${r.qa.error}</span>` : null}
       <span class="grow"></span>
-      ${fixable.length ? html`<button class="primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
-      <button class="ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
+      ${fixable.length ? html`<button class="ds-btn ds-btn--primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
+      <button class="ds-btn ds-btn--ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
     </div>
     ${by("blocking").length ? html`<ul class="qa-list">${by("blocking").map(row)}</ul>` : null}
     ${by("warning").length ? html`<details open=${by("blocking").length === 0}><summary class="small-text">${by("warning").length} warning(s)</summary><ul class="qa-list">${by("warning").map(row)}</ul></details>` : null}
@@ -641,7 +641,7 @@ export function Render({ events }) {
           ${data.legacy.map(
             (l) => html`<div class="variant">
               <div class="row"><b>edit v${l.edit} · ${l.variant}</b><span class="muted small-text">${mb(l.bytes)}</span><span class="grow"></span>
-                <button class="ghost" onClick=${() => post("/api/render-open", { dir: l.dir }).catch((e) => errorToast(e))}>Open folder</button></div>
+                <button class="ds-btn ds-btn--ghost" onClick=${() => post("/api/render-open", { dir: l.dir }).catch((e) => errorToast(e))}>Open folder</button></div>
               <video class="render-video" controls preload="none" src=${media("project", join(l.dir, l.full))}></video>
             </div>`,
           )}

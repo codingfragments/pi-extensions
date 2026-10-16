@@ -3,14 +3,7 @@
 // never a version); "Save new version" turns it into exactly one version. Reviewing a section is a
 // separate act from editing it, and approving a version is separate from both.
 import { html, useEffect, useMemo, useState } from "/vendor/preact-htm.module.js";
-import {
-  ApproveHighModal,
-  ConfBadge,
-  ConfReasons,
-  NeedsEyes,
-  byRisk,
-  confOf,
-} from "./confidence.js";
+import { ApproveHighModal, ConfReasons, NeedsEyes, byRisk, confOf } from "./confidence.js";
 import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost } from "./cost.js";
 import { errorToast } from "./dialog.js";
@@ -74,7 +67,7 @@ const DIR_LENGTHS = [
 
 function Chips({ label, options, value, onChange }) {
   return html`<div class="dir-row"><span class="dir-label">${label}</span>
-    ${options.map(([v, l]) => html`<button class=${`chip ${value === v ? "on" : ""}`} aria-pressed=${value === v} onClick=${() => onChange(value === v ? "" : v)}>${l}</button>`)}
+    ${options.map(([v, l]) => html`<button class="ds-chip" aria-pressed=${value === v} onClick=${() => onChange(value === v ? "" : v)}>${l}</button>`)}
   </div>`;
 }
 
@@ -122,7 +115,7 @@ function Direction({ data, onSent }) {
       <label class="check small-text"><input type="checkbox" checked=${save} onChange=${(e) => setSave(e.target.checked)} /> save as the project's default direction (brief)</label>
       <span class="grow"></span>
       ${err ? html`<span class="error small-text">${err}</span>` : null}
-      <button class="primary" disabled=${busy} onClick=${send}>Draft new version</button><${CostHint} />
+      <button class="ds-btn ds-btn--primary" disabled=${busy} onClick=${send}>Draft new version</button><${CostHint} />
     </div>
   </details>`;
 }
@@ -371,7 +364,7 @@ export function Voice({ events, stages }) {
         <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
         ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
         <${VersionActions} stage="vo" row=${row} events=${events} onDone=${reload} />
-        ${data.canGenerate ? html`<button class="primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${generate}>Generate voice & render…</button>` : null}
+        ${data.canGenerate ? html`<button class="ds-btn ds-btn--primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${generate}>Generate voice & render…</button>` : null}
       </div>
       ${
         data.base !== null && data.base !== undefined
@@ -392,7 +385,7 @@ export function Voice({ events, stages }) {
           : null
       }
       <${NeedsEyes} summary=${data.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} onJump=${select}>
-        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence section reviewed — you see the list first" onClick=${() => setApproveOpen(true)}>Mark high-confidence reviewed…</button>`}
+        ${readOnly || !data.confidence ? null : html`<button class="ds-btn ds-btn--ghost" title="mark every unmarked high-confidence section reviewed — you see the list first" onClick=${() => setApproveOpen(true)}>Mark high-confidence reviewed…</button>`}
       </${NeedsEyes}>
     </section>
     ${

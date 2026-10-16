@@ -165,7 +165,7 @@ test(
       assert.deepEqual(Object.keys(review.scenes).sort(), ["02-search", "_intro", "_outro"]);
       // direction: chips + focus → pending direction + an agent message
       await page.locator(".direction summary").click();
-      await page.locator(".direction .chip", { hasText: "calm" }).click();
+      await page.locator(".direction .ds-chip", { hasText: "calm" }).click();
       await page.getByLabel("focus").fill("the EMEA outlier");
       await page.getByRole("button", { name: "Draft new version" }).click();
       await page.locator(".direction .pending").waitFor();

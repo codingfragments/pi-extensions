@@ -771,8 +771,9 @@ input.note {
   gap: var(--space-1);
 }
 
-.length-picker .sliders.from-default {
-  opacity: 0.65;
+/* the default is shown by dimming the sliders themselves; the words keep their contrast (WCAG 1.4.3) */
+.length-picker .sliders.from-default input {
+  opacity: 0.6;
 }
 
 .length-picker .sliders label {
@@ -1203,8 +1204,21 @@ p.emphasis {
   cursor: zoom-in;
 }
 
+.ann-thumb {
+  color: var(--preview-text);
+}
+
 .ann-thumb:disabled {
   cursor: progress;
+  color: var(--preview-muted);
+}
+
+.ds-item[aria-current="true"] a {
+  color: var(--accent-hover);
+}
+
+.dlg-facts dt {
+  color: var(--text-body);
 }
 
 .ann-thumb .enlarge {
@@ -1237,7 +1251,7 @@ video.ann-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--preview-muted);
   font-size: var(--text-sm);
   padding: var(--space-2);
   text-align: center;
@@ -1614,6 +1628,10 @@ video.ann-thumb {
 
 .flavor-table tr.on {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.flavor-table tr.on a {
+  color: var(--accent-hover);
 }
 
 .flavor-table tr.gone {

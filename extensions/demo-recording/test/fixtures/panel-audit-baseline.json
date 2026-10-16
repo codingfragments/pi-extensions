@@ -51,13 +51,8 @@
       "focusChecked": 40
     },
     "project-brief|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
@@ -154,13 +149,8 @@
       "focusChecked": 40
     },
     "project-brief|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
@@ -236,25 +226,15 @@
       "focusChecked": 28
     },
     "annotations|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 1
-        }
-      },
-      "axeSerious": 1,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "render|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 3
-        }
-      },
-      "axeSerious": 3,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 32
@@ -267,13 +247,8 @@
       "focusChecked": 40
     },
     "project-brief|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
@@ -300,13 +275,8 @@
       "focusChecked": 40
     },
     "dialog-cost|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
@@ -354,25 +324,15 @@
       "focusChecked": 28
     },
     "annotations|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 1
-        }
-      },
-      "axeSerious": 1,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "render|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 3
-        }
-      },
-      "axeSerious": 3,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 32
@@ -385,13 +345,8 @@
       "focusChecked": 40
     },
     "project-brief|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
@@ -418,13 +373,8 @@
       "focusChecked": 40
     },
     "dialog-cost|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
+      "axe": {},
+      "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40

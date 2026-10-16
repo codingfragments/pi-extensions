@@ -212,3 +212,82 @@ export function setBriefFacts(brief: string, patch: BriefFacts): string {
   }
   return text;
 }
+
+/** One line of the Project summary (D124). */
+export interface BriefSummaryRow {
+  key: "persona" | "goal" | "depth" | "length" | "voice" | "url";
+  label: string;
+  /** The value in human terms, null when there is none. */
+  value: string | null;
+  /** Where a derived value comes from ("from depth showcase"). */
+  note?: string;
+  /** One of persona, goal, depth and URL: what the demo-brief skill asks for first. */
+  essential: boolean;
+  missing: boolean;
+}
+
+export interface BriefSummary {
+  rows: BriefSummaryRow[];
+  /** The labels of the missing essentials, in order. */
+  missing: string[];
+  /** Nothing essential is filled in yet: a new project. */
+  empty: boolean;
+}
+
+/**
+ * The brief in human terms (D124): audience, goal, depth, length, voice and the app URL, and which of the
+ * essentials (persona, goal, depth, URL) are missing. Orientation only: nothing is gated on it. Length and
+ * stance are never "missing": they fall back to the depth default and say so.
+ */
+export function briefSummary(brief: string, app: { baseUrl?: string }): BriefSummary {
+  const e = effectiveFacts(brief);
+  const f = e.facts;
+  const has = (v: string | undefined) => !!v && !isPlaceholder(v);
+  const url = has(f.url) ? (f.url as string) : (app.baseUrl ?? "");
+  const rows: BriefSummaryRow[] = [
+    {
+      key: "persona",
+      label: "Audience",
+      value: has(f.persona) ? (f.persona as string) : null,
+      essential: true,
+      missing: !has(f.persona),
+    },
+    {
+      key: "goal",
+      label: "Goal",
+      value: has(f.goal) ? (f.goal as string) : null,
+      essential: true,
+      missing: !has(f.goal),
+    },
+    {
+      key: "depth",
+      label: "Depth",
+      value: e.depth ?? null,
+      ...(e.depth ? { note: DEPTH_DEFAULTS[e.depth].label.split(" — ")[0] ?? "" } : {}),
+      essential: true,
+      missing: !e.depth,
+    },
+    {
+      key: "length",
+      label: "Length",
+      value: e.length ? formatLength(e.length) : null,
+      ...(e.length && e.lengthFromDepth && e.depth ? { note: `from depth ${e.depth}` } : {}),
+      essential: false,
+      missing: false,
+    },
+    {
+      key: "voice",
+      label: "Voice",
+      value: has(f.voice) && f.voice?.toLowerCase() !== "default" ? (f.voice as string) : null,
+      essential: false,
+      missing: false,
+    },
+    { key: "url", label: "App URL", value: url || null, essential: true, missing: !url },
+  ];
+  const missing = rows.filter((r) => r.missing).map((r) => r.label);
+  return {
+    rows,
+    missing,
+    empty: rows.filter((r) => r.essential).every((r) => r.missing || r.key === "url"),
+  };
+}

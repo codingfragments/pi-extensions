@@ -338,6 +338,7 @@ export class Runtime {
       activeProject: () => this.activeProject(),
       publish: (type, data, slug) => this.bus.publish(type, data, slug),
       tellAgent: (text) => this.tellAgent(text),
+      notifyAgent: (text) => this.notifyAgent(text),
     });
     const annotations = annotationRoutes({
       activeProject: () => this.activeProject(),

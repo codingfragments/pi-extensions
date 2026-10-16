@@ -450,15 +450,23 @@ test(
       page.on("pageerror", (e) => errors.push(e.message));
       const dlg = answerDialogs(page, { text: "not relevant anymore" });
       await page.goto(panel.url);
+      // the Project screen opens on the summary; the form is a group chosen on purpose (D124)
+      await page.waitForSelector(".project-summary");
+      assert.equal(
+        await page.locator(".fact-groups").count(),
+        0,
+        "the form is closed until chosen",
+      );
+      await page.locator(".subtabs .chip", { hasText: "Brief" }).click();
       await page.waitForSelector(".fact-groups");
       assert.equal(
         (await page.locator("header.top > a.ds-step").first().textContent())?.trim(),
         "Project",
         "Project comes first, before the production stages",
       );
-      assert.equal(
+      assert.match(
         await page.evaluate("location.hash"),
-        "#/project",
+        /^#\/project/,
         "a new project starts at Project",
       );
       assert.deepEqual(await page.locator(".fact-group legend").allTextContents(), [
@@ -525,7 +533,7 @@ test(
       );
       assert.equal(st?.state, "use");
 
-      await page.locator(".subtabs .chip", { hasText: "Memory" }).click();
+      await page.locator(".subtabs .chip", { hasText: "Project history" }).click();
       await page.waitForSelector("ul.inputs li");
       await page
         .locator("ul.inputs li")

@@ -2,16 +2,11 @@
   "axeVersion": "4.10.2",
   "pages": {
     "project|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 39
+      "focusChecked": 22
     },
     "storyboard|macchiato|1400": {
       "axe": {},
@@ -68,67 +63,66 @@
       "focusMissing": 0,
       "focusChecked": 40
     },
+    "project-brief|macchiato|1400": {
+      "axe": {
+        "color-contrast": {
+          "impact": "serious",
+          "nodes": 2
+        }
+      },
+      "axeSerious": 2,
+      "smallTargets": 17,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "project-history|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 5,
+      "focusMissing": 0,
+      "focusChecked": 24
+    },
     "map|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-cost|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 26
     },
     "project|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 39
+      "focusChecked": 22
     },
     "storyboard|macchiato|900": {
       "axe": {},
@@ -185,67 +179,66 @@
       "focusMissing": 0,
       "focusChecked": 40
     },
+    "project-brief|macchiato|900": {
+      "axe": {
+        "color-contrast": {
+          "impact": "serious",
+          "nodes": 2
+        }
+      },
+      "axeSerious": 2,
+      "smallTargets": 17,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "project-history|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 5,
+      "focusMissing": 0,
+      "focusChecked": 24
+    },
     "map|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-cost|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 26
     },
     "project|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 39
+      "focusChecked": 22
     },
     "storyboard|latte|1400": {
       "axe": {
@@ -317,17 +310,36 @@
       "focusMissing": 0,
       "focusChecked": 40
     },
+    "project-brief|latte|1400": {
+      "axe": {
+        "color-contrast": {
+          "impact": "serious",
+          "nodes": 4
+        }
+      },
+      "axeSerious": 4,
+      "smallTargets": 17,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "project-history|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 5,
+      "focusMissing": 0,
+      "focusChecked": 24
+    },
     "map|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -335,49 +347,34 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 4
+          "nodes": 2
         }
       },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axeSerious": 2,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 26
     },
     "project|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 39
+      "focusChecked": 22
     },
     "storyboard|latte|900": {
       "axe": {
@@ -449,17 +446,36 @@
       "focusMissing": 0,
       "focusChecked": 40
     },
+    "project-brief|latte|900": {
+      "axe": {
+        "color-contrast": {
+          "impact": "serious",
+          "nodes": 4
+        }
+      },
+      "axeSerious": 4,
+      "smallTargets": 17,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "project-history|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 5,
+      "focusMissing": 0,
+      "focusChecked": 24
+    },
     "map|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 16,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -467,37 +483,27 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 4
+          "nodes": 2
         }
       },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axeSerious": 2,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 4
-        }
-      },
-      "axeSerious": 4,
-      "smallTargets": 16,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 26
     }
   }
 }

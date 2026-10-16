@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --project     # Project (UX8): summary, the brief group, findings
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --render      # Render (UX7): runs list + inspector, New render summary and Change…
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --annotations # Annotations (UX6): list by scene + inspector, draft saved, conflict, privacy dialog
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --storyboard # Storyboard (UX5c): scene list + inspector, a marked scene
@@ -39,6 +40,7 @@ const voiceOnly = process.argv.includes("--voice");
 const storyboardOnly = process.argv.includes("--storyboard");
 const annotationsOnly = process.argv.includes("--annotations");
 const renderOnly = process.argv.includes("--render");
+const projectOnly = process.argv.includes("--project");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -82,7 +84,20 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (renderOnly) {
+      if (projectOnly) {
+        await page.goto(`${panel.url}#/project`);
+        await page.waitForSelector(".project-summary");
+        await page.waitForTimeout(300);
+        await shot(page, `project-summary-${tag}`, false);
+        await page.goto(`${panel.url}#/project?group=brief&field=goal`);
+        await page.waitForSelector(".fact-groups");
+        await page.waitForTimeout(300);
+        await shot(page, `project-brief-${tag}`, false);
+        await page.goto(`${panel.url}#/project?group=findings`);
+        await page.waitForSelector("li.finding, .card.muted");
+        await page.waitForTimeout(200);
+        await shot(page, `project-findings-${tag}`, false);
+      } else if (renderOnly) {
         await page.goto(`${panel.url}#/render/v2`);
         await page.waitForSelector(".ds-inspector[data-version='2']");
         await page.waitForTimeout(300);

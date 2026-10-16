@@ -598,6 +598,10 @@ redaction asks first; the list is grouped by scene with an inspector for the sel
 decision order (QA first for finals), New render as a summary line with *Render now* and *Change…*, and one
 unsaved-changes option per annotation draft.
 
+**Settled in the UX8 grill (D124):** the Project screen opens on a summary with missing essentials (persona,
+goal, depth, URL) as orientation only; one group (Brief, Sources & context, Findings, Project history) is open
+below at a time, in the address; first run offers *Ask the Director to draft it* or *Fill it in myself*.
+
 ### 10.6 Still open, to settle inside the slice that needs it
 
 - Final token values and content-driven pane thresholds (settled in UX0 by looking

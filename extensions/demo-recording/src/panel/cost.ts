@@ -47,6 +47,8 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "config-set": ["none"],
   estimate: ["none"],
   "export-render": ["local"],
+  // asks the Director to draft the brief with the user: an agent turn
+  "brief-draft": ["turn"],
   "finding-mark": ["none"],
   "input-mark": ["none"],
   "project-facts": ["none"],

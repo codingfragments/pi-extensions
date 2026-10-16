@@ -4,7 +4,9 @@
  * (the same runtime the Director uses, so every route exists) and waits for Ctrl-C. Your real recordings
  * and config are not touched.
  *
- *   node extensions/demo-recording/scripts/panel-seed.ts [folder] [--port N]
+ *   node extensions/demo-recording/scripts/panel-seed.ts [folder] [--port N] [--new]
+ *
+ *   --new   an empty project ("demo", nothing in the brief) instead of the seeded one, to see a first run.
  *
  * Note: `cli.ts panel` is the old standalone panel without stage routes; it cannot show the map.
  */
@@ -13,16 +15,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveConfig } from "../src/config.ts";
 import { Runtime } from "../src/runtime.ts";
+import { ensureProject } from "../src/workdir/layout.ts";
 import { seedPanelProject } from "../test/helpers/panel-seed.ts";
 
 const args = process.argv.slice(2);
 const portAt = args.indexOf("--port");
 const port = portAt >= 0 ? Number(args[portAt + 1]) : 0;
+const fresh = args.includes("--new");
 const folder = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--port");
-const root = path.resolve(folder ?? "/tmp/demo-try");
+const root = path.resolve(folder ?? (fresh ? "/tmp/demo-new" : "/tmp/demo-try"));
 fs.rmSync(root, { recursive: true, force: true });
 fs.mkdirSync(root, { recursive: true });
-const seed = seedPanelProject(root);
+const seed = fresh
+  ? (() => {
+      const p = ensureProject(root, {
+        project: "demo",
+        appName: "Demo",
+        appUrl: "https://app.test",
+      });
+      return { slug: p.slug };
+    })()
+  : seedPanelProject(root);
 
 process.env.DEMO_REC_NO_OPEN = "1";
 const rt = new Runtime(() => ({
@@ -32,7 +45,7 @@ const rt = new Runtime(() => ({
 }));
 rt.setActiveProject(seed.slug);
 const panel = await rt.ensurePanel();
-console.log(`seeded project "${seed.slug}" in ${root}`);
+console.log(`${fresh ? "empty" : "seeded"} project "${seed.slug}" in ${root}`);
 console.log(`panel: ${panel.url}  (Ctrl-C to stop)`);
 await new Promise<void>((resolve) => {
   process.once("SIGINT", resolve);

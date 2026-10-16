@@ -11,6 +11,7 @@ import { lineDiff } from "../config-edit.ts";
 import {
   BRIEF_FIELDS,
   DEPTH_DEFAULTS,
+  briefSummary,
   effectiveFacts,
   formatLength,
   parseDepth,
@@ -31,6 +32,7 @@ import type { ProjectHandle } from "../workdir/layout.ts";
 import { formatLine } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
 import { listVersions, writeNextVersion } from "../workdir/versioning.ts";
+import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 import { localize } from "./stage-routes.ts";
 
@@ -39,6 +41,8 @@ export interface ProjectRouteDeps {
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
   /** Note for the agent's next turn without starting one. */
   tellAgent: (text: string) => void;
+  /** Start an agent turn with this message (the usual hint on the panel button). */
+  notifyAgent: (text: string) => void;
 }
 
 const rel = (base: string, file: string) => path.relative(base, file).split(path.sep).join("/");
@@ -148,6 +152,8 @@ export function projectRoutes(deps: ProjectRouteDeps): {
             ? { saved: true, savedAt: fs.statSync(auth).mtime.toISOString() }
             : { saved: false },
           briefVersions: listVersions(path.join(p.dir, "brief"), "v", ".md"),
+          /** The brief in human terms with the missing essentials (D124): orientation, never a gate. */
+          summary: briefSummary(brief, p.app),
         };
       },
       /** One brief version with the diff to the one before (?version=N, default latest). */
@@ -219,6 +225,23 @@ export function projectRoutes(deps: ProjectRouteDeps): {
       },
     },
     post: {
+      /**
+       * First run (D124): ask the Director to draft the brief with the user: an agent turn that makes it use the
+       * demo-brief skill (draft first, ask only for the gaps). Nothing is written here.
+       */
+      "brief-draft": (body) => {
+        const p = requireProject();
+        const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
+        deps.publish(
+          "brief.requested",
+          { message: `the user asked the Director to draft the brief for ${p.slug}` },
+          p.slug,
+        );
+        deps.notifyAgent(
+          `${PANEL_PREFIX} The user asks you to draft the brief for project "${p.slug}" with them${note ? ` (their note: "${note}")` : ""}. Use the demo-brief skill: read the brief (demo_rec_project action=read_brief), draft every field you reasonably can, then ask only for the gaps (audience, goal, depth, URL first) with ask_user_question, and save it with action=write_brief.`,
+        );
+        return { asked: true };
+      },
       /** Two-phase: without confirm → the brief diff; with confirm → a new brief version (logged as an input). */
       "project-facts": (body) => {
         const p = requireProject();

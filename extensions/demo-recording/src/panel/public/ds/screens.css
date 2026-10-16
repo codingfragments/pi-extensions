@@ -473,50 +473,26 @@ audio {
   font-weight: 600;
 }
 
-.brand-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-@media (max-width: 900px) {
-  .brand-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.brand-preview img {
-  width: 100%;
-  border-radius: var(--radius-md);
-  margin-top: var(--space-2);
-  display: block;
+/* ---------- Brand editor (UX18): list + inspector, rows like Config ---------- */
+.brand-editor .ds-group {
   border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  overflow: clip;
 }
 
-.brand-form fieldset {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  margin: 0 0 var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2);
-}
-
-.brand-form legend {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  padding: 0 var(--space-1);
-}
-
-.brand-field {
-  display: grid;
-  grid-template-columns: 110px auto 1fr;
+.ds-brow {
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem) auto;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
 }
 
-.brand-field input[type="range"] {
-  width: 100%;
+.ds-brow[data-changed="true"] {
+  background: var(--accent-tint);
+}
+
+.ds-brow .ds-srow-title h4 label {
+  font: inherit;
+  cursor: pointer;
 }
 
 /* a slider's thumb is drawn small; the control around it is at least the target size */
@@ -524,16 +500,50 @@ input[type="range"] {
   min-block-size: var(--target-min);
 }
 
-.brand-field input.hex {
-  width: 9em;
-  font-family: ui-monospace, monospace;
+.ds-brand-range {
+  flex-wrap: nowrap;
 }
 
-.brand-field .swatch {
-  width: 22px;
-  height: 22px;
+.ds-brand-range input {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ds-brand-range output {
+  min-inline-size: 3.5ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-input--hex {
+  inline-size: 9.5rem;
+  font-family: var(--font-mono);
+}
+
+.ds-swatch {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+  flex: none;
+}
+
+.ds-brand-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3);
+}
+
+.ds-brand-shots img {
+  inline-size: 100%;
+  display: block;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.brand-actionbar {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .variants {

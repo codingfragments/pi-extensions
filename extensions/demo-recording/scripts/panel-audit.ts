@@ -75,6 +75,7 @@ export const SCREENS = [
   "annotations",
   "render",
   "config",
+  "brands",
   "project-brief",
   "project-history",
   "map",
@@ -167,6 +168,13 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
               `${url}#/project?group=${screen === "project-brief" ? "brief" : "history"}`,
             );
             await page.waitForSelector(screen === "project-brief" ? ".fact-groups" : ".brief-text");
+            await page.waitForTimeout(400);
+          } else if (screen === "brands") {
+            await page.route("**/api/brand-preview", (r) =>
+              r.fulfill({ status: 200, contentType: "application/json", body: '{"warnings":[]}' }),
+            );
+            await page.goto(`${url}#/config?view=brands`);
+            await page.waitForSelector(".brand-editor .ds-inspector[data-brand]");
             await page.waitForTimeout(400);
           } else if (screen === "map" || screen === "map-focus") {
             await page.goto(

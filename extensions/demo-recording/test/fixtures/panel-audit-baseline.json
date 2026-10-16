@@ -6,44 +6,51 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 22
+      "focusChecked": 23
     },
     "storyboard|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "recording|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 13
+      "focusChecked": 14
     },
     "voice|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "annotations|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 38
     },
     "render|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 29
+      "focusChecked": 30
     },
     "config|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "brands|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
@@ -62,7 +69,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 25
     },
     "map|macchiato|1400": {
       "axe": {},
@@ -97,51 +104,58 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "project|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 22
+      "focusChecked": 23
     },
     "storyboard|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "recording|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 13
+      "focusChecked": 14
     },
     "voice|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "annotations|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 38
     },
     "render|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 29
+      "focusChecked": 30
     },
     "config|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "brands|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
@@ -160,7 +174,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 25
     },
     "map|macchiato|900": {
       "axe": {},
@@ -195,51 +209,58 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "project|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 22
+      "focusChecked": 23
     },
     "storyboard|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "recording|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 13
+      "focusChecked": 14
     },
     "voice|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "annotations|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 38
     },
     "render|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 29
+      "focusChecked": 30
     },
     "config|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "brands|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
@@ -258,7 +279,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 25
     },
     "map|latte|1400": {
       "axe": {},
@@ -293,51 +314,58 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "project|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 22
+      "focusChecked": 23
     },
     "storyboard|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "recording|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 13
+      "focusChecked": 14
     },
     "voice|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 27
     },
     "annotations|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 40
+      "focusChecked": 38
     },
     "render|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 29
+      "focusChecked": 30
     },
     "config|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "brands|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
@@ -356,7 +384,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 25
     },
     "map|latte|900": {
       "axe": {},
@@ -391,7 +419,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     }
   }
 }

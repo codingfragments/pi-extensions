@@ -1089,7 +1089,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX15 | **Render finish:** a Download menu in the decision bar and a Full video / Scenes switch above the player | built ([report](ux/UX15.md)) |
   | UX16 | **Panel load failure notice:** one plain message with what to try when a panel script cannot load, instead of a blank screen | built ([report](ux/UX16.md)) |
   | UX17 | **Voice picker:** the account's ElevenLabs voices as a select in Config and in the brief, with a text fallback | built ([report](ux/UX17.md)) |
-  | UX18 | **Brand editor rebuilt** on the Config row pattern (list and inspector, rows, the same preview and diff confirm) | planned |
+  | UX18 | **Brand editor rebuilt** on the Config row pattern (list and inspector, rows, the same preview and diff confirm) | built ([report](ux/UX18.md)) |
   | UX19 | **Map fit/zoom and the Voice anchor keyframe** | built ([report](ux/UX19.md)) |
   | T1 | **Flaky tests quarantined** with a bounded retry ("resume: an error in scene 3", the 3200x1800 capture test): `test/helpers/retry.ts` runs each up to twice, prints every failed attempt (`[flaky] …`) and still fails if every attempt fails. The cause is not known and was not reproduced in four parallel runs; if `[flaky]` lines show up in CI logs, that is the evidence to look at | built |
 

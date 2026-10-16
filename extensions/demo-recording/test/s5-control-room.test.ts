@@ -416,7 +416,7 @@ test(
       await page.locator("a.config-btn").click();
       await page.waitForSelector(".ds-srow");
       await page.locator(".ds-tabs .ds-tab", { hasText: "Brands" }).click();
-      await page.waitForSelector(".brand-grid");
+      await page.waitForSelector(".brand-editor .ds-inspector[data-brand]");
       await page.locator("nav.steps a", { hasText: "Recording" }).click();
       await page.waitForSelector(".card.take");
       assert.equal(

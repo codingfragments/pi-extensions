@@ -21,7 +21,7 @@ test("the audit baseline has no small targets on any of the audited pages", () =
     bad.map(([k, p]) => `${k}: ${p.smallTargets}`),
     [],
   );
-  assert.ok(Object.keys(baseline.pages).length >= 56);
+  assert.ok(Object.keys(baseline.pages).length >= 60);
 });
 
 async function chromium() {

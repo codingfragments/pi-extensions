@@ -15,8 +15,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { readDraft } from "../annotations/draft.ts";
 import { readAnnotations } from "../annotations/file.ts";
+import { readAnnotationDraft } from "../drafts/annotations.ts";
 import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
 import { readStoryboard } from "../storyboard/store.ts";
@@ -109,7 +109,7 @@ export function assertApprovable(projectDir: string, stage: Stage, version: numb
   if (stage === "annotations") {
     if (!readAnnotations(projectDir, version))
       throw new Error(`annotations v${version} do not exist`);
-    if (readDraft(projectDir)?.base === version)
+    if (readAnnotationDraft(projectDir, version)?.changes)
       throw new Error(
         `annotations v${version} have unsaved changes — save them (as a new version) or discard them first`,
       );

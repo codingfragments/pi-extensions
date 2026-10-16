@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass** (UX0–UX5b merged; UX5c in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass** (UX0–UX5 merged; UX6a in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -849,7 +849,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   - the rest is listed as "not carried: mark gone / target not found";
   - no model call.
 - **Draft + Save as new version (D58):**
-  - panel edits (toggle, text, ±0.5 s start/duration nudge, target candidate) go to `annotations/draft.json`; the stills and the budget meter update instantly;
+  - panel edits (toggle, text, ±0.5 s start/duration nudge, target candidate) go to the draft (`annotations/draft.json` until UX6a, `drafts/annotations/v<base>.json` since); the stills and the budget meter update instantly;
   - "Save as vN" writes one version with `origin`/`edits` kept, and logs the edit as an input; "Discard" drops the draft;
   - the draft survives panel reloads.
 - **VO-word anchors:** `{ "word": "EMEA", "occurrence"?: n }`, the n-th occurrence in the scene's VO section, through the TTS word timings and the scene's audio placement.
@@ -1074,7 +1074,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX5a | **Engine:** `drafts/<stage>/v<base>.json` (revision counter, atomic write, stale-revision rejection with the current draft, idempotent *Save new version*, base-change flags per D121); voice only, review notes unchanged; routes with cost class `none` | built, awaiting review ([report](ux/UX5a.md)) |
   | UX5b | **Panel (Voice over):** section list + inspector, the narration as a working draft with Saving / Draft saved / Save failed, conflict choice (keep mine / take theirs / compare), base-change note, Discard that names its draft, review kept apart from editing | built, awaiting review ([report](ux/UX5b.md)) |
   | UX5c | **Panel (Storyboard):** scene list + inspector (screenshot, intent, steps, review and re-run requests) | built, awaiting review ([report](ux/UX5c.md)) |
-  | UX6a | **Engine:** annotations drafts on the UX5 contract (`drafts/annotations/v<base>.json`, revisions, conflicts, idempotent Save new version, base-change flags), the legacy `draft.json` read once and retired, a `reset` op (*Reset to suggested*); routes keep cost class `none` (D122) | planned |
+  | UX6a | **Engine:** annotations drafts on the UX5 contract (`drafts/annotations/v<base>.json`, revisions, conflicts, idempotent Save new version, base-change flags), the legacy `draft.json` read once and retired, a `reset` op (*Reset to suggested*); routes keep cost class `none` (D122) | built, awaiting review ([report](ux/UX6a.md)) |
   | UX6b | **Panel:** annotation list grouped by scene + inspector (preview, nudges, targets, text, reasons), direct toggles with save states, conflict choice, base-change note, privacy-off confirmation, *Reset to suggested*, *Suggest again…* disclosure | planned |
   | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |
   | UX8 | Project brief-summary first-run and grouped context | planned |

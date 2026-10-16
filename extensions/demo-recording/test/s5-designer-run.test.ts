@@ -19,7 +19,6 @@ import {
   runDesigner,
   skillSections,
 } from "../src/annotations/designer-run.ts";
-import { editDraft, saveDraft } from "../src/annotations/draft.ts";
 import { annotationVersions, readAnnotations } from "../src/annotations/file.ts";
 import { defaultConfig, resolveConfig } from "../src/config.ts";
 import { runDoctor } from "../src/doctor.ts";
@@ -29,6 +28,7 @@ import { Runtime } from "../src/runtime.ts";
 import { startDesigner } from "../src/tools/designer.ts";
 import { autoSuggestPending } from "../src/tools/edit.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
+import { editDraft, saveDraft } from "./helpers/annotation-drafts.ts";
 import { TIMELINE, makeProject } from "./helpers/annotation-project.ts";
 import { GOOD, fake } from "./helpers/designer-fixture.ts";
 

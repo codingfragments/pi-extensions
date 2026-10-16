@@ -17,7 +17,6 @@ import {
   importAnnotations,
   suggestAnnotations,
 } from "../src/annotations/design.ts";
-import { discardDraft, editDraft, readDraft, saveDraft } from "../src/annotations/draft.ts";
 import { annotationVersions, readAnnotations } from "../src/annotations/file.ts";
 import { detect, mask, scanPrivacy } from "../src/annotations/privacy.ts";
 import { resolveAnnotations, wordOutMs } from "../src/annotations/resolve.ts";
@@ -28,6 +27,7 @@ import type { SceneTimeline, Timeline } from "../src/edit/timeline.ts";
 import type { LayoutSnapshot } from "../src/recorder/layout.ts";
 import { toSuggestion } from "../src/tools/annotations.ts";
 import { autoSuggestNote } from "../src/tools/edit.ts";
+import { discardDraft, editDraft, readDraft, saveDraft } from "./helpers/annotation-drafts.ts";
 import { ELS, SCENE, TIMELINE, makeProject } from "./helpers/annotation-project.ts";
 
 const tmp = (p: string) => fs.mkdtempSync(path.join(os.tmpdir(), p));

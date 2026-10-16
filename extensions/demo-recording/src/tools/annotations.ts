@@ -5,7 +5,7 @@
  *   suggest   submit suggestions → next version (engine resolves, weighs, adds
  *             privacy redactions, pre-enables the recommended set, keeps the
  *             user's changes when `base` is given)
- *   get       a version (or the panel draft) with weights and the budget
+ *   get       a version with weights and the budget (the panel's unsaved draft is private, D121)
  *   write     a full revision (agent edits on request)
  *   import    carry what still matches from an older version (no model)
  *   preview   a clip + still of one annotation
@@ -27,7 +27,6 @@ import {
   importAnnotations,
   suggestAnnotations,
 } from "../annotations/design.ts";
-import { readDraft } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations, writeAnnotations } from "../annotations/file.ts";
 import { previewAnnotation } from "../annotations/preview.ts";
 import { toSuggestion } from "../annotations/suggestion.ts";
@@ -222,7 +221,7 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
       "on-screen elements with refs, privacy hits, caps) — read it before suggesting. suggest: submit ~2× as many suggestions as should be on " +
       "(type, scene, anchor, target, text, value 1–5, reason); the engine resolves them, adds privacy redactions, weighs, pre-enables the best half " +
       "and writes the next version; unplaceable ones come back with reasons — fix and resubmit. With base=N (re-suggest) the user's changed items " +
-      "are kept. get: a version (or draft=true for the panel's unsaved edits). write: a full revision as JSON (only when the user asks for specific " +
+      "are kept. get: a version (the panel's unsaved edits are private until the user saves them). write: a full revision as JSON (only when the user asks for specific " +
       "changes). import: carry what still matches from an older version. preview: a clip + still of one annotation. The user accepts annotations in the panel; you cannot.",
     parameters: Type.Object({
       action: StringEnum(["context", "suggest", "get", "write", "import", "preview"] as const),
@@ -236,7 +235,11 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
         Type.String({ description: "context/suggest: the user's extra instructions, verbatim" }),
       ),
       version: Type.Optional(Type.Number({ description: "get/preview: version (default latest)" })),
-      draft: Type.Optional(Type.Boolean({ description: "get: the panel's unsaved draft" })),
+      draft: Type.Optional(
+        Type.Boolean({
+          description: "ignored: the panel's unsaved draft is private until saved (D121)",
+        }),
+      ),
       json: Type.Optional(
         Type.String({
           description: "write: the complete annotation file as JSON (items with ids)",
@@ -274,14 +277,11 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
           );
         }
         case "get": {
-          if (params.draft) {
-            const d = readDraft(p.dir);
+          if (params.draft)
+            // D121: what the user is editing is private until they save it as a version
             return result(
-              d
-                ? formatAnnotations(d.file, `Unsaved draft on v${d.base} (${d.changes} change(s))`)
-                : "no unsaved draft",
+              "The user's unsaved edits are private until they save them as a version (D121). Read a saved version instead: action=get with version=N.",
             );
-          }
           const f = readAnnotations(p.dir, params.version);
           return result(
             f ? formatAnnotations(f) : "no annotations yet — read action=context and suggest",

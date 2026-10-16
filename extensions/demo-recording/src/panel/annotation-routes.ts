@@ -7,13 +7,7 @@
 
 import path from "node:path";
 import { resolveContext } from "../annotations/apply.ts";
-import {
-  type DraftOp,
-  discardDraft,
-  editDraft,
-  readDraft,
-  saveDraft,
-} from "../annotations/draft.ts";
+import { type DraftOp, canReset } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations } from "../annotations/file.ts";
 import { previewAnnotation, previewScene } from "../annotations/preview.ts";
 import { resolveAnnotations } from "../annotations/resolve.ts";
@@ -21,6 +15,17 @@ import type { AnnotationFile } from "../annotations/types.ts";
 import { budgetOf } from "../annotations/weights.ts";
 import { annotationBase, annotationConfidence } from "../confidence/annotations.ts";
 import type { DemoRecConfig } from "../config.ts";
+import {
+  type AnnotationWorkingDraft,
+  annotationDraftFlags,
+  discardAnnotationDraft,
+  editAnnotationDraft,
+  listAnnotationDrafts,
+  preferredAnnotationDraft,
+  readAnnotationDraft,
+  saveAnnotationDraftAsVersion,
+} from "../drafts/annotations.ts";
+import { DraftConflict } from "../drafts/store.ts";
 import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { logInstructions, timelineFor } from "../tools/annotations.ts";
@@ -70,8 +75,8 @@ function safeTimeline(
 /** The tab's view of a version (or of the draft on top of it). */
 export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?: number) {
   const versions = annotationVersions(p.dir);
-  const draft = readDraft(p.dir);
   const state = readState(p.dir) ?? p.state;
+  const drafts = listAnnotationDrafts(p.dir);
   const lineTimeline = safeTimeline(p.dir, state.line.vo as number);
   const base = {
     project: p.slug,
@@ -80,11 +85,15 @@ export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?
     canSuggest: state.line.vo !== undefined && !!lineTimeline,
     lineVo: state.line.vo ?? null,
   };
-  const v = requested ?? state.line.annotations ?? draft?.base ?? versions.at(-1);
+  const v =
+    requested ??
+    state.line.annotations ??
+    preferredAnnotationDraft(p.dir, undefined)?.base ??
+    versions.at(-1);
   if (v === undefined || !versions.includes(v))
-    return { ...base, version: null, file: null, draft: null };
-  const useDraft = !!draft && draft.base === v;
-  const file = (useDraft ? draft?.file : readAnnotations(p.dir, v)) as AnnotationFile;
+    return { ...base, version: null, file: null, draft: null, otherDrafts: [] };
+  const draft: AnnotationWorkingDraft | undefined = drafts.find((d) => d.base === v);
+  const file = (draft ? draft.file : readAnnotations(p.dir, v)) as AnnotationFile;
   const t = safeTimeline(p.dir, file.basedOn.vo);
   const scenes = (t?.timeline.scenes ?? []).map((s) => ({
     id: s.id,
@@ -113,11 +122,22 @@ export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?
     ...base,
     version: v,
     accepted: isAccepted(state.accepted, "annotations", v),
-    draft:
-      useDraft && draft
-        ? { base: draft.base, changes: draft.changes, updatedAt: draft.updatedAt }
-        : null,
-    otherDraft: draft && !useDraft ? draft.base : null,
+    draft: draft
+      ? {
+          base: draft.base,
+          changes: draft.changes,
+          updatedAt: draft.updatedAt,
+          revision: draft.revision,
+          author: draft.author,
+          flags: annotationDraftFlags(p.dir, draft),
+        }
+      : null,
+    /** Drafts on other versions: they are kept, and never replaced by editing this one. */
+    otherDrafts: drafts
+      .filter((d) => d.base !== v)
+      .map((d) => ({ base: d.base, changes: d.changes })),
+    /** Which items can go back to how the designer suggested them. */
+    resettable: file.items.filter(canReset).map((x) => x.id),
     file,
     resolved,
     scenes,
@@ -150,8 +170,8 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
   const queue = serial();
   const fileFor = (p: ProjectHandle, body: Record<string, unknown>): AnnotationFile => {
     const v = Number(body.version);
-    const d = readDraft(p.dir);
-    if (d && d.base === v) return d.file;
+    const d = readAnnotationDraft(p.dir, v);
+    if (d?.changes) return d.file;
     const f = readAnnotations(p.dir, v);
     if (!f) throw new Error(`annotations v${v} do not exist`);
     return f;
@@ -172,15 +192,40 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
       { ...(version ? { version } : {}), by: "user", message, ...extra },
       p.slug,
     );
-  /** "toggle co-kpi → on", "text co-kpi: “…”", "nudge zoom-emea start +0.5 s", "target zoom-emea → alternative 1". */
+  /** "toggle co-kpi → on", "text co-kpi edited", "nudge zoom-emea start +0.5 s": never the text itself (D121). */
   const describeOp = (op: DraftOp, after?: { enabled?: boolean }) =>
     op.op === "toggle"
       ? `toggle ${op.id} → ${after?.enabled ? "on" : "off"}`
       : op.op === "text"
-        ? `text ${op.id}: “${op.text}”`
+        ? `text ${op.id} edited`
         : op.op === "nudge"
           ? `nudge ${op.id} ${op.field} ${op.deltaMs > 0 ? "+" : ""}${(op.deltaMs / 1000).toFixed(1)} s`
-          : `target ${op.id} → alternative ${op.alternative + 1}`;
+          : op.op === "reset"
+            ? `reset ${op.id} to suggested`
+            : `target ${op.id} → alternative ${op.alternative + 1}`;
+  /** The revision the caller last saw: required (null = "I have no draft"), so nothing is overwritten silently. */
+  const revisionOf = (body: Record<string, unknown>): number | null => {
+    if (!("revision" in body))
+      throw new Error('"revision" is required: the draft revision you last saw, or null for none');
+    const r = body.revision;
+    if (r === null || r === 0) return null;
+    if (typeof r !== "number" || !Number.isInteger(r) || r < 1)
+      throw new Error('"revision" must be the revision you last saw, or null for none');
+    return r;
+  };
+  const authorOf = (body: Record<string, unknown>) =>
+    typeof body.author === "string" && body.author ? body.author.slice(0, 80) : "panel";
+  /** A rejected write is data, not an error: the view as the server has it, and why. */
+  const conflicted = (
+    p: ProjectHandle,
+    version: number,
+    err: DraftConflict<AnnotationWorkingDraft>,
+  ) => ({
+    ...annotationsView(p, deps.getConfig(), version),
+    saved: false,
+    conflict: true,
+    message: err.message,
+  });
 
   return {
     get: {
@@ -192,71 +237,99 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
       },
     },
     post: {
-      /** A draft edit: { version, op: toggle|text|nudge|target, id, … } */
+      /**
+       * A draft edit: { version, revision, author?, op: toggle|text|nudge|target|reset, id, … }.
+       * Answers with the view; `saved: false, conflict: true` when the revision is stale (nothing written).
+       */
       "annotations-edit": (body) => {
         const p = requireProject();
         const version = versionOf(body);
+        const expected = revisionOf(body);
+        const author = authorOf(body);
         const op = { ...(body as Record<string, unknown>) } as unknown as DraftOp & {
           version?: number;
+          revision?: number | null;
+          author?: string;
         };
-        Reflect.deleteProperty(op, "version");
-        const d = editDraft(p.dir, version, op);
-        const item = d.file.items.find((x) => x.id === op.id);
-        const what = describeOp(op, item);
-        changed(p, `draft on v${version}: ${what} (${d.changes} unsaved)`, undefined, {
-          draftOf: version,
-          op,
-          change: what,
-          unsaved: d.changes,
-          ...(item
-            ? {
-                item: {
-                  id: item.id,
-                  type: item.type,
-                  scene: item.scene,
-                  enabled: item.enabled,
-                  ...(item.text ? { text: item.text } : {}),
-                  anchor: item.anchor,
-                },
-              }
-            : {}),
-        });
-        return annotationsView(p, deps.getConfig(), version);
+        for (const k of ["version", "revision", "author"]) Reflect.deleteProperty(op, k);
+        try {
+          const d = editAnnotationDraft(p.dir, version, op, { expected, author });
+          if (d) {
+            const item = d.file.items.find((x) => x.id === op.id);
+            const what = describeOp(op, item);
+            changed(p, `draft on v${version}: ${what} (${d.changes} unsaved)`, undefined, {
+              draftOf: version,
+              revision: d.revision,
+              change: what,
+              unsaved: d.changes,
+              author,
+              ...(item
+                ? {
+                    item: {
+                      id: item.id,
+                      type: item.type,
+                      scene: item.scene,
+                      enabled: item.enabled,
+                    },
+                  }
+                : {}),
+            });
+          }
+          return { ...annotationsView(p, deps.getConfig(), version), saved: true };
+        } catch (err) {
+          if (err instanceof DraftConflict) return conflicted(p, version, err);
+          throw err;
+        }
       },
-      "annotations-save": () => {
+      /** Save new version: { version (the base), revision } → exactly one version, once per revision. */
+      "annotations-save": (body) => {
         const p = requireProject();
-        const d = readDraft(p.dir);
-        const stored = saveDraft(p.dir);
-        recordInput(p.dir, {
-          stage: "annotations",
-          version: stored.version,
-          source: "panel",
-          kind: "review",
-          text: `annotation edits on v${d?.base}: ${d?.changes ?? 0} change(s) saved as v${stored.version}`,
-        });
-        changed(
-          p,
-          `annotations v${stored.version} saved from the panel (${d?.changes ?? 0} change(s) on v${d?.base})`,
-          stored.version,
-          {
-            editedFrom: d?.base,
-            changes: d?.changes ?? 0,
-            edited: stored.items.filter((x) => (x.edits?.length ?? 0) > 0).map((x) => x.id),
-          },
-        );
-        return annotationsView(p, deps.getConfig(), stored.version);
+        const base = versionOf(body);
+        try {
+          const r = saveAnnotationDraftAsVersion(p.dir, base, revisionOf(body));
+          if (!r.repeated) {
+            recordInput(p.dir, {
+              stage: "annotations",
+              version: r.version,
+              source: "panel",
+              kind: "review",
+              text: `annotation edits on v${base}: ${r.changes} change(s) saved as v${r.version}`,
+            });
+            changed(
+              p,
+              `annotations v${r.version} saved from the panel (${r.changes} change(s) on v${base})`,
+              r.version,
+              { editedFrom: base, changes: r.changes, edited: r.edited },
+            );
+          }
+          return {
+            ...annotationsView(p, deps.getConfig(), r.version),
+            saved: true,
+            repeated: r.repeated,
+          };
+        } catch (err) {
+          if (err instanceof DraftConflict) return conflicted(p, base, err);
+          throw err;
+        }
       },
-      "annotations-discard": () => {
+      /** { version (the base), revision } → drops that draft and says what was lost. */
+      "annotations-discard": (body) => {
         const p = requireProject();
-        const d = readDraft(p.dir);
-        discardDraft(p.dir);
-        changed(
-          p,
-          `annotation draft on v${d?.base} discarded (${d?.changes ?? 0} change(s))`,
-          undefined,
-          { draftOf: d?.base, changes: d?.changes ?? 0 },
-        );
-        return annotationsView(p, deps.getConfig(), d?.base);
+        const base = versionOf(body);
+        try {
+          const gone = discardAnnotationDraft(p.dir, base, revisionOf(body));
+          if (gone)
+            changed(
+              p,
+              `annotation draft on v${base} discarded (${gone.changes} change(s))`,
+              undefined,
+              { draftOf: base, changes: gone.changes },
+            );
+          return { ...annotationsView(p, deps.getConfig(), base), discarded: gone };
+        } catch (err) {
+          if (err instanceof DraftConflict) return { ...conflicted(p, base, err), discarded: null };
+          throw err;
+        }
       },
       /** Ask the agent to (re-)suggest, with the user's instructions (D53, D56). */
       "annotations-resuggest": (body) => {
@@ -270,8 +343,8 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
           typeof body.instructions === "string" ? body.instructions.trim().slice(0, 2000) : "";
         const base =
           body.version !== undefined && body.version !== null ? versionOf(body) : undefined;
-        const draft = readDraft(p.dir);
-        if (draft && base !== undefined && draft.base === base)
+        const draft = base !== undefined ? readAnnotationDraft(p.dir, base) : undefined;
+        if (draft?.changes)
           throw new Error(
             "save or discard the unsaved changes first — re-suggest keeps saved changes only",
           );

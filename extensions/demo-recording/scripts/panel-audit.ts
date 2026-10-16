@@ -213,11 +213,14 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
             const found = (await page.evaluate(`axe.run(document, {
               runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
               resultTypes: ["violations"],
-            }).then((r) => r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })))`)) as {
+            }).then((r) => r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, where: v.nodes.map((n) => n.target.join(" ") + " :: " + (n.any[0]?.message ?? "")).slice(0, 4) })))`)) as {
               id: string;
               impact: string;
               nodes: number;
+              where?: string[];
             }[];
+            if (process.env.AUDIT_WHERE)
+              for (const v of found) console.log(`WHERE ${screen} ${theme} ${v.id}`, v.where);
             for (const v of found) {
               audit.axe[v.id] = { impact: v.impact, nodes: v.nodes };
               if (v.impact === "serious" || v.impact === "critical") audit.axeSerious += v.nodes;

@@ -586,8 +586,8 @@ export function Render({ events }) {
   const select = (v) => go({ screen: "render", version: v }, { replace: true });
   const rowOf = (r) => hist.data?.rows?.find((x) => x.version === r.version);
   return html`
-    <${StageSummary} stage="render" row=${routeVersion !== null ? hist.data?.rows?.find((r) => r.version === routeVersion) : null} rows=${hist.data?.rows}
-      viewed=${routeVersion} onUse=${(v) => runVersionAction({ stage: "render", version: v, intent: "use" }).then(reload)}
+    <${StageSummary} stage="render" row=${routeVersion !== null && !current ? null : current ? hist.data?.rows?.find((r) => r.version === current.version) : null} rows=${hist.data?.rows}
+      viewed=${routeVersion !== null && !data.renders.some((r) => r.version === routeVersion) ? routeVersion : (current?.version ?? null)} onUse=${(v) => runVersionAction({ stage: "render", version: v, intent: "use" }).then(reload)}
       meta=${html`<span>${finals.length} final · ${drafts.length} draft render(s)</span>`} />
     <${NewRender} data=${data} events=${events} onStarted=${reload} />
     ${data.renders.length ? null : html`<section class="card"><p class="muted">No renders yet. Every sync edit makes a draft; finals come from here once annotations are approved.</p></section>`}

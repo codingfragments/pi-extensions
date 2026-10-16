@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --storyboard # Storyboard (UX5c): scene list + inspector, a marked scene
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --voice     # Voice over (UX5): list + inspector, draft saved, failed save, conflict, base moved
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --map       # the project map (UX4): all paths, search, focus, group open, History link
  */
@@ -33,6 +34,7 @@ const frameOnly = process.argv.includes("--frame");
 const versionsOnly = process.argv.includes("--versions");
 const mapOnly = process.argv.includes("--map");
 const voiceOnly = process.argv.includes("--voice");
+const storyboardOnly = process.argv.includes("--storyboard");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -76,7 +78,20 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (voiceOnly) {
+      if (storyboardOnly) {
+        await page.goto(`${panel.url}#/storyboard?scene=02-search`);
+        await page.waitForSelector(".ds-inspector h2");
+        await page.waitForTimeout(300);
+        await shot(page, `storyboard-list-${tag}`, false);
+        await page.click("[data-status=changes]");
+        await page.fill(
+          "textarea[aria-label='Notes for this scene']",
+          "Type a longer query so the results change visibly.",
+        );
+        await page.locator("textarea[aria-label='Notes for this scene']").blur();
+        await page.waitForTimeout(500);
+        await shot(page, `storyboard-review-${tag}`, false);
+      } else if (voiceOnly) {
         const { saveDraft, readDraft } = await import("../src/drafts/store.ts");
         const field = page.locator(".ds-split-detail textarea[id^=narration]");
         const saved = () =>

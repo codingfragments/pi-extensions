@@ -14,16 +14,11 @@
       "focusChecked": 39
     },
     "storyboard|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 5,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 33
+      "focusChecked": 28
     },
     "recording|macchiato|1400": {
       "axe": {},
@@ -145,16 +140,11 @@
       "focusChecked": 39
     },
     "storyboard|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 2,
-      "smallTargets": 5,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 33
+      "focusChecked": 28
     },
     "recording|macchiato|900": {
       "axe": {},
@@ -279,13 +269,13 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 3
+          "nodes": 1
         }
       },
-      "axeSerious": 3,
-      "smallTargets": 5,
+      "axeSerious": 1,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 33
+      "focusChecked": 28
     },
     "recording|latte|1400": {
       "axe": {},
@@ -415,13 +405,13 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 3
+          "nodes": 1
         }
       },
-      "axeSerious": 3,
-      "smallTargets": 5,
+      "axeSerious": 1,
+      "smallTargets": 4,
       "focusMissing": 0,
-      "focusChecked": 33
+      "focusChecked": 28
     },
     "recording|latte|900": {
       "axe": {},

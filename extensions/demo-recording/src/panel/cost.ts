@@ -67,6 +67,10 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   select: ["none"],
   unaccept: ["none"],
   "unaccept-preview": ["none"],
+  // working drafts (UX5a): saving or discarding a draft never starts a job or tells the Director
+  "draft-discard": ["none"],
+  "draft-save": ["none"],
+  "draft-version": ["none"],
   // approve & use starts an agent turn; approve only, use and withdraw leave a quiet note
   "version-act": ["turn"],
   "version-plan": ["none"],

@@ -67,6 +67,30 @@ export function writeVo(
   return { version: stored.version, file: stored.file, text: normalized, validated };
 }
 
+/** The script text with one section's body replaced (pure). Throws when the section is not in it. */
+export function replaceVoSection(
+  text: string,
+  key: string,
+  body: string,
+  label = "this version",
+): string {
+  const lines = text.split("\n");
+  const start = lines.findIndex(
+    (l) =>
+      l.startsWith("## ") &&
+      l
+        .slice(3)
+        .split(/\s+—\s+|\s+-\s+/)[0]
+        ?.trim() === key,
+  );
+  if (start < 0) throw new Error(`section "${key}" is not in ${label}`);
+  let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
+  if (end < 0) end = lines.length;
+  return [...lines.slice(0, start + 1), body.trim(), "", ...lines.slice(end)]
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 /** Replace one section's body (panel inline edit) and store as a new version. */
 export function editVoSection(
   projectDir: string,
@@ -76,22 +100,10 @@ export function editVoSection(
 ): StoredVo {
   const current = readVo(projectDir, version);
   if (!current) throw new Error(`voice-over v${version} does not exist`);
-  const lines = current.text.split("\n");
-  const start = lines.findIndex(
-    (l) =>
-      l.startsWith("## ") &&
-      l
-        .slice(3)
-        .split(/\s+—\s+|\s+-\s+/)[0]
-        ?.trim() === key,
-  );
-  if (start < 0) throw new Error(`section "${key}" is not in v${version}`);
-  let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
-  if (end < 0) end = lines.length;
-  const next = [...lines.slice(0, start + 1), body.trim(), "", ...lines.slice(end)]
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n");
-  return writeVo(projectDir, next, { base: version, panelEdit: true });
+  return writeVo(projectDir, replaceVoSection(current.text, key, body, `v${version}`), {
+    base: version,
+    panelEdit: true,
+  });
 }
 
 /**

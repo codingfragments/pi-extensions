@@ -466,7 +466,8 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-panel);
-  overflow: hidden;
+  /* clip, not hidden: hidden makes this a scroll container and the action bar could never stick to the window */
+  overflow: clip;
 }
 .ds-split-list {
   border-inline-end: 1px solid var(--border-subtle);
@@ -548,7 +549,8 @@
 }
 .ds-actionbar {
   position: sticky;
-  inset-block-end: 0;
+  /* above the activity strip, which is fixed to the bottom of the window */
+  inset-block-end: var(--strip-h);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1287,4 +1289,40 @@ dialog.ds-dialog::backdrop {
 .version-actions {
   gap: var(--space-3);
   align-items: flex-start;
+}
+
+/* ---------- Inspector and compare (UX5b) ---------- */
+.ds-inspector {
+  padding: var(--space-4);
+}
+.ds-compare {
+  display: grid;
+  gap: 1px;
+  margin-block-start: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--border-subtle);
+  overflow: hidden;
+  font-size: var(--text-sm);
+}
+.ds-compare-row {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+}
+.ds-compare-row > * {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-panel);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ds-compare-head > * {
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+
+/* the review footer of a screen with its own sticky action bar stays in the page flow */
+.review-foot.ds-inflow {
+  position: static;
 }

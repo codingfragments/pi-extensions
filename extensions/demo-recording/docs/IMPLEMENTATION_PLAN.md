@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass** (UX0–UX4 merged; UX5a in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass** (UX0–UX5a merged; UX5b in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1072,7 +1072,8 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX4a | **Engine:** `GET /api/graph` (versions, draft groups, QA nodes; recorded links only; separate statuses; cached; 324 nodes in about 20 ms). First-cut scope and entry points settled in a grill (D119) | built, awaiting review |
   | UX4b | **Panel:** the map overlay (own SVG, from the UX0 prototype), `#/map?view=&q=&focus=` routes, the Map button, "Show in map" from History rows and the blocked band, path filters, dim context, focus, collapse, outline and keyboard | built, awaiting review (D120, [report](ux/UX4.md)) |
   | UX5a | **Engine:** `drafts/<stage>/v<base>.json` (revision counter, atomic write, stale-revision rejection with the current draft, idempotent *Save new version*, base-change flags per D121); voice only, review notes unchanged; routes with cost class `none` | built, awaiting review ([report](ux/UX5a.md)) |
-  | UX5b | **Panel:** voice and storyboard as list + inspector, the Saving / Draft saved / Save failed states, conflict choice (keep mine / take theirs / compare), base-change note, Discard that names its draft | planned |
+  | UX5b | **Panel (Voice over):** section list + inspector, the narration as a working draft with Saving / Draft saved / Save failed, conflict choice (keep mine / take theirs / compare), base-change note, Discard that names its draft, review kept apart from editing | built, awaiting review ([report](ux/UX5b.md)) |
+  | UX5c | **Panel (Storyboard):** scene list + inspector (screenshot, intent, steps, review and re-run requests) | planned |
   | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | planned |
   | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |
   | UX8 | Project brief-summary first-run and grouped context | planned |

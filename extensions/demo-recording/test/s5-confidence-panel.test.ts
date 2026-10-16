@@ -126,24 +126,31 @@ test(
         /re-directed from v1: changed 1 of 4 sections/,
       );
       assert.match(await page.locator(".eyes").innerText(), /1 needs your eyes/);
-      // the carried-over intro is one line
-      const intro = page.locator("#item-_intro");
-      assert.match((await intro.getAttribute("class")) ?? "", /compact/);
-      assert.match(await intro.innerText(), /unchanged since v1, where you approved it/);
+      // the carried-over intro says so, in its row and in its inspector
+      const intro = page.locator(".ds-item[data-key='_intro']");
+      assert.match(await intro.innerText(), /unchanged since v1/);
+      assert.match(
+        await page.locator(".ds-inspector .carried").innerText(),
+        /Unchanged since v1, where you approved it/,
+      );
       // word diff on the changed section, with its low badge and reasons
-      const dash = page.locator("#item-01-dash");
+      await page.locator(".ds-item[data-key='01-dash']").click();
+      const dash = page.locator(".ds-inspector");
+      await dash.locator("h2:has-text('01-dash')").waitFor();
       assert.equal(await dash.locator(".d-ins").first().innerText(), "reads 4.2");
       assert.equal(await dash.locator(".d-del").first().innerText(), "is 3.1");
-      assert.equal(await dash.locator(".conf").innerText(), "● low");
+      assert.match(
+        await dash.locator(".ds-badge", { hasText: "confidence" }).innerText(),
+        /Low confidence/,
+      );
       assert.match(
         await dash.locator(".conf-reasons").innerText(),
         /says “4.2” — not on the page in 01-dash/,
       );
-      // a chip jumps to the item
+      // a chip selects the section
+      await page.locator(".ds-item[data-key='_outro']").click();
       await page.locator(".eyes .conf-chip", { hasText: "01-dash" }).click();
-      await page.waitForFunction(
-        `document.getElementById("item-01-dash").classList.contains("jumped")`,
-      );
+      await page.waitForSelector(".ds-item[data-key='01-dash'][aria-current=true]");
       // approve high-confidence: the plan first, then applied
       await page.getByRole("button", { name: /Mark high-confidence reviewed/ }).click();
       const modal = page.locator(".modal");

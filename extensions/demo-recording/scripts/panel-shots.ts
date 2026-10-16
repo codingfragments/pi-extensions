@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --voice     # Voice over (UX5): list + inspector, draft saved, failed save, conflict, base moved
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --map       # the project map (UX4): all paths, search, focus, group open, History link
  */
 
@@ -31,6 +32,7 @@ const dialogsOnly = process.argv.includes("--dialogs");
 const frameOnly = process.argv.includes("--frame");
 const versionsOnly = process.argv.includes("--versions");
 const mapOnly = process.argv.includes("--map");
+const voiceOnly = process.argv.includes("--voice");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -74,7 +76,53 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (mapOnly) {
+      if (voiceOnly) {
+        const { saveDraft, readDraft } = await import("../src/drafts/store.ts");
+        const field = page.locator(".ds-split-detail textarea[id^=narration]");
+        const saved = () =>
+          page.waitForFunction(
+            `/Draft saved/.test(document.querySelector(".ds-actionbar .ds-savestate")?.innerText ?? "")`,
+          );
+        await page.goto(`${panel.url}#/voice?section=01-dash`);
+        await field.waitFor();
+        await page.waitForTimeout(300);
+        await shot(page, `voice-list-${tag}`, false);
+        await field.fill(
+          "Headline churn reads 4.2 percent, up from 3.1. [@m1] Steady. [@m2] EMEA is the outlier.",
+        );
+        await saved();
+        await shot(page, `voice-draft-${tag}`, false);
+        await page.route("**/api/draft-save", (r) => r.abort("failed"));
+        await page.locator(".ds-item[data-key=_outro]").click();
+        await page
+          .locator(".ds-split-detail textarea[id^=narration]")
+          .fill("An outro that cannot be saved.");
+        await page.waitForSelector(".ds-notice:has-text('Save failed')");
+        await shot(page, `voice-failed-${tag}`, false);
+        await page.unroute("**/api/draft-save");
+        await page.click("[data-act=retry]");
+        await saved();
+        saveDraft(seed.dir, "vo", 2, {
+          expected: readDraft(seed.dir, "vo", 2)?.revision ?? null,
+          edits: { "01-dash": "Changed in another tab." },
+          author: "other-tab",
+        });
+        await page.locator(".ds-item[data-key=_intro]").click();
+        await page.locator(".ds-split-detail textarea[id^=narration]").fill("Another opening.");
+        await page.waitForSelector(".ds-notice:has-text('another tab')");
+        await page.click(".ds-notice button:has-text('Compare')");
+        await shot(page, `voice-conflict-${tag}`, false);
+        await page.goto(`${panel.url}#/voice/v1`);
+        await page.locator(".ds-split-detail textarea[id^=narration]").waitFor();
+        await page
+          .locator(".ds-split-detail textarea[id^=narration]")
+          .fill("Edited on the older version.");
+        await saved();
+        await page.reload();
+        await page.waitForSelector(".ds-notice:has-text('v2 exists')");
+        await page.click("button:has-text('Compare with v2')");
+        await shot(page, `voice-base-moved-${tag}`, false);
+      } else if (mapOnly) {
         const ready = async () => {
           await page.waitForSelector(".ds-map .ds-node");
           await page.waitForTimeout(250);

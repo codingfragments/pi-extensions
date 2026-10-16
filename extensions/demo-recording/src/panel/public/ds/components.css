@@ -1289,8 +1289,43 @@ dialog.ds-dialog::backdrop {
   font-size: var(--text-sm);
   text-decoration: none;
 }
-.ds-menu > ul a:hover {
+.ds-menu > ul a:hover,
+.ds-menu > ul button:hover:not(:disabled) {
   background: var(--surface-raised);
+}
+.ds-menu > ul button {
+  display: block;
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.ds-menu > ul .ds-menu-head {
+  padding: var(--space-1) var(--space-3);
+}
+/* a menu that looks like a button, and one that opens upward (from a bar at the bottom of the window) */
+.ds-menu--btn > summary {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-body);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+.ds-menu--btn > summary::after {
+  content: "▾";
+  margin-inline-start: var(--space-2);
+}
+.ds-menu--up > ul {
+  inset-block-start: auto;
+  inset-block-end: calc(100% + var(--space-1));
 }
 
 /* ---------- Version actions and History (UX3) ---------- */

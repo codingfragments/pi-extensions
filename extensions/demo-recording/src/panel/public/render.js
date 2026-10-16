@@ -227,20 +227,44 @@ function flavorRows(r) {
 
 const fileName = (rel) => rel.split("/").at(-1);
 
-/** ⬇ zip (all): everything of a variant in one archive — built on first click, then cached. */
+/** What the player shows: one file of one variant. */
+const playing = (row, file, vtt, label) => ({
+  row: row.key,
+  v: row.v,
+  file,
+  vtt,
+  poster: row.poster,
+  label,
+});
+
+/** The selection, or the first variant that has files. */
+function currentOf(rows, sel) {
+  if (sel) return sel;
+  const first = rows.find((x) => x.v.present);
+  return first
+    ? playing(first, first.file, first.vtt, [first.brand, ...first.tags].join(" · "))
+    : null;
+}
+
+/** Everything of a variant in one archive: built on the first request, then cached, then downloaded. */
+async function zipDownload(r, v) {
+  const z = await post("/api/render-zip", { version: r.version, variant: v.key });
+  const a = document.createElement("a");
+  a.href = media("project", z.zip);
+  a.download = fileName(z.zip);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/** ⬇ zip (all) in the variants table. */
 function ZipButton({ r, v }) {
   const [busy, setBusy] = useState(false);
   const go = async (e) => {
     e.stopPropagation();
     setBusy(true);
     try {
-      const z = await post("/api/render-zip", { version: r.version, variant: v.key });
-      const a = document.createElement("a");
-      a.href = media("project", z.zip);
-      a.download = fileName(z.zip);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      await zipDownload(r, v);
     } catch (err) {
       errorToast(err);
     } finally {
@@ -250,9 +274,7 @@ function ZipButton({ r, v }) {
   return html`<button class="ds-btn ds-btn--ghost ds-btn--sm zip" disabled=${busy} title="download everything of this variant as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
 }
 
-function FlavorTable({ r, seek }) {
-  const rows = flavorRows(r);
-  const [sel, setSel] = useState(null);
+function FlavorTable({ r, seek, rows, sel, setSel, cur }) {
   const video = useRef(null);
   // A QA time link: show the main variant (not a scene clip) and jump there.
   useEffect(() => {
@@ -267,22 +289,10 @@ function FlavorTable({ r, seek }) {
     if (video.current?.readyState >= 1) go();
     else video.current?.addEventListener("loadedmetadata", go, { once: true });
   }, [seek?.n]);
-  const [open, setOpen] = useState({});
-  const first = rows.find((x) => x.v.present);
-  const cur =
-    sel ??
-    (first
-      ? {
-          row: first.key,
-          v: first.v,
-          file: first.file,
-          vtt: first.vtt,
-          poster: first.poster,
-          label: [first.brand, ...first.tags].join(" · "),
-        }
-      : null);
-  const pick = (row, file, vtt, label) =>
-    setSel({ row: row.key, v: row.v, file, vtt, poster: row.poster, label });
+  const pick = (row, file, vtt, label) => setSel(playing(row, file, vtt, label));
+  const curRow = rows.find((x) => x.key === cur?.row);
+  const curLabel = curRow ? [curRow.brand, ...curRow.tags].join(" · ") : "";
+  const inScenes = !!curRow && curRow.scenes.some((sc) => sc.file === cur.file);
   const size = (v, rel) => (v.sizes?.[rel] !== undefined ? mb(v.sizes[rel]) : "");
   const dl = (v, rel, label) =>
     rel
@@ -290,6 +300,28 @@ function FlavorTable({ r, seek }) {
       : null;
   return html`<div class="flavor-view">
     <div class="flavor-player">
+      ${
+        curRow
+          ? html`<div class="ds-row-flex flavor-switch">
+              <span class="ds-seg" role="group" aria-label="What to play">
+                <button type="button" data-mode="full" aria-pressed=${!inScenes} onClick=${() => pick(curRow, curRow.file, curRow.vtt, curLabel)}>Full video</button>
+                <button type="button" data-mode="scenes" aria-pressed=${inScenes} disabled=${!curRow.scenes.length} title=${curRow.scenes.length ? "play one scene at a time" : "this variant has no per-scene videos"}
+                  onClick=${() => {
+                    const sc = curRow.scenes[0];
+                    if (sc) pick(curRow, sc.file, sc.vtt, `${curLabel} · ${sc.label}`);
+                  }}>Scenes${curRow.scenes.length ? ` · ${curRow.scenes.length}` : ""}</button>
+              </span>
+              <span class="ds-small ds-muted">${curLabel}</span>
+            </div>
+            ${
+              inScenes
+                ? html`<div class="ds-row-flex flavor-scenes" role="group" aria-label="Scenes">
+                    ${curRow.scenes.map((sc) => html`<button type="button" class="ds-chip" key=${sc.id} data-scene=${sc.id} aria-pressed=${cur.file === sc.file} onClick=${() => pick(curRow, sc.file, sc.vtt, `${curLabel} · ${sc.label}`)}>${sc.label}</button>`)}
+                  </div>`
+                : null
+            }`
+          : null
+      }
       ${
         cur
           ? html`<video ref=${video} key=${cur.file} class="render-video" controls preload="metadata" src=${media("project", join(cur.v.dir, cur.file))} poster=${cur.poster ? media("project", join(cur.v.dir, cur.poster)) : undefined}>
@@ -305,7 +337,7 @@ function FlavorTable({ r, seek }) {
         ${rows.map((row) => {
           const v = row.v;
           const label = [row.brand, ...row.tags].join(" · ");
-          const on = cur?.file === row.file && cur?.v === v;
+          const on = cur?.row === row.key && !inScenes;
           return html`
             <tr class=${`fv-row ${on ? "on" : ""} ${v.present ? "" : "gone"}`} onClick=${() => v.present && pick(row, row.file, row.vtt, label)}>
               <td>${v.present ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm play" title="preview" aria-label=${`preview ${label}`}>${on ? "●" : "▶"}</button>` : null}</td>
@@ -327,26 +359,7 @@ function FlavorTable({ r, seek }) {
                     : null
                 }</span></td>
             </tr>
-            ${
-              row.scenes.length && v.present
-                ? html`<tr class="fv-toggle"><td></td><td colspan="5"><button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setOpen({ ...open, [row.key]: !open[row.key] })}>${open[row.key] ? "▾" : "▸"} scenes (${row.scenes.length})</button></td></tr>
-                  ${
-                    open[row.key]
-                      ? row.scenes.map((sc) => {
-                          const on2 = cur?.file === sc.file && cur?.v === v;
-                          return html`<tr class=${`fv-scene ${on2 ? "on" : ""}`} onClick=${() => pick(row, sc.file, sc.vtt, `${label} · ${sc.label}`)}>
-                            <td><button class="ds-btn ds-btn--ghost ds-btn--sm play" aria-label=${`preview ${sc.label}`}>${on2 ? "●" : "▶"}</button></td>
-                            <td class="fv-scene-name">${sc.label}</td>
-                            <td></td>
-                            <td>${size(v, sc.file)}</td>
-                            <td>${dl(v, sc.file, "⬇ mp4")}</td>
-                            <td><span class="extras">${dl(v, sc.vtt, "transcript")}</span></td>
-                          </tr>`;
-                        })
-                      : null
-                  }`
-                : null
-            }`;
+`;
         })}
       </tbody>
     </table>
@@ -504,8 +517,61 @@ function RunSection({ title, state, tone, open = true, children }) {
 }
 
 /** The selected run, in the order of the decision: what it is, QA (it gates approval), the variants and player, files. */
+/**
+ * Download ▾ in the decision bar: what is playing (the video, its transcript, poster and callouts), everything
+ * of the variant as one zip, and its folder.
+ */
+function DownloadMenu({ r, rows, cur }) {
+  const [busy, setBusy] = useState(false);
+  const row = rows.find((x) => x.key === cur?.row);
+  if (!cur || !row?.v.present) return null;
+  const v = row.v;
+  const close = (e) => e.currentTarget.closest("details")?.removeAttribute("open");
+  const href = (rel) => media("project", join(v.dir, rel));
+  const files = [
+    ["Video (mp4)", cur.file],
+    ["Transcript (vtt)", cur.vtt],
+    ["Callouts (srt)", row.extras.find(([l]) => l === "callouts")?.[1]],
+    ["Poster", row.poster],
+  ].filter(([, rel]) => rel);
+  const main = !row.key.endsWith("#sub");
+  return html`<details class="ds-menu ds-menu--btn ds-menu--up render-download" onKeyDown=${(e) => e.key === "Escape" && e.currentTarget.removeAttribute("open")}>
+    <summary data-act="download">Download</summary>
+    <ul>
+      <li class="ds-menu-head ds-xs ds-muted">${cur.label}</li>
+      ${files.map(([label, rel]) => html`<li key=${label}><a href=${href(rel)} download=${fileName(rel)} onClick=${close}>${label} <span class="ds-muted ds-xs">${fileName(rel)}</span></a></li>`)}
+      ${
+        main
+          ? html`<li><button type="button" data-act="download-zip" disabled=${busy} onClick=${async (
+              e,
+            ) => {
+              close(e);
+              setBusy(true);
+              try {
+                await zipDownload(r, v);
+              } catch (err) {
+                errorToast(err);
+              } finally {
+                setBusy(false);
+              }
+            }}>Everything of this variant (zip)</button></li>
+            <li><button type="button" data-act="open-folder" onClick=${(e) => {
+              close(e);
+              post("/api/render-open", { version: r.version, variant: v.key }).catch((err) =>
+                errorToast(err),
+              );
+            }}>Open its folder</button></li>`
+          : null
+      }
+    </ul>
+  </details>`;
+}
+
 function RunInspector({ r, row, events, viewed, reload }) {
   const [seek, setSeek] = useState(null);
+  const [sel, setSel] = useState(null);
+  const rows = flavorRows(r);
+  const cur = currentOf(rows, sel);
   const del = async () => {
     const size = mb(r.variants.reduce((n, v) => n + (v.present ? v.bytes : 0), 0));
     if (
@@ -570,7 +636,7 @@ function RunInspector({ r, row, events, viewed, reload }) {
     <p class="ds-small ds-muted">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}</p>
     ${r.error ? html`<p class="ds-small" style="color: var(--status-err)">${r.error}</p>` : null}
     <div class="render-detail-grid">
-      ${r.variants.length ? html`<${RunSection} title="Variants and player" state=${`${r.variants.length} variant${r.variants.length === 1 ? "" : "s"} · ${mb(bytesOf(r))}`}><${FlavorTable} r=${r} seek=${seek} /></${RunSection}>` : null}
+      ${r.variants.length ? html`<${RunSection} title="Variants and player" state=${`${r.variants.length} variant${r.variants.length === 1 ? "" : "s"} · ${mb(bytesOf(r))}`}><${FlavorTable} r=${r} seek=${seek} rows=${rows} sel=${sel} setSel=${setSel} cur=${cur} /></${RunSection}>` : null}
       ${finalDone ? html`<${RunSection} title="Quality check" state=${qa} tone=${qaTone}><${QaSection} r=${r} onSeek=${(t) => setSeek({ t, n: Date.now() })} reload=${reload} /></${RunSection}>` : null}
     </div>
     ${warnings.length ? html`<${RunSection} title="Warnings" state=${String(warnings.length)} tone="warn" open=${false}><ul class="ds-small">${warnings.map((w) => html`<li>${w}</li>`)}</ul></${RunSection}>` : null}
@@ -578,6 +644,7 @@ function RunInspector({ r, row, events, viewed, reload }) {
       <span class="ds-small ds-muted render-consequence" data-consequence>${consequence}</span>
       <span class="ds-grow"></span>
       <a class="ds-btn ds-btn--ghost show-in-map" href=${formatRoute({ screen: "map", query: { sel: `render:${r.version}`, focus: "1" } })}>Show in map</a>
+      ${!gone && r.status !== "running" ? html`<${DownloadMenu} r=${r} rows=${rows} cur=${cur} />` : null}
       ${!gone && r.status !== "running" ? html`<button class="ds-btn ds-btn--danger" type="button" data-act="delete-files" onClick=${del}>Delete files…</button>` : null}
       ${finalDone ? html`<${VersionActions} stage="render" row=${row} events=${events} eager=${false} knownWhy=${r.accepted ? "" : (r.qaBlocker ?? "")} label=${`final render v${r.version}`} onDone=${reload} />` : null}
     </div>

@@ -57,7 +57,7 @@ async function setup(width = 1400) {
   const dlg = answerDialogs(page);
   const open = async (p: Page, hash = "#/render") => {
     await p.goto(`${panel.url}${hash}`);
-    await p.waitForSelector(".ds-split-list .ds-item");
+    await p.waitForSelector(".ds-runs .ds-run");
   };
   const close = async () => {
     dlg.stop();
@@ -69,7 +69,7 @@ async function setup(width = 1400) {
 }
 const keys = (p: Page) =>
   p.evaluate(
-    "[...document.querySelectorAll('.ds-split-list .ds-item')].map((e) => e.dataset.key)",
+    "[...document.querySelectorAll('.ds-runs .ds-run')].map((e) => e.dataset.key)",
   ) as Promise<string[]>;
 
 test(
@@ -85,18 +85,26 @@ test(
       assert.ok(all.includes("1") && all.includes("3"));
       assert.match(
         await page.locator(".ds-item[data-key='2']").innerText(),
-        /Final v2[\s\S]*QA passed[\s\S]*Approved/,
+        /Final v2[\s\S]*Approved[\s\S]*annotations v1[\s\S]*Passed/,
       );
-      assert.match(
-        await page.locator(".ds-item[data-key='1']").innerText(),
-        /QA blocked: \d+ blocking/,
+      assert.match(await page.locator(".ds-item[data-key='1']").innerText(), /\d+ blocking/);
+      assert.match(await page.locator(".ds-item[data-key='3']").innerText(), /Files deleted/);
+      // the finals are the list; the drafts wait under one line you can open
+      assert.deepEqual(all.sort(), ["1", "2", "3"], "drafts are folded away");
+      await page.click("[data-act=toggle-drafts]");
+      assert.ok(
+        (await keys(page)).some((k) => Number(k) >= 4),
+        "opening the line shows the drafts",
       );
-      assert.match(await page.locator(".ds-item[data-key='3']").innerText(), /files deleted/);
+      await page.click("[data-act=toggle-drafts]");
+      assert.deepEqual((await keys(page)).sort(), ["1", "2", "3"]);
       // filters
       await page.click("[data-kind=finals]");
       assert.deepEqual((await keys(page)).sort(), ["1", "2", "3"]);
       await page.click("[data-kind=drafts]");
       assert.ok((await keys(page)).every((k) => Number(k) >= 4));
+      await page.click("[data-kind=problems]");
+      assert.deepEqual(await keys(page), ["1"], "only the final with blocking QA items");
       await page.click("[data-kind=all]");
       // a click shows that run in the inspector and puts it in the address, without changing anything
       await page.click(".ds-item[data-key='1']");
@@ -110,11 +118,11 @@ test(
         before,
         "looking changes nothing",
       );
-      // narrow: the list folds into a select
+      // narrow: the table keeps Run, Based on and QA and drops the rest; nothing needs a select any more
       await page.setViewportSize({ width: 700, height: 1000 });
-      await page.waitForSelector(".ds-split-bar select");
-      assert.equal(await page.locator(".ds-split-list").isVisible(), false);
-      await page.selectOption(".ds-split-bar select", "2");
+      assert.equal(await page.locator(".ds-runs .run-when").first().isVisible(), false);
+      assert.equal(await page.locator(".ds-runs .run-qa").first().isVisible(), true);
+      await page.click(".ds-item[data-key='2']");
       await page.waitForSelector(".ds-inspector[data-version='2']");
       assert.deepEqual(errors, []);
     } finally {
@@ -133,15 +141,16 @@ test(
       const titles = await page
         .locator(".ds-inspector .ds-section > summary strong")
         .allInnerTexts();
-      assert.equal(titles[0], "Quality check", "QA comes first for a final");
-      assert.match(
-        await page.locator(".ds-inspector .ds-section").first().innerText(),
-        /QA blocked/,
+      assert.deepEqual(
+        titles.slice(0, 2),
+        ["Variants and player", "Quality check"],
+        "player, then the evidence",
       );
-      assert.equal(
-        await page.locator(".ds-inspector .ds-section").first().getAttribute("open"),
-        "",
-      );
+      const qaSection = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
+      assert.match(await qaSection.innerText(), /QA blocked/);
+      assert.equal(await qaSection.getAttribute("open"), "");
+      // the decision is pinned at the bottom with its consequence
+      assert.match(await page.locator("[data-consequence]").innerText(), /delivered version/);
       const approve = page.getByRole("button", { name: "Approve final v1" });
       assert.equal(await approve.getAttribute("aria-disabled"), "true");
       assert.match(
@@ -152,10 +161,11 @@ test(
       await page.waitForSelector(".ds-inspector[data-version='2']");
       assert.match(await page.locator(".ds-inspector").innerText(), /Approved · deliverable/);
       assert.match(
-        await page.locator(".ds-inspector .ds-section").first().innerText(),
+        await page.locator(".ds-inspector .ds-section", { hasText: "Quality check" }).innerText(),
         /QA passed/,
       );
-      // a draft render has no QA section; its variants come first
+      // a draft render has no QA section
+      await page.click("[data-kind=drafts]");
       const drafts = (await keys(page)).filter((k) => Number(k) >= 4);
       await page.click(`.ds-item[data-key='${drafts[0]}']`);
       await page.waitForSelector(`.ds-inspector[data-version='${drafts[0]}']`);
@@ -166,6 +176,7 @@ test(
         false,
       );
       // a run without files says so, and offers no delete
+      await page.click("[data-kind=finals]");
       await page.click(".ds-item[data-key='3']");
       await page.waitForSelector(".ds-inspector[data-version='3']");
       assert.match(await page.locator(".ds-inspector").innerText(), /Files deleted/);
@@ -200,6 +211,13 @@ test(
         { expected: null, author: "t" },
       );
       await open(page);
+      assert.equal(
+        await page.locator("#new-render").count(),
+        0,
+        "New render is closed until asked for",
+      );
+      await page.click("[data-act=new-render]");
+      await page.waitForSelector("#new-render [data-act=render-now]");
       assert.equal(
         await page.evaluate("document.querySelector('.render-change').open"),
         false,
@@ -248,6 +266,8 @@ test(
       // withdraw the approval: the final is blocked, and the reason stands beside the disabled button
       unacceptStage(seed.dir, "annotations", 1);
       await page.reload();
+      await page.waitForSelector("[data-act=new-render]");
+      await page.click("[data-act=new-render]");
       await page.waitForSelector("[data-act=render-now]");
       await page.click(".render-change > summary");
       await page.click("input[name=kind]:near(:text('Final'))");

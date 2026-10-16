@@ -57,7 +57,18 @@ const ago = (iso) => {
 };
 
 /** The badges of one history row, each an icon and a word. */
-export function RowBadges({ row, viewing }) {
+export function RowBadges({ row, viewing, compact = false }) {
+  if (compact) {
+    // one status, the most telling: where it stands now (the list row and the detail carry the rest)
+    const [tone, ico, word] = row.blocked
+      ? ["err", "!", "Blocked by dependency"]
+      : row.inLine
+        ? ["accent", "▶", "In production line"]
+        : row.approved
+          ? ["ok", "✓", "Approved"]
+          : ["neutral", "✎", "Not approved"];
+    return html`<span class="ds-badge" data-tone=${tone} title=${row.blocked || undefined}><span class="ds-badge-ico" aria-hidden="true">${ico}</span>${word}</span>`;
+  }
   const kind = row.kind === "final" ? "Final render" : row.kind === "draft" ? "Draft render" : null;
   return html`<span class="ds-row-flex" style="gap:var(--space-1)">
     ${kind ? html`<span class="ds-badge" data-tone="neutral">${kind}</span>` : null}
@@ -89,7 +100,7 @@ export function lineNotice(stage, row, rows) {
     : `You are viewing ${what}. Nothing is in the production line for ${name.toLowerCase()} yet.`;
 }
 
-/** The History: every version, where it came from, and a link to look at it. Looking never changes anything. */
+/** The Versions list: every version of this stage, where it came from, and a whole-row link to look at it. Looking never changes anything. */
 export function History({ stage, rows, viewed, onUse }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
@@ -116,22 +127,24 @@ export function History({ stage, rows, viewed, onUse }) {
   }, [open]);
   const list = rows ?? [];
   return html`<div class="ds-histwrap" ref=${wrap}>
-    <button ref=${button} class="ds-btn history-btn" type="button" aria-expanded=${open} aria-controls=${`history-${stage}`} onClick=${() => setOpen((o) => !o)}>History${list.length ? ` · ${list.length}` : ""}</button>
+    <button ref=${button} class="ds-btn history-btn" type="button" aria-expanded=${open} aria-controls=${`history-${stage}`} onClick=${() => setOpen((o) => !o)}>Versions${list.length ? ` · ${list.length}` : ""}</button>
     ${
       open
-        ? html`<div class="ds-popover ds-histpop" id=${`history-${stage}`} role="dialog" aria-label=${`${NAME[stage]} history`}>
+        ? html`<div class="ds-popover ds-histpop" id=${`history-${stage}`} role="dialog" aria-label=${`${NAME[stage]} versions`}>
             ${
               list.length
                 ? list.map(
                     (
                       r,
-                    ) => html`<div class="ds-version" key=${r.version} aria-current=${viewed === r.version ? "true" : undefined}>
+                    ) => html`<div class="ds-version ds-version--row" key=${r.version} aria-current=${viewed === r.version ? "true" : undefined}>
                       <span>
-                        <a href=${formatRoute({ screen: SCREEN[stage], version: r.version })} onClick=${() => setOpen(false)}><strong>${r.short}</strong></a>
+                        <a class="ds-version-main" href=${formatRoute({ screen: SCREEN[stage], version: r.version })} aria-describedby=${`ver-${stage}-${r.version}-d`} onClick=${() => setOpen(false)}><strong>${r.short}</strong></a>
+                        <span id=${`ver-${stage}-${r.version}-d`}>
                         ${r.basedOn ? html` <span class="ds-muted ds-small">· based on ${r.basedOn.label}</span>` : null}
                         ${!r.onInput && r.basedOn ? html` <span class="ds-muted ds-xs">(another branch)</span>` : null}
                         <span class="ds-muted ds-xs"> ${ago(r.at)}</span>
                         <br /><${RowBadges} row=${r} viewing=${viewed === r.version} />
+                        </span>
                       </span>
                       <span class="ds-row-flex">
                         <a class="ds-btn ds-btn--sm ds-btn--ghost show-in-map" href=${formatRoute({ screen: "map", query: { sel: `${stage}:${r.version}`, focus: "1" } })} onClick=${() => setOpen(false)}>Show in map</a>
@@ -155,7 +168,17 @@ export function History({ stage, rows, viewed, onUse }) {
 }
 
 /** The head of a stage screen: what you are viewing, how it relates to the production line, History. */
-export function StageSummary({ stage, row, rows, viewed, meta, onUse, children }) {
+export function StageSummary({
+  stage,
+  row,
+  rows,
+  viewed,
+  meta,
+  onUse,
+  children,
+  noVersions = false,
+  compact = false,
+}) {
   const notice = lineNotice(stage, row, rows);
   // a version in the address that does not exist is said, not silently replaced
   const missing =
@@ -165,12 +188,12 @@ export function StageSummary({ stage, row, rows, viewed, meta, onUse, children }
       <div class="ds-grow">
         <h1>${NAME[stage]}</h1>
         <div class="ds-stagehead-meta">
-          ${row ? html`<span>Viewing <strong style="color:var(--text-strong)">${row.short}</strong></span><${RowBadges} row=${row} />${row.basedOn ? html`<span>Based on ${row.basedOn.label}</span>` : null}` : null}
+          ${row ? html`<span>Viewing <strong style="color:var(--text-strong)">${row.short}</strong></span><${RowBadges} row=${row} compact=${compact} />${row.basedOn ? html`<span>Based on ${row.basedOn.label}</span>` : null}` : null}
           ${meta ?? null}
         </div>
       </div>
       ${children ?? null}
-      <${History} stage=${stage} rows=${rows} viewed=${viewed} onUse=${onUse} />
+      ${noVersions ? null : html`<${History} stage=${stage} rows=${rows} viewed=${viewed} onUse=${onUse} />`}
     </div>
     ${missing ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${NAME[stage]} ${stage === "recording" ? `take-${String(viewed).padStart(3, "0")}` : `v${viewed}`} does not exist. <a href=${formatRoute({ screen: SCREEN[stage] })}>Show the latest</a></div></div>` : null}
     ${notice ? html`<div class="ds-notice" role="note"><span class="ds-status" data-tone="info" aria-hidden="true">i</span><div>${notice}</div></div>` : null}
@@ -343,14 +366,18 @@ export function VersionActions({
   if (!row) return null;
   const why = (intent) =>
     eager ? firstBlocker(plans[intent]) : intent.startsWith("approve") ? (knownWhy ?? "") : "";
+  // two approve buttons blocked for the same reason say it once
+  const sameWhy =
+    !row.approved && why("approve-use") !== "" && why("approve-use") === why("approve-only");
   const btn = (intent, text, cls = "") => {
     const reason = why(intent);
-    const id = `why-${stage}-${row.version}-${intent}`;
+    const shared = sameWhy && intent === "approve-only";
+    const id = `why-${stage}-${row.version}-${shared ? "approve-use" : intent}`;
     return html`<span class="ds-actionwrap">
       <button class=${`ds-btn ${cls}${compact ? " ds-btn--sm" : ""}`} type="button" aria-busy=${busy ? "true" : undefined}
         aria-disabled=${reason ? "true" : undefined} aria-describedby=${reason ? id : undefined} data-intent=${intent}
         onClick=${() => !reason && !busy && run(intent)}>${text}</button>
-      ${reason ? html`<span class="ds-why" id=${id}>${reason}</span>` : null}
+      ${reason && !shared ? html`<span class="ds-why" id=${id}>${reason}</span>` : null}
     </span>`;
   };
   const final = stage === "render";

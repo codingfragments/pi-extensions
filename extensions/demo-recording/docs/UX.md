@@ -21,7 +21,7 @@ layer or a timeline editor.
 | Choice | Agreed direction |
 |---|---|
 | Primary organisation | Freely navigable production stages, with a next-action summary; no automatic tab changes when results arrive |
-| Versions | Compact version/source/status summary plus History; browsing is separate from changing production inputs |
+| Versions | Compact version/source/status summary plus the Versions list; browsing is separate from changing production inputs |
 | Project map | A **connected dependency graph**, grouped by stage, in a large overlay; not a nested tree as the primary visualisation |
 | Graph exploration | All paths / Approved paths / Production line; expand/collapse, search/filter, focus, quick navigation; retain dim dependency context |
 | Activity | Persistent compact status strip plus an on-demand drawer; no reserved idle column or automatic expansion |
@@ -55,7 +55,7 @@ Storyboard ✓ → Recording ✓ → Voice ● → Annotations ○ → Render �
 
 NEEDS YOU  Review narration                         [Continue review]
 ────────────────────────────────────────────────────────────────────
-Voice over                                               [History]
+Voice over                                               [Versions]
 Viewing v3 · Draft · Based on recording 6
 In production line: v2 — you are reviewing a new draft
 
@@ -75,7 +75,7 @@ Keycraft                          [Project] [Map] [Config]
 [Accessible stage navigation — current stage remains visible]
 Needs you: review narration                     [Continue]
 ──────────────────────────────────────────────────────────
-Voice v3 · Draft · Recording 6                  [History]
+Voice v3 · Draft · Recording 6                  [Versions]
 In production line: v2
 [Sections: Search results ▾]
 [Footage / editor]
@@ -120,7 +120,7 @@ opening, even on error; actionable failures are visible in the strip/summary.
 
 ## 3. Versions, approval and vocabulary
 
-History lists versions, their source, approval, production selection and any
+Versions lists versions, their source, approval, production selection and any
 availability/dependency problem. It can open the map focused on an item.
 Viewing a row changes only the view. The normal header always names the
 viewed version and its source; viewing outside the production line adds an
@@ -166,7 +166,7 @@ skills and docs alongside the relevant behaviour, without rewriting history.
 
 ## 4. Project map: a graph, not a file tree
 
-Open a **large map overlay** from the global Map control or History. The stage
+Open a **large map overlay** from the global Map control or Versions. The stage
 workspace remains behind it. Closing restores its selection, scroll and focus;
 **Open in stage** closes the overlay and navigates to the exact selected item.
 Focusing a graph branch never selects a new production line.
@@ -205,7 +205,7 @@ Focusing a graph branch never selects a new production line.
   line marker while exploring another branch.
 
 > **First cut decided in the UX4 grill (D119):** nodes are versions, draft groups and QA nodes; media files
-> are listed in the selected render's details, not drawn. Entry points: the header, History rows and the
+> are listed in the selected render's details, not drawn. Entry points: the header, Versions rows and the
 > blocked band. The engine side (`GET /api/graph`) is UX4a (#60); the overlay is UX4b ([report](ux/UX4.md), D120).
 
 ### Coverage and interaction details proposed for spec review
@@ -236,7 +236,7 @@ Focusing a graph branch never selects a new production line.
   job internals or authentication storage is not the graph's purpose.
 - Initial view: all paths with media groups collapsed and the production line
   highlighted. Remember view/filter/collapse state per project on later opens.
-  Opening from History explicitly focuses that item; if filters would hide it,
+  Opening from Versions explicitly focuses that item; if filters would hide it,
   show an outside-filter notice with a reveal action, not a silent filter reset.
 - Secondary filters: stage, artifact kind, approval/review state and availability.
   Show active filter chips, clear/reset actions and an explanatory no-match state.
@@ -261,7 +261,7 @@ information remain. Annotation enable switches can stay directly in rows.
 
 | Screen | Main work | Progressive disclosure |
 |---|---|---|
-| Storyboard | Scene list; selected screenshot, intent and steps; review/re-run requests | Technical targets and step details; History; bulk review |
+| Storyboard | Scene list; selected screenshot, intent and steps; review/re-run requests | Technical targets and step details; Versions; bulk review |
 | Recording | Takes table and selected player, scene spans, errors and improvised inputs | Raw analysis/log details; new-take action retains its cost dialog |
 | Voice over | Section list; footage/keyframe plus editable narration, anchors, confidence and diff | Voice direction panel; technical timing detail; generation estimate |
 | Annotations | Filterable list with enable state, type and review signals; selected still/clip and editor | Target alternatives, timing, budget and privacy detail; bulk options |
@@ -393,7 +393,7 @@ restyle through tokens instead of introducing parallel implementations.
 - Disabled actions have an accessible explanation. Busy actions prevent duplicate
   submission without trapping focus. Announce meaningful saves/errors/progress,
   not every background event or keystroke.
-- Overlay interaction is deliberate: opening Map from History replaces or safely
+- Overlay interaction is deliberate: opening Map from Versions replaces or safely
   suspends that surface; closing the top layer never dismisses another by accident.
 
 ## 8. Delivery slices and gates
@@ -407,7 +407,7 @@ gates. Do not rename stored schemas or break tool callers as a cosmetic refactor
 | UX0 | **Style tile and component/dialog showcase** (static page, §10.1) | Your approval of the screenshots; every shared component and layout principle shown in all states, both themes, 900 and 1400 px |
 | UX1 | **Built** ([report](ux/UX1.md)): tokens and shared components exactly as approved in UX0; audit baseline/harness; ratchet test; existing dialog restyled | Both themes, token/contrast/focus checks, representative components; tile and panel tokens in sync |
 | UX2 | **Built** ([report](ux/UX2.md)): hash routing (§10.2), frame, stage status/next action, Activity strip/drawer; Recording adopts shared frame | Arriving results never steal navigation/focus; running vs waiting truthful |
-| UX3 | **Built** ([report](ux/UX3.md)): version summary, History, read-only browsing, explicit production/approval actions and vocabulary | Browse has no writes; approve-only keeps line; approve-and-use has coherent effects |
+| UX3 | **Built** ([report](ux/UX3.md)): version summary, History (renamed *Versions* in UX10), read-only browsing, explicit production/approval actions and vocabulary | Browse has no writes; approve-only keeps line; approve-and-use has coherent effects |
 | UX4 | Dependency map overlay, `GET /api/graph`, path filters, collapse/focus/navigation, hash routes for the map | Forks/shared dependencies/legacy gaps; graph and outline equivalence; no production mutation |
 | UX5 | Durable draft contract and storyboard/voice list-detail review | Reload/navigation/conflict/save failure; explicit new versions; review vs approval |
 | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | Privacy/target/timing/budget/import/re-suggest capabilities retained |
@@ -432,8 +432,8 @@ widths or count hidden controls as a usability success.
 ### Task-level acceptance scenarios
 
 1. From any stage, identify viewed version, production selection, pending review
-   and active job without opening History or Activity. A new result never moves you.
-2. Browse an older version via History and Map, then close/return: no production
+   and active job without opening Versions or Activity. A new result never moves you.
+2. Browse an older version via Versions and Map, then close/return: no production
    state, approval or draft is changed. Open in stage goes to the exact artifact.
 3. On a branching fixture, filter to approved paths and production line. Withdrawn
    ancestors, shared dependencies, missing media and unknown lineage remain honest.
@@ -496,7 +496,7 @@ step; served from `docs/ux/` and generated screenshots under `docs/images/ux/`):
   rows/tables and the list + inspector pattern, tabs and stepper states (complete,
   needs you, blocked, running), the status strip and Activity drawer, toasts,
   confirm / danger / cost / diff / text dialogs, empty, loading and error states,
-  the History list, a map node in every state and the map's controls, the draft
+  the Versions list, a map node in every state and the map's controls, the draft
   saving states, the config search result, and focus rings.
 - **Layout principles shown, not described:** the frame at 1400 and 900 px, the
   fluid workspace with capped prose, the list-and-detail collapse to an item picker,

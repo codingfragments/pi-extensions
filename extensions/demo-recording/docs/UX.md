@@ -133,6 +133,7 @@ explicit difference notice.
 | Approve without selecting | **Approve only**; preserve a usable alternative without changing the line or starting work on it |
 | Select an already approved version | **Use for next steps**; show the resulting line and downstream selection changes |
 | Take an approval back later | **Withdraw approval**; list affected descendants; preserve records and existing approvals elsewhere |
+| See the keyboard shortcuts | **?** (or the **?** button in the header): one sheet of the shortcuts that exist; lists are one tab stop with ↑ ↓ Home End inside (D128) |
 | Take the action you just did back | **Undo** in the confirmation toast (about 12 s, paused under the pointer or focus), for Approve & use, Approve only, Use for next steps and Withdraw approval. It restores the approvals, the line and the phase exactly; it is refused, with the reason, once anything else has changed them. Delete files has no Undo (the dialog is its safeguard) |
 | Saved usable version | **Approved** (not a mixture of accepted and approved) |
 | Working selection | **Production line / In production line** |

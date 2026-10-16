@@ -1,3 +1,5 @@
+import { html, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { JOB_TITLE, STEPS } from "./frame-state.js";
 // The control room's frame (UX2, D98–D101): the header with the stepper, the next-action band,
 // the status strip and the Activity drawer. What they say is decided in frame-state.js; this file
 // draws it with the design-system components (ds/components.css).
@@ -5,8 +7,7 @@
 // Rules: results that arrive never move you (they put a badge on a step); the strip is one short line;
 // the drawer opens only when you ask, overlays instead of squeezing the page, and never opens by itself,
 // not even on an error.
-import { html, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { JOB_TITLE, STEPS } from "./frame-state.js";
+import { showShortcuts } from "./keys.js";
 import { FramePreview, FullLogModal, Log, LogLineModal, ProgressRows, Safety } from "./live.js";
 import { formatRoute } from "./route.js";
 
@@ -88,6 +89,7 @@ export function Header({ slug, tab, states, news, band }) {
       <span class="ds-header-tools">
         <a class="ds-btn ds-btn--ghost map-link" href="#/map" aria-haspopup="dialog" title="The project map: every version and what depends on what">◇ Map</a>
         <a class="ds-btn ds-btn--ghost config-btn" href="#/config" aria-current=${tab === "config" ? "page" : undefined} title="Settings and brands (not a process step)">⚙ Config</a>
+        <button class="ds-btn ds-btn--ghost ds-btn--icon" type="button" data-act="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick=${showShortcuts}>?</button>
         <${ThemeToggle} />
       </span>
     </header>

@@ -223,6 +223,8 @@ test(
         "raw global file shown",
       );
       // fps 30 → 24 (global)
+      for (let i = 0; i < 20 && (await page.locator(".ds-srow[data-key='fps']").count()) === 0; i++)
+        await page.locator(".ds-group-head[aria-expanded=false]").first().click();
       const fps = page.locator(".ds-srow[data-key='fps']");
       await fps.locator("[data-toggle]").click();
       await fps.locator("[data-act=edit-global]").click();

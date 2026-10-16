@@ -89,6 +89,14 @@ const keys = (p: Page) =>
   p.evaluate("[...document.querySelectorAll('.ds-srow')].map((e) => e.dataset.key)") as Promise<
     string[]
   >;
+/** Config opens light (UX12): open every group, as a person reading it all would. */
+const openAll = async (p: Page) => {
+  for (let i = 0; i < 20; i++) {
+    const closed = p.locator(".ds-group-head[aria-expanded=false]");
+    if ((await closed.count()) === 0) return;
+    await closed.first().click();
+  }
+};
 const card = (key: string) => `.ds-srow[data-key='${key}']`;
 const scopes = (key: string) => `${card(key)} [data-toggle]`;
 const count = (p: Page) => p.locator("[data-count]").innerText();
@@ -103,6 +111,11 @@ test(
     const { page, open, errors, close } = await setup();
     try {
       await open(page);
+      // opens light: one group open, the others a click away, each header says how many settings it holds
+      assert.equal(await page.locator(".ds-group-head[aria-expanded=true]").count(), 1);
+      assert.ok((await page.locator(".ds-group-head[aria-expanded=false]").count()) >= 5);
+      assert.ok((await keys(page)).length < 20, "only the first group's settings");
+      await openAll(page);
       const all = await keys(page);
       assert.ok(all.length > 20, "all the settings");
       assert.equal(new Set(all).size, all.length, "one card per setting");
@@ -129,8 +142,14 @@ test(
       assert.equal(await page.inputValue(".config-search input[type=search]"), "voice");
       await page.focus(".config-search input[type=search]");
       await page.keyboard.press("Escape");
-      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length === ${total}`);
-      assert.equal(await page.evaluate("location.hash"), "#/config");
+      await page.waitForFunction("location.hash === '#/config'");
+      assert.equal(
+        await page.locator(".ds-group-head[aria-expanded=true]").count(),
+        1,
+        "clearing the search goes back to the light view",
+      );
+      await openAll(page);
+      assert.equal((await keys(page)).length, total);
       // no match: told apart from loading, with a way out
       await page.fill(".config-search input[type=search]", "zzzz-nothing");
       await page.waitForSelector(".ds-state");
@@ -139,7 +158,9 @@ test(
         /No settings match[\s\S]*zzzz-nothing/i,
       );
       await page.click("[data-act=clear-search]");
-      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length === ${total}`);
+      await page.waitForSelector(".ds-group-head");
+      await openAll(page);
+      assert.equal((await keys(page)).length, total);
       assert.deepEqual(errors, []);
     } finally {
       await close();

@@ -1326,3 +1326,11 @@ dialog.ds-dialog::backdrop {
 .review-foot.ds-inflow {
   position: static;
 }
+
+/* a screenshot in an inspector: as wide as the pane, never wider than its own pixels */
+.ds-shot img {
+  display: block;
+  max-inline-size: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}

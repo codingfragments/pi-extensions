@@ -15,15 +15,10 @@ import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost } from "./cost.js";
 import { errorToast } from "./dialog.js";
 import { CompareTable, saveStateText, useDraft } from "./drafts.js";
+import { ConfPill, ListRow, NarrowSelect, STATUS_LABEL } from "./inspector.js";
 import { formatRoute } from "./route.js";
 import { stageOf } from "./stages.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
-
-const STATUS_LABEL = { approved: "Mark reviewed", changes: "Needs changes", rerun: "Re-run" };
-const REVIEW_ICON = { approved: ["ok", "✓"], changes: ["warn", "!"], rerun: ["warn", "!"] };
-const CONF_WORD = { high: "High", medium: "Medium", low: "Low" };
-const CONF_TONE = { high: "ok", medium: "warn", low: "err" };
-const CONF_ICON = { high: "✓", medium: "!", low: "!" };
 
 const KIND_LABEL = {
   intro: "intro · full video",
@@ -236,7 +231,7 @@ function SectionInspector({
       ${showChanges && section.diff === "new" ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">+</span>New</span>` : null}
       ${diffParts ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">~</span>Changed</span>` : null}
       ${edited ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Edited in draft</span>` : null}
-      ${conf ? html`<span class="ds-badge" data-tone=${CONF_TONE[conf.level]}><span class="ds-badge-ico" aria-hidden="true">${CONF_ICON[conf.level]}</span>${CONF_WORD[conf.level]} confidence</span>` : null}
+      <${ConfPill} c=${conf} long />
     </div>
     ${conf?.approvedIn !== undefined ? html`<p class="ds-small ds-muted carried">Unchanged since v${conf.approvedIn}, where you approved it.</p>` : null}
     <${ConfReasons} c=${conf} />
@@ -411,12 +406,8 @@ export function Voice({ events, stages }) {
     <${DraftNotices} draft=${draft} bodies=${bodies} base=${data.version} latest=${latest} go=${go} />
     <div class="ds-root ds-workspace">
       <div class="ds-split">
-        <div class="ds-split-bar">
-          <label class="ds-field"><span class="ds-label">Section</span>
-            <select class="ds-select" value=${section?.key} onChange=${(e) => select(e.target.value)}>
-              ${ordered.map((s) => html`<option value=${s.key}>${s.key}${editedKeys.has(s.key) ? " (edited)" : ""}</option>`)}
-            </select></label>
-        </div>
+        <${NarrowSelect} label="Section" value=${section?.key} onChange=${select}
+          options=${ordered.map((s) => [s.key, `${s.key}${editedKeys.has(s.key) ? " (edited)" : ""}`])} />
         <section class="ds-split-list" aria-label="Sections">
           <div class="ds-list-head">
             <span><strong style="color: var(--text-strong)">${data.sections.length} sections</strong> · ${Object.keys(data.review?.scenes ?? {}).length} marked${editedKeys.size ? ` · ${editedKeys.size} edited` : ""}</span>
@@ -425,15 +416,9 @@ export function Voice({ events, stages }) {
             ${ordered.map((s) => {
               const rv = data.review?.scenes?.[s.key];
               const c = confOf(data.confidence, s.key);
-              const [tone, icon] = REVIEW_ICON[rv?.status] ?? ["", "○"];
-              return html`<li key=${s.key}><button class="ds-item" type="button" data-key=${s.key} aria-current=${section?.key === s.key ? "true" : undefined} onClick=${() => select(s.key)}>
-                <span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>
-                <span><span class="ds-item-title">${s.key}</span><br /><span class="ds-item-meta">${short(s.kind)} · ${rv ? STATUS_LABEL[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}</span></span>
-                <span class="ds-row-flex">
-                  ${editedKeys.has(s.key) ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Edited</span>` : null}
-                  ${c && c.level !== "high" ? html`<span class="ds-badge" data-tone=${CONF_TONE[c.level]}><span class="ds-badge-ico" aria-hidden="true">${CONF_ICON[c.level]}</span>${CONF_WORD[c.level]}</span>` : null}
-                </span>
-              </button></li>`;
+              return html`<${ListRow} key=${s.key} itemKey=${s.key} title=${s.key} review=${rv} current=${section?.key === s.key} onSelect=${select}
+                meta=${`${short(s.kind)} · ${rv ? STATUS_LABEL[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
+                badges=${html`${editedKeys.has(s.key) ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Edited</span>` : null}${c && c.level !== "high" ? html`<${ConfPill} c=${c} />` : null}`} />`;
             })}
           </ul>
         </section>

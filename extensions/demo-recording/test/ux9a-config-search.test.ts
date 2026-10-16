@@ -161,6 +161,7 @@ test("values are shown as text: lists joined, objects as JSON, nothing as a dash
   assert.equal(showValue(plain, 0), "0");
   assert.equal(showValue(plain, false), "false");
   assert.equal(showValue(plain, undefined), "—");
+  assert.equal(showValue(plain, ""), "(empty)", "an empty string is shown, not left blank");
 });
 
 test("highlight: the parts that contain a word, merged, case-insensitive; no words, no marks", () => {

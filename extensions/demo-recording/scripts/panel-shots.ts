@@ -95,16 +95,18 @@ try {
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
       if (configOnly) {
         await page.goto(`${panel.url}#/config`);
-        await page.waitForSelector(".ds-setting");
+        await page.waitForSelector(".ds-srow");
         await page.waitForTimeout(300);
         await shot(page, `config-all-${tag}`, false);
         await page.goto(`${panel.url}#/config?q=voice`);
-        await page.waitForSelector("mark.ds-hit");
+        await page.waitForSelector("mark.ds-mark");
         await shot(page, `config-search-${tag}`, false);
-        await page.click(".ds-setting[data-key='voiceName'] [data-act=edit-global]");
+        await page.click(".ds-srow[data-key='voiceName'] [data-toggle]");
+        await shot(page, `config-scopes-${tag}`, false);
+        await page.click(".ds-srow[data-key='voiceName'] [data-act=edit-global]");
         await shot(page, `config-edit-${tag}`, false);
         await page.goto(`${panel.url}#/config?filter=changed`);
-        await page.waitForSelector(".ds-setting");
+        await page.waitForSelector(".ds-srow");
         await shot(page, `config-changed-${tag}`, false);
       } else if (projectOnly) {
         await page.goto(`${panel.url}#/project`);

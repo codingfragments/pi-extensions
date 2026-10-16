@@ -15,6 +15,7 @@ export const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? 
 export function showValue(s, v) {
   if (v === null || v === undefined) return "—";
   if (isSecret(s)) return "set";
+  if (v === "") return "(empty)";
   return Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 

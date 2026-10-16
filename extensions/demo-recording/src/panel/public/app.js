@@ -1,7 +1,7 @@
 import { html, render, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Annotations } from "./annotations.js";
 import { queryFromSearch, searchFromQuery } from "./config-search.js";
-import { Settings } from "./config.js";
+import { ConfigHead, Settings } from "./config.js";
 import { api, post, token, useApi, useBus, useHashRoute } from "./core.js";
 import { setModels } from "./cost.js";
 // demo-recording side panel — the control room (S5 part 4): stage tabs
@@ -317,12 +317,13 @@ function Config({ events }) {
       { replace: true },
     );
   return html`
-    <div class="subtabs">${[
+    <div class="ds-root ds-cfg-head"><${ConfigHead} /></div>
+    <div class="ds-tabs" role="tablist" aria-label="Config sections">${[
       ["settings", "Settings"],
       ["brands", "Brands"],
     ].map(
       ([id, label]) =>
-        html`<button class=${`chip ${st.view === id ? "on" : ""}`} aria-pressed=${st.view === id} onClick=${() => setView(id)}>${label}</button>`,
+        html`<button class="ds-tab" role="tab" type="button" key=${id} aria-selected=${st.view === id} onClick=${() => setView(id)}>${label}</button>`,
     )}</div>
     ${st.view === "settings" ? html`<${Settings} events=${events} />` : html`<${Brand} events=${events} />`}`;
 }

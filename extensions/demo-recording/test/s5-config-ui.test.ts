@@ -216,22 +216,24 @@ test(
       const dialogs = dlg.seen;
       await page.goto(panel.url);
       await page.locator("a.config-btn").click();
-      await page.waitForSelector(".setting-group");
+      await page.waitForSelector(".ds-srow");
       assert.match(
-        (await page.locator("pre.raw").textContent()) ?? "",
+        (await page.locator("pre.ds-raw").textContent()) ?? "",
         /Stefan_trained/,
         "raw global file shown",
       );
       // fps 30 → 24 (global)
-      const fps = page.locator(".ds-setting[data-key='fps']");
+      const fps = page.locator(".ds-srow[data-key='fps']");
+      await fps.locator("[data-toggle]").click();
       await fps.locator("[data-act=edit-global]").click();
-      await fps.locator("[data-layer=global] input").fill("24");
-      await fps.locator("[data-layer=global] [data-act=save]").click();
+      await page.locator("#edit-fps").fill("24");
+      await fps.locator("[data-act=save]").click();
       await page.waitForTimeout(600);
       assert.match(dialogs.at(-1) ?? "", /Set fps\?[\s\S]*Global[\s\S]*"fps": 24/);
       assert.equal(JSON.parse(fs.readFileSync(globalFile, "utf8")).fps, 24);
       // The project's voiceName override: removed from its own cell, no page-level scope to switch
-      const vn = page.locator(".ds-setting[data-key='voiceName']");
+      const vn = page.locator(".ds-srow[data-key='voiceName']");
+      await vn.locator("[data-toggle]").click();
       await vn.locator("[data-act=remove-project]").click();
       await page.waitForTimeout(600);
       assert.match(

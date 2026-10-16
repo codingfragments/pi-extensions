@@ -62,7 +62,7 @@ async function setup(
   const dlg = answerDialogs(page);
   const open = async (p: Page, hash = "#/config") => {
     await p.goto(`${panel.url}${hash}`);
-    await p.waitForSelector(".ds-setting");
+    await p.waitForSelector(".ds-srow");
   };
   const close = async () => {
     dlg.stop();
@@ -86,10 +86,11 @@ async function setup(
   };
 }
 const keys = (p: Page) =>
-  p.evaluate("[...document.querySelectorAll('.ds-setting')].map((e) => e.dataset.key)") as Promise<
+  p.evaluate("[...document.querySelectorAll('.ds-srow')].map((e) => e.dataset.key)") as Promise<
     string[]
   >;
-const card = (key: string) => `.ds-setting[data-key='${key}']`;
+const card = (key: string) => `.ds-srow[data-key='${key}']`;
+const scopes = (key: string) => `${card(key)} [data-toggle]`;
 const count = (p: Page) => p.locator("[data-count]").innerText();
 const readJson = (f: string) =>
   fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : undefined;
@@ -108,12 +109,15 @@ test(
       const total = all.length;
       assert.match(await count(page), new RegExp(`^${total} settings$`));
       await page.fill(".config-search input[type=search]", "voice");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length < ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length < ${total}`);
       const found = await keys(page);
       assert.ok(found.includes("voiceName"));
       assert.ok(found.length >= 1 && found.length < total);
-      assert.match(await count(page), new RegExp(`^${found.length} of ${total} settings$`));
-      assert.ok((await page.locator("mark.ds-hit").count()) >= 1, "matches are highlighted");
+      assert.match(
+        await count(page),
+        new RegExp(`^${found.length} settings? in \\d+ groups? match`),
+      );
+      assert.ok((await page.locator("mark.ds-mark").count()) >= 1, "matches are highlighted");
       assert.match(await page.evaluate("location.hash"), /^#\/config\?q=voice$/);
       assert.ok(
         (await page.locator(".setting-group h3").count()) < 8,
@@ -121,21 +125,21 @@ test(
       );
       // a reload keeps the search; Escape clears it and restores everything
       await page.reload();
-      await page.waitForSelector(".ds-setting");
+      await page.waitForSelector(".ds-srow");
       assert.equal(await page.inputValue(".config-search input[type=search]"), "voice");
       await page.focus(".config-search input[type=search]");
       await page.keyboard.press("Escape");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length === ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length === ${total}`);
       assert.equal(await page.evaluate("location.hash"), "#/config");
       // no match: told apart from loading, with a way out
       await page.fill(".config-search input[type=search]", "zzzz-nothing");
       await page.waitForSelector(".ds-state");
       assert.match(
         await page.locator(".ds-state").innerText(),
-        /No setting matches[\s\S]*zzzz-nothing/i,
+        /No settings match[\s\S]*zzzz-nothing/i,
       );
       await page.click("[data-act=clear-search]");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length === ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length === ${total}`);
       assert.deepEqual(errors, []);
     } finally {
       await close();
@@ -144,41 +148,58 @@ test(
 );
 
 test(
-  "each layer has its own action and ends in the diff dialog: Edit global, Add override for this project, Remove override",
+  "each layer has its own action under Scopes and ends in the diff dialog: Edit global, Override for this project, Remove override",
   { skip, timeout: 120_000 },
   async () => {
     const { page, open, dlg, globalFile, projectFile, errors, close } = await setup();
     try {
       await open(page, "#/config?q=voiceName");
       const c = card("voiceName");
-      assert.equal(await page.locator(`${c} [data-layer=global]`).count(), 1);
-      assert.equal(await page.locator(`${c} [data-layer=project]`).count(), 1);
+      // the row shows what is in effect; the layers open under "Scopes"
+      assert.equal(
+        await page.locator(`${c} [data-layer]`).count(),
+        0,
+        "scopes are closed until asked for",
+      );
+      await page.click(scopes("voiceName"));
+      assert.deepEqual(
+        await page.evaluate(
+          `[...document.querySelectorAll("${c} .ds-scope")].map((e) => e.dataset.layer)`,
+        ),
+        ["env", "project", "global", "default"],
+      );
       assert.match(
         await page.locator(`${c} [data-layer=project]`).innerText(),
-        /Project override \(keycraft\)[\s\S]*Not set[\s\S]*Add override for this project/,
+        /Project override[\s\S]*Not set[\s\S]*Override for this project/,
       );
       assert.equal(
         await page.locator(".segmented button:has-text('This project')").count(),
         0,
         "no page-level scope switch",
       );
-      // Edit global: the editor opens in the global cell only
+      // Edit global: the editor opens under the row, naming the layer
       await page.click(`${c} [data-act=edit-global]`);
-      assert.equal(await page.locator(`${c} [data-layer=global] input`).count(), 1);
-      assert.equal(await page.locator(`${c} [data-layer=project] input`).count(), 0);
-      await page.fill(`${c} [data-layer=global] input`, "Global_voice");
-      await page.click(`${c} [data-layer=global] [data-act=save]`);
+      assert.match(
+        await page.locator(`${c} .ds-srow-edit label`).innerText(),
+        /Editing the global value/,
+      );
+      await page.fill("#edit-voiceName", "Global_voice");
+      await page.click(`${c} [data-act=save]`);
       for (let i = 0; i < 100 && !dlg.seen.length; i++) await wait(50);
       assert.match(dlg.seen[0] ?? "", /Set voiceName\?[\s\S]*Global[\s\S]*Global_voice/);
       for (let i = 0; i < 100 && readJson(globalFile)?.voiceName !== "Global_voice"; i++)
         await wait(50);
       assert.equal(readJson(globalFile)?.voiceName, "Global_voice");
       assert.equal(readJson(projectFile)?.voiceName, undefined, "the project file is untouched");
-      // Add override for this project: the project file, not the global one
-      await page.waitForSelector(`${c} [data-act=add-override]`);
-      await page.click(`${c} [data-act=add-override]`);
-      await page.fill(`${c} [data-layer=project] input`, "Project_voice");
-      await page.click(`${c} [data-layer=project] [data-act=save]`);
+      // Override for this project: the project file, not the global one
+      await page.waitForSelector(`${c} [data-act=edit-project]`);
+      await page.click(`${c} [data-act=edit-project]`);
+      assert.match(
+        await page.locator(`${c} .ds-srow-edit label`).innerText(),
+        /Editing the project override \(keycraft\)/,
+      );
+      await page.fill("#edit-voiceName", "Project_voice");
+      await page.click(`${c} [data-act=save]`);
       for (let i = 0; i < 100 && readJson(projectFile)?.voiceName !== "Project_voice"; i++)
         await wait(50);
       assert.equal(readJson(projectFile)?.voiceName, "Project_voice");
@@ -188,20 +209,27 @@ test(
         "global unchanged by the override",
       );
       await page.waitForFunction(
-        `/Project override/.test(document.querySelector("${c} [data-effective]")?.innerText ?? "")`,
+        `/Project/.test(document.querySelector("${c} [data-effective]")?.innerText ?? "")`,
       );
-      assert.match(await page.locator(`${c} [data-effective]`).innerText(), /Project_voice/);
+      assert.match(
+        await page.locator(`${c} [data-effective]`).innerText(),
+        /Project_voice[\s\S]*Project/,
+      );
       // Remove override
+      await page.click(scopes("voiceName")).catch(() => undefined);
+      if (!(await page.locator(`${c} [data-act=remove-project]`).count()))
+        await page.click(scopes("voiceName"));
       await page.click(`${c} [data-act=remove-project]`);
       for (let i = 0; i < 100 && readJson(projectFile)?.voiceName !== undefined; i++)
         await wait(50);
       assert.equal(readJson(projectFile)?.voiceName, undefined);
       assert.equal(readJson(globalFile)?.voiceName, "Global_voice");
+      assert.match(dlg.seen.at(-1) ?? "", /Remove the project override of voiceName\?/);
       // cancel leaves everything as it was
       await page.waitForSelector(`${c} [data-act=edit-global]`);
       await page.click(`${c} [data-act=edit-global]`);
-      await page.click(`${c} [data-layer=global] [data-act=cancel]`);
-      assert.equal(await page.locator(`${c} [data-layer=global] input`).count(), 0);
+      await page.click(`${c} [data-act=cancel]`);
+      assert.equal(await page.locator(`${c} .ds-srow-edit`).count(), 0);
       assert.deepEqual(errors, []);
     } finally {
       await close();
@@ -210,33 +238,39 @@ test(
 );
 
 test(
-  "without a project the override actions are disabled with the reason; a global-only setting says so",
+  "without a project the override action is disabled with the reason; a global-only setting says so",
   { skip, timeout: 90_000 },
   async () => {
     const { page, open, errors, close } = await setup({ project: false });
     try {
       await open(page, "#/config?q=voiceName");
       const c = card("voiceName");
+      assert.match(
+        await page.locator(".ds-cfg-project").innerText(),
+        /No project is open, so only global values can be edited/,
+      );
+      await page.click(scopes("voiceName"));
       assert.equal(
-        await page.locator(`${c} [data-act=add-override]`).getAttribute("aria-disabled"),
+        await page.locator(`${c} [data-act=edit-project]`).getAttribute("aria-disabled"),
         "true",
       );
       assert.match(
         await page.locator(`${c} [data-layer=project] .ds-why`).innerText(),
-        /Open a project to override this setting/,
+        /Open a project to override/,
       );
-      await page.click(`${c} [data-act=add-override]`, { force: true });
+      await page.click(`${c} [data-act=edit-project]`, { force: true });
       assert.equal(
-        await page.locator(`${c} [data-layer=project] input`).count(),
+        await page.locator(`${c} .ds-srow-edit`).count(),
         0,
         "a disabled action does nothing",
       );
       // a global-only setting (the recordings root)
       await page.fill(".config-search input[type=search]", "root");
-      await page.waitForSelector(`${card("root")}`);
+      await page.waitForSelector(card("root"));
+      await page.click(scopes("root"));
       assert.match(
         await page.locator(`${card("root")} [data-layer=project] .ds-why`).innerText(),
-        /global only|Open a project/i,
+        /Open a project to override|Global only/,
       );
       assert.deepEqual(errors, []);
     } finally {
@@ -246,7 +280,7 @@ test(
 );
 
 test(
-  "the environment is read-only and wins: stated on the card, found by its filter, and a saved file value warns",
+  "the environment is read-only and wins: stated in the row and its scopes, found by its filter, and a saved file value warns",
   { skip, timeout: 90_000 },
   async () => {
     const { page, open, dlg, globalFile, errors, close } = await setup({
@@ -264,17 +298,26 @@ test(
         await page.locator(`${c} [data-effective]`).innerText(),
         /Env_voice[\s\S]*Environment \(DEMO_REC_VOICE\)/,
       );
-      assert.match(
-        await page.locator(`${c} .ds-notice`).innerText(),
-        /DEMO_REC_VOICE[\s\S]*wins over both files \(read-only here\)/,
-      );
       assert.equal(await page.locator("[data-filter=env]").getAttribute("aria-pressed"), "true");
       assert.match(await page.evaluate("location.hash"), /^#\/config\?filter=env$/);
-      // the environment itself has no edit action; the file layers do, and the dialog says it has no effect
-      assert.equal(await page.locator(`${c} [data-layer=env]`).count(), 0);
+      await page.click(scopes("voiceName"));
+      assert.match(
+        await page.locator(`${c} [data-layer=env]`).innerText(),
+        /DEMO_REC_VOICE = Env_voice[\s\S]*read-only, wins over both files/,
+      );
+      assert.equal(
+        await page.locator(`${c} [data-layer=env] button`).count(),
+        0,
+        "the environment has no action",
+      );
+      // the file layers can still be edited: the editor and the dialog say it has no effect
       await page.click(`${c} [data-act=edit-global]`);
-      await page.fill(`${c} [data-layer=global] input`, "File_voice");
-      await page.click(`${c} [data-layer=global] [data-act=save]`);
+      assert.match(
+        await page.locator(`${c} .ds-srow-edit .ds-notice`).innerText(),
+        /no effect right now[\s\S]*DEMO_REC_VOICE/,
+      );
+      await page.fill("#edit-voiceName", "File_voice");
+      await page.click(`${c} [data-act=save]`);
       for (let i = 0; i < 100 && !dlg.seen.length; i++) await wait(50);
       assert.match(dlg.seen[0] ?? "", /no effect right now[\s\S]*overridden by/i);
       for (let i = 0; i < 100 && readJson(globalFile)?.voiceName !== "File_voice"; i++)
@@ -300,17 +343,17 @@ test(
       await open(page);
       const total = (await keys(page)).length;
       await page.click("[data-filter=changed]");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length < ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length < ${total}`);
       const changed = await keys(page);
       assert.ok(changed.includes("voiceName") && changed.includes("ttsChain"), changed.join(","));
       assert.match(await page.evaluate("location.hash"), /filter=changed/);
       await page.click("[data-filter=changed]"); // off again
       await page.click("[data-filter=overridden]");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length < ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length < ${total}`);
       assert.deepEqual(await keys(page), ["fps"], "only what this project overrides");
       await page.click("[data-filter=overridden]");
       await page.click("[data-filter=env]");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length < ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length < ${total}`);
       assert.deepEqual(await keys(page), ["ttsChain"]);
       // both filters hold at once; the text narrows further
       await page.click("[data-filter=changed]");
@@ -318,7 +361,7 @@ test(
       await page.fill(".config-search input[type=search]", "narration");
       await page.waitForSelector(".ds-state");
       await page.click("[data-act=clear-search]");
-      await page.waitForFunction(`document.querySelectorAll(".ds-setting").length === ${total}`);
+      await page.waitForFunction(`document.querySelectorAll(".ds-srow").length === ${total}`);
       assert.deepEqual(errors, []);
     } finally {
       await close();
@@ -342,14 +385,15 @@ test(
       assert.equal(await focusedSearch(), true, "Ctrl+K from nowhere");
       // typing a slash into a setting's editor types a slash
       const vn = "[data-key='voiceName']";
+      await page.click(`${vn} [data-toggle]`);
       await page.click(`${vn} [data-act=edit-global]`);
-      const input = page.locator(`${vn} .ds-layer-edit input`).first();
+      const input = page.locator("#edit-voiceName");
       await input.focus();
       await page.keyboard.type("a/b");
       assert.match(await input.inputValue(), /\//, "the slash went into the field");
       await page.keyboard.press("Control+k");
       assert.equal(await focusedSearch(), false, "Ctrl+K does not take focus from an editor");
-      await page.click("[data-act=cancel]");
+      await page.click(`${"[data-key='voiceName']"} [data-act=cancel]`);
       // over a dialog: nothing
       await page.evaluate(
         "(() => { const d = document.createElement('div'); d.className = 'modal-backdrop'; d.id = 'fake'; document.body.appendChild(d); })()",
@@ -374,14 +418,14 @@ test(
     });
     try {
       await open(page);
-      assert.match(await page.locator(".api-keys").innerText(), /OPENAI_API_KEY: set/i);
+      assert.match(await page.locator(".ds-cfg-keys").innerText(), /OPENAI_API_KEY: set/i);
       for (const needle of ["sk-live", "SECRET-999", "xi-SECRET"]) {
         await page.fill(".config-search input[type=search]", needle);
         await page.waitForSelector(".ds-state");
-        assert.match(await page.locator(".ds-state").innerText(), /No setting matches/i, needle);
+        assert.match(await page.locator(".ds-state").innerText(), /No settings match/i, needle);
       }
       await page.fill(".config-search input[type=search]", "");
-      await page.waitForSelector(".ds-setting");
+      await page.waitForSelector(".ds-srow");
       const html = await page.content();
       assert.equal(
         /sk-live|SECRET-999|xi-SECRET/.test(html),

@@ -6,31 +6,38 @@ Slice UX9a of the [UX pass](../UX.md) (D100, D125).
 
 ## What changed
 
-- **Every setting shows its layers side by side.** *Effective* (the value in force and where it comes from:
-  Default, Global, Project override, or Environment with the variable's name), the **Global** value and the
-  **Project override**. Each layer has its own action: **Edit global** and **Reset to default**; **Add
-  override for this project**, **Edit override** and **Remove override**. Editing opens in that layer's cell
-  and still ends in the diff confirmation. **The page-level Global / Project switch is gone**, so a setting
-  found by search can never be edited in the wrong layer.
-- **The gaps are said, not hidden.** Without a project the override actions are disabled and say *Open a
-  project to override this setting for it*; a global-only setting says so. An **environment value is read-only
-  and wins**: the card says which variable sets it, and saving a file value shows the dialog's warning *this
-  change has no effect right now: it is overridden by …* (it is stored, though shadowed).
-- **Search covers the settings only:** key, label, description, the non-secret values of every layer and source
-  words (global, project, env, default, overridden, changed). Every word must match, in any order. Matches are
-  **highlighted**, groups with no match drop out and the groups that stay say *N matches*, the count says
-  *6 of 41 settings*, and *No setting matches* is its own state with **Clear the search**; unavailable and
-  loading are different states. Brands stays its own view; the raw files are shown but not searched.
-- **Quick filters** next to the search: **Changed** (differs from the default), **Overridden here** (this
-  project overrides the global value), **From environment** (a variable wins). They combine with each other
-  and with the text.
-- **Shortcuts, only inside Config:** `/` and Cmd/Ctrl+K focus the search, but never inside an editable control
-  and never over a dialog; **Escape** clears the search when it has focus.
-- **The search is in the address:** `#/config?q=voice&filter=changed` (and `?view=brands`), so a reload keeps
-  it and a result can be linked.
-- **Secrets never appear.** API keys stay *set / not set* badges (an icon and a word), are not settings and
-  are not searched; a setting whose key looks like a secret has its value left out of the index and the card.
-  A test puts fake keys in the environment and checks the page, the search and the raw files for them.
+The first cut of this slice looked nothing like the [UX0 mock](config.html) (tall cards with both layers always
+open). The Config screen now **is the mock**: its markup, its classes and its stylesheet, which moved from
+`docs/ux/config.css` into the panel as `ds/config.css` (the mock page links to the same file, so the two
+cannot drift apart again).
+
+- **The page:** a *Config* head with what it is for and **Reload files**, then **Settings | Brands** as tabs
+  (also in the address: `#/config?view=brands`), a wide **search** with the `/` hint, a notice about the open
+  project (*Project keycraft is open: you can override a setting for it. 2 overrides today*, or *No project is
+  open, so only global values can be edited*), and the API-key badges (a ✓ or ○ and a word, "never shown,
+  stored or searched").
+- **A group navigator on the left** (with counts, and *6/16* while searching; groups with no match are muted)
+  and **collapsible groups** on the right, each with its count.
+- **One compact row per setting:** label, key and description on the left; the **effective value with where it
+  comes from** (Default, Global, Project, or *Environment (DEMO_REC_VOICE)*) in the middle; **Scopes** on the
+  right. **Scopes** opens the four layers of that setting, each with its own action: *Environment* (read-only,
+  *wins over both files*), *Project override* (**Override for this project** / **Edit project** / **Remove
+  override**), *Global value* (**Edit global** / **Reset to default**) and *Default*. Editing opens under the row
+  and says what it edits (*Editing the project override (keycraft)* / *Editing the global value*), where it is
+  saved, and ends in **Review change…** and the diff dialog. If an environment variable wins, the editor and the
+  dialog say *this change has no effect right now*. There is no page-level Global / Project switch.
+- **The gaps are said:** without a project the override action is disabled with *Open a project to override*;
+  a global-only setting says *Global only*.
+- **Search covers settings only** (key, label, description, non-secret values and source words; every word, any
+  order), highlights the matches, shows *6 settings in 1 group match “voice”*, mutes the other groups, lists the
+  groups with no match, and has its own *No settings match* state with **Clear search**. Brands is a separate
+  view and the raw files (read-only, not searched) sit in a collapsible group at the end.
+- **Quick filters** beside the search: **Changed**, **Overridden here**, **From environment**.
+- **Shortcuts, only inside Config:** `/` and Cmd/Ctrl+K focus the search, never in an editable control or over
+  a dialog; Escape clears it. The query and filters are in the address (`#/config?q=voice&filter=changed`).
+- **Secrets never appear:** API keys stay *set / not set*, are not settings, are not searched, and a setting
+  whose key looks like a secret has its value left out of the index and the row.
+- Messages (*saved*, *config reloaded*) are toasts now, like on the other screens.
 
 ## Guards
 
@@ -38,7 +45,7 @@ Slice UX9a of the [UX pass](../UX.md) (D100, D125).
 the quick filters and their combinations, secrets never indexed or shown, value formatting, highlighting, the
 state in the address. `test/ux9a-config-panel.test.ts` (7): search, highlight, collapse, reload, Escape and the
 no-match state; each layer's action writing the right file (global, project, removal, cancel) with the diff
-dialog and no page-level scope switch; disabled override actions with the reason; the environment card and its
+dialog, with Scopes closed until asked for and no page-level scope switch; disabled override actions with the reason; the environment card and its
 dialog warning; the filters; the shortcuts staying out of editors and dialogs; the secrets. They point
 `DEMO_REC_CONFIG` at a temp file: the real config is never touched. `s5-config-ui` follows the new layout.
 

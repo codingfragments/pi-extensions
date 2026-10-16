@@ -1,5 +1,6 @@
 import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
-import { media, post, useApi } from "./core.js";
+import { media, post, useApi, useHashRoute } from "./core.js";
+import { CostHint } from "./cost.js";
 // demo-recording panel — Project tab (S5 part 5a, D48): the first step.
 // Facts (brief fields as a form, saved as a new brief version after a diff),
 // Findings (auto / use / ignore, with evidence) and Memory (brief history,
@@ -125,16 +126,25 @@ function UrlList({ value, onChange }) {
   </div>`;
 }
 
-function Field({ label, hint, children, counter }) {
-  return html`<label class="field"><span class="field-label">${label}${counter ? html`<span class=${`counter ${counter.over ? "over" : ""}`}>${counter.text}</span>` : null}</span>${children}${hint ? html`<small class="muted">${hint}</small>` : null}</label>`;
+function Field({ label, hint, children, counter, fact }) {
+  return html`<label class="field" data-fact=${fact}><span class="field-label">${label}${counter ? html`<span class=${`counter ${counter.over ? "over" : ""}`}>${counter.text}</span>` : null}</span>${children}${hint ? html`<small class="muted">${hint}</small>` : null}</label>`;
 }
 
-function Facts({ events }) {
+function Facts({ events, focus }) {
   const { data, error, reload } = useApi("/api/project", events, PROJECT_EVENTS);
   const [patch, setPatch] = useState({});
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
   useEffect(() => setPatch({}), [data?.briefVersions?.length]);
+  // "Set audience" and the like land on the field
+  useEffect(() => {
+    if (!focus || !data) return;
+    document
+      .querySelector(
+        `[data-fact="${focus}"] input, [data-fact="${focus}"] textarea, [data-fact="${focus}"] button`,
+      )
+      ?.focus();
+  }, [focus, !!data]);
   if (error) return html`<section class="card error">${error}</section>`;
   if (!data) return html`<section class="card muted">loading…</section>`;
   if (!data.project)
@@ -201,7 +211,7 @@ function Facts({ events }) {
           <div class="tp-title">${title.trim() || data.app.name}</div>
           ${subtitle ? html`<div class="tp-sub">${subtitle}</div>` : null}
         </div>
-        <${Field} label="Title" counter=${count(title, 60)} hint="large line on the title card">
+        <${Field} fact="title" label="Title" counter=${count(title, 60)} hint="large line on the title card">
           <input type="text" value=${title} placeholder="e.g. What KeyCraft gets right" onInput=${(e) => set("title", e.target.value)} />
         </${Field}>
         <${Field} label="Subtitle" counter=${count(subtitle, 90)} hint="optional second line">
@@ -211,16 +221,16 @@ function Facts({ events }) {
 
       <fieldset class="fact-group">
         <legend>Audience & length</legend>
-        <${Field} label="Persona" hint="who watches, what they already know">
+        <${Field} fact="persona" label="Persona" hint="who watches, what they already know">
           <textarea rows="3" value=${value("persona")} placeholder="e.g. developers evaluating test targets" onInput=${(e) => set("persona", e.target.value)}></textarea>
         </${Field}>
-        <${Field} label="Depth" hint=${def ? def.label : "poc · showcase · sales — sets stance and length defaults"}>
+        <${Field} fact="depth" label="Depth" hint=${def ? def.label : "poc · showcase · sales — sets stance and length defaults"}>
           <${Segmented} options=${depthOptions} value=${depth} onChange=${(v) => set("depth", v)} />
         </${Field}>
         <${Field} label="Stance" hint=${!value("stance") && data.effective.stance ? `effective: ${data.effective.stance}${data.effective.stanceFromDepth ? " (depth default)" : ""}` : "the narrator's attitude"}>
           <${Segmented} options=${stanceOptions} value=${value("stance")} onChange=${(v) => set("stance", v)} />
         </${Field}>
-        <${Field} label="Target length">
+        <${Field} fact="length" label="Target length">
           <${LengthPicker} value=${value("length")} def=${def?.lengthSec ?? null} onChange=${(v) => set("length", v)} />
         </${Field}>
       </fieldset>
@@ -228,7 +238,7 @@ function Facts({ events }) {
       <fieldset class="fact-group">
         <legend>App & access</legend>
         <${Field} label="App"><span class="readonly">${data.app.name} <span class="muted small-text">(${data.app.slug})</span></span></${Field}>
-        <${Field} label="App URL" hint="where discovery and recording start">
+        <${Field} fact="url" label="App URL" hint="where discovery and recording start">
           <input type="url" value=${value("url")} placeholder="https://…" onInput=${(e) => set("url", e.target.value)} />
         </${Field}>
         <${Field} label="Extra URLs" hint="other entry points the demo may use">
@@ -240,7 +250,7 @@ function Facts({ events }) {
       </fieldset>
     </div>
 
-    <fieldset class="fact-group goal">
+    <fieldset class="fact-group goal" data-fact="goal">
       <legend>Goal / key message</legend>
       <textarea rows="4" value=${value("goal")} placeholder="The one thing the viewer should believe afterwards — the demo is built around it." onInput=${(e) => set("goal", e.target.value)}></textarea>
       <small class="muted">Kept on one line in brief.md; a short goal (≤ 60 chars) can also serve as the title card fallback.</small>
@@ -320,7 +330,8 @@ function Findings({ events }) {
   </section>`;
 }
 
-function Memory({ events }) {
+/** Project history (production line, brief versions, input log) or Sources & context, from one data source. */
+function Memory({ events, part }) {
   const { data, error, reload } = useApi("/api/context", events, PROJECT_EVENTS);
   const [version, setVersion] = useState(null);
   const brief = useApi(
@@ -353,7 +364,20 @@ function Memory({ events }) {
     }
   };
   const b = brief.data;
-  return html`
+  return part === "sources"
+    ? html`
+    <section class="card">
+      <div class="row"><h2>Sources & assets</h2></div>
+      ${
+        data.sources.files.length || data.sources.refs.length
+          ? html`<ul class="sources">
+              ${data.sources.files.map((f) => html`<li class="mono small-text">${f.path} <span class="muted">(${Math.round(f.bytes / 1024)} KB)</span></li>`)}
+              ${data.sources.refs.map((r) => html`<li class="small-text">${/^https?:/.test(r.ref) ? html`<a href=${r.ref} target="_blank" rel="noreferrer">${r.ref}</a>` : html`<span class="mono">${r.ref}</span>`} <span class="muted">— ${r.text} (${r.input})</span></li>`)}
+            </ul>`
+          : html`<p class="muted small-text">No sources yet. Put files under <code>context/</code> or give the agent links/files in chat.</p>`
+      }
+    </section>`
+    : html`
     <section class="card">
       <div class="row"><h2>Production line</h2><span>${data.lineText}</span></div>
     </section>
@@ -380,29 +404,112 @@ function Memory({ events }) {
           : html`<p class="muted small-text">No inputs yet — commands, panel reviews and chat directions show up here.</p>`
       }
     </section>
-    <section class="card">
-      <div class="row"><h2>Sources & assets</h2></div>
-      ${
-        data.sources.files.length || data.sources.refs.length
-          ? html`<ul class="sources">
-              ${data.sources.files.map((f) => html`<li class="mono small-text">${f.path} <span class="muted">(${Math.round(f.bytes / 1024)} KB)</span></li>`)}
-              ${data.sources.refs.map((r) => html`<li class="small-text">${/^https?:/.test(r.ref) ? html`<a href=${r.ref} target="_blank" rel="noreferrer">${r.ref}</a>` : html`<span class="mono">${r.ref}</span>`} <span class="muted">— ${r.text} (${r.input})</span></li>`)}
-            </ul>`
-          : html`<p class="muted small-text">No sources yet. Put files under <code>context/</code> or give the agent links/files in chat.</p>`
-      }
-    </section>`;
+`;
+}
+
+const GROUPS = [
+  ["brief", "Brief"],
+  ["sources", "Sources & context"],
+  ["findings", "Findings"],
+  ["history", "Project history"],
+];
+const FIELD_OF = {
+  persona: "persona",
+  goal: "goal",
+  depth: "depth",
+  length: "length",
+  url: "url",
+  voice: null,
+};
+const SET_LABEL = {
+  persona: "Set audience",
+  goal: "Set goal",
+  depth: "Set depth",
+  length: "Set length",
+  url: "Set URL",
+  voice: "Set voice",
+};
+
+/** The brief in human terms (D124): what the demo is for, what is missing, what to do next. Orientation, never a gate. */
+function Summary({ data, openGroup, ask, asked }) {
+  const s = data.summary;
+  const first = s.rows.find((r) => r.missing);
+  return html`<section class="card project-summary" aria-label="Project summary">
+    <div class="row">
+      <h2>${data.app.name}</h2>
+      <span class="muted small-text">${data.project}</span>
+      <span class="grow"></span>
+      <button class="ds-btn" type="button" data-act="edit-brief" onClick=${() => openGroup("brief")}>Edit brief</button>
+    </div>
+    <dl class="ds-facts">
+      ${s.rows.map(
+        (r) => html`<div class="ds-fact" key=${r.key} data-row=${r.key}>
+          <dt>${r.label}</dt>
+          <dd>
+            ${r.value ? html`<span class="ds-fact-value">${r.value}</span>` : r.missing ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">!</span>Missing</span>` : html`<span class="ds-muted">${r.key === "voice" ? "Project default" : "Not decided"}</span>`}
+            ${r.note ? html` <span class="ds-muted ds-small">· ${r.note}</span>` : null}
+          </dd>
+          <dd class="ds-fact-act"><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act=${`fix-${r.key}`} onClick=${() => openGroup("brief", FIELD_OF[r.key])}>${r.value ? "Edit" : SET_LABEL[r.key]}</button></dd>
+        </div>`,
+      )}
+    </dl>
+    ${
+      s.empty
+        ? html`<div class="ds-notice" data-tone="info" role="note"><span class="ds-status" data-tone="info" aria-hidden="true">i</span>
+            <div class="ds-grow"><strong>Next:</strong> describe the demo to the Director, or fill the brief in yourself.
+              <span class="ds-row-flex" style="margin-block-start: var(--space-2)">
+                <button class="ds-btn ds-btn--primary" type="button" data-act="ask-director" disabled=${asked} onClick=${ask}>${asked ? "Asked the Director" : "Ask the Director to draft it"}</button><${CostHint} />
+                <button class="ds-btn" type="button" data-act="fill-myself" onClick=${() => openGroup("brief", FIELD_OF[first?.key ?? "persona"])}>Fill it in myself</button>
+              </span></div></div>`
+        : s.missing.length
+          ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span>
+              <div class="ds-grow"><strong>Next:</strong> complete the missing brief details: ${s.missing.join(", ")}.
+                <span class="ds-row-flex" style="margin-block-start: var(--space-2)">
+                  <button class="ds-btn" type="button" data-act="fill-missing" onClick=${() => openGroup("brief", FIELD_OF[first?.key ?? "persona"])}>Fill them in</button>
+                  <button class="ds-btn ds-btn--ghost" type="button" data-act="ask-director" disabled=${asked} onClick=${ask}>${asked ? "Asked the Director" : "Ask the Director to help"}</button><${CostHint} />
+                </span></div></div>`
+          : html`<p class="ds-small ds-muted" data-ready>The brief is complete. The Director can start discovery (<code>/demo discover</code>).</p>`
+    }
+  </section>`;
 }
 
 export function Project({ events }) {
-  const [view, setView] = useState("facts");
+  const [route, go] = useHashRoute();
+  const { data } = useApi("/api/project", events, PROJECT_EVENTS);
+  const context = useApi("/api/context", events, PROJECT_EVENTS);
+  const findings = useApi("/api/findings", events, PROJECT_EVENTS);
+  const [asked, setAsked] = useState(false);
+  const group = GROUPS.some(([g]) => g === route?.query?.group) ? route.query.group : null;
+  const field = route?.query?.field || null;
+  const openGroup = (g, f) =>
+    go(
+      { screen: "project", query: { ...(g ? { group: g } : {}), ...(f ? { field: f } : {}) } },
+      { replace: true },
+    );
+  const ask = async () => {
+    try {
+      await post("/api/brief-draft", {});
+      setAsked(true);
+    } catch (e) {
+      errorToast(e);
+    }
+  };
+  const count = {
+    sources: context.data?.sources
+      ? context.data.sources.files.length + context.data.sources.refs.length
+      : null,
+    findings: findings.data?.findings?.length ?? null,
+    history: context.data?.inputs?.length ?? null,
+  };
   return html`
-    <div class="subtabs">${[
-      ["facts", "Facts"],
-      ["findings", "Findings"],
-      ["memory", "Memory"],
-    ].map(
+    ${data?.summary ? html`<${Summary} data=${data} openGroup=${openGroup} ask=${ask} asked=${asked} />` : data && !data.project ? html`<section class="card muted">No active project. Run <code>/demo new</code> or <code>/demo open</code> in pi.</section>` : null}
+    <div class="subtabs" role="group" aria-label="Project groups">${GROUPS.map(
       ([id, label]) =>
-        html`<button class=${`chip ${view === id ? "on" : ""}`} onClick=${() => setView(id)}>${label}</button>`,
+        html`<button class=${`chip ${group === id ? "on" : ""}`} type="button" key=${id} data-group=${id} aria-pressed=${group === id} onClick=${() => openGroup(group === id ? null : id)}>${label}${count[id] !== undefined && count[id] !== null ? html` <span class="muted">${count[id]}</span>` : null}</button>`,
     )}</div>
-    ${view === "facts" ? html`<${Facts} events=${events} />` : view === "findings" ? html`<${Findings} events=${events} />` : html`<${Memory} events=${events} />`}`;
+    ${group === "brief" ? html`<${Facts} events=${events} focus=${field} />` : null}
+    ${group === "sources" ? html`<${Memory} events=${events} part="sources" />` : null}
+    ${group === "findings" ? html`<${Findings} events=${events} />` : null}
+    ${group === "history" ? html`<${Memory} events=${events} part="history" />` : null}
+    ${group ? null : html`<p class="ds-small ds-muted" style="padding: var(--space-2) var(--space-1)">Choose a group to look at or change: the brief, the sources, the findings or the project's history.</p>`}`;
 }

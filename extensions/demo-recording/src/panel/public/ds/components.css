@@ -841,6 +841,7 @@
   background: var(--surface-panel);
 }
 .ds-facts {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--space-1) var(--space-4);
@@ -1386,4 +1387,43 @@ dialog.ds-dialog::backdrop {
   cursor: pointer;
   padding-block: var(--space-2);
   color: var(--accent);
+}
+
+/* ---------- Project summary (UX8): the brief in human terms ---------- */
+.ds-facts {
+  display: grid;
+  gap: 1px;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.ds-fact {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-panel);
+}
+.ds-fact dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.ds-fact dd {
+  margin: 0;
+  min-inline-size: 0;
+}
+.ds-fact-value {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+@container (max-width: 40rem) {
+  .ds-fact {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ds-fact dt {
+    grid-column: 1 / -1;
+  }
 }

@@ -75,6 +75,8 @@ export const SCREENS = [
   "annotations",
   "render",
   "config",
+  "project-brief",
+  "project-history",
   "map",
   "map-focus",
   "dialog-cost",
@@ -157,7 +159,13 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
           await page.addInitScript(`localStorage.setItem("demo-rec-theme", "${theme}")`);
           await page.goto(url as string);
           await page.waitForSelector("header.top");
-          if (screen === "map" || screen === "map-focus") {
+          if (screen === "project-brief" || screen === "project-history") {
+            await page.goto(
+              `${url}#/project?group=${screen === "project-brief" ? "brief" : "history"}`,
+            );
+            await page.waitForSelector(screen === "project-brief" ? ".fact-groups" : ".brief-text");
+            await page.waitForTimeout(400);
+          } else if (screen === "map" || screen === "map-focus") {
             await page.goto(
               `${url}#/map${screen === "map-focus" ? "?sel=render%3A2&focus=1" : ""}`,
             );

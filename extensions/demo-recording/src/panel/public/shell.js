@@ -8,6 +8,7 @@ import { useApi, useBus, useHashRoute } from "./core.js";
 import { setModels } from "./cost.js";
 import { newsTab, nextBand, stepStates, stripState } from "./frame-state.js";
 import { ActivityDrawer, ActivityStrip, Header } from "./frame.js";
+import { installKeys } from "./keys.js";
 import { activityRows } from "./live.js";
 import { ProjectMap } from "./map.js";
 import { Project } from "./project.js";
@@ -29,6 +30,7 @@ const SCREEN_BODY = {
 };
 
 export function App() {
+  useEffect(installKeys, []);
   const [route, go] = useHashRoute();
   const { events, status } = useBus();
   const { data: state, error: stateError } = useApi("/api/state", events, /^(?!draft\.)/);

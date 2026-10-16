@@ -148,7 +148,7 @@ function Dialog({ o, done }) {
         }
       </div>
       <footer class="ds-dialog-foot dialog-foot">
-        <button class="ds-btn" data-cancel onClick=${() => live.current.cancel()}>${o.cancelLabel ?? "Cancel"}</button>
+        ${o.cancelLabel === null ? null : html`<button class="ds-btn" data-cancel onClick=${() => live.current.cancel()}>${o.cancelLabel ?? "Cancel"}</button>`}
         <button class=${`ds-btn ${o.danger ? "ds-btn--danger-solid" : "ds-btn--primary"}`} data-confirm disabled=${missing} onClick=${() => live.current.confirm()}>${o.confirmLabel ?? "OK"}</button>
       </footer>
     </div>

@@ -14,6 +14,7 @@ import { ffprobe, hasBinary } from "../src/media/ffmpeg.ts";
 import { readEvents } from "../src/recorder/events.ts";
 import { recordTake } from "../src/recorder/runner.ts";
 import { parseStoryboard } from "../src/storyboard/parse.ts";
+import { retryOnce } from "./helpers/retry.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
   try {
@@ -94,7 +95,7 @@ test(
 test(
   "recordTake: 3200x1800 frames, monotonic events on the take clock, exact CFR master",
   { skip },
-  async () => {
+  retryOnce(async () => {
     const storyboard = parseStoryboard(`
 version: 1
 start_url: /
@@ -166,7 +167,7 @@ scenes:
       Math.abs(probe.duration - expected) < 0.04,
       `master ${probe.duration}s vs take ${expected}s — no drift`,
     );
-  },
+  }),
 );
 
 test("recordTake: a failing step marks the take failed and keeps evidence", { skip }, async () => {

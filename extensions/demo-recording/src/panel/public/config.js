@@ -4,6 +4,7 @@ import {
   FILTERS,
   filterGroups,
   highlight,
+  isChanged,
   queryFromSearch,
   same,
   searchFromQuery,
@@ -223,7 +224,8 @@ export function Settings({ events }) {
   const st = useMemo(() => searchFromQuery(route?.query), [route?.raw]);
   const [text, setText] = useState(st.q);
   const [rawTab, setRawTab] = useState("global");
-  const [collapsed, setCollapsed] = useState(new Set());
+  // Config opens light: only the first group is open until you open another one (a search opens what matches)
+  const [openGroups, setOpenGroups] = useState(null);
   const [openScopes, setOpenScopes] = useState(new Set());
   const [active, setActive] = useState(null);
   const input = useRef(null);
@@ -273,13 +275,16 @@ export function Settings({ events }) {
     .flatMap((g) => g.settings)
     .filter((s) => isSet(s.layers.project)).length;
   const firstHit = res.groups[0]?.id ?? data.groups[0]?.id;
-  const goTo = (id) => {
-    setActive(id);
-    setCollapsed((c) => {
-      const n = new Set(c);
-      n.delete(id);
+  const groupsOpen = openGroups ?? new Set(data.groups[0] ? [data.groups[0].id] : []);
+  const toggleGroup = (id) =>
+    setOpenGroups(() => {
+      const n = new Set(groupsOpen);
+      n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+  const goTo = (id) => {
+    setActive(id);
+    setOpenGroups(() => new Set([...groupsOpen, id]));
     requestAnimationFrame(() =>
       document.getElementById(`g-${id}`)?.scrollIntoView({ block: "start" }),
     );
@@ -310,11 +315,12 @@ export function Settings({ events }) {
               res.searching && res.count === 0
                 ? html`<div class="ds-card"><div class="ds-state"><div class="ds-state-ico" aria-hidden="true">⌕</div><h3>No settings match${st.q.trim() ? ` “${st.q.trim()}”` : ""}</h3><p>Search looks at names, keys, descriptions and current values. Secrets are never searched.</p><button class="ds-btn" type="button" data-act="clear-search" onClick=${clear}>Clear search</button></div></div>`
                 : res.groups.map((g) => {
-                    const all =
-                      data.groups.find((x) => x.id === g.id)?.settings.length ?? g.settings.length;
-                    const isOpen = res.searching || !collapsed.has(g.id);
+                    const whole = data.groups.find((x) => x.id === g.id)?.settings ?? g.settings;
+                    const all = whole.length;
+                    const changedHere = whole.filter(isChanged).length;
+                    const isOpen = res.searching || groupsOpen.has(g.id);
                     return html`<section class="ds-group" id=${`g-${g.id}`} key=${g.id} aria-labelledby=${`gh-${g.id}`}>
-                      <button class="ds-group-head" id=${`gh-${g.id}`} type="button" data-group=${g.id} aria-expanded=${isOpen} onClick=${() => toggleIn(setCollapsed)(g.id)}><span class="ds-group-chev" aria-hidden="true">${isOpen ? "▾" : "▸"}</span>${g.label}<span class="ds-cfg-count">${res.searching ? `${g.settings.length} of ${all}` : all}</span></button>
+                      <button class="ds-group-head" id=${`gh-${g.id}`} type="button" data-group=${g.id} aria-expanded=${isOpen} onClick=${() => toggleGroup(g.id)}><span class="ds-group-chev" aria-hidden="true">${isOpen ? "▾" : "▸"}</span>${g.label}<span class="ds-cfg-count">${res.searching ? `${g.settings.length} of ${all}` : all}</span>${!res.searching && changedHere ? html`<span class="ds-badge" data-tone="accent" data-changed title="settings in this group that differ from their default">${changedHere} changed</span>` : null}</button>
                       ${isOpen ? g.settings.map((s) => html`<${SettingRow} key=${s.key} s=${s} project=${data.project} ws=${res.words} open=${openScopes.has(s.key)} toggle=${toggleIn(setOpenScopes)} files=${data.files} onSaved=${say} />`) : null}
                     </section>`;
                   })

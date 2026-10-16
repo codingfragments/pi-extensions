@@ -1076,7 +1076,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX5c | **Panel (Storyboard):** scene list + inspector (screenshot, intent, steps, review and re-run requests) | built, awaiting review ([report](ux/UX5c.md)) |
   | UX6a | **Engine:** annotations drafts on the UX5 contract (`drafts/annotations/v<base>.json`, revisions, conflicts, idempotent Save new version, base-change flags), the legacy `draft.json` read once and retired, a `reset` op (*Reset to suggested*); routes keep cost class `none` (D122) | built, awaiting review ([report](ux/UX6a.md)) |
   | UX6b | **Panel:** annotation list grouped by scene + inspector (preview, nudges, targets, text, reasons), direct toggles with save states, conflict choice, base-change note, privacy-off confirmation, *Reset to suggested*, *Suggest again…* disclosure | built, awaiting review ([report](ux/UX6b.md)) |
-  | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |
+  | UX7 | **Panel (Render):** runs list (approved first, kind filter) + inspector in decision order (QA first for finals, variants and player, files and warnings), New render as a summary line with Render now and Change…, one unsaved-changes option per annotation draft; no engine change (D123) | planned |
   | UX8 | Project brief-summary first-run and grouped context | planned |
   | UX9 | Config search/scope presentation and full-workbench audit | planned |
 

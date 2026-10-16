@@ -594,6 +594,10 @@ review notes stay in `state.json` with their own *Send to Director* step and are
 conflicts, idempotent save); undo is a per-annotation *Reset to suggested*; turning off an enabled privacy
 redaction asks first; the list is grouped by scene with an inspector for the selected annotation.
 
+**Settled in the UX7 grill (D123):** one runs list (approved first, kind filter), an inspector of sections in
+decision order (QA first for finals), New render as a summary line with *Render now* and *Change…*, and one
+unsaved-changes option per annotation draft.
+
 ### 10.6 Still open, to settle inside the slice that needs it
 
 - Final token values and content-driven pane thresholds (settled in UX0 by looking

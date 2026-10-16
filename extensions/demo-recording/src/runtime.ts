@@ -25,6 +25,7 @@ import { renderRoutes } from "./panel/render-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type GetRoute, type PanelHandle, type PostRoute, startPanel } from "./panel/server.ts";
 import { stageRoutes } from "./panel/stage-routes.ts";
+import { versionRoutes } from "./panel/version-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
 import { startDesigner } from "./tools/designer.ts";
@@ -352,10 +353,17 @@ export class Runtime {
     });
     const cost = costRoutes(this);
     const jobs = jobRoutes(this);
+    const versions = versionRoutes({
+      activeProject: () => this.activeProject(),
+      notifyAgent: (text) => this.notifyAgent(text),
+      tellAgent: (text) => this.tellAgent(text),
+      publish: (type, data, project) => this.bus.publish(type, data, project),
+    });
     return {
       get: {
         ...routes.get,
         ...jobs.get,
+        ...versions.get,
         ...brand.get,
         ...stages.get,
         ...project.get,
@@ -372,6 +380,7 @@ export class Runtime {
         ...annotations.post,
         ...renders.post,
         ...voice.post,
+        ...versions.post,
         ...cost.post,
       },
     };

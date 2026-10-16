@@ -107,7 +107,7 @@ test("accept several versions; accepting resets nothing; the working line follow
   art.take(dir, 3, 2);
   art.vo(dir, 1, 2);
   art.vo(dir, 2, 3);
-  assert.throws(() => acceptTake(dir, "take-002"), /based on storyboard v2, which is not accepted/);
+  assert.throws(() => acceptTake(dir, "take-002"), /based on storyboard v2, which is not approved/);
   assert.throws(() => approve(dir, "storyboard", 9), /storyboard v9 does not exist/);
   approve(dir, "storyboard", 1);
   approve(dir, "storyboard", 2);
@@ -144,7 +144,7 @@ test("accept several versions; accepting resets nothing; the working line follow
   assert.deepEqual(readState(dir)?.line, { storyboard: 2, recording: 2, vo: 1 });
   assert.equal(requireSelected(dir, readState(dir) as ProjectState, "vo"), 1);
   // Selecting take-001 needs it accepted; then the line moves up to storyboard v1.
-  assert.throws(() => selectStage(dir, "recording", 1), /take-001 is not accepted/);
+  assert.throws(() => selectStage(dir, "recording", 1), /take-001 is not approved/);
   acceptTake(dir, "take-001");
   selectStage(dir, "recording", 1);
   assert.deepEqual(
@@ -154,7 +154,7 @@ test("accept several versions; accepting resets nothing; the working line follow
   );
   assert.throws(
     () => requireSelected(dir, readState(dir) as ProjectState, "vo"),
-    /no accepted voice-over on the working line/,
+    /no approved voice-over in the production line/,
   );
   assert.equal(
     requireSelected(dir, readState(dir) as ProjectState, "vo", 2),
@@ -182,7 +182,7 @@ test("un-accept: children stay accepted but become orphaned (not usable), the li
   assert.deepEqual(acceptedVersions(state.accepted, "vo"), [1], "the VO keeps its own acceptance");
   assert.match(
     orphanReason(dir, state.accepted, "vo", 1) ?? "",
-    /recording take-001 is not accepted/,
+    /recording take-001 is not approved/,
   );
   assert.deepEqual(
     state.line,
@@ -191,10 +191,10 @@ test("un-accept: children stay accepted but become orphaned (not usable), the li
   );
   assert.throws(
     () => selectStage(dir, "vo", 1),
-    /can't be used: recording take-001 is not accepted/,
+    /can't be used: recording take-001 is not approved/,
   );
   assert.throws(() => requireSelected(dir, state, "vo", 1), /can't be used/);
-  assert.throws(() => unacceptStage(dir, "recording", 1), /not accepted/);
+  assert.throws(() => unacceptStage(dir, "recording", 1), /not approved/);
   // Accepting the take again revives the VO (nothing was lost).
   acceptTake(dir, "take-001");
   assert.equal(orphanReason(dir, readState(dir)?.accepted ?? {}, "vo", 1), undefined);
@@ -217,9 +217,9 @@ test("stage status: accepted with lineage and orphan flags, versions on the work
   const st = Object.fromEntries(stageStatus(dir, s.accepted, s.line).map((x) => [x.stage, x]));
   assert.deepEqual(
     st.recording?.accepted.map((a) => [a.version, a.basedOn, a.orphaned]),
-    [[1, 1, "storyboard v1 is not accepted"]],
+    [[1, 1, "storyboard v1 is not approved"]],
   );
-  assert.deepEqual(st.vo?.accepted[0]?.orphaned, "storyboard v1 is not accepted");
+  assert.deepEqual(st.vo?.accepted[0]?.orphaned, "storyboard v1 is not approved");
   assert.equal(st.recording?.input, 2);
   assert.deepEqual(st.recording?.onInput, [2], "versions built on the selected input");
   assert.equal(st.recording?.selected, undefined);
@@ -334,7 +334,7 @@ test("migration: schema 1 → 3 (backup, accepted take, reviews → input log) a
   });
   assert.match(
     orphanReason(dir, s.accepted, "vo", 1) ?? "",
-    /take-001 is not accepted/,
+    /take-001 is not approved/,
     "kept, flagged — not silently dropped",
   );
   assert.deepEqual(s.line, { storyboard: 1, recording: 2 });

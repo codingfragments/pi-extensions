@@ -8,6 +8,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --widths 1400 --format jpeg
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
  */
 
 import fs from "node:fs";
@@ -27,6 +28,7 @@ const WIDTHS = arg("widths", "1400,900").split(",").map(Number);
 const THEMES = arg("themes", "macchiato,latte").split(",");
 const dialogsOnly = process.argv.includes("--dialogs");
 const frameOnly = process.argv.includes("--frame");
+const versionsOnly = process.argv.includes("--versions");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -70,7 +72,32 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (frameOnly) {
+      if (versionsOnly) {
+        await page.goto(`${panel.url}#/voice`);
+        await page.waitForSelector(".stage-summary");
+        await page.waitForTimeout(300);
+        await shot(page, `versions-summary-${tag}`, false);
+        await page.locator(".history-btn").click();
+        await page.waitForSelector(".ds-histpop");
+        await shot(page, `versions-history-${tag}`, false);
+        await page.keyboard.press("Escape");
+        await page.goto(`${panel.url}#/storyboard`);
+        await page.waitForSelector(".version-actions [data-intent=approve-use]");
+        await page.getByRole("button", { name: "Approve & use v2" }).click();
+        await page.waitForSelector(".modal.dialog");
+        await page.waitForTimeout(200);
+        await shot(page, `versions-consequence-${tag}`, false);
+        await page.keyboard.press("Escape");
+        await page.goto(`${panel.url}#/render`);
+        await page.waitForSelector(".render-card");
+        await page.locator(".render-card", { hasText: "Final v1" }).locator("summary").click();
+        await page.waitForSelector(".render-card .ds-why");
+        await page.locator(".render-card", { hasText: "Final v1" }).scrollIntoViewIfNeeded();
+        await shot(page, `versions-disabled-${tag}`, false);
+        await page.goto(`${panel.url}#/recording`);
+        await page.waitForSelector(".card.take");
+        await shot(page, `versions-recording-${tag}`, false);
+      } else if (frameOnly) {
         const idle = (signal: AbortSignal) =>
           new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()));
         await page.goto(`${panel.url}#/voice`);

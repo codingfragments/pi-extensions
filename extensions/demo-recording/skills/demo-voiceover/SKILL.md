@@ -156,7 +156,7 @@ with a stance, tone, length, focus and notes:
 
 ## Voice and edit (after approval)
 
-1. `demo_rec_tts check` (free) shows which engine and voice will be used, and what the working line's
+1. `demo_rec_tts check` (free) shows which engine and voice will be used, and what the production line's
    voice-over would cost (cached vs billed characters, credits, money): your
    ElevenLabs voice by name, else OpenAI, else local Kokoro. If the user expects
    their own voice and the check says otherwise, tell them why (e.g. key not

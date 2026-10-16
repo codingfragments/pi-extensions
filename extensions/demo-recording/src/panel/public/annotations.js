@@ -5,10 +5,10 @@ import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 // draft with Save / Discard, Re-suggest with instructions, and a low-res scene
 // draft with every enabled annotation.
 import { ConfBadge, ConfReasons, NeedsEyes, byRisk, confOf, itemDomId } from "./confidence.js";
-import { media, post, useApi } from "./core.js";
+import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost, getModels } from "./cost.js";
 import { confirmAsk } from "./dialog.js";
-import { StageHeader, VersionActions } from "./stages.js";
+import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
 const ICON = {
@@ -264,7 +264,7 @@ function Resuggest({ data, onDone }) {
     setBusy(true);
     try {
       const r = await post("/api/annotations-empty", {});
-      setFlash(`v${r.version}: no annotations — accept it to render a plain final`);
+      setFlash(`v${r.version}: no annotations — approve it to render a plain final`);
       onDone?.(r.version);
     } catch (e) {
       setFlash(`⚠ ${e.message}`);
@@ -305,20 +305,28 @@ function Resuggest({ data, onDone }) {
     <summary>${has ? "Re-suggest with instructions" : "Suggest annotations"}</summary>
     <textarea rows="2" placeholder=${has ? "e.g. calmer — no spotlights; zoom on the totals instead of the chart; callouts in German" : "optional instructions for the annotation designer"} value=${text} onInput=${(e) => setText(e.target.value)}></textarea>
     <div class="row">
-      <button class="primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "accept a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
+      <button class="primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "approve a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
       <span class="muted small-text">${has ? "Keeps every item you added, edited or toggled; regenerates the rest." : data.autoSuggest ? "Auto-suggest is on: this also starts by itself after each sync edit." : "Auto-suggest is off (Config → Settings → Annotations)."}</span>
       <${CostHint} what=${getModels()?.designer ? "a separate designer call" : "starts the Director"} model=${getModels()?.designer ? getModels().designer[0] : undefined} />
       ${flash ? html`<span class="flash">${flash}</span>` : null}
     </div>
     <div class="row small-text">
-      <button class="ghost" disabled=${busy || !data.canSuggest} title="writes an empty annotation version — accept it to render a plain final; you can still choose per render which annotation types to include" onClick=${noAnnotations}>Use no annotations</button>
+      <button class="ghost" disabled=${busy || !data.canSuggest} title="writes an empty annotation version — approve it to render a plain final; you can still choose per render which annotation types to include" onClick=${noAnnotations}>Use no annotations</button>
       <span class="muted">for a demo without any; or choose per render which types to include (Render tab).</span>
     </div>
   </details>`;
 }
 
 export function Annotations({ events, stages }) {
-  const [version, setVersion] = useState(null);
+  const version = useRouteVersion("annotations");
+  const [, goTo] = useHashRoute();
+  const setVersion = (v) =>
+    goTo(
+      v === null || v === undefined
+        ? { screen: "annotations" }
+        : { screen: "annotations", version: v },
+    );
+  const hist = useHistory("annotations", events);
   const path = version ? `/api/annotations?version=${version}` : "/api/annotations";
   const { data, error, reload } = useApi(path, events, /^(annotations|stage|line|project|edit)\./);
   const [types, setTypes] = useState(new Set());
@@ -367,12 +375,13 @@ export function Annotations({ events, stages }) {
       say(`⚠ ${e.message}`);
     }
   };
+  if (d.version === null && version !== null)
+    return html`<${StageSummary} stage="annotations" rows=${hist.data?.rows} viewed=${version} />`;
   if (d.version === null)
     return html`
-      <${StageHeader} stages=${stages} stage="annotations" />
+      <${StageSummary} stage="annotations" rows=${hist.data?.rows} viewed=${null} />
       <section class="card">
-        <h2>Annotations</h2>
-        <p class="muted">${d.canSuggest ? "No annotations yet. The Annotation designer suggests zooms, highlights, callouts and more from the recording and the narration; you toggle, edit and accept them here." : "Accept a voice-over and run the sync edit first — annotations follow the real timing of the narration."}</p>
+        <p class="muted">${d.canSuggest ? "No annotations yet. The Annotation designer suggests zooms, highlights, callouts and more from the recording and the narration; you toggle, edit and approve them here." : "Approve a voice-over and run the sync edit first — annotations follow the real timing of the narration."}</p>
         <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
       </section>`;
   const f = d.file;
@@ -389,20 +398,14 @@ export function Annotations({ events, stages }) {
   };
   const count = (t) => f.items.filter((x) => x.type === t).length;
   return html`
-    <${StageHeader} stages=${stages} stage="annotations" />
+    <${StageSummary} stage="annotations" row=${hist.data?.rows?.find((r) => r.version === d.version)} rows=${hist.data?.rows}
+      viewed=${d.version} onUse=${(v) => runVersionAction({ stage: "annotations", version: v, intent: "use" }).then(reload)}
+      meta=${html`${d.draft ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">✎</span>Working draft</span>` : null}<span>${f.by ? `by ${f.by}` : ""} · ${f.take}${f.resuggestedFrom ? ` · re-suggested from v${f.resuggestedFrom}` : ""}${f.importedFrom ? ` · imported from v${f.importedFrom}` : ""}${f.editedFrom ? ` · your edits on v${f.editedFrom}` : ""}</span>`} />
     <section class="card review-head ann-head">
       <div class="row">
-        <h2>Annotations v${d.version}${d.draft ? html` <span class="badge stale">draft</span>` : null}</h2>
-        <span class="muted small-text">${f.by ? `by ${f.by}` : ""} · based on VO v${f.basedOn.vo} · ${f.take}${f.resuggestedFrom ? ` · re-suggested from v${f.resuggestedFrom}` : ""}${f.importedFrom ? ` · imported from v${f.importedFrom}` : ""}${f.editedFrom ? ` · your edits on v${f.editedFrom}` : ""}</span>
+        <${VersionActions} stage="annotations" row=${hist.data?.rows?.find((r) => r.version === d.version)} events=${events} onDone=${reload} />
         <span class="grow"></span>
         ${flash ? html`<span class="flash">${flash}</span>` : null}
-        <select aria-label="version" value=${d.version} onChange=${(e) => setVersion(Number(e.target.value))}>
-          ${d.versions
-            .slice()
-            .reverse()
-            .map((v) => html`<option value=${v}>v${v}</option>`)}
-        </select>
-        ${d.draft ? html`<button class="primary" disabled title="save your changes first">Accept v${d.version}</button>` : html`<${VersionActions} stages=${stages} stage="annotations" version=${d.version} unlocks="The final render can use these annotations." onDone=${reload} />`}
       </div>
       ${f.instructions ? html`<p class="small-text muted">Instructions for this version: “${f.instructions}”</p>` : null}
       ${d.stale ? html`<p class="small-text error">⚠ ${d.stale} — previews are unavailable.</p>` : null}

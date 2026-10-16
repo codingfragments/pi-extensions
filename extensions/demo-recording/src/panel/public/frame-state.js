@@ -3,7 +3,7 @@
 //
 // The rules (docs/UX.md §2):
 //  - the viewed screen, the production line, the review status and the job status are separate things;
-//  - a stage is complete only when its version on the working line is accepted and usable: an
+//  - a stage is complete only when its version in the production line is approved and usable: an
 //    approval on an unrelated branch does not complete it;
 //  - "running" comes from real engine jobs (or a live discovery), never from "the Director has not
 //    started yet"; no percentage is invented for a job without progress.
@@ -96,7 +96,7 @@ export function stepStates({ stages, jobs, discovery = false }) {
           : capital(next?.text ?? "needs you");
     } else if (selectedAcc) {
       state = "complete";
-      why = `${step.label} ${vLabel(step.stage, s.selected)} is accepted and on the working line`;
+      why = `${step.label} ${vLabel(step.stage, s.selected)} is approved and in the production line`;
     } else if (next?.who === "agent" && next.stage === step.stage) {
       why = `Waiting for the Director: ${next.text}`;
     }
@@ -154,7 +154,7 @@ export function nextBand({ stages, states, jobs }) {
   return {
     tone: "done",
     label: "Done",
-    text: capital(next?.text ?? "everything is accepted"),
+    text: capital(next?.text ?? "everything is approved"),
     action: { label: "Open Render", tab: "render" },
     more: [],
   };

@@ -19,8 +19,8 @@ side panel and talks back through `[demo-panel]` messages.
 | 2 Record | Only after the user approves in the panel | `demo_rec_record` |
 | 3 Voice-over | Analyze the take, write the narration (demo-voiceover skill) | `demo_rec_take`, `demo_rec_vo` |
 | 4 Voice + edit | After the user approves the voice-over | `demo_rec_tts`, `demo_rec_edit` |
-| 5 Annotations | After the edit (automatic) or a `[demo-panel]` request: suggest zooms, callouts, … (demo-annotations skill); the user accepts in the panel | `demo_rec_annotations` |
-| 6 Render | After the user accepts annotations: offer a final (ask brands, subtitles); every final is QA-checked automatically — summarise blocking items and their fixes; the user applies fixes / confirms / accepts in the Render tab | `demo_rec_render` (`qa` shows the report) |
+| 5 Annotations | After the edit (automatic) or a `[demo-panel]` request: suggest zooms, callouts, … (demo-annotations skill); the user approves in the panel | `demo_rec_annotations` |
+| 6 Render | After the user approves annotations: offer a final (ask brands, subtitles); every final is QA-checked automatically — summarise blocking items and their fixes; the user applies fixes / confirms / accepts in the Render tab | `demo_rec_render` (`qa` shows the report) |
 
 **Hard rules**
 - **You cannot approve anything.** Approval is a button in the panel. Never
@@ -34,33 +34,43 @@ side panel and talks back through `[demo-panel]` messages.
   story. Don't explore by submitting forms.
 - Stay inside the brief's *must avoid* list.
 
-## Stages, working line and project memory
+## Stages, the production line and project memory
 
 Work moves through the stages storyboard → recording (take) → voice-over →
 annotations → render.
 - **One parent per version.** Every version is based on exactly one version
   of the stage before it: a take records its storyboard version, a voice-over
   names its take.
-- **Several accepted versions per stage.** The user may accept two takes of
-  one storyboard and give each its own voice-over. Accepting resets nothing.
-  A version can only be accepted when its parent is accepted.
-- **Un-accepting orphans, it never resets.** Accepted work built on an
-  un-accepted version is flagged **orphaned** and can't be used until it's
-  accepted again.
-- **The working line** is what the user and you are working on, e.g.
+- **Several approved versions per stage.** The user may approve two takes of
+  one storyboard and give each its own voice-over. Approving resets nothing.
+  A version can only be approved when its parent is approved.
+- **Withdrawing an approval blocks, it never resets.** Approved work built on a
+  version whose approval was withdrawn is flagged **blocked by dependency** and
+  can't be used until that version is approved again. Nothing is deleted.
+- **The production line** is what the user and you are working on, e.g.
   storyboard v2 → take-006 → voice-over v3. Your tools default to it:
   - `demo_rec_record` records its storyboard;
   - `demo_rec_vo template` uses its take;
   - `demo_rec_tts` / `demo_rec_edit` use its voice-over.
 
   Pass an explicit version only when the user asks for a different line.
-- **Line changes.** When the user switches the line in the panel, you get a
-  `[demo-panel] … switched the working line …` note: work on the new line
-  from then on. `demo_rec_project status` shows the line and every accepted
-  version with its lineage.
-- **Approval.** You still can't accept or approve anything yourself; the
-  user does it in the panel. `demo_rec_take accept` is the exception: it
-  accepts a take you were explicitly asked to accept.
+- **What the user does in the panel, and what you get.** Looking at a version
+  (History, the version links) tells you nothing. The four actions each arrive
+  as a `[demo-panel]` message that names the line from the final state:
+  - **Approve & use** (a turn): "… is APPROVED by the user … Production line: …".
+    Continue from that version.
+  - **Approve only** (a quiet note): "… APPROVED … as an alternative and left the
+    production line unchanged". Nothing to start; keep working on the line.
+  - **Use for next steps** (a quiet note): "… switched the production line to …".
+    Work on the new line from then on.
+  - **Withdraw approval** (a quiet note): "… WITHDREW the approval of …", with
+    what is now blocked by dependency.
+
+  `demo_rec_project status` shows the line and every approved version with its
+  lineage.
+- **Approval.** You can't approve anything yourself; the user does it in the
+  panel. `demo_rec_take accept` is the exception: it approves a take you were
+  explicitly asked to approve.
 
 **The project's memory** lives in the project, not in this chat:
 - **Read it first.** When you (re)open a project, or see a
@@ -238,7 +248,7 @@ target in discovery, add a `deep_link`).
 **The user is asked before money and long jobs.** In the panel, *Request a new take*, a separate designer
 run and *Generate voice & render* each open a dialog with an estimate first. A `[demo-panel]` message for
 them arrives only after the user said yes, so don't ask again; if there is no message, they cancelled.
-`demo_rec_tts check` shows the cost of the working line's voice-over before anything is spent.
+`demo_rec_tts check` shows the cost of the production line's voice-over before anything is spent.
 
 ## Recording
 
@@ -265,9 +275,9 @@ The narrated video is produced with the **demo-voiceover** skill:
 `demo_rec_take analyze` → `demo_rec_take accept` → `demo_rec_vo template/write`
 → the user approves in the panel's Voice tab → `demo_rec_tts` → `demo_rec_edit`.
 Then the **demo-annotations** skill suggests the visual emphasis
-(`demo_rec_annotations context` → `suggest`); the user reviews and accepts it in
+(`demo_rec_annotations context` → `suggest`); the user reviews and approves it in
 the Annotations tab. Then offer a **final render** (`demo_rec_render action=start
 kind=final`, asking which brands and whether to burn in subtitles); the edit
-itself only makes drafts. The user accepts the deliverable in the Render tab.
+itself only makes drafts. The user approves the deliverable in the Render tab.
 Shortcuts the user may type: `/demo voiceover`, `/demo render`, `/demo voices`,
 `/demo config`. For settings questions use the **demo-config** skill.

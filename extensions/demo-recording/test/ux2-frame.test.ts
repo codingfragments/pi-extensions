@@ -98,15 +98,18 @@ test(
       await page.goto(`${panel.url}#/nowhere`);
       await page.waitForFunction(`location.hash === "#/project"`);
       assert.match(
-        await page.locator("main .ds-notice").innerText(),
+        await page.locator("main .route-notice").innerText(),
         /“nowhere” is not a screen of this panel\. Showing Project\./,
       );
       await page.goto(`${panel.url}#/map`);
       await page.waitForFunction(`location.hash === "#/project"`);
-      assert.match(await page.locator("main .ds-notice").innerText(), /“map” is not available yet/);
+      assert.match(
+        await page.locator("main .route-notice").innerText(),
+        /“map” is not available yet/,
+      );
       // the notice goes away when you move on
       await page.locator("nav.steps a", { hasText: "Storyboard" }).click();
-      await page.waitForFunction(`!document.querySelector("main .ds-notice")`);
+      await page.waitForFunction(`!document.querySelector("main .route-notice")`);
 
       assert.equal(
         fs.readFileSync(path.join(seed.dir, "state.json"), "utf8"),
@@ -166,7 +169,7 @@ test(
       assert.equal(readState(seed.dir)?.updatedAt, before);
       // the Recording screen carries the shared stage title
       await page.locator("nav.steps a", { hasText: "Recording" }).click();
-      assert.equal(await page.locator("main h1").innerText(), "Recording");
+      await page.waitForFunction(`document.querySelector("main h1")?.textContent === "Recording"`);
     } finally {
       await close();
     }

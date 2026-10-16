@@ -1,27 +1,36 @@
-import { html, useState } from "/vendor/preact-htm.module.js";
-import { media, mmss, post, useApi } from "./core.js";
-// demo-recording panel — Recording tab (S5 part 4, D44–D46): pick an accepted
-// storyboard (the input), see its takes, accept several, put one on the
-// working line, and ask for a new take of that storyboard.
+import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { media, mmss, post, useApi, useRouteVersion } from "./core.js";
+// demo-recording panel — Recording tab (S5 part 4, D44–D46; UX3): the takes of the production line's
+// storyboard (a take of another storyboard can be looked at via History), approve several, put one in
+// the production line, and ask for a new take of that storyboard.
 import { CostHint, confirmCost } from "./cost.js";
 import { errorToast } from "./dialog.js";
-import { StageTitle } from "./frame.js";
-import { StageHeader, VersionActions, stageOf } from "./stages.js";
+import { stageOf } from "./stages.js";
+import {
+  RowBadges,
+  StageSummary,
+  VersionActions,
+  runVersionAction,
+  useHistory,
+} from "./version-ui.js";
 
-function TakeCard({ t, stages, reload }) {
+function TakeCard({ t, row, events, viewed, reload }) {
   const [showVideo, setShowVideo] = useState(false);
-  return html`<section class=${`card take ${t.accepted ? "accepted" : ""} ${t.onLine ? "on-line" : ""}`}>
+  const card = useRef(null);
+  useEffect(() => {
+    if (viewed) card.current?.scrollIntoView({ block: "nearest" });
+  }, [viewed]);
+  return html`<section ref=${card} id=${`take-${t.version}`} aria-current=${viewed ? "true" : undefined} class=${`card take ${t.accepted ? "accepted" : ""} ${t.onLine ? "on-line" : ""}`}>
     <div class="row">
       <h3>${t.id}</h3>
+      ${row ? html`<${RowBadges} row=${row} viewing=${viewed} />` : null}
       <span class=${`pill ${t.status === "ok" ? "" : "fail-pill"}`}>${t.status === "ok" ? "complete" : t.status}</span>
       <span class="muted small-text">${t.durationMs ? `raw ${mmss(t.durationMs)}` : ""}${t.startedAt ? ` · recorded ${new Date(t.startedAt).toLocaleString()}` : ""}</span>
       <span class="grow"></span>
       ${t.analyzed ? html`<span class="muted small-text">analyzed · ${t.scenes.length} scenes</span>` : html`<span class="muted small-text">not analyzed yet</span>`}
       <span class="muted small-text" title="positions of visible elements, for annotations (S5 part 6)">${t.layoutSnapshots !== null && t.layoutSnapshots !== undefined ? `${t.layoutSnapshots} layout snapshots` : "no layout snapshots (recorded before S5 part 6)"}</span>
       ${t.video ? html`<button class="ghost" onClick=${() => setShowVideo(!showVideo)}>${showVideo ? "hide video" : "play raw take"}</button>` : null}
-      <${VersionActions} stages=${stages} stage="recording" version=${t.version} label=${t.id}
-        disabled=${t.status !== "ok"} disabledWhy=${t.status !== "ok" ? "this take did not complete" : ""}
-        unlocks="Voice-overs can be written for this take." onDone=${reload} />
+      <${VersionActions} stage="recording" row=${row} events=${events} eager=${false} compact label=${t.id} onDone=${reload} />
     </div>
     ${showVideo && t.video ? html`<video class="take-video" controls preload="metadata" src=${media("project", t.video)}></video>` : null}
     ${
@@ -38,7 +47,12 @@ function TakeCard({ t, stages, reload }) {
 }
 
 export function Recording({ events, stages }) {
-  const input = stageOf(stages, "recording")?.input;
+  const hist = useHistory("recording", events);
+  const routeVersion = useRouteVersion("recording");
+  const rows = hist.data?.rows ?? [];
+  const routeRow = routeVersion !== null ? rows.find((r) => r.version === routeVersion) : null;
+  // a take of another storyboard can be looked at (read-only); otherwise the takes of the production line's storyboard
+  const input = routeRow?.basedOn?.version ?? stageOf(stages, "recording")?.input;
   const path = input !== undefined ? `/api/recordings?storyboard=${input}` : "/api/recordings";
   const { data, error, reload } = useApi(
     path,
@@ -67,9 +81,9 @@ export function Recording({ events, stages }) {
   };
   const sb = data.storyboard !== null ? `v${data.storyboard}` : "—";
   return html`
-    <${StageTitle} title="Recording"
+    <${StageSummary} stage="recording" row=${routeRow} rows=${rows} viewed=${routeVersion}
+      onUse=${(v) => runVersionAction({ stage: "recording", version: v, intent: "use" }).then(reload)}
       meta=${html`<span>Takes of storyboard <strong style="color:var(--text-strong)">${sb}</strong></span><span>${data.takes.length} take(s)</span>`} />
-    <${StageHeader} stages=${stages} stage="recording" />
     <section class="card review-head">
       <div class="row">
         <input class="ds-input ds-input--wide" placeholder="notes for the next take (optional)" aria-label="notes for the next take" value=${note} onInput=${(e) => setNote(e.target.value)} />
@@ -78,12 +92,13 @@ export function Recording({ events, stages }) {
         <${CostHint} />
         ${flash ? html`<span class="flash">${flash}</span>` : null}
       </div>
-      <p class="muted small-text">Accept every take that is good enough to build on — each accepted take can get its own voice-over. <b>Work on this</b> makes a take the working line (the Voice over tab and the agent follow it).</p>
+      <p class="muted small-text">Approve every take that is good enough to build on — each approved take can get its own voice-over. <b>Use for next steps</b> puts a take in the production line (the Voice over screen and the Director follow it).</p>
     </section>
     ${
       data.takes.length
         ? data.takes.map(
-            (t) => html`<${TakeCard} key=${t.id} t=${t} stages=${stages} reload=${reload} />`,
+            (t) =>
+              html`<${TakeCard} key=${t.id} t=${t} row=${rows.find((r) => r.version === t.version)} events=${events} viewed=${t.version === routeVersion} reload=${reload} />`,
           )
         : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (its progress is in the Activity drawer).` : "Accept a storyboard first; its takes show up here."}</section>`
     }`;

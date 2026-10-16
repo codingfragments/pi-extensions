@@ -133,16 +133,16 @@ test("nextStep walks the working line: the user accepts drafts, the agent produc
   assert.deepEqual(nextStep(dir, acc(dir), line(dir)), {
     who: "user",
     stage: "storyboard",
-    text: "review and accept storyboard v2",
+    text: "review and approve storyboard v2",
   });
   approve(dir, "storyboard", 2);
   assert.deepEqual(nextStep(dir, acc(dir), line(dir)), {
     who: "user",
     stage: "recording",
-    text: "accept a take of storyboard v2 (e.g. take-003)",
+    text: "approve a take of storyboard v2 (e.g. take-003)",
   });
   acceptTake(dir, "take-002");
-  assert.equal(nextStep(dir, acc(dir), line(dir)).text, "review and accept voice-over v1");
+  assert.equal(nextStep(dir, acc(dir), line(dir)).text, "review and approve voice-over v1");
   approve(dir, "vo", 1);
   assert.match(nextStep(dir, acc(dir), line(dir)).text, /generate the voice and render/);
   assert.equal(nextStep(dir, acc(dir), line(dir), { rendered: true }).who, null);
@@ -300,7 +300,7 @@ test("panel routes: stages with inputs, recordings per storyboard, accept severa
     st = (await get("stages")) as { stages: St[]; lineText: string };
     assert.match(
       st.stages.find((s) => s.stage === "vo")?.accepted[0]?.orphaned ?? "",
-      /take-002 is not accepted/,
+      /take-002 is not approved/,
     );
     assert.equal(
       (await post("select", { artifact: "vo", version: 1 })).status,
@@ -425,49 +425,59 @@ test(
         "takes of the selected storyboard only",
       );
       assert.match(
-        (await page.locator(".input-picker").first().textContent()) ?? "",
-        /storyboard v2/,
+        await page.locator(".stage-summary").innerText(),
+        /Takes of storyboard\s+v2/,
+        "the takes of the production line's storyboard",
       );
 
-      // Accept take-003 as well: both accepted, take-003 becomes the working line.
+      // Approve & use take-003: both takes approved, take-003 in the production line. Voice-over v1 is
+      // built on take-002, so it leaves the line (it stays approved) and the dialog says so first.
       await page
         .locator(".card.take", { hasText: "take-003" })
-        .getByRole("button", { name: /^Accept/ })
+        .getByRole("button", { name: "Approve & use take-003" })
         .click();
-      await page.waitForTimeout(600);
-      assert.match(dialogs.at(-1) ?? "", /Accept take-003\?[\s\S]*resets nothing/);
+      await page.waitForFunction(`document.querySelectorAll(".toast").length > 0`);
+      assert.match(
+        dialogs.at(-1) ?? "",
+        /Approve and use recording take-003\?[\s\S]*Production line now[\s\S]*take-002[\s\S]*After[\s\S]*take-003[\s\S]*Recording: take-002 → take-003[\s\S]*Voice over: v1 → none \(stays approved\)/,
+      );
       assert.deepEqual(Object.keys(readState(dir)?.accepted.recording ?? {}).sort(), ["2", "3"]);
       assert.equal(readState(dir)?.line.recording, 3);
-      // Work on take-002 again.
+      assert.ok(readState(dir)?.accepted.vo?.["1"], "voice-over v1 is still approved");
+      // Use take-002 for the next steps again: its voice-over comes back.
       await page
         .locator(".card.take", { hasText: "take-002" })
-        .getByRole("button", { name: "Work on this" })
+        .getByRole("button", { name: "Use for next steps" })
         .click();
-      await page.waitForTimeout(600);
+      await page.waitForFunction(
+        `document.querySelector(".card.take.on-line")?.textContent?.includes("take-002")`,
+      );
       assert.equal(readState(dir)?.line.recording, 2);
       assert.equal(readState(dir)?.line.vo, 1);
 
-      // Voice over tab: input picker lists both accepted takes with lineage.
-      await page.locator("nav.steps a", { hasText: "Voice over" }).click();
-      await page.waitForTimeout(500);
-      const options = await page.locator(".input-picker select option").allTextContents();
-      assert.ok(
-        options.some((o) => /take-002 · storyboard v2/.test(o)) &&
-          options.some((o) => /take-003 · storyboard v2/.test(o)),
-        options.join(" | "),
-      );
+      // The History lists every take with where it came from and where it stands; looking changes nothing.
+      const before = JSON.stringify(readState(dir));
+      await page.locator(".history-btn").click();
+      const history = await page.locator(".ds-histpop").innerText();
+      assert.match(history, /take-003[\s\S]*based on storyboard v2[\s\S]*Approved/);
+      assert.match(history, /take-002[\s\S]*In production line/);
+      assert.match(history, /take-001/);
+      await page.keyboard.press("Escape");
+      assert.equal(JSON.stringify(readState(dir)), before, "browsing the history writes nothing");
 
-      // Un-accept take-002 from the Recording tab: cancel first — the dialog names the orphan.
-      await page.locator("nav.steps a", { hasText: "Recording" }).click();
-      await page.waitForTimeout(400);
+      // Withdraw take-002's approval: cancel first. The dialog names what becomes blocked by dependency.
       dlg.answer.accept = false;
+      const shown = dialogs.length;
       await page
         .locator(".card.take", { hasText: "take-002" })
-        .getByRole("button", { name: "Un-accept" })
+        .getByRole("button", { name: "Withdraw approval" })
         .click();
-      await page.waitForTimeout(500);
-      assert.match(dialogs.at(-1) ?? "", /Un-accept take-002\?[\s\S]*orphaned[\s\S]*voice-over v1/);
-      assert.ok(readState(dir)?.accepted.recording?.["2"], "cancelled: still accepted");
+      for (let i = 0; i < 50 && dialogs.length === shown; i++) await page.waitForTimeout(100);
+      assert.match(
+        dialogs.at(-1) ?? "",
+        /Withdraw the approval of recording take-002\?[\s\S]*blocked by dependency[\s\S]*voice-over v1/,
+      );
+      assert.ok(readState(dir)?.accepted.recording?.["2"], "cancelled: still approved");
       dlg.answer.accept = true;
 
       // The Activity drawer: closed by default, opens on request, overlays (the page does not shrink),

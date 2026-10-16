@@ -243,7 +243,7 @@ export function renderRoutes(rt: Runtime): {
         const state = readState(p.dir) ?? p.state;
         if (state.accepted.render?.[String(v)] && body.confirmAccepted !== true)
           throw new Error(
-            `render v${v} is the accepted deliverable — confirm to delete its files anyway`,
+            `render v${v} is the approved deliverable — confirm to delete its files anyway`,
           );
         const bytes = deleteRenderFiles(p.dir, v, "deleted");
         recordInput(p.dir, {
@@ -305,7 +305,7 @@ export function renderRoutes(rt: Runtime): {
       "annotations-empty": () => {
         const p = requireProject();
         const state = readState(p.dir) ?? p.state;
-        if (state.line.vo === undefined) throw new Error("accept a voice-over first");
+        if (state.line.vo === undefined) throw new Error("approve a voice-over first");
         const tv = latestTimelineFor(p.dir, state.line.vo);
         if (tv === undefined) throw new Error(`run the sync edit for VO v${state.line.vo} first`);
         const t = JSON.parse(
@@ -321,7 +321,7 @@ export function renderRoutes(rt: Runtime): {
           "annotations.updated",
           {
             version: stored.version,
-            message: `annotations v${stored.version}: no annotations (accept it to render a plain final)`,
+            message: `annotations v${stored.version}: no annotations (approve it to render a plain final)`,
           },
           p.slug,
         );

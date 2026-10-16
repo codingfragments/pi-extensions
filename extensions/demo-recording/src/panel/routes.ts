@@ -52,6 +52,7 @@ import {
 } from "../workdir/state.ts";
 import { approvalMessage, reviewMessage, voReviewMessage } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
+import { assertApprovable } from "./version-actions.ts";
 import { defaultDirection } from "./voice-routes.ts";
 
 export interface RouteDeps {
@@ -456,33 +457,7 @@ export function panelRoutes(deps: RouteDeps): {
           throw new Error(
             '"artifact" must be "storyboard", "recording", "vo", "annotations" or "render"',
           );
-        if (artifact === "render") {
-          const r = readRender(p.dir, version);
-          if (!r) throw new Error(`render v${version} does not exist`);
-          if (r.kind !== "final")
-            throw new Error("only final renders can be accepted — drafts are for watching");
-          if (r.status !== "done") throw new Error(`render v${version} is ${r.status}`);
-          if (r.deleted || r.pruned)
-            throw new Error(`render v${version} has no files any more — render it again`);
-          const why = qaBlocker(r);
-          if (why) throw new Error(why);
-        }
-        if (artifact === "annotations") {
-          if (!readAnnotations(p.dir, version))
-            throw new Error(`annotations v${version} do not exist`);
-          if (readDraft(p.dir)?.base === version)
-            throw new Error(
-              `annotations v${version} have unsaved changes — save them (as a new version) or discard them first`,
-            );
-        }
-        if (artifact === "storyboard" && !readStoryboard(p.dir, version))
-          throw new Error(`storyboard v${version} does not exist`);
-        if (artifact === "vo") {
-          const vo = readVo(p.dir, version);
-          if (!vo) throw new Error(`voice-over v${version} does not exist`);
-          if (vo.validated.issues.some((i) => i.level === "error"))
-            throw new Error(`voice-over v${version} has errors — fix them first`);
-        }
+        assertApprovable(p.dir, artifact, version);
         const state = acceptStage(p.dir, artifact, version);
         const onLine = state.line[artifact] === version;
         if (onLine) {
@@ -505,7 +480,7 @@ export function panelRoutes(deps: RouteDeps): {
             onLine,
             line: formatLine(state.line),
             ...(PARENT[artifact] ? { basedOn: parentOf(p.dir, artifact, version) ?? null } : {}),
-            message: `${label} accepted${onLine ? " (working line)" : ""}`,
+            message: `${label} approved${onLine ? " (production line)" : ""}`,
           },
           p.slug,
         );

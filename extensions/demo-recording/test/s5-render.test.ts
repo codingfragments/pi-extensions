@@ -290,13 +290,13 @@ test("options and variant names", () => {
 test("final gate: needs an accepted, usable annotation version; drafts don't", () => {
   const dir = project();
   const cfg = config();
-  assert.match(finalBlocker(dir) ?? "", /needs an accepted annotation version/);
+  assert.match(finalBlocker(dir) ?? "", /needs an approved annotation version/);
   assert.throws(
     () => planRender(dir, cfg, { kind: "final", by: "cli" }),
-    /needs an accepted annotation version/,
+    /needs an approved annotation version/,
   );
   const v = ANN(dir, [CALLOUT, CHAPTER]);
-  assert.match(finalBlocker(dir, v.version) ?? "", /not accepted/);
+  assert.match(finalBlocker(dir, v.version) ?? "", /not approved/);
   assert.equal(
     planRender(dir, cfg, { kind: "draft", by: "cli" }).annotationVersion,
     1,
@@ -519,7 +519,7 @@ test("next step: render a final → accept it → delivered", () => {
     {
       who: "agent",
       stage: "vo",
-      text: "voice-over accepted — generate the voice and render (demo_rec_tts, demo_rec_edit)",
+      text: "voice-over approved — generate the voice and render (demo_rec_tts, demo_rec_edit)",
     } as never,
     "no render versions yet",
   );
@@ -550,7 +550,7 @@ test("next step: render a final → accept it → delivered", () => {
   s = readState(dir);
   assert.equal(
     nextStep(dir, s?.accepted ?? {}, s?.line ?? {}).text,
-    `review and accept final render v${f}`,
+    `review and approve final render v${f}`,
   );
   acceptStage(dir, "render", f);
   s = readState(dir);
@@ -646,7 +646,7 @@ test(
 
     await assert.rejects(
       runRender({ projectDir: dir, config: cfg, request: { kind: "final", by: "cli" } }),
-      /needs an accepted annotation version/,
+      /needs an approved annotation version/,
     );
     acceptStage(dir, "annotations", v.version);
     const final = await runRender({
@@ -764,7 +764,7 @@ test(
     };
     try {
       let v = await get("renders");
-      assert.match(String(v.finalBlocker), /needs an accepted annotation version/);
+      assert.match(String(v.finalBlocker), /needs an approved annotation version/);
       assert.equal(v.hasEdit, true);
       // "Use no annotations" → an empty version to accept
       let r = await post("annotations-empty", {});
@@ -848,7 +848,7 @@ test(
       assert.ok(r.status >= 400);
       // delete: the accepted deliverable needs an explicit confirm; the record stays
       r = await post("render-delete", { version: 1 });
-      assert.ok(r.status >= 400 && /accepted deliverable/.test(String(r.json.error)));
+      assert.ok(r.status >= 400 && /approved deliverable/.test(String(r.json.error)));
       r = await post("render-delete", { version: 1, confirmAccepted: true });
       assert.equal(r.status, 200, String(r.json.error));
       assert.ok(Number(r.json.bytes) > 10_000);

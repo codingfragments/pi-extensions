@@ -355,7 +355,7 @@ test("panel: GET vo, per-section review, inline edit, approve gate", async () =>
   assert.equal(chainless.status, 400);
   assert.match(
     ((await chainless.json()) as { error: string }).error,
-    /based on recording take-001, which is not accepted — accept that recording first/,
+    /based on recording take-001, which is not approved — approve that recording first/,
   );
   fs.mkdirSync(path.join(p.dir, "storyboard"), { recursive: true });
   fs.writeFileSync(path.join(p.dir, "storyboard", "v1.yaml"), "version: 1\n");

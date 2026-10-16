@@ -303,7 +303,7 @@ export function stageRoutes(deps: StageRouteDeps): {
         const sb = typeof body.storyboard === "number" ? body.storyboard : state.line.storyboard;
         if (sb === undefined || !isUsable(p.dir, state.accepted, "storyboard", sb))
           throw new Error(
-            "accept a storyboard first — a take is always recorded from an accepted storyboard",
+            "approve a storyboard first — a take is always recorded from an approved storyboard",
           );
         const note = typeof body.note === "string" ? body.note.trim() : "";
         recordInput(p.dir, {

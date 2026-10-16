@@ -119,11 +119,11 @@ export function finalBlocker(projectDir: string, annotations?: number | null): s
   if (!state) return "project state missing";
   const v = annotations ?? state.line.annotations;
   if (v === undefined || v === null)
-    return "a final render needs an accepted annotation version — accept one in the Annotations tab (or “Use no annotations” there)";
+    return "a final render needs an approved annotation version — approve one in the Annotations tab (or “Use no annotations” there)";
   if (!state.accepted.annotations?.[String(v)])
-    return `annotations v${v} are not accepted — accept them in the Annotations tab first`;
+    return `annotations v${v} are not approved — approve them in the Annotations tab first`;
   if (!isUsable(projectDir, state.accepted, "annotations", v))
-    return `annotations v${v} can't be used: an earlier stage of its line is no longer accepted`;
+    return `annotations v${v} can't be used: an earlier stage of its line is no longer approved`;
   return undefined;
 }
 
@@ -141,7 +141,7 @@ export function planRender(
   if (req.kind === "final") {
     if (req.fromDraft)
       throw new Error(
-        "a final can't be rendered from unsaved changes — save them as a version and accept it",
+        "a final can't be rendered from unsaved changes — save them as a version and approve it",
       );
     const why = finalBlocker(projectDir, req.annotations);
     if (why) throw new Error(why);

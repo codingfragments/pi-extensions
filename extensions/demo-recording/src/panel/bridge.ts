@@ -54,8 +54,8 @@ export function approvalMessage(
   if (artifact === "recording")
     return `${PANEL_PREFIX} Recording take-${String(version).padStart(3, "0")} for project "${project}" is ACCEPTED by the user (Recording tab). Write the voice-over for this take (demo-voiceover skill).`;
   return artifact === "storyboard"
-    ? `${PANEL_PREFIX} Storyboard v${version} for project "${project}" is APPROVED by the user (accepted — a valid input to build on). Recording is unlocked (demo_rec_record storyboard=${version}).`
-    : `${PANEL_PREFIX} Voice-over script v${version} for project "${project}" is APPROVED by the user (accepted — a valid input to build on). Voice synthesis is unlocked (demo_rec_tts version=${version}).`;
+    ? `${PANEL_PREFIX} Storyboard v${version} for project "${project}" is APPROVED by the user (a valid input to build on). Recording is unlocked (demo_rec_record storyboard=${version}).`
+    : `${PANEL_PREFIX} Voice-over script v${version} for project "${project}" is APPROVED by the user (a valid input to build on). Voice synthesis is unlocked (demo_rec_tts version=${version}).`;
 }
 
 export function voReviewMessage(

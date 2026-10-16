@@ -103,6 +103,14 @@ export function useHashRoute() {
   return [route, go];
 }
 
+/** The version in the route for this screen (#/<screen>/v<N>), or null: the latest on the production line's input. */
+export function useRouteVersion(screen) {
+  const [route] = useHashRoute();
+  return route?.valid && route.screen === screen && route.version !== undefined
+    ? route.version
+    : null;
+}
+
 /** Refetch `path` whenever a bus event whose type matches `re` arrives. */
 export function useApi(path, events, re) {
   const [data, setData] = useState(null);

@@ -1,6 +1,6 @@
 // Confidence-guided review (S5 part 11, D23, D76–D81): badges with reasons,
 // "N need your eyes" chips that jump to the item, a riskiest-first sort, and
-// the guarded "Approve high-confidence" popup.
+// the guarded "Mark high-confidence reviewed" popup.
 import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { Modal, post } from "./core.js";
 
@@ -100,19 +100,19 @@ export function ApproveHighModal({ artifact, version, onClose, onDone }) {
     }
   };
   const what = artifact === "vo" ? "section" : "scene";
-  return html`<${Modal} title="Approve high-confidence items" onClose=${onClose}
-      actions=${html`<button class="primary" disabled=${busy || !plan?.approve?.length} onClick=${apply}>Approve ${plan?.approve?.length ?? 0} ${what}(s)</button>`}>
+  return html`<${Modal} title="Mark high-confidence items reviewed" onClose=${onClose}
+      actions=${html`<button class="primary" disabled=${busy || !plan?.approve?.length} onClick=${apply}>Mark ${plan?.approve?.length ?? 0} ${what}(s) reviewed</button>`}>
     ${err ? html`<p class="error">${err}</p>` : null}
     ${
       !plan
         ? html`<p class="muted">checking…</p>`
         : html`<div class="approve-plan">
-          <h3 class="small-text">Approves (${plan.approve.length})</h3>
+          <h3 class="small-text">Marks reviewed (${plan.approve.length})</h3>
           ${plan.approve.length ? html`<ul>${plan.approve.map((id) => html`<li class="mono">✓ ${id}</li>`)}</ul>` : html`<p class="muted small-text">No unmarked high-confidence ${what}s.</p>`}
           <h3 class="small-text">Skips — these need your eyes (${plan.skip.length})</h3>
           ${plan.skip.length ? html`<ul>${plan.skip.map((s) => html`<li><span class=${`conf conf-${s.level}`}>● ${s.level}</span> <span class="mono">${s.id}</span> <span class="muted">— ${s.why}</span></li>`)}</ul>` : html`<p class="muted small-text">none</p>`}
           ${plan.kept.length ? html`<h3 class="small-text">Your marks stay (${plan.kept.length})</h3><ul>${plan.kept.map((k) => html`<li><span class="mono">${k.id}</span> <span class="muted">${k.status}</span></li>`)}</ul>` : null}
-          <p class="muted small-text">Only the review marks change — accepting the version stays a separate click.</p>
+          <p class="muted small-text">Only the review marks change — approving the version stays a separate step.</p>
         </div>`
     }
   </${Modal}>`;

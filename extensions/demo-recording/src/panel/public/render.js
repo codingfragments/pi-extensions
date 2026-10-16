@@ -1,12 +1,18 @@
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { api, media, post, useApi } from "./core.js";
+import { api, media, post, useApi, useRouteVersion } from "./core.js";
 // demo-recording panel — Render tab (S5 part 9, D59–D68): a form for a new
 // render (draft or final, annotation version and types, brands, subtitles,
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
 import { confirmAsk, errorToast } from "./dialog.js";
-import { StageHeader, VersionActions } from "./stages.js";
+import {
+  RowBadges,
+  StageSummary,
+  VersionActions,
+  runVersionAction,
+  useHistory,
+} from "./version-ui.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
 const TYPE_LABEL = {
@@ -98,7 +104,7 @@ function NewRender({ data, events, onStarted }) {
       <fieldset>
         <legend>Kind</legend>
         <label class="radio"><input type="radio" name="kind" checked=${kind === "draft"} onChange=${() => setKind("draft")} /> <b>Draft</b> <span class="muted small-text">full video, 960×540, DRAFT tag, fast — any annotations</span></label>
-        <label class="radio"><input type="radio" name="kind" checked=${kind === "final"} onChange=${() => setKind("final")} /> <b>Final</b> <span class="muted small-text">full quality, scenes, transcripts, poster — needs accepted annotations</span></label>
+        <label class="radio"><input type="radio" name="kind" checked=${kind === "final"} onChange=${() => setKind("final")} /> <b>Final</b> <span class="muted small-text">full quality, scenes, transcripts, poster — needs approved annotations</span></label>
         ${kind === "final" && data.finalBlocker && !finalOk ? html`<p class="small-text warn-text">⚠ ${data.finalBlocker}</p>` : null}
       </fieldset>
       <fieldset>
@@ -109,7 +115,7 @@ function NewRender({ data, events, onStarted }) {
         }}>
           ${versions.map(
             (v) =>
-              html`<option value=${String(v.version)} disabled=${kind === "final" && !(v.accepted && v.usable)}>v${v.version}${v.accepted ? " ✔ accepted" : ""}${v.onLine ? " · working line" : ""} · ${v.enabled} on${kind === "final" && !(v.accepted && v.usable) ? " (not accepted)" : ""}</option>`,
+              html`<option value=${String(v.version)} disabled=${kind === "final" && !(v.accepted && v.usable)}>v${v.version}${v.accepted ? " ✔ approved" : ""}${v.onLine ? " · in the production line" : ""} · ${v.enabled} on${kind === "final" && !(v.accepted && v.usable) ? " (not accepted)" : ""}</option>`,
           )}
           ${kind === "draft" && data.draft ? html`<option value="draft">unsaved changes on v${data.draft.base} (${data.draft.changes})</option>` : null}
           ${kind === "draft" ? html`<option value="none">none</option>` : null}
@@ -222,14 +228,14 @@ function ZipButton({ r, v }) {
       setBusy(false);
     }
   };
-  return html`<button class="ghost tiny zip" disabled=${busy} title="download everything of this flavor as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
+  return html`<button class="ghost tiny zip" disabled=${busy} title="download everything of this variant as one zip: videos (clean + subtitled), scenes, transcripts, callouts, poster" onClick=${go}>${busy ? "zipping…" : "⬇ zip (all)"}</button>`;
 }
 
 function FlavorTable({ r, seek }) {
   const rows = flavorRows(r);
   const [sel, setSel] = useState(null);
   const video = useRef(null);
-  // A QA time link: show the main flavor (not a scene clip) and jump there.
+  // A QA time link: show the main variant (not a scene clip) and jump there.
   useEffect(() => {
     if (!seek) return;
     const main = rows.find((x) => x.v.present && !x.key.endsWith("#sub"));
@@ -275,7 +281,7 @@ function FlavorTable({ r, seek }) {
       }
     </div>
     <table class="flavor-table">
-      <thead><tr><th></th><th>Flavor</th><th>Length</th><th>Size</th><th>Video</th><th>Extras</th></tr></thead>
+      <thead><tr><th></th><th>Variant</th><th>Length</th><th>Size</th><th>Video</th><th>Extras</th></tr></thead>
       <tbody>
         ${rows.map((row) => {
           const v = row.v;
@@ -422,8 +428,12 @@ function QaSection({ r, onSeek, reload }) {
   </div>`;
 }
 
-function RenderCard({ r, stages, open, reload }) {
+function RenderCard({ r, row, events, viewed, open, reload }) {
   const [seek, setSeek] = useState(null);
+  const card = useRef(null);
+  useEffect(() => {
+    if (viewed) card.current?.scrollIntoView({ block: "nearest" });
+  }, [viewed]);
   const del = async () => {
     const size = mb(r.variants.reduce((n, v) => n + (v.present ? v.bytes : 0), 0));
     if (
@@ -439,8 +449,8 @@ function RenderCard({ r, stages, open, reload }) {
     if (r.accepted) {
       if (
         !(await confirmAsk({
-          title: "Delete the accepted deliverable?",
-          text: `Render v${r.version} is the ACCEPTED deliverable. Delete its files anyway?`,
+          title: "Delete the approved deliverable?",
+          text: `Render v${r.version} is the APPROVED deliverable. Delete its files anyway?`,
           confirmLabel: "Delete anyway",
           danger: true,
         }))
@@ -463,17 +473,18 @@ function RenderCard({ r, stages, open, reload }) {
         ? `only ${o.annotationTypes.join(", ")}`
         : "none included";
   const gone = r.deleted || r.pruned;
-  return html`<details class=${`card render-card ${r.kind} ${r.accepted ? "accepted" : ""}`} open=${open}>
+  return html`<details ref=${card} id=${`render-${r.version}`} aria-current=${viewed ? "true" : undefined} class=${`card render-card ${r.kind} ${r.accepted ? "accepted" : ""}`} open=${open || viewed}>
     <summary class="row">
       <h3>${r.kind === "final" ? "Final" : "Draft"} v${r.version}</h3>
-      ${r.accepted ? html`<span class="badge approved">accepted · deliverable</span>` : null}
+      ${r.accepted ? html`<span class="badge approved">approved · deliverable</span>` : null}
+      ${row?.inLine && !r.accepted ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In production line</span>` : null}
       <span class=${`pill ${r.status === "done" ? "" : r.status === "running" ? "" : "fail-pill"}`}>${r.status}</span>
       ${r.kind === "final" && r.status === "done" ? html`<span class=${`pill qa-pill ${r.qa?.status ?? "none"}`} title=${r.qaBlocker ?? "QA passed"}>${r.qa ? (r.qa.status === "blocked" ? `QA: ${r.qa.blocking - r.qa.confirmed} blocking` : r.qa.status === "pass" ? "QA ✓" : r.qa.status === "confirmed" ? "QA ✓ (confirmed)" : "QA error") : "QA not run"}</span>` : null}
       ${gone ? html`<span class="badge old">${r.deleted ? `deleted ${when(r.deleted)}` : "files pruned"}</span>` : null}
       <span class="muted small-text">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}</span>
     </summary>
     <div class="row render-actions">
-      ${r.kind === "final" && r.status === "done" && !gone ? html`<${VersionActions} stages=${stages} stage="render" version=${r.version} label=${`final render v${r.version}`} unlocks="It becomes the deliverable." disabled=${!!r.qaBlocker && !r.accepted} disabledWhy=${r.qaBlocker ?? ""} onDone=${reload} />` : null}
+      ${r.kind === "final" && r.status === "done" && !gone ? html`<${VersionActions} stage="render" row=${row} events=${events} eager=${false} knownWhy=${r.accepted ? "" : (r.qaBlocker ?? "")} label=${`final render v${r.version}`} onDone=${reload} />` : null}
       ${r.kind === "final" && r.qaBlocker && !r.accepted ? html`<span class="small-text warn-text">${r.qaBlocker}</span>` : null}
       ${r.overrides ? html`<span class="muted small-text">${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}</span>` : null}
       <span class="grow"></span>
@@ -487,6 +498,8 @@ function RenderCard({ r, stages, open, reload }) {
 }
 
 export function Render({ events, stages }) {
+  const hist = useHistory("render", events);
+  const routeVersion = useRouteVersion("render");
   const { data, error, reload } = useApi(
     "/api/renders",
     events,
@@ -502,16 +515,18 @@ export function Render({ events, stages }) {
     ...data.renders.filter((r) => !r.accepted),
   ];
   return html`
-    <${StageHeader} stages=${stages} stage="render" />
+    <${StageSummary} stage="render" row=${routeVersion !== null ? hist.data?.rows?.find((r) => r.version === routeVersion) : null} rows=${hist.data?.rows}
+      viewed=${routeVersion} onUse=${(v) => runVersionAction({ stage: "render", version: v, intent: "use" }).then(reload)}
+      meta=${html`<span>${finals.length} final · ${drafts.length} draft render(s)</span>`} />
     <${NewRender} data=${data} events=${events} onStarted=${reload} />
     <section class="card review-head">
       <div class="row">
         <h2>Renders</h2>
         <span class="muted small-text">${finals.length} final · ${drafts.length} draft — drafts keep their files for the newest ${data.defaults.keepDrafts} (Config → render.keepDrafts); finals are kept</span>
       </div>
-      ${data.renders.length ? null : html`<p class="muted">No renders yet. Every sync edit makes a draft; finals come from here once annotations are accepted.</p>`}
+      ${data.renders.length ? null : html`<p class="muted">No renders yet. Every sync edit makes a draft; finals come from here once annotations are approved.</p>`}
     </section>
-    ${ordered.map((r, i) => html`<${RenderCard} key=${r.version} r=${r} stages=${stages} open=${i === 0 || r.status === "running"} reload=${reload} />`)}
+    ${ordered.map((r, i) => html`<${RenderCard} key=${r.version} r=${r} row=${hist.data?.rows?.find((x) => x.version === r.version)} events=${events} viewed=${r.version === routeVersion} open=${i === 0 || r.status === "running"} reload=${reload} />`)}
     ${
       data.legacy.length
         ? html`<details class="card legacy">

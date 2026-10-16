@@ -214,7 +214,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
   assert.ok(record);
   await assert.rejects(
     record.execute("9", {}),
-    /no accepted storyboard on the working line .* accept one in the demo panel first/,
+    /no approved storyboard in the production line .* approve one in the demo panel first/,
   );
   await events.get("session_shutdown")?.({}, ctx);
 });

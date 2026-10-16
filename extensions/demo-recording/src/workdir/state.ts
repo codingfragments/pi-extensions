@@ -358,7 +358,7 @@ export function unacceptStage(
     "unaccepted",
     (s) => {
       if (!s.accepted[stage]?.[String(version)])
-        throw new Error(`${versionLabel(stage, version)} is not accepted`);
+        throw new Error(`${versionLabel(stage, version)} is not approved`);
       orphaned = orphansIfUnaccepted(projectDir, s.accepted, stage, version);
       const rest = { ...(s.accepted[stage] ?? {}) };
       delete rest[String(version)];
@@ -384,6 +384,45 @@ export function selectStage(projectDir: string, stage: Stage, version: number): 
   );
 }
 
+/**
+ * Approve a version with an explicit consequence for the production line (UX3, D118):
+ *  - "use": approve it AND make it part of the line (its ancestors follow, descendants re-pick);
+ *  - "only": approve it and leave the line exactly as it is. Refused (nothing is written) when the
+ *    line would change anyway, e.g. the stage has nothing on the line yet and the default pick
+ *    would choose this version.
+ * `acceptStage` stays as it was for the tools and the older panel route (it selects only when the
+ * parent is on the line).
+ */
+export function approveVersion(
+  projectDir: string,
+  stage: Stage,
+  version: number,
+  mode: "use" | "only",
+): ProjectState {
+  return updateState(
+    projectDir,
+    mode === "use" ? "approved-and-used" : "approved-only",
+    (s) => {
+      checkAcceptable(projectDir, s.accepted, stage, version);
+      s.accepted[stage] = {
+        ...(s.accepted[stage] ?? {}),
+        [String(version)]: new Date().toISOString(),
+      };
+      const next =
+        mode === "use"
+          ? lineThrough(projectDir, s.accepted, s.line, stage, version)
+          : normalizeLine(projectDir, s.accepted, s.line);
+      if (mode === "only" && JSON.stringify(next) !== JSON.stringify(s.line))
+        throw new Error(
+          `${versionLabel(stage, version)} cannot be approved without changing the production line — use "Approve & use"`,
+        );
+      s.line = next;
+      s.phase = phaseForLine(s);
+    },
+    { artifact: stage, version, mode },
+  );
+}
+
 /** Kept for callers of the S2–S4 API: accepting = approving. */
 export function approve(projectDir: string, stage: Stage, version: number): ProjectState {
   return acceptStage(projectDir, stage, version);
@@ -402,11 +441,11 @@ export function requireSelected(
   const v = explicit ?? state.line[stage];
   if (v === undefined)
     throw new Error(
-      `no accepted ${STAGE_LABEL[stage]} on the working line of "${state.project}" — accept one in the demo panel first`,
+      `no approved ${STAGE_LABEL[stage]} in the production line of "${state.project}" — approve one in the demo panel first`,
     );
   if (!state.accepted[stage]?.[String(v)])
     throw new Error(
-      `${versionLabel(stage, v)} is not accepted — accept it in the demo panel first`,
+      `${versionLabel(stage, v)} is not approved — approve it in the demo panel first`,
     );
   const why = orphanReason(projectDir, state.accepted, stage, v);
   if (why) throw new Error(`${versionLabel(stage, v)} can't be used: ${why}`);
@@ -418,7 +457,7 @@ export function requireApproved(state: ProjectState, stage: Stage): number {
   const v = state.line[stage];
   if (v === undefined || !state.accepted[stage]?.[String(v)])
     throw new Error(
-      `${STAGE_LABEL[stage]} is not accepted yet for project "${state.project}" — accept it in the demo panel first`,
+      `${STAGE_LABEL[stage]} is not approved yet for project "${state.project}" — approve it in the demo panel first`,
     );
   return v;
 }

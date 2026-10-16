@@ -145,14 +145,14 @@ test(
         `document.getElementById("item-01-dash").classList.contains("jumped")`,
       );
       // approve high-confidence: the plan first, then applied
-      await page.getByRole("button", { name: /Approve high-confidence/ }).click();
+      await page.getByRole("button", { name: /Mark high-confidence reviewed/ }).click();
       const modal = page.locator(".modal");
       await modal.locator(".approve-plan").waitFor();
       assert.match(
         await modal.innerText(),
-        /Approves \(3\)[\s\S]*_intro[\s\S]*02-search[\s\S]*_outro[\s\S]*Skips[\s\S]*01-dash/i,
+        /Marks reviewed \(3\)[\s\S]*_intro[\s\S]*02-search[\s\S]*_outro[\s\S]*Skips[\s\S]*01-dash/i,
       );
-      await modal.getByRole("button", { name: "Approve 3 section(s)" }).click();
+      await modal.getByRole("button", { name: "Mark 3 section(s) reviewed" }).click();
       await page.waitForFunction(`!document.querySelector(".modal-backdrop")`);
       const review = getReview(readState(p.dir) ?? p.state, 2, "vo");
       assert.deepEqual(Object.keys(review.scenes).sort(), ["02-search", "_intro", "_outro"]);

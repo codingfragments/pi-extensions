@@ -174,7 +174,7 @@ test("states: blocked by an orphaned working-line version or a failed job; runni
       stage("storyboard", { selected: 1, accepted: [[1]], onInput: [1] }),
       stage("recording", {
         selected: 1,
-        accepted: [[1, "storyboard v1 is not accepted"]],
+        accepted: [[1, "storyboard v1 is not approved"]],
         onInput: [1],
       }),
       stage("vo"),
@@ -186,7 +186,7 @@ test("states: blocked by an orphaned working-line version or a failed job; runni
   assert.equal(states(orphaned).recording, "blocked");
   assert.match(
     stepStates({ stages: orphaned, jobs: [] }).recording?.why ?? "",
-    /blocked: storyboard v1 is not accepted/,
+    /blocked: storyboard v1 is not approved/,
   );
 
   const base = data(ALL_DONE, { who: null, stage: null, text: "delivered" });

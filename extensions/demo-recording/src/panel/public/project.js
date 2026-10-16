@@ -355,7 +355,7 @@ function Memory({ events }) {
   const b = brief.data;
   return html`
     <section class="card">
-      <div class="row"><h2>Working line</h2><span>${data.lineText}</span></div>
+      <div class="row"><h2>Production line</h2><span>${data.lineText}</span></div>
     </section>
     <section class="card">
       <div class="row"><h2>Brief</h2>

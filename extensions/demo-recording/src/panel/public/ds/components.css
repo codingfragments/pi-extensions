@@ -1262,3 +1262,29 @@ dialog.ds-dialog::backdrop {
 .ds-menu > ul a:hover {
   background: var(--surface-raised);
 }
+
+/* ---------- Version actions and History (UX3) ---------- */
+.ds-histwrap {
+  position: relative;
+}
+.ds-histpop {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + var(--space-1));
+  z-index: var(--layer-drawer);
+  inline-size: min(30rem, 92vw);
+  max-block-size: min(28rem, 70vh);
+  overflow: auto;
+}
+.ds-histpop .ds-version[aria-current="true"] {
+  background: var(--accent-tint);
+}
+.ds-actionwrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.version-actions {
+  gap: var(--space-3);
+  align-items: flex-start;
+}

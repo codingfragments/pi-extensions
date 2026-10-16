@@ -57,16 +57,16 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
   The result message lists per-scene cuts, holds, pauses and any off-sync anchors.
 - **Output:** 1920×1080, 30 fps H.264, AAC, loudness-normalized to −16 LUFS.
 
-### Stages, working line and project memory (S5)
+### Stages, the production line and project memory (S5)
 
 - **Stages:** storyboard → recording (take) → voice-over → annotations → render.
 - **Versions:** every version is based on exactly one parent version, read from the files themselves.
-- **Accepting:** several versions per stage can be accepted, so lines branch. A take of storyboard v2 can get two voice-overs, and two good takes can each get their own. Accepting resets nothing; a version can only be accepted when its parent is accepted.
-- **Un-accepting:** never deletes or resets anything. Accepted versions built on the un-accepted one are flagged **orphaned** and can't be used until it's accepted again.
-- **Working line:** one line per project (e.g. storyboard v2 → take-006 → voice-over v3), shared by the panel and the agent.
-  - **Default per stage:** the most recently accepted version on the line's input.
-  - **Agent tools:** they use the working line unless given an explicit version.
-  - **Status:** `demo_rec_project status` shows it, plus all accepted versions with their lineage.
+- **Approving:** several versions per stage can be approved, so lines branch. A take of storyboard v2 can get two voice-overs, and two good takes can each get their own. Approving resets nothing; a version can only be accepted when its parent is accepted.
+- **Withdrawing an approval:** never deletes or resets anything. Approved versions built on it are flagged **blocked by dependency** and can't be used until it is approved again.
+- **Production line:** one line per project (e.g. storyboard v2 → take-006 → voice-over v3), shared by the panel and the agent.
+  - **Default per stage:** the most recently approved version on the line's input.
+  - **Agent tools:** they use the production line unless given an explicit version.
+  - **Status:** `demo_rec_project status` shows it, plus all approved versions with their lineage.
 - **Project memory:** `inputs.jsonl` records every directional input: `/demo discover` and `/demo voiceover` notes, submitted panel reviews, inline edits, brief versions, and chat directions, sources and assets the agent notes with `demo_rec_project note`. Withdrawn directions are marked outdated, never deleted. `demo_rec_project context` returns the brief, the working line, the lineage and the active inputs; `/demo open` and a session restore put that into the agent's next turn.
 
 ### Project tab (S5)
@@ -88,7 +88,7 @@ The first step, with three views:
   - **Agent findings** come from discovery and analysis (`demo_rec_project finding` with evidence: strength, weakness, friction, value, use case, length).
   - **Engine findings** are detected: error toasts, improvise fallbacks, retries, dead time, blocked and state-changing discovery actions, and the edited length vs. the target.
   - **States:** each finding is **auto** (the director decides), **use** (always in the recording *and* the narration; storyboard scenes list the findings they cover, and uncovered *use* findings produce a warning) or **ignore** (never brought up). Evidence shows as thumbnails.
-- **Memory:** the working line, the brief with versions and diffs, the input log (mark outdated / restore), and sources and assets.
+- **Memory:** the production line, the brief with versions and diffs, the input log (mark outdated / restore), and sources and assets.
 
 ### ⚙ Config (S5)
 
@@ -107,21 +107,21 @@ The first step, with three views:
 
 ### Dialogs, errors and cost warnings (S5)
 
-- **Decisions** (accept, un-accept with its orphan list, saving config or brands with a diff, deleting renders, discarding changes, naming a copy, giving a reason) are in-panel dialogs: Escape cancels, Enter confirms, a destructive one starts on *Cancel*. **Errors** are non-blocking toasts that stay until dismissed, with *Copy*. No native `alert` / `confirm` / `prompt` is used.
+- **Decisions** (approve, withdraw an approval with the list of what becomes blocked, saving config or brands with a diff, deleting renders, discarding changes, naming a copy, giving a reason) are in-panel dialogs: Escape cancels, Enter confirms, a destructive one starts on *Cancel*. **Errors** are non-blocking toasts that stay until dismissed, with *Copy*. No native `alert` / `confirm` / `prompt` is used.
 - **Ask first** before money and long jobs: *Generate voice & render* (cached vs billed characters, credits and money; never skippable), *Request a new take* (improvise steps, their models and whether those have credentials, the last take's length) and a *separate designer run* (the input pack in tokens and its models). The last two offer "Don't ask again this session".
 - **Hints:** buttons that start an agent turn say so ("starts the Director · claude-opus-4-5"); the cost of a turn can't be estimated, so no number is shown.
-- **`POST /api/estimate`** is the free dry run behind the dialogs, and every panel route has a cost class that a test enforces. `demo_rec_tts check` prints the voice cost for the working line too.
+- **`POST /api/estimate`** is the free dry run behind the dialogs, and every panel route has a cost class that a test enforces. `demo_rec_tts check` prints the voice cost for the production line too.
 
 ### Panel: the control room (S5)
 
 - **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
 - **Where you are is in the URL:** `#/voice`, `#/render`, `#/config`, … (and `#/<screen>/v3/<item>`, read but not used by the screens yet). Back, forward and reload work; a bare URL restores the last place in that project, and a new project starts at *Project*. An unknown route says so and shows Project. Navigating never changes project state.
-- **Top bar:** *Project* first, then the five production stages as a stepper with a **state** each: complete, needs you, running, blocked or not started (an icon and a word, never colour alone). *Complete* means the version on the working line is accepted and usable; an approval on another branch does not count. **⚙ Config** and the theme sit at the far right.
-- **Next-action band** under the bar: what needs you (a draft newer than the newest accepted version, or the engine's next step), or what is blocked, with a link to go there and a list of the other pending items. It only links; it never starts anything, and never moves you by itself.
+- **Top bar:** *Project* first, then the five production stages as a stepper with a **state** each: complete, needs you, running, blocked or not started (an icon and a word, never colour alone). *Complete* means the version in the production line is approved and usable; an approval on another branch does not count. **⚙ Config** and the theme sit at the far right.
+- **Next-action band** under the bar: what needs you (a draft newer than the newest approved version, or the engine's next step), or what is blocked, with a link to go there and a list of the other pending items. It only links; it never starts anything, and never moves you by itself.
 - **A result that arrives** (a storyboard, a take, a voice-over, annotations, a render) puts a **new** badge on its step. It never switches the screen, takes the focus or touches what you are typing; visiting the step clears the badge.
-  - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
-  - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
-  - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).
+  - **Viewing a version:** the head of each screen says what you are looking at (*Viewing v2 · Draft version · Based on recording take-001*) and, when it is not in the production line, how it differs (*You are viewing a new draft. Voice over v1 is in the production line, so the next steps still use v1.*). Looking never changes the line: the **History** button lists every version of the stage with its source and status, and each is a link (`#/voice/v1`).
+  - **Four actions**, each with a free plan first and applied once, only if the project is still as planned: **Approve & use** (approve it and put it in the production line; starts the Director), **Approve only** (approve it, the line stays exactly as it is; refused where it would change), **Use for next steps** (put an approved version in the line) and **Withdraw approval** (what was built on it becomes *blocked by dependency*; nothing is deleted). A dialog states the consequence, with the line before and after, only when something leaves or changes in it.
+  - **One vocabulary:** approved, production line, blocked by dependency, *Mark reviewed / Needs changes* (on one scene, section or annotation; it never approves the version), variant, working draft. Stored names and the tools keep their old words.
 - **Recording tab:** the takes of the selected storyboard, newest first, with status, duration, analysis state, a keyframe per scene and the raw take as video. *Request a new take* asks the agent for a take of that storyboard.
 - **Status strip** along the bottom, one short line: *Nothing running*, what runs (a percentage only when the job reports progress; several jobs are counted), a failure in red with *Show error*, or the connection state. Running and failed come from the engine's real job table (`GET /api/jobs`), not from replayed events; "waiting for the Director" is never shown as running.
 - **Activity drawer:** the *Activity* button opens it on the right as an overlay (the page does not shrink); it never opens by itself, not even on an error, and is closed again after a reload. It holds the running jobs with their progress, what needs attention (a failed job with its details and *Dismiss*), recent jobs, the live frame preview, safety, and the log with its full-log and line popups. Escape closes it (a dialog or popup first) and the focus goes back to the button.
@@ -170,7 +170,7 @@ Zooms, highlights, spotlights, callouts, chapter titles and redactions, burned i
   - on/off switches, inline texts, ±½ s nudges and other targets;
   - a budget meter, filters, and "Play scene with enabled annotations";
   - **Re-suggest with instructions**, which keeps everything you changed.
-- **Saving and accepting:** edits are a draft until **Save as vN**. **Accept** a version, and a final render becomes possible; the agent offers one.
+- **Saving and approving:** edits are a working draft until **Save as vN**. **Approve** a version, and a final render becomes possible; the agent offers one.
 - **By hand:** the same files via the CLI (`annotate add|check|preview|suggest|import`).
 
 Full reference, with an example of every type: [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md).
@@ -190,17 +190,17 @@ Full reference: [docs/CONFIDENCE.md](docs/CONFIDENCE.md).
 
 ### Render (S5)
 
-The last stage: drafts to watch, and finals to hand over. Every render is a version (`render/vN/`), and the panel's **Render** tab is where they're made, watched, accepted and deleted.
+The last stage: drafts to watch, and finals to hand over. Every render is a version (`render/vN/`), and the panel's **Render** tab is where they're made, watched, approved and deleted.
 
 - **Draft:** any annotations (or unsaved changes). Full video only, 960×540, with a small DRAFT tag. Every sync edit makes one.
-- **Final:** needs accepted annotations. Full quality, per-scene clips, a transcript (VTT) and the callouts (SRT), and a poster.
+- **Final:** needs approved annotations. Full quality, per-scene clips, a transcript (VTT) and the callouts (SRT), and a poster.
 - **Per render:**
   - which annotation types to include (none, chapters only, …);
   - several brands at once;
   - optional burned-in subtitles, as extra files;
   - the logo bug on or off.
-- **QA** checks every final automatically: values said vs. shown, error toasts, sync drift (Whisper), frozen, black or silent stretches, and redaction gaps. Blocking items gate **Accept**; you either **Apply fixes** (a new final with mechanical fixes) or confirm each with a reason. See [docs/QA.md](docs/QA.md).
-- **Accept** a final: it becomes the deliverable.
+- **QA** checks every final automatically: values said vs. shown, error toasts, sync drift (Whisper), frozen, black or silent stretches, and redaction gaps. Blocking items gate **Approve final**; you either **Apply fixes** (a new final with mechanical fixes) or confirm each with a reason. See [docs/QA.md](docs/QA.md).
+- **Approve final**: it becomes the deliverable.
 - **Disk space:** old drafts are pruned (`render.keepDrafts`), and **Delete files** keeps the record.
 
 Full reference: [docs/RENDER.md](docs/RENDER.md).

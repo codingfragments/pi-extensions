@@ -186,7 +186,7 @@ test("estimate: designer run (tokens, models) or an agent turn; turns only get a
     // a voice-over that isn't accepted can't be generated, and it says so before any estimate
     await assert.rejects(
       estimate(without.rt, "vo-generate", { version: 7 }),
-      /not accepted|no accepted|does not exist|missing/,
+      /not approved|no approved|does not exist|missing/,
     );
   } finally {
     for (const x of [withRole, without]) {
@@ -460,7 +460,7 @@ test(
         told.some((t) => /suggested by the separate Annotation designer \(a\/one\)/.test(t)),
       );
       // the turn buttons carry a visible hint (the Director's model, no price)
-      const accept = page.getByRole("button", { name: /^Accept v/ });
+      const accept = page.getByRole("button", { name: /^Approve & use v/ });
       await accept.waitFor();
       assert.match(
         await page.locator(".version-actions .cost-hint").first().innerText(),

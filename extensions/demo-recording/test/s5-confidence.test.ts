@@ -460,7 +460,7 @@ test("generate: gated on an accepted VO on the working line", async () => {
   const gen = voiceRoutes(rt).post["vo-generate"] as (
     b: Record<string, unknown>,
   ) => Promise<unknown>;
-  await assert.rejects(gen({ version: 1 }), /no accepted voice-over|is not accepted/);
+  await assert.rejects(gen({ version: 1 }), /no approved voice-over|is not approved/);
 });
 
 test("estimate: cached vs to synthesize, ElevenLabs credits (flash 0.5), money from the config", async () => {

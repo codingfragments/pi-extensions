@@ -11,7 +11,17 @@ import {
   useCollapse,
 } from "./confidence.js";
 import { Settings } from "./config.js";
-import { api, media, post, screenUrl, token, useApi, useBus, useHashRoute } from "./core.js";
+import {
+  api,
+  media,
+  post,
+  screenUrl,
+  token,
+  useApi,
+  useBus,
+  useHashRoute,
+  useRouteVersion,
+} from "./core.js";
 import { CostHint, confirmCost, setModels } from "./cost.js";
 // demo-recording side panel — the control room (S5 part 4): stage tabs
 // Storyboard · Recording · Voice over · Annotations · Render · Config, each
@@ -25,7 +35,8 @@ import { Project } from "./project.js";
 import { Recording } from "./recording.js";
 import { Render } from "./render.js";
 import { readLastPlace, writeLastPlace } from "./route.js";
-import { StageHeader, VersionActions, stageOf, useStages } from "./stages.js";
+import { stageOf, useStages } from "./stages.js";
+import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 // ---------------- REVIEW ----------------
 
@@ -58,7 +69,7 @@ function stepLabel(s) {
   }
 }
 
-const STATUS_LABEL = { approved: "Approve", changes: "Request changes", rerun: "Re-run" };
+const STATUS_LABEL = { approved: "Mark reviewed", changes: "Needs changes", rerun: "Re-run" };
 
 /** One line for a collapsed high-confidence item (D79/D81). */
 function CompactCard({ id, index, title, conf, status, onExpand }) {
@@ -132,7 +143,8 @@ function SceneCard({ scene, index, review, diffKind, readOnly, onReview, conf })
 }
 
 function Review({ events, stages }) {
-  const [version, setVersion] = useState(null);
+  const version = useRouteVersion("storyboard");
+  const hist = useHistory("storyboard", events);
   const path = version ? `/api/storyboard?version=${version}` : "/api/storyboard";
   const { data, error, reload } = useApi(path, events, /^(storyboard\.|review\.|project\.)/);
   const [overall, setOverall] = useState("");
@@ -146,13 +158,14 @@ function Review({ events, stages }) {
   if (error) return html`<section class="card error">${error}</section>`;
   if (!data) return html`<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
+  if (!data.storyboard && version !== null)
+    return html`<${StageSummary} stage="storyboard" rows=${hist.data?.rows} viewed=${version} />`;
   if (!data.storyboard) {
     return html`<section class="card muted">No storyboard yet. Run <code>/demo discover</code> in pi; it appears here as soon as the agent writes one.</section>`;
   }
 
   const latest = data.versions.at(-1);
   const readOnly = data.version !== latest;
-  const mark = (v) => `${data.accepted?.includes(v) ? " ✓" : ""}${v === data.selected ? " ●" : ""}`;
   const diffKind = (id) => {
     if (!data.diff) return null;
     if (data.diff.added.includes(id)) return "new";
@@ -177,16 +190,12 @@ function Review({ events, stages }) {
   const marked = Object.keys(data.review?.scenes ?? {}).length;
 
   return html`
-    <${StageHeader} stages=${stages} stage="storyboard" />
+    <${StageSummary} stage="storyboard" row=${hist.data?.rows?.find((r) => r.version === data.version)} rows=${hist.data?.rows}
+      viewed=${data.version} onUse=${(v) => runVersionAction({ stage: "storyboard", version: v, intent: "use" }).then(reload)}
+      meta=${readOnly ? html`<span>older version: read-only</span>` : null} />
     <section class="card review-head">
       <div class="row">
-        <h2>Storyboard v${data.version}</h2>
-        ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
-        <select value=${data.version} title="✓ accepted · ● working line" onChange=${(e) => setVersion(Number(e.target.value))}>
-          ${data.versions.map((v) => html`<option value=${v}>v${v}${mark(v)}</option>`)}
-        </select>
-        <span class="grow"></span>
-        <${VersionActions} stages=${stages} stage="storyboard" version=${data.version} unlocks="Takes can be recorded from it." onDone=${reload} />
+        <${VersionActions} stage="storyboard" row=${hist.data?.rows?.find((r) => r.version === data.version)} events=${events} onDone=${reload} />
       </div>
       ${data.storyboard.summary ? html`<p>${data.storyboard.summary}</p>` : null}
       ${
@@ -199,7 +208,7 @@ function Review({ events, stages }) {
           : null
       }
       <${NeedsEyes} summary=${data.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} collapseHigh=${fold.collapseHigh} setCollapseHigh=${fold.setCollapseHigh}>
-        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence scene approved — you see the list first" onClick=${() => setApproveOpen(true)}>Approve high-confidence…</button>`}
+        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence scene reviewed — you see the list first" onClick=${() => setApproveOpen(true)}>Mark high-confidence reviewed…</button>`}
       </${NeedsEyes}>
     </section>
     <div class="scenes">
@@ -439,14 +448,15 @@ function Direction({ data, onSent }) {
 }
 
 function Voice({ events, stages }) {
-  const [version, setVersion] = useState(null);
+  const version = useRouteVersion("voice");
+  const hist = useHistory("vo", events);
+  const [, go] = useHashRoute();
   const [compare, setCompare] = useState(null);
   const [showChanges, setShowChanges] = useState(true);
   const [riskFirst, setRiskFirst] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
   const fold = useCollapse();
   const input = stageOf(stages, "vo")?.input;
-  useEffect(() => setVersion(null), [input]);
   useEffect(() => setCompare(null), [version]);
   const q = [
     input !== undefined ? `take=${input}` : "",
@@ -462,18 +472,20 @@ function Voice({ events, stages }) {
   const [flash, setFlash] = useState(null);
   useEffect(() => setOverall(data?.review?.note ?? ""), [data?.version, data?.review?.note]);
   // Keep the stage header (with its input picker) visible whatever the content does.
-  const head = html`<${StageHeader} stages=${stages} stage="vo" />`;
+  const head = html`<${StageSummary} stage="vo" rows=${hist.data?.rows} viewed=${version} />`;
   if (error) return html`${head}<section class="card error">${error}</section>`;
   if (!data) return html`${head}<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
-  if (data.error) return html`${head}<section class="card error">${data.error}</section>`;
+  if (data.error)
+    return html`${head}<section class="card error">${data.error} <a href="#/voice">Show the latest</a></section>`;
+  if (!data.sections && version !== null)
+    return html`${head}<section class="card error">Voice over v${version} does not exist. <a href="#/voice">Show the latest</a></section>`;
   if (!data.sections) {
-    return html`<${StageHeader} stages=${stages} stage="vo" />
-      <section class="card muted">${input !== undefined ? `No voice-over for take-${String(input).padStart(3, "0")} yet — ask the agent to write one (/demo voiceover); it appears here.` : "Accept a take first (Recording tab); its voice-overs show up here."}</section>`;
+    return html`${head}
+      <section class="card muted">${input !== undefined ? `No voice-over for take-${String(input).padStart(3, "0")} yet — ask the agent to write one (/demo voiceover); it appears here.` : "Approve a take first (Recording tab); its voice-overs show up here."}</section>`;
   }
   const latest = data.versions.at(-1);
   const readOnly = data.version !== latest;
-  const mark = (v) => `${data.accepted?.includes(v) ? " ✓" : ""}${v === data.selected ? " ●" : ""}`;
   const hasErrors = data.issues.some((i) => i.level === "error");
   const run = async (fn, ok) => {
     setBusy(true);
@@ -506,7 +518,7 @@ function Voice({ events, stages }) {
   const onEdit = (section, text) =>
     run(async () => {
       const r = await post("/api/vo-edit", { version: data.version, section, text });
-      setVersion(null);
+      go({ screen: "voice" }); // look at the new version: the latest
       return r;
     }, "saved as a new version");
   const changedCount = data.sections.filter(
@@ -515,18 +527,14 @@ function Voice({ events, stages }) {
   const totalSpeech = data.timing.reduce((n, t) => n + t.speechSec, 0);
   const totalFootage = data.timing.reduce((n, t) => n + t.usableSec, 0);
   return html`
-    <${StageHeader} stages=${stages} stage="vo" />
+    <${StageSummary} stage="vo" row=${hist.data?.rows?.find((r) => r.version === data.version)} rows=${hist.data?.rows}
+      viewed=${data.version} onUse=${(v) => runVersionAction({ stage: "vo", version: v, intent: "use" }).then(reload)}
+      meta=${readOnly ? html`<span>older version: read-only</span>` : null} />
     <section class="card review-head">
       <div class="row">
-        <h2>Voice-over v${data.version}</h2>
         <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
         ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
-        ${readOnly ? html`<span class="badge old">older version (read-only)</span>` : null}
-        <select value=${data.version} title="✓ accepted · ● working line" onChange=${(e) => setVersion(Number(e.target.value))}>
-          ${data.versions.map((v) => html`<option value=${v}>v${v}${mark(v)}</option>`)}
-        </select>
-        <${VersionActions} stages=${stages} stage="vo" version=${data.version} disabled=${hasErrors} disabledWhy=${hasErrors ? "fix the errors first" : ""}
-          unlocks="Voice synthesis is unlocked for it (uses TTS credits)." onDone=${reload} />
+        <${VersionActions} stage="vo" row=${hist.data?.rows?.find((r) => r.version === data.version)} events=${events} onDone=${reload} />
         ${data.canGenerate ? html`<button class="primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${generate}>Generate voice & render…</button>` : null}
       </div>
       ${
@@ -548,7 +556,7 @@ function Voice({ events, stages }) {
           : null
       }
       <${NeedsEyes} summary=${data.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} collapseHigh=${fold.collapseHigh} setCollapseHigh=${fold.setCollapseHigh}>
-        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence section approved — you see the list first" onClick=${() => setApproveOpen(true)}>Approve high-confidence…</button>`}
+        ${readOnly || !data.confidence ? null : html`<button class="ghost" title="mark every unmarked high-confidence section reviewed — you see the list first" onClick=${() => setApproveOpen(true)}>Mark high-confidence reviewed…</button>`}
       </${NeedsEyes}>
     </section>
     ${
@@ -1006,7 +1014,7 @@ function App() {
   return html`
     <${Header} slug=${slug} tab=${tab} states=${states} news=${news} band=${band} />
     <main class=${tab}>
-      ${notice ? html`<div class="ds-root ds-notice" role="note" data-tone="warn"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div class="ds-grow">${notice}</div><button class="ds-btn ds-btn--sm" type="button" onClick=${() => setNotice(null)}>Dismiss</button></div>` : null}
+      ${notice ? html`<div class="ds-root ds-notice route-notice" role="note" data-tone="warn"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div class="ds-grow">${notice}</div><button class="ds-btn ds-btn--sm" type="button" onClick=${() => setNotice(null)}>Dismiss</button></div>` : null}
       ${stateError ? html`<section class="card error">${stateError}</section>` : null}
       ${body}
     </main>

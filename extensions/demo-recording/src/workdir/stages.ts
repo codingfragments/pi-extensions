@@ -155,7 +155,7 @@ export function orphanReason(
     const parent = PARENT[s] as Stage;
     const pv: number | undefined = parentOf(projectDir, s, n as number);
     if (pv === undefined) return `its ${STAGE_LABEL[parent]} is unknown`;
-    if (!isAccepted(acc, parent, pv)) return `${versionLabel(parent, pv)} is not accepted`;
+    if (!isAccepted(acc, parent, pv)) return `${versionLabel(parent, pv)} is not approved`;
     s = parent;
     n = pv;
   }
@@ -235,7 +235,7 @@ export function lineThrough(
   v: number,
 ): WorkingLine {
   if (!isAccepted(acc, stage, v))
-    throw new Error(`${versionLabel(stage, v)} is not accepted — accept it first`);
+    throw new Error(`${versionLabel(stage, v)} is not approved — approve it first`);
   const why = orphanReason(projectDir, acc, stage, v);
   if (why) throw new Error(`${versionLabel(stage, v)} can't be used: ${why}`);
   const next: WorkingLine = { ...line, [stage]: v };
@@ -270,7 +270,7 @@ export function checkAcceptable(
     throw new Error(`${versionLabel(stage, version)} has no known ${STAGE_LABEL[parent]}`);
   if (!isAccepted(acc, parent, pv))
     throw new Error(
-      `${versionLabel(stage, version)} is based on ${versionLabel(parent, pv)}, which is not accepted — accept that ${STAGE_LABEL[parent]} first`,
+      `${versionLabel(stage, version)} is based on ${versionLabel(parent, pv)}, which is not approved — approve that ${STAGE_LABEL[parent]} first`,
     );
   const why = orphanReason(projectDir, acc, parent, pv);
   if (why)
@@ -384,7 +384,7 @@ export function formatLine(line: WorkingLine): string {
   const parts = STAGES.filter((s) => line[s] !== undefined).map((s) =>
     versionLabel(s, line[s] as number),
   );
-  return parts.length ? parts.join(" → ") : "(nothing accepted yet)";
+  return parts.length ? parts.join(" → ") : "(nothing approved yet)";
 }
 
 export interface NextStep {
@@ -423,7 +423,7 @@ export function nextStep(
         return {
           who: "user",
           stage,
-          text: `review and accept final ${versionLabel(stage, finals.at(-1) as number)}`,
+          text: `review and approve final ${versionLabel(stage, finals.at(-1) as number)}`,
         };
       return { who: "user", stage, text: "render a final in the Render tab" };
     }
@@ -431,8 +431,8 @@ export function nextStep(
       const latest = drafts.at(-1) as number;
       const what =
         stage === "recording"
-          ? `accept a take of ${versionLabel("storyboard", input as number)} (e.g. ${takeId(latest)})`
-          : `review and accept ${versionLabel(stage, latest)}`;
+          ? `approve a take of ${versionLabel("storyboard", input as number)} (e.g. ${takeId(latest)})`
+          : `review and approve ${versionLabel(stage, latest)}`;
       return { who: "user", stage, text: what };
     }
     const waiting: Record<Stage, string> = {
@@ -455,6 +455,6 @@ export function nextStep(
     : {
         who: "agent",
         stage: "vo",
-        text: "voice-over accepted — generate the voice and render (demo_rec_tts, demo_rec_edit)",
+        text: "voice-over approved — generate the voice and render (demo_rec_tts, demo_rec_edit)",
       };
 }

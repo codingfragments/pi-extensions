@@ -263,7 +263,7 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
         const p = requireProject();
         const state = readState(p.dir) ?? p.state;
         if (state.line.vo === undefined)
-          throw new Error("accept a voice-over first — annotations follow the narration");
+          throw new Error("approve a voice-over first — annotations follow the narration");
         if (!safeTimeline(p.dir, state.line.vo))
           throw new Error(`run the sync edit for VO v${state.line.vo} first`);
         const instructions =

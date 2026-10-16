@@ -554,36 +554,9 @@ audio {
 
 /* ---------- S5 part 4: control room ---------- */
 
-/* stage header */
-.stage-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 8px 14px;
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-  background: var(--inset);
-}
-.stage-head .stage-name {
-  font-weight: 600;
-}
-.stage-head .stage-name::first-letter {
-  text-transform: uppercase;
-}
 .badge.stale {
   background: color-mix(in srgb, var(--warn) 20%, var(--card));
   color: var(--warn);
-}
-.stage-head .next {
-  font-size: 14px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--chip);
-}
-.stage-head .next.user {
-  background: color-mix(in srgb, var(--warn) 22%, var(--card));
-  color: var(--text);
 }
 
 .chip {
@@ -725,17 +698,10 @@ input.note {
 }
 
 /* branching stages (D44–D46) */
-.badge.line {
-  background: color-mix(in srgb, var(--accent) 22%, var(--card));
-  color: var(--accent);
-}
 .version-actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.input-picker select {
-  margin-left: 6px;
 }
 .card.take.on-line {
   box-shadow: inset 3px 0 0 var(--accent);

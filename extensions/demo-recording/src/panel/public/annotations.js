@@ -290,7 +290,7 @@ function Resuggest({ data, onDone }) {
       setText("");
       setFlash(
         has
-          ? "re-suggest requested — the agent works on it (Live panel); your changes are kept"
+          ? "re-suggest requested — the agent works on it (see the Activity drawer); your changes are kept"
           : "suggestions requested — the agent works on it",
       );
       onDone?.();

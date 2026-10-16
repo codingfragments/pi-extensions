@@ -115,15 +115,16 @@ The first step, with three views:
 ### Panel: the control room (S5)
 
 - **Opening:** `/demo panel` starts the panel and opens it in your default browser (macOS `open`, Linux `xdg-open`, Windows `start`). Set `DEMO_REC_NO_OPEN=1` to only print the URL.
-- **Top bar:** the process steps form a stepper on the left (Storyboard › Recording › Voice over › Annotations › Render). **⚙ Config** sits at the far right, apart from the steps, and holds all tool configuration (see below). The **Project** tab at the far left is step one (see below).
+- **Where you are is in the URL:** `#/voice`, `#/render`, `#/config`, … (and `#/<screen>/v3/<item>`, read but not used by the screens yet). Back, forward and reload work; a bare URL restores the last place in that project, and a new project starts at *Project*. An unknown route says so and shows Project. Navigating never changes project state.
+- **Top bar:** *Project* first, then the five production stages as a stepper with a **state** each: complete, needs you, running, blocked or not started (an icon and a word, never colour alone). *Complete* means the version on the working line is accepted and usable; an approval on another branch does not count. **⚙ Config** and the theme sit at the far right.
+- **Next-action band** under the bar: what needs you (a draft newer than the newest accepted version, or the engine's next step), or what is blocked, with a link to go there and a list of the other pending items. It only links; it never starts anything, and never moves you by itself.
+- **A result that arrives** (a storyboard, a take, a voice-over, annotations, a render) puts a **new** badge on its step. It never switches the screen, takes the focus or touches what you are typing; visiting the step clears the badge.
   - **Input picker:** every stage tab except Storyboard has one, listing each accepted, usable version of the previous stage with its lineage (e.g. "take-006 · storyboard v2"). It defaults to the working line; changing it switches the working line, and the agent is told.
   - **Shared header:** each tab shows how many versions are on the selected input, which are accepted, the working line's version, orphan flags, and "→ you: …" when the project waits for you. A dot on the tab marks the stage that needs you.
   - **Per-version actions:** *Accept* (several allowed, resets nothing), *Un-accept* (the confirmation lists what becomes orphaned), and *Work on this* (put it on the working line).
 - **Recording tab:** the takes of the selected storyboard, newest first, with status, duration, analysis state, a keyframe per scene and the raw take as video. *Request a new take* asks the agent for a take of that storyboard.
-- **Live panel:** a collapsible right-hand panel; below 1100 px wide it becomes a bottom drawer.
-  - **Contents:** one progress row per running activity, a frame preview (the live frame of a running take, or the current discovery screen), safety, the working line and the log.
-  - **Collapsed:** a one-line strip with stage, activity or "waiting for you", and a mini progress bar.
-  - **Per tab:** sections can be toggled and are remembered.
+- **Status strip** along the bottom, one short line: *Nothing running*, what runs (a percentage only when the job reports progress; several jobs are counted), a failure in red with *Show error*, or the connection state. Running and failed come from the engine's real job table (`GET /api/jobs`), not from replayed events; "waiting for the Director" is never shown as running.
+- **Activity drawer:** the *Activity* button opens it on the right as an overlay (the page does not shrink); it never opens by itself, not even on an error, and is closed again after a reload. It holds the running jobs with their progress, what needs attention (a failed job with its details and *Dismiss*), recent jobs, the live frame preview, safety, and the log with its full-log and line popups. Escape closes it (a dialog or popup first) and the focus goes back to the button.
 
 ### Brands (S5)
 

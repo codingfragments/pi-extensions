@@ -7,6 +7,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --tabs voice,render --themes latte
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --widths 1400 --format jpeg
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  */
 
 import fs from "node:fs";
@@ -25,6 +26,7 @@ const FORMAT = arg("format", "png") === "jpeg" ? "jpeg" : "png";
 const WIDTHS = arg("widths", "1400,900").split(",").map(Number);
 const THEMES = arg("themes", "macchiato,latte").split(",");
 const dialogsOnly = process.argv.includes("--dialogs");
+const frameOnly = process.argv.includes("--frame");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -68,11 +70,59 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (!dialogsOnly) {
+      if (frameOnly) {
+        const idle = (signal: AbortSignal) =>
+          new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()));
+        await page.goto(`${panel.url}#/voice`);
+        await page.waitForSelector(".vo-diff-head");
+        await page.waitForTimeout(300);
+        await shot(page, `frame-default-${tag}`, false);
+        await page.locator(".ds-next summary").click();
+        await shot(page, `frame-menu-${tag}`, false);
+        await page.keyboard.press("Escape");
+        const render = rt.jobs.start<void>("render", seed.slug, idle);
+        const tts = rt.jobs.start<void>("tts", seed.slug, idle);
+        rt.bus.publish(
+          "render.progress",
+          { done: 3, total: 6, label: "scene 3", message: "🎞 final scene 3" },
+          seed.slug,
+        );
+        rt.bus.publish("tts.progress", { done: 1, total: 4, message: "voice 1/4" }, seed.slug);
+        await page.waitForFunction(
+          `/^2 running/.test(document.querySelector(".ds-strip .strip-text")?.textContent ?? "")`,
+        );
+        await shot(page, `frame-running-${tag}`, false);
+        await page.locator(".ds-strip button[aria-controls=activity]").click();
+        await page.waitForSelector("aside#activity .prow");
+        await shot(page, `frame-drawer-running-${tag}`, false);
+        await page.keyboard.press("Escape");
+        render.controller.abort();
+        tts.controller.abort();
+        await Promise.all([render.done, tts.done]);
+        rt.bus.publish("render.finished", { status: "cancelled", message: "cancelled" }, seed.slug);
+        rt.bus.publish("tts.finished", { status: "cancelled", message: "cancelled" }, seed.slug);
+        const bad = rt.jobs.start<void>("design", seed.slug, async () => {
+          throw new Error("the model returned no usable suggestions\nsecond line of the stack");
+        });
+        await bad.done;
+        rt.bus.publish(
+          "design.finished",
+          { status: "failed", message: "designer failed" },
+          seed.slug,
+        );
+        await page.waitForFunction(`document.querySelector(".ds-strip")?.dataset.tone === "err"`);
+        await shot(page, `frame-failed-${tag}`, false);
+        await page.getByRole("button", { name: "Show error" }).click();
+        await page.waitForSelector("aside#activity [aria-label='Needs attention']");
+        await shot(page, `frame-drawer-failed-${tag}`, false);
+        // a later success clears the failure, so the next theme and width start from the same state
+        const fixed = rt.jobs.start<void>("design", seed.slug, async () => {});
+        await fixed.done;
+      } else if (!dialogsOnly) {
         for (const [id, label] of TABS) {
           if (tabs.length && !tabs.includes(id)) continue;
           await page
-            .locator("header.top button", { hasText: label === "⚙ Config" ? "Config" : label })
+            .locator("header.top a", { hasText: label === "⚙ Config" ? "Config" : label })
             .first()
             .click();
           await page.waitForTimeout(500);

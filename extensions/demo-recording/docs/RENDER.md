@@ -142,7 +142,7 @@ names (`…_final-v8_…`), never the old one's.
     include.
   - **Look:** brands (several at once), burn in subtitles, logo bug.
 
-  **Render** starts a background job (progress below and in the Live panel;
+  **Render** starts a background job (progress below and in the Activity drawer;
   **Cancel** stops it). One render at a time.
 - **Renders** — the history, newest first (accepted deliverables on top), one
   collapsible card per version: kind, status, QA, what it was made from

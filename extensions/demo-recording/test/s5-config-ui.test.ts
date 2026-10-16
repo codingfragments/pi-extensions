@@ -215,7 +215,7 @@ test(
       const dlg = answerDialogs(page);
       const dialogs = dlg.seen;
       await page.goto(panel.url);
-      await page.locator("button.config-btn").click();
+      await page.locator("a.config-btn").click();
       await page.waitForSelector(".setting-group");
       assert.match(
         (await page.locator("pre.raw").textContent()) ?? "",

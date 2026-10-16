@@ -33,6 +33,12 @@ works in the address bar. Press `/` on the showcase to focus the search field.
 | `shell.js` | Builds the frame (header, stepper, next action, strip, drawer) for the mock screens. Replaced by the real frame in UX2. |
 | `tile.css`, `tile.js` | Showcase page chrome and behaviour. |
 
+## The real panel
+
+UX1 made `ds/` the panel's own design system, and UX2 the frame: see [UX1.md](UX1.md) and [UX2.md](UX2.md).
+`scripts/panel-shots.ts` (`--frame` for the frame's states) and `scripts/panel-audit.ts` run against a seeded
+project (`test/helpers/panel-seed.ts`).
+
 ## What is enforced
 
 `test/ux-tile.test.ts` (no browser needed for the first four):

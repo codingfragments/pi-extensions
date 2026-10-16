@@ -157,7 +157,7 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
           await page.waitForSelector("header.top");
           if (screen in LABELS) {
             await page
-              .locator("header.top button", {
+              .locator("header.top a", {
                 hasText: screen === "config" ? "Config" : LABELS[screen],
               })
               .first()

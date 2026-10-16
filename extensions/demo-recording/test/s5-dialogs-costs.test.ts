@@ -234,7 +234,7 @@ test(
       const active = () => page.evaluate<string>(`document.activeElement?.textContent ?? ""`);
 
       // Escape cancels → null; focus returns to the opener
-      await page.locator("nav.steps button").nth(1).focus();
+      await page.locator("nav.steps a").first().focus();
       await fire(
         `window.__p = window.__d.ask({ title: "Plain", text: "hello\\n\\nsecond paragraph", confirmLabel: "Go" })`,
       );
@@ -390,7 +390,7 @@ test(
       await page.waitForSelector("nav.steps");
 
       // --- a new take: the dialog says what runs; Cancel starts nothing
-      await page.locator("nav button", { hasText: "Recording" }).first().click();
+      await page.locator("nav.steps a", { hasText: "Recording" }).click();
       const request = page.getByRole("button", { name: "Request a new take" });
       await request.waitFor();
       await request.click();
@@ -422,7 +422,7 @@ test(
       assert.equal(sent.length, 2);
 
       // --- the designer: a dialog with the model chain and the pack size; Cancel runs nothing
-      await page.locator("nav button", { hasText: "Annotations" }).first().click();
+      await page.locator("nav.steps a", { hasText: "Annotations" }).click();
       const suggest = page.getByRole("button", { name: "Suggest annotations" }).last();
       await suggest.waitFor();
       assert.match(

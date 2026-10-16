@@ -142,6 +142,9 @@ test(
       }
       // the production selection, in words, on a screen that is not in the line
       await go("#/voice", ".stage-summary");
+      await page.waitForFunction(
+        "/is in the production line/.test(document.querySelector('.stage-summary')?.innerText ?? '')",
+      );
       assert.match(
         await page.locator(".stage-summary").innerText(),
         /Voice over v1 is in the production line, so the next steps still use v1/,

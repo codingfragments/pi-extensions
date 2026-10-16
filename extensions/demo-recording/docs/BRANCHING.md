@@ -38,7 +38,8 @@ Nothing on branch 1 or 2 changed anything on line A. That is the point.
    disabled and says why. Un-approving an ancestor does not delete anything: its approved descendants become
    *orphaned* and wait until the ancestor is approved again.
 5. **Looking never writes.** Opening Versions, the map or an old version changes nothing. Only an explicit action
-   does, and the ones that move the line first show you the line before and after.
+   does, and the ones that move the line first show you the line before and after. Each of them also leaves an
+   **Undo** in the confirmation toast for about 12 seconds.
 
 Where this comes from: [ARCHITECTURE.md §7](ARCHITECTURE.md#7-stages-versions-and-the-working-line) and
 decisions D44–D47 in [VISION.md](VISION.md).
@@ -75,7 +76,8 @@ narration needs only the Voice over row; a second story needs the first three ro
 |---|---|---|---|
 | **Keep it as an alternative** | **Approve only** on the version. | It is recorded as approved in `state.json`. The production line does not move; the stage tells you "You are viewing an approved alternative. Voice over v1 is in the production line, so the next steps still use v1." | Nothing is required. Build on it later, or compare it on the map. |
 | **Follow it** | **Approve & use** on a version, or **Use for next steps** on one that is already approved (the button on the stage, or in the **Versions** list). | The dialog shows the production line *now* and *after*, and lists what changes. On confirm the line moves: the version's ancestors join the line, and each stage below picks its newest approved version that fits (or none). Earlier versions and their approvals stay. | If a stage below has nothing for this branch, the band names the next step: build it, review it, approve it. Otherwise the line runs on to a final render. |
-| **Go back** | **Use for next steps** on the earlier version. | The same dialog and the same rules. Nothing was deleted, so going back is just choosing again. | The line runs from the older version again. |
+| **Take it back right away** | **Undo** in the toast that confirms the action (about 12 s). | The server restores the approvals, the line and the phase from just before the action, once, and only while nothing else changed them. The Director gets a note (not a new turn): "disregard that action". | The project is exactly as it was. If something changed in between, Undo says so and nothing is written. |
+| **Go back later** | **Use for next steps** on the earlier version. | The same dialog and the same rules. Nothing was deleted, so going back is just choosing again. | The line runs from the older version again. |
 | **See both** | **◇ Map** in the header, or **Show in map** on any row of Versions. | Read-only. It reads the files and the approvals; it never changes what the next steps use. | Pick a node to see what it is built on; **Open in stage** goes to that exact version. |
 
 The Director follows the same line. When you change the line in the panel, the agent is told in a note for its

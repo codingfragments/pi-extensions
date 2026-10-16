@@ -262,6 +262,13 @@ const DONE = {
   withdraw: (p) => `Approval of ${p.label} withdrawn.`,
 };
 
+/** Take the last action back (UX11, D127). The server refuses, with its reason, when something else has changed since. */
+async function undoAction(undo, plan) {
+  const res = await post("/api/version-undo", { undo });
+  if (res.undone) toast(`Undone: ${plan.label} is back as it was before.`, { kind: "info" });
+  else toast(res.reason ?? "This can no longer be undone.", { kind: "error" });
+}
+
 /**
  * Run one action: plan, ask only when something leaves or changes in the line (or something becomes
  * blocked), apply once, and tell the user what happened. A stale plan is shown again, never applied.
@@ -288,7 +295,10 @@ export async function runVersionAction({ stage, version, intent }) {
     }
     const res = await post("/api/version-act", { stage, version, intent, token: plan.token });
     if (!res.stale) {
-      toast(DONE[intent](plan), { kind: "info" });
+      toast(DONE[intent](plan), {
+        kind: "info",
+        action: res.undo ? { label: "Undo", onClick: () => undoAction(res.undo, plan) } : undefined,
+      });
       return true;
     }
     plan = res.plan;

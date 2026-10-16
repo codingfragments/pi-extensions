@@ -76,6 +76,7 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   // approve & use starts an agent turn; approve only, use and withdraw leave a quiet note
   "version-act": ["turn"],
   "version-plan": ["none"],
+  "version-undo": ["none"],
   "vo-direction": ["turn"],
   "vo-edit": ["none"],
   "vo-generate": ["tts"],

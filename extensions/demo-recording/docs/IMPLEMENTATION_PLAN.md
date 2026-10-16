@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass** (UX0–UX4 built; UX4b in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass** (UX0–UX4 merged; UX5a in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1071,7 +1071,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX3 | History, read-only browsing, explicit approval/production selection and vocabulary ([report](ux/UX3.md): the input picker that wrote the line is gone; plans, atomic actions, one vocabulary; serious axe findings 484 → 436) | ✅ merged (#59) |
   | UX4a | **Engine:** `GET /api/graph` (versions, draft groups, QA nodes; recorded links only; separate statuses; cached; 324 nodes in about 20 ms). First-cut scope and entry points settled in a grill (D119) | built, awaiting review |
   | UX4b | **Panel:** the map overlay (own SVG, from the UX0 prototype), `#/map?view=&q=&focus=` routes, the Map button, "Show in map" from History rows and the blocked band, path filters, dim context, focus, collapse, outline and keyboard | built, awaiting review (D120, [report](ux/UX4.md)) |
-  | UX5a | **Engine:** `drafts/<stage>/v<base>.json` (revision counter, atomic write, stale-revision rejection with the current draft, idempotent *Save new version*, base-change flags per D121); voice only, review notes unchanged; routes with cost class `none` | planned (decisions D121) |
+  | UX5a | **Engine:** `drafts/<stage>/v<base>.json` (revision counter, atomic write, stale-revision rejection with the current draft, idempotent *Save new version*, base-change flags per D121); voice only, review notes unchanged; routes with cost class `none` | built, awaiting review ([report](ux/UX5a.md)) |
   | UX5b | **Panel:** voice and storyboard as list + inspector, the Saving / Draft saved / Save failed states, conflict choice (keep mine / take theirs / compare), base-change note, Discard that names its draft | planned |
   | UX6 | Annotation list/inspector, previews, direct toggles and draft integration | planned |
   | UX7 | Render runs/variants, player/files/QA, creation form on demand | planned |

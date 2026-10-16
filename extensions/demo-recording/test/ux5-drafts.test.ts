@@ -211,6 +211,10 @@ test("limits and validation: unknown section, too long, wrong types", () => {
   assert.equal(fs.existsSync(path.join(dir, "drafts")), false, "a rejected save writes nothing");
 });
 
+/** A route's JSON reply, read freely by the assertions below (test code only). */
+// biome-ignore lint/suspicious/noExplicitAny: the tests index into replies of many shapes
+type Reply = Record<string, any>;
+
 function setup() {
   process.env.DEMO_REC_NO_OPEN = "1";
   const seed = seedPanelProject();
@@ -226,9 +230,9 @@ function setup() {
   rt.setActiveProject(seed.slug);
   const t = rt.routeTables();
   const post = async (name: string, body: Record<string, unknown>) =>
-    (await (t.post[name] as (b: Record<string, unknown>) => unknown)(body)) as Record<string, any>;
+    (await (t.post[name] as (b: Record<string, unknown>) => unknown)(body)) as Reply;
   const get = (name: string, q: Record<string, string>) =>
-    (t.get[name] as (q: URLSearchParams) => Record<string, any>)(new URLSearchParams(q));
+    (t.get[name] as (q: URLSearchParams) => Reply)(new URLSearchParams(q));
   return { seed, rt, turns, notes, post, get };
 }
 

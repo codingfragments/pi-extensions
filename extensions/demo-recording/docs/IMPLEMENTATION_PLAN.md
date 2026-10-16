@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass** (UX0–UX10 merged; UX11 in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass** (UX0–UX19 and T1 merged): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1082,16 +1082,16 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX9b | **Cleanup:** the remaining screens off the legacy CSS, `style.css` and the legacy aliases deleted, the ratchet at zero, `app.js` split per screen | built, awaiting review ([report](ux/UX9b.md)) |
   | UX9c | **Final audit and a scored usability review** of the task scenarios in docs/UX.md §9, with a report | merged ([report](ux/UX9c.md)): 9 scenarios pass, Render 196 → 49 and Annotations 102 → 50 controls, axe serious 24 → 0; Undo, Config weight, Brand editor and target size left as follow-ups |
   | UX10 | **Versions selector and Render, after a side-by-side with the UX0 mock:** History renamed *Versions*, whole-row target; Render with *New render…* in the header, a runs table, drafts folded, player and QA side by side with a plain-words checklist, a pinned decision bar with its consequence | merged ([report](ux/UX10.md)); [BRANCHING.md](BRANCHING.md) documents how to start a second path, with the map as it looks in the panel |
-  | UX11 | **Undo** after Approve & use, Approve only, Use for next steps and Withdraw approval: a toast action, a one-time server entry that restores approvals, line and phase only while nothing else changed them, a note (not a turn) to the Director | built, awaiting review ([report](ux/UX11.md)) |
-  | UX12 | **Config opens light:** only the first group (or the one a search matches) is open; group headers count their settings and mark "changed here" built ([report](ux/UX12.md)) |
-  | UX13 | **Small targets:** every control at least 24 px (five leftovers that bypassed the shared components fixed), the audit's small-target count ratcheted to 0 | built ([report](ux/UX13.md)) |
-  | UX14 | **Keyboard:** arrow keys, Home and End in every list, one tab stop per list, and a `?` sheet of the shortcuts that exist | built ([report](ux/UX14.md)) |
-  | UX15 | **Render finish:** a Download menu in the decision bar and a Full video / Scenes switch above the player | built ([report](ux/UX15.md)) |
-  | UX16 | **Panel load failure notice:** one plain message with what to try when a panel script cannot load, instead of a blank screen | built ([report](ux/UX16.md)) |
-  | UX17 | **Voice picker:** the account's ElevenLabs voices as a select in Config and in the brief, with a text fallback | built ([report](ux/UX17.md)) |
-  | UX18 | **Brand editor rebuilt** on the Config row pattern (list and inspector, rows, the same preview and diff confirm) | built ([report](ux/UX18.md)) |
-  | UX19 | **Map fit/zoom and the Voice anchor keyframe** | built ([report](ux/UX19.md)) |
-  | T1 | **Flaky tests quarantined** with a bounded retry ("resume: an error in scene 3", the 3200x1800 capture test): `test/helpers/retry.ts` runs each up to twice, prints every failed attempt (`[flaky] …`) and still fails if every attempt fails. The cause is not known and was not reproduced in four parallel runs; if `[flaky]` lines show up in CI logs, that is the evidence to look at | built |
+  | UX11 | **Undo** after Approve & use, Approve only, Use for next steps and Withdraw approval: a toast action, a one-time server entry that restores approvals, line and phase only while nothing else changed them, a note (not a turn) to the Director | merged ([report](ux/UX11.md)) |
+  | UX12 | **Config opens light:** only the first group (or the one a search matches) is open; group headers count their settings and mark "changed here" merged ([report](ux/UX12.md)) |
+  | UX13 | **Small targets:** every control at least 24 px (five leftovers that bypassed the shared components fixed), the audit's small-target count ratcheted to 0 | merged ([report](ux/UX13.md)) |
+  | UX14 | **Keyboard:** arrow keys, Home and End in every list, one tab stop per list, and a `?` sheet of the shortcuts that exist | merged ([report](ux/UX14.md)) |
+  | UX15 | **Render finish:** a Download menu in the decision bar and a Full video / Scenes switch above the player | merged ([report](ux/UX15.md)) |
+  | UX16 | **Panel load failure notice:** one plain message with what to try when a panel script cannot load, instead of a blank screen | merged ([report](ux/UX16.md)) |
+  | UX17 | **Voice picker:** the account's ElevenLabs voices as a select in Config and in the brief, with a text fallback | merged ([report](ux/UX17.md)) |
+  | UX18 | **Brand editor rebuilt** on the Config row pattern (list and inspector, rows, the same preview and diff confirm) | merged ([report](ux/UX18.md)) |
+  | UX19 | **Map fit/zoom and the Voice anchor keyframe** | merged ([report](ux/UX19.md)) |
+  | T1 | **Flaky tests quarantined** with a bounded retry ("resume: an error in scene 3", the 3200x1800 capture test): `test/helpers/retry.ts` runs each up to twice, prints every failed attempt (`[flaky] …`) and still fails if every attempt fails. The cause is not known and was not reproduced in four parallel runs; if `[flaky]` lines show up in CI logs, that is the evidence to look at | merged (#83) |
 
 - **Design/accessibility bars retained:** at most 8 font sizes, 6 radii and 8 spacing steps; semantic tokens only for colours; one shared button system; text contrast in both themes, visible unobscured focus, keyboard equivalents, at least 24 px targets and reduced motion. Specific starting scales and functional motion are proposals in the spec. No density toggle and no new UI framework.
 - **Saving language refined:** artifact working drafts autosave, but publishing a numbered version is explicit. These are different states/actions, not two unexplained save policies on one form. Config remains explicit Apply + diff; no autosave runs a job or changes approval.

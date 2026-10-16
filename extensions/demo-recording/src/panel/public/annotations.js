@@ -1,14 +1,17 @@
-import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
-// demo-recording panel — Annotations tab (S5 part 8, D53–D58): the designer's
-// suggestions per scene as cards (still eager, clip on click), toggles, inline
-// text, ±0.5 s nudges, target choices, a large preview popup (click the still to play), a budget meter, filters, an unsaved
-// draft with Save / Discard, Re-suggest with instructions, and a low-res scene
-// draft with every enabled annotation.
-import { ConfBadge, ConfReasons, NeedsEyes, byRisk, confOf, itemDomId } from "./confidence.js";
-import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
+// The Annotations screen (UX6b, D100, D122): the designer's suggestions as a list grouped by scene and one
+// inspector for the selected annotation. The enable switch sits in the row; everything else (preview,
+// text, timing, targets, reasons) is in the inspector. Edits go straight into a working draft on the server
+// (one per version, revisions, conflicts: src/drafts/annotations.ts) and are shown as Saving / Draft saved /
+// Save failed; "Save new version" turns the draft into exactly one version, and approving is a separate act.
+// Turning off a redaction asks first; "Reset to suggested" undoes what you changed on one annotation.
+import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
+import { ConfReasons, NeedsEyes, byRisk, confOf } from "./confidence.js";
+import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost, getModels } from "./cost.js";
 import { confirmAsk } from "./dialog.js";
-import { TAB } from "./drafts.js";
+import { CompareTable, TAB } from "./drafts.js";
+import { ConfPill, NarrowSelect } from "./inspector.js";
+import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
@@ -163,75 +166,6 @@ function Lightbox({ open, onClose }) {
   </div>`;
 }
 
-function TextEdit({ item, onSave }) {
-  const [text, setText] = useState(item.text ?? "");
-  useEffect(() => setText(item.text ?? ""), [item.text]);
-  const dirty = text.trim() !== (item.text ?? "");
-  return html`<div class="ann-text">
-    <input value=${text} maxlength="60" onInput=${(e) => setText(e.target.value)}
-      onKeyDown=${(e) => e.key === "Enter" && dirty && onSave(text)} aria-label="annotation text" />
-    <span class=${`count ${text.length > 50 ? "warn" : ""}`}>${text.length}/60</span>
-    ${dirty ? html`<button class="ghost" onClick=${() => onSave(text)}>set</button>` : null}
-  </div>`;
-}
-
-function AnnotationCard({ item, res, version, edit, onOpen, conf }) {
-  const problem = res && "problem" in res ? res.problem : null;
-  const privacy = item.type === "redact" && (item.reason ?? "").startsWith("privacy:");
-  const touched =
-    item.origin === "edited" || item.origin === "manual" || (item.edits?.length ?? 0) > 0;
-  return html`<article class=${`ann-card ${item.enabled ? "on" : "off"} ${problem ? "problem" : ""} ${conf ? `cf-${conf.level}` : ""}`} id=${itemDomId(item.id)}>
-    <div class="ann-top">
-      <${ConfBadge} c=${conf} />
-      <label class="ann-enabled" title=${item.enabled ? "in the render" : "not rendered — tick to use it"}>
-        <input type="checkbox" checked=${item.enabled} onChange=${(e) => edit({ op: "toggle", id: item.id, enabled: e.target.checked })} />
-        enabled
-      </label>
-    </div>
-    <${Preview} version=${version} item=${item} onOpen=${onOpen} />
-    <div class="ann-body">
-      <div class="row">
-        <span class="ann-type" title=${LABEL[item.type]}>${ICON[item.type]} ${LABEL[item.type]}</span>
-        <span class="muted small-text mono">${item.id}</span>
-      </div>
-      ${item.type === "callout" || item.type === "chapter" ? html`<${TextEdit} item=${item} onSave=${(text) => edit({ op: "text", id: item.id, text })} />` : null}
-      <div class="ann-when small-text">
-        <span title="when it is fully there">${anchorLabel(item.anchor)}</span>
-        ${res && !problem ? html`<span class="muted">· ${sec(res.startMs)}–${sec(res.endMs)}</span>` : null}
-        <span class="nudges">
-          <span class="muted">start</span>
-          <button class="ghost tiny" title="0.5 s earlier" onClick=${() => edit({ op: "nudge", id: item.id, field: "start", deltaMs: -500 })}>−½</button>
-          <button class="ghost tiny" title="0.5 s later" onClick=${() => edit({ op: "nudge", id: item.id, field: "start", deltaMs: 500 })}>+½</button>
-          ${
-            item.type !== "redact"
-              ? html`<span class="muted">length</span>
-            <button class="ghost tiny" title="0.5 s shorter" onClick=${() => edit({ op: "nudge", id: item.id, field: "duration", deltaMs: -500 })}>−½</button>
-            <button class="ghost tiny" title="0.5 s longer" onClick=${() => edit({ op: "nudge", id: item.id, field: "duration", deltaMs: 500 })}>+½</button>`
-              : null
-          }
-        </span>
-      </div>
-      ${item.target ? html`<div class="small-text muted">on ${targetLabel(item.target)}${item.factor ? ` · ${item.factor}×` : ""}</div>` : null}
-      ${
-        item.alternatives?.length
-          ? html`<div class="ann-alts small-text"><span class="muted">other targets:</span> ${item.alternatives.map(
-              (a, i) =>
-                html`<button class="chip" title="use this target instead" onClick=${() => edit({ op: "target", id: item.id, alternative: i })}>${targetLabel(a)}</button>`,
-            )}</div>`
-          : null
-      }
-      ${item.reason ? html`<p class="ann-reason small-text">${item.reason}</p>` : null}
-      <${ConfReasons} c=${conf} />
-      <div class="ann-tags small-text">
-        ${item.weight ? html`<span class="pill" title="value 1–5 (designer) · noise cost (Q7)">value ${item.weight.value} · noise ${item.weight.noise}</span>` : null}
-        ${privacy ? html`<span class="pill privacy" title="found by the privacy scan — turn on to redact">privacy</span>` : null}
-        ${touched ? html`<span class="pill edited" title="you changed this — kept on re-suggest">yours</span>` : null}
-        ${problem ? html`<span class="pill fail-pill" title=${problem}>can't place: ${problem}</span>` : null}
-      </div>
-    </div>
-  </article>`;
-}
-
 function SceneDraft({ version, scene, draftKey }) {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -303,7 +237,7 @@ function Resuggest({ data, onDone }) {
     }
   };
   return html`<details class="resuggest" open=${!has}>
-    <summary>${has ? "Re-suggest with instructions" : "Suggest annotations"}</summary>
+    <summary>${has ? "Suggest again…" : "Suggest annotations"}</summary>
     <textarea rows="2" placeholder=${has ? "e.g. calmer — no spotlights; zoom on the totals instead of the chart; callouts in German" : "optional instructions for the annotation designer"} value=${text} onInput=${(e) => setText(e.target.value)}></textarea>
     <div class="row">
       <button class="primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "approve a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
@@ -318,9 +252,300 @@ function Resuggest({ data, onDone }) {
   </details>`;
 }
 
-export function Annotations({ events, stages }) {
+// ---------------- the screen ----------------
+
+const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const isNetwork = (e) =>
+  /Failed to fetch|NetworkError|Load failed|network/i.test(String(e?.message ?? e));
+/** Redactions turned off in this page: the question is asked once per redaction. */
+const redactionsOff = new Set();
+
+const isPrivacy = (it) => it.type === "redact" && (it.reason ?? "").startsWith("privacy:");
+const touched = (it) =>
+  it.origin === "edited" || it.origin === "manual" || (it.edits?.length ?? 0) > 0;
+const rowTitle = (it) =>
+  it.text
+    ? `${LABEL[it.type]}: ${it.text}`
+    : it.target
+      ? `${LABEL[it.type]} on ${targetLabel(it.target)}`
+      : LABEL[it.type];
+const summary = (it) =>
+  it
+    ? `${it.enabled ? "on" : "off"}${it.text ? ` · “${it.text}”` : ""} · ${anchorLabel(it.anchor)}${it.durMs ? ` · ${sec(it.durMs)}` : ""}${it.target ? ` · ${targetLabel(it.target)}` : ""}`
+    : "(not in that version)";
+
+/**
+ * The draft edits of one screen: a serial queue of operations, each carrying the revision of the last
+ * answer. A refused edit (validation) is said and dropped; a lost connection stops the queue with the
+ * change kept (Retry); a stale revision stops it with the server's draft shown and the change held
+ * (apply it again, or keep theirs). Nothing is ever applied silently on top of someone else's draft.
+ */
+function useAnnotationEdits({ data, say }) {
+  const [view, setView] = useState(null);
+  const [save, setSave] = useState({ status: "clean" });
+  const revRef = useRef(null);
+  const queue = useRef([]);
+  const running = useRef(false);
+  const d = view ?? data;
+  const idle = !running.current && !queue.current.length;
+  useEffect(() => setView(null), [data]);
+  if (idle) revRef.current = d?.draft?.revision ?? null;
+
+  const pump = async () => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      while (queue.current.length) {
+        const op = queue.current[0];
+        setSave({ status: "saving" });
+        let r;
+        try {
+          r = await post("/api/annotations-edit", { revision: revRef.current, author: TAB, ...op });
+        } catch (e) {
+          if (isNetwork(e)) {
+            setSave({ status: "failed", error: e.message });
+            return;
+          }
+          queue.current.shift(); // refused: said, dropped, the rest goes on
+          say(`⚠ ${e.message}`);
+          continue;
+        }
+        setView(r);
+        revRef.current = r.draft?.revision ?? null;
+        if (r.conflict) {
+          setSave({ status: "conflict", message: r.message });
+          return;
+        }
+        queue.current.shift();
+      }
+      setSave({ status: "saved", at: clock() });
+    } finally {
+      running.current = false;
+    }
+  };
+  const edit = (op) => {
+    queue.current.push({ version: d.version, ...op });
+    pump();
+  };
+  const drain = async () => {
+    while (
+      running.current ||
+      (queue.current.length && ["saving", "saved", "clean"].includes(save.status))
+    )
+      await new Promise((r) => setTimeout(r, 40));
+    return !queue.current.length;
+  };
+  useEffect(() => {
+    const warn = (e) => {
+      if (queue.current.length) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+  return {
+    d,
+    setView,
+    save,
+    held: queue.current,
+    edit,
+    drain,
+    revision: () => revRef.current,
+    retry: pump,
+    /** Apply my held change(s) again, on top of the draft as it is now. */
+    reapply: pump,
+    keepTheirs: () => {
+      queue.current = [];
+      setSave({ status: "saved", at: clock() });
+    },
+  };
+}
+
+function saveText(save, draft) {
+  switch (save.status) {
+    case "saving":
+      return "Saving…";
+    case "saved":
+      return `Draft saved ${save.at ?? ""} · not a new version yet`;
+    case "failed":
+      return `Save failed: ${save.error ?? "no answer"}. Your last change is kept here.`;
+    case "conflict":
+      return "This draft was changed elsewhere. Choose what to keep.";
+    default:
+      return draft
+        ? `Working draft: ${draft.changes} change${draft.changes === 1 ? "" : "s"} · not a new version yet`
+        : "No edits yet. Changes are kept in a working draft; it is not a new version.";
+  }
+}
+const SAVE_ICON = {
+  clean: ["", "○"],
+  saving: ["info", "…"],
+  saved: ["ok", "✓"],
+  failed: ["err", "!"],
+  conflict: ["err", "!"],
+};
+
+/** What needs a decision about the draft: a failed save, a conflict, a base that moved, other drafts. */
+function Notices({ d, ed, setVersion }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    setOpen(false);
+    setRows(null);
+  }, [d.version, ed.save.status]);
+  const flags = d.draft?.flags;
+  const compare = async () => {
+    setOpen(!open);
+    if (open || rows || !flags?.superseded) return;
+    const latest = await api(`/api/annotations?version=${flags.superseded}`);
+    const theirs = new Map((latest.file?.items ?? []).map((x) => [x.id, x]));
+    setRows(
+      (d.draft.changedIds ?? []).map((id) => ({
+        key: id,
+        a: summary(d.file.items.find((x) => x.id === id)),
+        b: summary(theirs.get(id)),
+      })),
+    );
+  };
+  const out = [];
+  if (ed.save.status === "conflict")
+    out.push(html`<div class="ds-notice" data-tone="err" role="alert" key="conflict">
+      <span class="ds-status" data-tone="err" aria-hidden="true">!</span>
+      <div class="ds-grow">
+        <strong>This draft was changed in another tab or session.</strong> Your last change was not saved; nothing was overwritten, and the list shows the draft as it is now.
+        <span class="ds-row-flex" style="margin-block-start: var(--space-2)">
+          <button class="ds-btn ds-btn--sm" type="button" data-act="reapply" onClick=${ed.reapply}>Apply my change${ed.held.length === 1 ? "" : "s"} again (${ed.held.length})</button>
+          <button class="ds-btn ds-btn--sm" type="button" data-act="keep-theirs" onClick=${ed.keepTheirs}>Keep theirs</button>
+        </span>
+      </div>
+    </div>`);
+  if (ed.save.status === "failed")
+    out.push(html`<div class="ds-notice" data-tone="err" role="alert" key="failed">
+      <span class="ds-status" data-tone="err" aria-hidden="true">!</span>
+      <div class="ds-grow"><strong>Save failed.</strong> ${ed.save.error}. Your change is kept in this page, but it is not saved: do not close it yet.</div>
+      <button class="ds-btn ds-btn--sm" type="button" data-act="retry" onClick=${ed.retry}>Retry</button>
+    </div>`);
+  if (flags?.notes?.length && ed.save.status !== "conflict")
+    out.push(html`<div class="ds-notice" data-tone="warn" role="note" key="base">
+      <span class="ds-status" data-tone="warn" aria-hidden="true">!</span>
+      <div class="ds-grow">
+        <strong>Your draft: ${flags.notes.join("; ")}.</strong> It stays on v${flags.base}; nothing was moved or merged.
+        <span class="ds-row-flex" style="margin-block-start: var(--space-2)">
+          <button class="ds-btn ds-btn--sm" type="button" data-act="save-as-new" onClick=${ed.onSave}>Save as new version</button>
+          ${flags.superseded ? html`<button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" aria-expanded=${open} onClick=${compare}>Compare with v${flags.superseded}</button>` : null}
+          ${flags.superseded ? html`<a class="ds-btn ds-btn--sm ds-btn--ghost" href=${formatRoute({ screen: "annotations", version: flags.superseded })}>View v${flags.superseded}</a>` : null}
+          <button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" data-act="discard-note" onClick=${ed.onDiscard}>Discard draft</button>
+        </span>
+        ${open && rows ? html`<${CompareTable} rows=${rows} aLabel="Your draft" bLabel=${`v${flags.superseded}`} />` : null}
+      </div>
+    </div>`);
+  if (d.otherDrafts?.length)
+    out.push(html`<div class="ds-notice" role="note" key="other">
+      <span class="ds-status" data-tone="info" aria-hidden="true">i</span>
+      <div class="ds-grow">Other working drafts are kept: ${d.otherDrafts.map((o) => html`<button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" key=${o.base} onClick=${() => setVersion(o.base)}>v${o.base} (${o.changes} change${o.changes === 1 ? "" : "s"})</button>`)}</div>
+    </div>`);
+  return out.length
+    ? html`<div class="ds-stack" style="margin-block-end: var(--space-3)">${out}</div>`
+    : null;
+}
+
+function TextField({ item, onCommit }) {
+  const [text, setText] = useState(item.text ?? "");
+  const timer = useRef(null);
+  useEffect(() => setText(item.text ?? ""), [item.text]);
+  const valid = text.trim().length > 0 && text.trim().length <= 60;
+  const dirty = text.trim() !== (item.text ?? "");
+  const commit = (t) => {
+    clearTimeout(timer.current);
+    if (t.trim() && t.trim().length <= 60 && t.trim() !== (item.text ?? "")) onCommit(t);
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const id = `ann-text-${item.id}`;
+  return html`<div class="ds-field">
+    <label class="ds-label" for=${id}>${item.type === "chapter" ? "Chapter title" : "Callout text"}</label>
+    <input class="ds-input ds-measure" id=${id} value=${text} maxlength="60"
+      onInput=${(e) => {
+        setText(e.target.value);
+        clearTimeout(timer.current);
+        const v = e.target.value;
+        timer.current = setTimeout(() => commit(v), 800);
+      }}
+      onBlur=${() => commit(text)}
+      onKeyDown=${(e) => e.key === "Enter" && commit(text)} />
+    <span class="ds-hint-text" data-invalid=${!valid && dirty ? "true" : undefined}>${text.length}/60 · it marks, it doesn't narrate${!text.trim() ? " · the text can't be empty" : ""}</span>
+  </div>`;
+}
+
+/** The selected annotation: its preview, text, timing, target and the reasons; the enable switch and reset. */
+function Inspector({ d, item, onEdit, onToggle, onOpen, resettable, readOnlyNote }) {
+  const res = d.resolved[item.id];
+  const problem = res && "problem" in res ? res.problem : null;
+  const conf = confOf(d.confidence, item.id);
+  const privacy = isPrivacy(item);
+  return html`<div class="ds-stack ds-inspector">
+    <div class="ds-row-flex">
+      <h2>${ICON[item.type]} ${LABEL[item.type]}</h2>
+      <span class="ds-badge ds-mono" data-tone="neutral">${item.id}</span>
+      ${privacy ? html`<span class="ds-badge" data-tone="info" title="found by the privacy scan"><span class="ds-badge-ico" aria-hidden="true">◆</span>Privacy</span>` : null}
+      ${touched(item) ? html`<span class="ds-badge" data-tone="accent" title="you changed this: kept on re-suggest"><span class="ds-badge-ico" aria-hidden="true">✎</span>Yours</span>` : null}
+      ${problem ? html`<span class="ds-badge" data-tone="err" title=${problem}><span class="ds-badge-ico" aria-hidden="true">!</span>Can't place</span>` : null}
+      <${ConfPill} c=${conf} long />
+      <span class="ds-grow"></span>
+      <button class="ds-switch" type="button" role="switch" aria-checked=${item.enabled} data-act="enabled" onClick=${() => onToggle(item)}>
+        <span class="ds-switch-track" aria-hidden="true"></span>${item.enabled ? "In the render" : "Not rendered"}
+      </button>
+    </div>
+    <${ConfReasons} c=${conf} />
+    ${problem ? html`<p class="ds-small" style="color: var(--status-err)">Can't be placed: ${problem}</p>` : null}
+    <div class="ds-shot ann-shot"><${Preview} version=${d.version} item=${item} onOpen=${onOpen} /></div>
+    ${item.type === "callout" || item.type === "chapter" ? html`<${TextField} item=${item} onCommit=${(text) => onEdit({ op: "text", id: item.id, text })} />` : null}
+    <div class="ds-stack">
+      <span class="ds-label">When</span>
+      <div class="ds-row-flex ds-small">
+        <span title="when it is fully there">${anchorLabel(item.anchor)}</span>
+        ${res && !problem ? html`<span class="ds-muted">· ${sec(res.startMs)}–${sec(res.endMs)}</span>` : null}
+      </div>
+      <div class="ds-row-flex ds-small">
+        <span class="ds-muted">Start</span>
+        <button class="ds-btn ds-btn--sm" type="button" title="0.5 s earlier" onClick=${() => onEdit({ op: "nudge", id: item.id, field: "start", deltaMs: -500 })}>−½ s</button>
+        <button class="ds-btn ds-btn--sm" type="button" title="0.5 s later" onClick=${() => onEdit({ op: "nudge", id: item.id, field: "start", deltaMs: 500 })}>+½ s</button>
+        ${
+          item.type !== "redact"
+            ? html`<span class="ds-muted" style="margin-inline-start: var(--space-3)">Length</span>
+          <button class="ds-btn ds-btn--sm" type="button" title="0.5 s shorter" onClick=${() => onEdit({ op: "nudge", id: item.id, field: "duration", deltaMs: -500 })}>−½ s</button>
+          <button class="ds-btn ds-btn--sm" type="button" title="0.5 s longer" onClick=${() => onEdit({ op: "nudge", id: item.id, field: "duration", deltaMs: 500 })}>+½ s</button>`
+            : html`<span class="ds-muted ds-xs" style="margin-inline-start: var(--space-3)">A redaction lasts to the end of the scene.</span>`
+        }
+      </div>
+    </div>
+    ${
+      item.target
+        ? html`<div class="ds-stack">
+          <span class="ds-label">Target</span>
+          <span class="ds-small">on ${targetLabel(item.target)}${item.factor ? ` · ${item.factor}×` : ""}</span>
+          ${
+            item.alternatives?.length
+              ? html`<span class="ds-row-flex ds-small"><span class="ds-muted">Other targets:</span> ${item.alternatives.map((a, i) => html`<button class="ds-btn ds-btn--sm" type="button" key=${i} title="use this target instead" onClick=${() => onEdit({ op: "target", id: item.id, alternative: i })}>${targetLabel(a)}</button>`)}</span>`
+              : null
+          }
+        </div>`
+        : null
+    }
+    ${item.reason ? html`<p class="ds-small"><span class="ds-muted">Why:</span> ${item.reason}</p>` : null}
+    ${item.weight ? html`<p class="ds-small ds-muted" title="value 1–5 (designer) · noise cost (Q7)">Value ${item.weight.value} · noise ${item.weight.noise}</p>` : null}
+    <div class="ds-row-flex">
+      ${resettable ? html`<button class="ds-btn" type="button" data-act="reset" title="undo every change you made to this annotation" onClick=${() => onEdit({ op: "reset", id: item.id })}>Reset to suggested</button>` : null}
+      <${SceneDraft} version=${d.version} scene=${item.scene} draftKey=${`${d.draft?.revision ?? "v"}`} />
+    </div>
+    ${readOnlyNote}
+  </div>`;
+}
+
+export function Annotations({ events }) {
   const version = useRouteVersion("annotations");
-  const [, goTo] = useHashRoute();
+  const [route, goTo] = useHashRoute();
   const setVersion = (v) =>
     goTo(
       v === null || v === undefined
@@ -333,138 +558,189 @@ export function Annotations({ events, stages }) {
   const [types, setTypes] = useState(new Set());
   const [state, setState] = useState("all");
   const [flash, setFlash] = useState(null);
-  const [view, setView] = useState(null);
   const [lightbox, setLightbox] = useState(null);
   const [riskFirst, setRiskFirst] = useState(false);
-  // The edit routes answer with the new view; the next reload (bus event) replaces it.
-  const d = view ?? data;
-  useEffect(() => setView(null), [data]);
-  if (error) return html`<section class="card error">${error}</section>`;
-  if (!d) return html`<section class="card muted">loading…</section>`;
-  if (!d.project) return html`<section class="card muted">No active project.</section>`;
   const say = (m) => {
     setFlash(m);
     setTimeout(() => setFlash(null), 6000);
   };
-  const edit = async (op) => {
-    try {
-      const r = await post("/api/annotations-edit", {
-        version: d.version,
-        revision: d.draft?.revision ?? null,
-        author: TAB,
-        ...op,
-      });
-      setView(r);
-      if (r.conflict) say(`⚠ ${r.message} — the view shows the draft as it is now`);
-    } catch (e) {
-      say(`⚠ ${e.message}`);
-    }
-  };
-  const save = async () => {
-    try {
-      const r = await post("/api/annotations-save", {
-        version: d.draft.base,
-        revision: d.draft.revision,
-      });
-      if (r.conflict) {
-        setView(r);
-        say(`⚠ ${r.message}`);
-        return;
-      }
-      setVersion(r.version);
-      say(`saved as v${r.version}`);
-    } catch (e) {
-      say(`⚠ ${e.message}`);
-    }
-  };
-  const discard = async () => {
-    const ok = await confirmAsk({
-      title: "Discard unsaved changes?",
-      text: `${d.draft.changes} unsaved change(s) on v${d.draft.base} will be lost.`,
-      confirmLabel: "Discard",
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      const r = await post("/api/annotations-discard", {
-        version: d.draft.base,
-        revision: d.draft.revision,
-      });
-      setView(r);
-      if (r.conflict) say(`⚠ ${r.message}`);
-    } catch (e) {
-      say(`⚠ ${e.message}`);
-    }
-  };
+  const ed = useAnnotationEdits({ data, say });
+  const d = ed.d;
+  if (error) return html`<section class="card error">${error}</section>`;
+  if (!d) return html`<section class="card muted">loading…</section>`;
+  if (!d.project) return html`<section class="card muted">No active project.</section>`;
   if (d.version === null && version !== null)
     return html`<${StageSummary} stage="annotations" rows=${hist.data?.rows} viewed=${version} />`;
   if (d.version === null)
     return html`
       <${StageSummary} stage="annotations" rows=${hist.data?.rows} viewed=${null} />
       <section class="card">
-        <p class="muted">${d.canSuggest ? "No annotations yet. The Annotation designer suggests zooms, highlights, callouts and more from the recording and the narration; you toggle, edit and approve them here." : "Approve a voice-over and run the sync edit first — annotations follow the real timing of the narration."}</p>
+        <p class="muted">${d.canSuggest ? "No annotations yet. The Annotation designer suggests zooms, highlights, callouts and more from the recording and the narration; you switch them on and off, edit them and approve a version." : "Approve a voice-over (and let the sync edit run) first: annotations follow the narration."}</p>
         <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
       </section>`;
+
   const f = d.file;
-  const draftKey = d.draft ? `${d.draft.base}:${d.draft.changes}` : `v${d.version}`;
-  const shown = f.items.filter(
-    (it) =>
-      (types.size === 0 || types.has(it.type)) &&
-      (state === "all" || (state === "on") === it.enabled),
-  );
+  const row = hist.data?.rows?.find((r) => r.version === d.version);
   const toggleType = (t) => {
     const n = new Set(types);
     n.has(t) ? n.delete(t) : n.add(t);
     setTypes(n);
   };
   const count = (t) => f.items.filter((x) => x.type === t).length;
+  const shown = f.items.filter(
+    (it) =>
+      (types.size === 0 || types.has(it.type)) &&
+      (state === "all" || (state === "on") === it.enabled),
+  );
+  const groups = d.scenes
+    .map((sc) => {
+      const inScene = shown.filter((it) => it.scene === sc.id);
+      return {
+        sc,
+        items: riskFirst ? byRisk(inScene, d.confidence, (it) => it.id) : inScene,
+        total: f.items.filter((it) => it.scene === sc.id),
+      };
+    })
+    .filter((g) => g.total.length);
+  const flat = groups.flatMap((g) => g.items);
+  const item = flat.find((x) => x.id === route?.query?.item) ?? flat[0];
+  const select = (id) =>
+    goTo(
+      { screen: "annotations", ...(version ? { version } : {}), query: { item: id } },
+      { replace: true },
+    );
+  const resettable = new Set(d.resettable ?? []);
+  const onToggle = async (it) => {
+    if (it.type === "redact" && it.enabled && !redactionsOff.has(it.id)) {
+      const ok = await confirmAsk({
+        title: "Turn off this redaction?",
+        text: isPrivacy(it)
+          ? `“${(it.reason ?? "").replace(/^privacy:\s*/, "")}” was found by the privacy scan. Without the redaction that value stays visible in the video.`
+          : "Without the redaction the area it covers stays visible in the video.",
+        confirmLabel: "Turn off the redaction",
+        danger: true,
+      });
+      if (!ok) return;
+      redactionsOff.add(it.id);
+    }
+    ed.edit({ op: "toggle", id: it.id, enabled: !it.enabled });
+  };
+  const onSave = async () => {
+    if (!d.draft) return;
+    if (!(await ed.drain())) return;
+    try {
+      const r = await post("/api/annotations-save", {
+        version: d.draft.base,
+        revision: ed.revision(),
+      });
+      ed.setView(r);
+      if (r.conflict) return say(`⚠ ${r.message}`);
+      setVersion(r.version);
+      say(`saved as v${r.version}`);
+    } catch (e) {
+      say(`⚠ ${e.message}`);
+    }
+  };
+  const onDiscard = async () => {
+    if (!d.draft) return;
+    const ids = d.draft.changedIds ?? [];
+    const ok = await confirmAsk({
+      title: `Discard the working draft of v${d.draft.base}?`,
+      text: `This drops your ${d.draft.changes} change${d.draft.changes === 1 ? "" : "s"}${ids.length ? ` to ${ids.join(", ")}` : ""}. The saved version is not changed.`,
+      confirmLabel: "Discard draft",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const r = await post("/api/annotations-discard", {
+        version: d.draft.base,
+        revision: ed.revision(),
+      });
+      ed.setView(r);
+      if (r.conflict) say(`⚠ ${r.message}`);
+    } catch (e) {
+      say(`⚠ ${e.message}`);
+    }
+  };
+  ed.onSave = onSave;
+  ed.onDiscard = onDiscard;
+  const [tone, icon] = SAVE_ICON[ed.save.status] ?? SAVE_ICON.clean;
+  const canSave = !!d.draft && ed.save.status !== "conflict";
+
   return html`
-    <${StageSummary} stage="annotations" row=${hist.data?.rows?.find((r) => r.version === d.version)} rows=${hist.data?.rows}
+    <${StageSummary} stage="annotations" row=${row} rows=${hist.data?.rows}
       viewed=${d.version} onUse=${(v) => runVersionAction({ stage: "annotations", version: v, intent: "use" }).then(reload)}
-      meta=${html`${d.draft ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">✎</span>Working draft</span>` : null}<span>${f.by ? `by ${f.by}` : ""} · ${f.take}${f.resuggestedFrom ? ` · re-suggested from v${f.resuggestedFrom}` : ""}${f.importedFrom ? ` · imported from v${f.importedFrom}` : ""}${f.editedFrom ? ` · your edits on v${f.editedFrom}` : ""}</span>`} />
+      meta=${html`${d.draft ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">✎</span>Working draft</span>` : null}<span>${f.by ? `by ${f.by}` : ""} · ${f.take}</span>`} />
     <section class="card review-head ann-head">
       <div class="row">
-        <${VersionActions} stage="annotations" row=${hist.data?.rows?.find((r) => r.version === d.version)} events=${events} onDone=${reload} />
+        <${VersionActions} stage="annotations" row=${row} events=${events} onDone=${reload} />
         <span class="grow"></span>
         ${flash ? html`<span class="flash">${flash}</span>` : null}
       </div>
       ${f.instructions ? html`<p class="small-text muted">Instructions for this version: “${f.instructions}”</p>` : null}
       ${d.stale ? html`<p class="small-text error">⚠ ${d.stale} — previews are unavailable.</p>` : null}
       <${BudgetMeter} budget=${d.budget} />
-      ${
-        d.draft
-          ? html`<div class="draft-bar">
-            <span><b>${d.draft.changes}</b> unsaved change${d.draft.changes === 1 ? "" : "s"} on v${d.draft.base}</span>
-            <span class="grow"></span>
-            <button class="primary" onClick=${save}>Save as v${Math.max(...d.versions) + 1}</button>
-            <button class="ghost" onClick=${discard}>Discard</button>
-          </div>`
-          : d.otherDrafts?.length
-            ? html`<div class="draft-bar muted">Unsaved changes on ${d.otherDrafts.map((o) => `v${o.base}`).join(", ")} — ${d.otherDrafts.map((o) => html`<button class="ghost" onClick=${() => setVersion(o.base)}>open v${o.base}</button>`)}</div>`
-            : null
-      }
       <div class="filters row">
-        ${TYPES.filter(count).map((t) => html`<button class=${`chip ${types.has(t) ? "on" : ""}`} onClick=${() => toggleType(t)}>${ICON[t]} ${LABEL[t]} <span class="muted">${count(t)}</span></button>`)}
+        ${TYPES.filter(count).map((t) => html`<button class=${`chip ${types.has(t) ? "on" : ""}`} aria-pressed=${types.has(t)} onClick=${() => toggleType(t)}>${ICON[t]} ${LABEL[t]} <span class="muted">${count(t)}</span></button>`)}
         <span class="grow"></span>
-        ${["all", "on", "off"].map((s) => html`<button class=${`chip ${state === s ? "on" : ""}`} onClick=${() => setState(s)}>${s === "all" ? "all" : s === "on" ? "enabled" : "suggested, off"}</button>`)}
+        ${["all", "on", "off"].map((s) => html`<button class=${`chip ${state === s ? "on" : ""}`} aria-pressed=${state === s} onClick=${() => setState(s)}>${s === "all" ? "all" : s === "on" ? "enabled" : "suggested, off"}</button>`)}
       </div>
-      <${NeedsEyes} summary=${d.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} />
+      <${NeedsEyes} summary=${d.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} onJump=${select} />
       <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
     </section>
-    ${d.scenes.map((sc) => {
-      const inScene = shown.filter((it) => it.scene === sc.id);
-      const items = riskFirst ? byRisk(inScene, d.confidence, (it) => it.id) : inScene;
-      const total = f.items.filter((it) => it.scene === sc.id);
-      if (!total.length) return null;
-      return html`<section class="card ann-scene" key=${sc.id}>
-        <div class="row">
-          <h3><span class="mono">${sc.id}</span> · ${sc.title}</h3>
-          <span class="muted small-text">${sec(sc.durationMs)} · ${total.filter((x) => x.enabled).length}/${total.length} on</span>
-          <span class="grow"></span>
-          <${SceneDraft} version=${d.version} scene=${sc.id} draftKey=${draftKey} />
-        </div>
-        ${items.length ? html`<div class="ann-grid">${items.map((it) => html`<${AnnotationCard} key=${it.id} item=${it} res=${d.resolved[it.id]} version=${d.version} edit=${edit} onOpen=${setLightbox} conf=${confOf(d.confidence, it.id)} />`)}</div>` : html`<p class="muted small-text">No annotations match the filter.</p>`}
-      </section>`;
-    })}
+    <${Notices} d=${d} ed=${ed} setVersion=${setVersion} />
+    <div class="ds-root ds-workspace">
+      <div class="ds-split">
+        <${NarrowSelect} label="Annotation" value=${item?.id} onChange=${select}
+          options=${flat.map((it) => [it.id, `${it.scene} · ${rowTitle(it)}${it.enabled ? "" : " (off)"}`])} />
+        <section class="ds-split-list" aria-label="Annotations">
+          <div class="ds-list-head"><span><strong style="color: var(--text-strong)">${f.items.length} annotations</strong> · ${f.items.filter((x) => x.enabled).length} on${shown.length < f.items.length ? ` · ${shown.length} shown` : ""}</span></div>
+          ${
+            flat.length
+              ? html`<ul class="ds-list">
+            ${groups.map(
+              (g) => html`<li class="ds-list-group" key=${`g-${g.sc.id}`}>
+                <span class="ds-mono">${g.sc.id}</span> · ${g.sc.title} <span class="ds-muted">· ${g.total.filter((x) => x.enabled).length}/${g.total.length} on</span>
+              </li>
+              ${g.items.map((it) => {
+                const c = confOf(d.confidence, it.id);
+                const res = d.resolved[it.id];
+                const problem = res && "problem" in res;
+                return html`<li class="ds-rowwrap" key=${it.id} data-off=${it.enabled ? undefined : "true"}>
+                  <button class="ds-switch" type="button" role="switch" aria-checked=${it.enabled} aria-label=${`${it.enabled ? "In the render" : "Not rendered"}: ${rowTitle(it)}`} data-act="row-enabled" data-id=${it.id} onClick=${() => onToggle(it)}>
+                    <span class="ds-switch-track" aria-hidden="true"></span>
+                  </button>
+                  <button class="ds-item" type="button" data-key=${it.id} aria-current=${item?.id === it.id ? "true" : undefined} onClick=${() => select(it.id)}>
+                    <span class="ds-status" aria-hidden="true">${ICON[it.type]}</span>
+                    <span><span class="ds-item-title">${rowTitle(it)}</span><br /><span class="ds-item-meta">${it.id} · ${anchorLabel(it.anchor)}${res && !problem ? ` · ${sec(res.startMs)}` : ""}</span>
+                      <span class="ds-row-flex" style="margin-block-start: var(--space-1)">
+                        ${isPrivacy(it) ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">◆</span>Privacy</span>` : null}
+                        ${touched(it) ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Yours</span>` : null}
+                        ${problem ? html`<span class="ds-badge" data-tone="err"><span class="ds-badge-ico" aria-hidden="true">!</span>Can't place</span>` : null}
+                        ${c && c.level !== "high" ? html`<${ConfPill} c=${c} />` : null}
+                      </span>
+                    </span>
+                  </button>
+                </li>`;
+              })}`,
+            )}
+          </ul>`
+              : html`<p class="ds-small ds-muted" style="padding: var(--space-3)">No annotation matches the filters.</p>`
+          }
+        </section>
+        <section class="ds-split-detail" aria-label="Selected annotation">
+          ${item ? html`<${Inspector} key=${`${d.version}-${item.id}`} d=${d} item=${item} onEdit=${ed.edit} onToggle=${onToggle} onOpen=${setLightbox} resettable=${resettable.has(item.id)} />` : null}
+          <div class="ds-actionbar">
+            <span class="ds-savestate" data-state=${ed.save.status} role="status"><span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>${saveText(ed.save, d.draft)}</span>
+            ${ed.save.status === "failed" ? html`<button class="ds-btn ds-btn--sm" type="button" onClick=${ed.retry}>Retry</button>` : null}
+            ${d.draft ? html`<button class="ds-btn ds-btn--ghost" type="button" data-act="discard" onClick=${onDiscard}>Discard draft</button>` : null}
+            <span class="ds-grow"></span>
+            <button class="ds-btn ds-btn--primary" type="button" data-act="save-version" aria-disabled=${canSave ? undefined : "true"} aria-describedby="why-save-ann"
+              onClick=${() => canSave && onSave()}>Save new version</button>
+            ${canSave ? null : html`<span class="ds-why" id="why-save-ann" style="flex-basis: 100%; text-align: end">${ed.save.status === "conflict" ? "Resolve the conflict above first." : "Change an annotation first: there is nothing to save."}</span>`}
+          </div>
+        </section>
+      </div>
+    </div>
     ${lightbox ? html`<${Lightbox} open=${lightbox} onClose=${() => setLightbox(null)} />` : null}`;
 }

@@ -72,6 +72,13 @@ function safeTimeline(
   }
 }
 
+/** The ids of the annotations in a draft that differ from its base version. */
+function draftChangedIds(projectDir: string, d: AnnotationWorkingDraft): string[] {
+  const base = readAnnotations(projectDir, d.base);
+  const was = new Map((base?.items ?? []).map((x) => [x.id, JSON.stringify(x)]));
+  return d.file.items.filter((x) => was.get(x.id) !== JSON.stringify(x)).map((x) => x.id);
+}
+
 /** The tab's view of a version (or of the draft on top of it). */
 export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?: number) {
   const versions = annotationVersions(p.dir);
@@ -130,6 +137,8 @@ export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?
           revision: draft.revision,
           author: draft.author,
           flags: annotationDraftFlags(p.dir, draft),
+          /** The annotations that differ from the base version: what a discard would lose. */
+          changedIds: draftChangedIds(p.dir, draft),
         }
       : null,
     /** Drafts on other versions: they are kept, and never replaced by editing this one. */

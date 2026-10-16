@@ -70,7 +70,7 @@ export function NeedsEyes({
     ${
       summary.needEyes
         ? html`<b class="eyes-count">${summary.needEyes} need${summary.needEyes === 1 ? "s" : ""} your eyes</b>
-          ${risky.map((i) => html`<button class=${`chip conf-chip conf-${i.level}`} title=${reasonsText(i)} onClick=${() => (onJump ? onJump(i.id) : jumpTo(i.id))}>${i.id}</button>`)}`
+          ${risky.map((i) => html`<button class=${`ds-chip conf-chip conf-${i.level}`} title=${reasonsText(i)} onClick=${() => (onJump ? onJump(i.id) : jumpTo(i.id))}>${i.id}</button>`)}`
         : html`<span class="conf conf-high">● all ${summary.items.length} high confidence</span>`
     }
     <span class="grow"></span>
@@ -102,7 +102,7 @@ export function ApproveHighModal({ artifact, version, onClose, onDone }) {
   };
   const what = artifact === "vo" ? "section" : "scene";
   return html`<${Modal} title="Mark high-confidence items reviewed" onClose=${onClose}
-      actions=${html`<button class="primary" disabled=${busy || !plan?.approve?.length} onClick=${apply}>Mark ${plan?.approve?.length ?? 0} ${what}(s) reviewed</button>`}>
+      actions=${html`<button class="ds-btn ds-btn--primary" disabled=${busy || !plan?.approve?.length} onClick=${apply}>Mark ${plan?.approve?.length ?? 0} ${what}(s) reviewed</button>`}>
     ${err ? html`<p class="error">${err}</p>` : null}
     ${
       !plan

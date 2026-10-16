@@ -173,7 +173,7 @@ test(
         /Project override[\s\S]*Not set[\s\S]*Override for this project/,
       );
       assert.equal(
-        await page.locator(".segmented button:has-text('This project')").count(),
+        await page.locator(".ds-seg button:has-text('This project')").count(),
         0,
         "no page-level scope switch",
       );

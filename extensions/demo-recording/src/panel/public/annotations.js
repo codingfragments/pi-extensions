@@ -4,7 +4,7 @@
 // (one per version, revisions, conflicts: src/drafts/annotations.ts) and are shown as Saving / Draft saved /
 // Save failed; "Save new version" turns the draft into exactly one version, and approving is a separate act.
 // Turning off a redaction asks first; "Reset to suggested" undoes what you changed on one annotation.
-import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
+import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
 import { ConfReasons, NeedsEyes, byRisk, confOf } from "./confidence.js";
 import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost, getModels } from "./cost.js";
@@ -147,7 +147,7 @@ function Lightbox({ open, onClose }) {
   return html`<div class="lightbox" role="dialog" aria-modal="true" aria-label=${`${LABEL[item.type]} ${item.id}`}
       onClick=${(e) => e.target === e.currentTarget && onClose()}>
     <figure class="lightbox-box">
-      <button class="lightbox-close ghost" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
+      <button class="lightbox-close ds-btn ds-btn--ghost" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
       ${
         clip
           ? html`<video src=${media("project", clip)} controls autoplay playsinline></video>`
@@ -184,7 +184,7 @@ function SceneDraft({ version, scene, draftKey }) {
     }
   };
   return html`<span class="scene-draft">
-    <button class="ghost" disabled=${busy} title="render this scene with every enabled annotation (640×360, no chapter titles)" onClick=${run}>${busy ? "rendering…" : "▶ Play scene with enabled annotations"}</button>
+    <button class="ds-btn ds-btn--ghost" disabled=${busy} title="render this scene with every enabled annotation (640×360, no chapter titles)" onClick=${run}>${busy ? "rendering…" : "▶ Play scene with enabled annotations"}</button>
     ${err ? html`<span class="error small-text">${err}</span>` : null}
     ${file ? html`<video class="scene-video" src=${media("project", file)} controls autoplay playsinline></video>` : null}
   </span>`;
@@ -240,13 +240,13 @@ function Resuggest({ data, onDone }) {
     <summary>${has ? "Suggest again…" : "Suggest annotations"}</summary>
     <textarea rows="2" placeholder=${has ? "e.g. calmer — no spotlights; zoom on the totals instead of the chart; callouts in German" : "optional instructions for the annotation designer"} value=${text} onInput=${(e) => setText(e.target.value)}></textarea>
     <div class="row">
-      <button class="primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "approve a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
+      <button class="ds-btn ds-btn--primary" disabled=${busy || !data.canSuggest || !!data.draft} title=${data.draft ? "save or discard your unsaved changes first" : data.canSuggest ? "an agent turn: the designer suggests again; items you added, edited or toggled are kept" : "approve a voice-over and run the sync edit first"} onClick=${go}>${has ? `Re-suggest on v${data.version}` : "Suggest annotations"}</button>
       <span class="muted small-text">${has ? "Keeps every item you added, edited or toggled; regenerates the rest." : data.autoSuggest ? "Auto-suggest is on: this also starts by itself after each sync edit." : "Auto-suggest is off (Config → Settings → Annotations)."}</span>
       <${CostHint} what=${getModels()?.designer ? "a separate designer call" : "starts the Director"} model=${getModels()?.designer ? getModels().designer[0] : undefined} />
       ${flash ? html`<span class="flash">${flash}</span>` : null}
     </div>
     <div class="row small-text">
-      <button class="ghost" disabled=${busy || !data.canSuggest} title="writes an empty annotation version — approve it to render a plain final; you can still choose per render which annotation types to include" onClick=${noAnnotations}>Use no annotations</button>
+      <button class="ds-btn ds-btn--ghost" disabled=${busy || !data.canSuggest} title="writes an empty annotation version — approve it to render a plain final; you can still choose per render which annotation types to include" onClick=${noAnnotations}>Use no annotations</button>
       <span class="muted">for a demo without any; or choose per render which types to include (Render tab).</span>
     </div>
   </details>`;
@@ -681,9 +681,9 @@ export function Annotations({ events }) {
       ${d.stale ? html`<p class="small-text error">⚠ ${d.stale} — previews are unavailable.</p>` : null}
       <${BudgetMeter} budget=${d.budget} />
       <div class="filters row">
-        ${TYPES.filter(count).map((t) => html`<button class=${`chip ${types.has(t) ? "on" : ""}`} aria-pressed=${types.has(t)} onClick=${() => toggleType(t)}>${ICON[t]} ${LABEL[t]} <span class="muted">${count(t)}</span></button>`)}
+        ${TYPES.filter(count).map((t) => html`<button class="ds-chip" aria-pressed=${types.has(t)} onClick=${() => toggleType(t)}>${ICON[t]} ${LABEL[t]} <span class="muted">${count(t)}</span></button>`)}
         <span class="grow"></span>
-        ${["all", "on", "off"].map((s) => html`<button class=${`chip ${state === s ? "on" : ""}`} aria-pressed=${state === s} onClick=${() => setState(s)}>${s === "all" ? "all" : s === "on" ? "enabled" : "suggested, off"}</button>`)}
+        ${["all", "on", "off"].map((s) => html`<button class="ds-chip" aria-pressed=${state === s} onClick=${() => setState(s)}>${s === "all" ? "all" : s === "on" ? "enabled" : "suggested, off"}</button>`)}
       </div>
       <${NeedsEyes} summary=${d.confidence} riskFirst=${riskFirst} setRiskFirst=${setRiskFirst} onJump=${select} />
       <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />

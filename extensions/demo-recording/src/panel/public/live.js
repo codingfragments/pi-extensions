@@ -159,7 +159,7 @@ export function ProgressRows({ rows }) {
   return html`${rows.map(
     (r) => html`<div class=${`prow ${r.state}`} key=${r.key}>
       <div class="prow-head"><strong>${r.title}</strong>
-        ${r.state === "running" ? (r.fraction !== null ? html`<span class="pill">${Math.round(r.fraction * 100)}%</span>` : html`<span class="pill">…</span>`) : html`<span class=${`pill ${r.state === "failed" ? "fail-pill" : "muted-pill"}`}>${r.state}</span>`}</div>
+        ${r.state === "running" ? (r.fraction !== null ? html`<span class="ds-badge" data-tone="info">${Math.round(r.fraction * 100)}%</span>` : html`<span class="ds-badge" data-tone="info">…</span>`) : html`<span class="ds-badge" data-tone=${r.state === "failed" ? "err" : "neutral"}>${r.state}</span>`}</div>
       ${r.segments ? html`<${SegmentBar} segments=${r.segments} />` : r.fraction !== null ? html`<div class="minibar"><div style=${`width:${Math.round(r.fraction * 100)}%`}></div></div>` : null}
       ${r.detail ? html`<p class="small-text muted">${r.detail}</p>` : null}
     </div>`,
@@ -254,7 +254,7 @@ export function LogLineModal({ e, onClose }) {
   };
   const msg = typeof e.data?.message === "string" ? e.data.message : null;
   return html`<${Modal} title=${e.type} onClose=${onClose}
-      actions=${html`<button class="ghost" onClick=${copy}>${copied ? "copied ✓" : "Copy"}</button>`}>
+      actions=${html`<button class="ds-btn ds-btn--ghost" onClick=${copy}>${copied ? "copied ✓" : "Copy"}</button>`}>
     <dl class="kv log-detail">
       <dt>Time</dt><dd class="mono">${new Date(e.at).toLocaleString()} <span class="muted">(${e.at})</span></dd>
       <dt>Event</dt><dd class="mono">#${e.seq} · ${e.type}</dd>
@@ -288,7 +288,7 @@ export function FullLogModal({ events, onClose, onPick }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return html`<${Modal} title=${`Log · ${shown.length} line(s) · ${events.length} event(s)`} size="large" onClose=${onClose}
-      actions=${html`<button class="ghost" onClick=${copy} title="copy the shown events">${copied ? "copied ✓" : "Copy"}</button>`}>
+      actions=${html`<button class="ds-btn ds-btn--ghost" onClick=${copy} title="copy the shown events">${copied ? "copied ✓" : "Copy"}</button>`}>
     <div class="row log-filters">
       <input class="note" type="search" placeholder="filter: text, type, project …" value=${q} onInput=${(e) => setQ(e.target.value)} aria-label="filter the log" />
       <select value=${prefix} onChange=${(e) => setPrefix(e.target.value)} aria-label="event type">

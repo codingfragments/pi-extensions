@@ -4,14 +4,14 @@
     "project|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 22
     },
     "storyboard|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 28
     },
@@ -25,21 +25,21 @@
     "voice|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 17,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 28
     },
     "annotations|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 14,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "render|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 15,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 32
     },
@@ -58,63 +58,63 @@
         }
       },
       "axeSerious": 2,
-      "smallTargets": 17,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "project-history|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 5,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 24
     },
     "map|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-cost|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 26
     },
     "project|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 22
     },
     "storyboard|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 28
     },
@@ -128,21 +128,21 @@
     "voice|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 17,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 28
     },
     "annotations|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 14,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "render|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 15,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 32
     },
@@ -161,68 +161,63 @@
         }
       },
       "axeSerious": 2,
-      "smallTargets": 17,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "project-history|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 5,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 24
     },
     "map|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-cost|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 26
     },
     "project|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 22
     },
     "storyboard|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 1
-        }
-      },
-      "axeSerious": 1,
-      "smallTargets": 4,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 28
     },
@@ -236,7 +231,7 @@
     "voice|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 17,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 28
     },
@@ -248,7 +243,7 @@
         }
       },
       "axeSerious": 1,
-      "smallTargets": 14,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -256,11 +251,11 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 5
+          "nodes": 3
         }
       },
-      "axeSerious": 5,
-      "smallTargets": 15,
+      "axeSerious": 3,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 32
     },
@@ -279,28 +274,28 @@
         }
       },
       "axeSerious": 4,
-      "smallTargets": 17,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "project-history|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 5,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 24
     },
     "map|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -312,40 +307,35 @@
         }
       },
       "axeSerious": 2,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|latte|1400": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 26
     },
     "project|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 22
     },
     "storyboard|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 1
-        }
-      },
-      "axeSerious": 1,
-      "smallTargets": 4,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 28
     },
@@ -359,7 +349,7 @@
     "voice|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 17,
+      "smallTargets": 4,
       "focusMissing": 0,
       "focusChecked": 28
     },
@@ -371,7 +361,7 @@
         }
       },
       "axeSerious": 1,
-      "smallTargets": 14,
+      "smallTargets": 1,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -379,11 +369,11 @@
       "axe": {
         "color-contrast": {
           "impact": "serious",
-          "nodes": 5
+          "nodes": 3
         }
       },
-      "axeSerious": 5,
-      "smallTargets": 15,
+      "axeSerious": 3,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 32
     },
@@ -402,28 +392,28 @@
         }
       },
       "axeSerious": 4,
-      "smallTargets": 17,
+      "smallTargets": 3,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "project-history|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 5,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 24
     },
     "map|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "map-focus|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -435,21 +425,21 @@
         }
       },
       "axeSerious": 2,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "dialog-danger|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
     "toast|latte|900": {
       "axe": {},
       "axeSerious": 0,
-      "smallTargets": 4,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 26
     }

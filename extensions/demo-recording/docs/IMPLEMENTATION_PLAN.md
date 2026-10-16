@@ -667,7 +667,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
 | 11 | Confidence-guided review + voice direction | ✅ #51 |
 | 12 | Actor & dependency model document, per-role model config, architecture and flow docs | ✅ #52 |
 | 13 | **Panel dialogs + cost warnings**: in-panel dialogs and toasts instead of native `alert` / `confirm` / `prompt`, and an ask-first check (with an estimate) before a paid or long step | ✅ |
-| **UX** | **UX pass** (UX0–UX8 merged; UX9a in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
+| **UX** | **UX pass** (UX0–UX9a merged; UX9b in review): stage workspace, calm workbench foundations, History and explicit production actions, dependency graph overlay, durable drafts, list/detail review, Project first-run and Config search. [UX spec](UX.md), D98–D115; slices UX0–UX9 below | spec drafted; review pending; no implementation |
 | 14 | **User guide + control room 101** (user backlog, **after the UX pass** so it describes the final UI once): full documentation of the process and of the panel (control room), its capabilities, plus a step-by-step 101 tutorial through the whole process | backlog |
 
 **Why this order:**
@@ -1079,7 +1079,7 @@ measurably in sync (anchor drift p95 ≤ 150 ms) with dead time removed.
   | UX7 | **Panel (Render):** runs list (approved first, kind filter) + inspector in decision order (QA first for finals, variants and player, files and warnings), New render as a summary line with Render now and Change…, one unsaved-changes option per annotation draft; no engine change (D123) | built, awaiting review ([report](ux/UX7.md)) |
   | UX8 | **Project:** summary on top (audience, goal, depth, length, voice, URL; missing essentials persona/goal/depth/URL with fix links; NEXT), one group open below in the address (Brief form, Sources & context, Findings, Project history), first run offers *Ask the Director to draft it* (new route `brief-draft`, cost class turn) or *Fill it in myself* (D124) | built, awaiting review ([report](ux/UX8.md)) |
   | UX9a | **Config search:** each setting with Effective / Global / Project layers and per-layer actions (no page-level scope switch), settings-only search with highlighting and collapsing, quick filters (Changed, Overridden here, From environment), `/` and Cmd/Ctrl+K inside Config, query in the address; secrets never indexed (D125) | built, awaiting review ([report](ux/UX9a.md)) |
-  | UX9b | **Cleanup:** the remaining screens off the legacy CSS, `style.css` and the legacy aliases deleted, the ratchet at zero, `app.js` split per screen | planned |
+  | UX9b | **Cleanup:** the remaining screens off the legacy CSS, `style.css` and the legacy aliases deleted, the ratchet at zero, `app.js` split per screen | built, awaiting review ([report](ux/UX9b.md)) |
   | UX9c | **Final audit and a scored usability review** of the task scenarios in docs/UX.md §9, with a report | planned |
 
 - **Design/accessibility bars retained:** at most 8 font sizes, 6 radii and 8 spacing steps; semantic tokens only for colours; one shared button system; text contrast in both themes, visible unobscured focus, keyboard equivalents, at least 24 px targets and reduced motion. Specific starting scales and functional motion are proposals in the spec. No density toggle and no new UI framework.

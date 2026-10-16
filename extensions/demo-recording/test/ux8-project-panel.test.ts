@@ -95,7 +95,7 @@ test(
       );
       assert.equal(await page.locator(".fact-groups").count(), 0, "the form is closed");
       assert.equal(
-        await page.locator(".subtabs .chip[aria-pressed=true]").count(),
+        await page.locator(".subtabs .ds-chip[aria-pressed=true]").count(),
         0,
         "no group is open",
       );
@@ -139,7 +139,7 @@ test(
       await page.waitForSelector(".fact-groups");
       assert.match(await page.evaluate("location.hash"), /^#\/project\?group=brief&field=persona$/);
       assert.equal(
-        await page.locator(".subtabs .chip[data-group=brief]").getAttribute("aria-pressed"),
+        await page.locator(".subtabs .ds-chip[data-group=brief]").getAttribute("aria-pressed"),
         "true",
       );
       await page.waitForFunction(
@@ -166,13 +166,13 @@ test(
       );
       await page.fill("[data-fact=goal] textarea", "Search, compare, act.");
       await page.fill("[data-fact=persona] textarea", "Product teams evaluating search");
-      await page.locator(".segmented button", { hasText: "showcase" }).click();
+      await page.locator(".ds-seg button", { hasText: "showcase" }).click();
       await page.getByRole("button", { name: "Save facts" }).click();
       await page.waitForFunction(
         "/saved as brief v/.test(document.querySelector('.facts .flash')?.innerText ?? '')",
       );
       // back to the summary: nothing is missing, the length says where it comes from
-      await page.click(".subtabs .chip[data-group=brief]");
+      await page.click(".subtabs .ds-chip[data-group=brief]");
       await page.waitForSelector("[data-ready]");
       assert.match(await page.locator("[data-ready]").innerText(), /The brief is complete/);
       assert.match(await rowText(page, "persona"), /Product teams evaluating search/);
@@ -193,28 +193,28 @@ test(
     try {
       await open(page);
       assert.equal(await page.locator("[data-ready]").count(), 1, "the seeded brief is complete");
-      await page.click(".subtabs .chip[data-group=findings]");
+      await page.click(".subtabs .ds-chip[data-group=findings]");
       await page.waitForSelector("li.finding, .card.muted");
       assert.equal(await page.evaluate("location.hash"), "#/project?group=findings");
-      await page.click(".subtabs .chip[data-group=history]");
+      await page.click(".subtabs .ds-chip[data-group=history]");
       await page.waitForSelector("ul.inputs li, .brief-text");
       assert.equal(await page.locator("li.finding").count(), 0, "only one group is open");
       assert.match(
         await page.locator(".card", { hasText: "Production line" }).first().innerText(),
         /Production line/,
       );
-      await page.click(".subtabs .chip[data-group=sources]");
+      await page.click(".subtabs .ds-chip[data-group=sources]");
       await page.waitForSelector(".sources, .card:has-text('Sources & assets')");
       assert.equal(await page.locator("ul.inputs").count(), 0);
       await page.reload();
       await page.waitForSelector(".project-summary");
       assert.equal(
-        await page.locator(".subtabs .chip[data-group=sources]").getAttribute("aria-pressed"),
+        await page.locator(".subtabs .ds-chip[data-group=sources]").getAttribute("aria-pressed"),
         "true",
       );
-      await page.click(".subtabs .chip[data-group=sources]");
+      await page.click(".subtabs .ds-chip[data-group=sources]");
       assert.equal(await page.evaluate("location.hash"), "#/project");
-      assert.equal(await page.locator(".subtabs .chip[aria-pressed=true]").count(), 0);
+      assert.equal(await page.locator(".subtabs .ds-chip[aria-pressed=true]").count(), 0);
       // narrow: the summary stacks, nothing overflows
       await page.setViewportSize({ width: 700, height: 1000 });
       const overflow = await page.evaluate(

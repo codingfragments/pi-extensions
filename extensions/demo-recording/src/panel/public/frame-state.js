@@ -78,9 +78,11 @@ export function stepStates({ stages, jobs, discovery = false }) {
     const running = runningJobs(jobs).find((j) => JOB_STAGE[j.kind] === step.stage);
     let state = "upcoming";
     let why = "";
+    let node;
     if (selectedAcc?.orphaned) {
       state = "blocked";
       why = `${step.label} ${vLabel(step.stage, s.selected)} is blocked: ${selectedAcc.orphaned}`;
+      node = `${step.stage}:${s.selected}`;
     } else if (fail) {
       state = "blocked";
       why = `${JOB_TITLE[fail.kind]} failed${fail.error ? `: ${String(fail.error).split("\n")[0]}` : ""}`;
@@ -100,7 +102,7 @@ export function stepStates({ stages, jobs, discovery = false }) {
     } else if (next?.who === "agent" && next.stage === step.stage) {
       why = `Waiting for the Director: ${next.text}`;
     }
-    out[step.tab] = { state, why, pending: pending.length };
+    out[step.tab] = { state, why, pending: pending.length, ...(node ? { node } : {}) };
   }
   return out;
 }
@@ -119,6 +121,7 @@ export function nextBand({ stages, states, jobs }) {
       label: "Blocked",
       text: states[blocked].why,
       action: { label: "Show", tab: blocked },
+      ...(states[blocked].node ? { map: states[blocked].node } : {}),
       more: [],
     };
   const next = stages.next;

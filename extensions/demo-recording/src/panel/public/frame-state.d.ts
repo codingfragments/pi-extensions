@@ -33,6 +33,8 @@ export interface StepState {
   state: "complete" | "needs" | "running" | "blocked" | "upcoming";
   why: string;
   pending: number;
+  /** The graph node of a version that is blocked by dependency. */
+  node?: string;
 }
 export interface Band {
   tone: "needs" | "blocked" | "idle" | "done";
@@ -40,6 +42,8 @@ export interface Band {
   text: string;
   title?: string;
   action: { label: string; tab: string } | null;
+  /** Graph node to show in the map (a blocked step). */
+  map?: string;
   more: { tab: string; text: string }[];
 }
 export interface Strip {

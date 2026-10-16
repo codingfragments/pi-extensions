@@ -11,7 +11,7 @@
       "axeSerious": 2,
       "smallTargets": 16,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 39
     },
     "storyboard|macchiato|1400": {
       "axe": {
@@ -23,21 +23,21 @@
       "axeSerious": 2,
       "smallTargets": 5,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 33
     },
     "recording|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 12
+      "focusChecked": 13
     },
     "voice|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 18,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "annotations|macchiato|1400": {
       "axe": {},
@@ -60,7 +60,7 @@
       "axeSerious": 4,
       "smallTargets": 58,
       "focusMissing": 0,
-      "focusChecked": 35
+      "focusChecked": 36
     },
     "config|macchiato|1400": {
       "axe": {
@@ -79,6 +79,20 @@
       },
       "axeSerious": 76,
       "smallTargets": 6,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map-focus|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -128,7 +142,7 @@
       "axeSerious": 2,
       "smallTargets": 16,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 39
     },
     "storyboard|macchiato|900": {
       "axe": {
@@ -140,21 +154,21 @@
       "axeSerious": 2,
       "smallTargets": 5,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 33
     },
     "recording|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 12
+      "focusChecked": 13
     },
     "voice|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 18,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "annotations|macchiato|900": {
       "axe": {},
@@ -177,7 +191,7 @@
       "axeSerious": 4,
       "smallTargets": 58,
       "focusMissing": 0,
-      "focusChecked": 35
+      "focusChecked": 36
     },
     "config|macchiato|900": {
       "axe": {
@@ -196,6 +210,20 @@
       },
       "axeSerious": 76,
       "smallTargets": 6,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map-focus|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -245,7 +273,7 @@
       "axeSerious": 4,
       "smallTargets": 16,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 39
     },
     "storyboard|latte|1400": {
       "axe": {
@@ -257,14 +285,14 @@
       "axeSerious": 3,
       "smallTargets": 5,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 33
     },
     "recording|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 12
+      "focusChecked": 13
     },
     "voice|latte|1400": {
       "axe": {
@@ -276,7 +304,7 @@
       "axeSerious": 3,
       "smallTargets": 18,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "annotations|latte|1400": {
       "axe": {
@@ -304,7 +332,7 @@
       "axeSerious": 18,
       "smallTargets": 58,
       "focusMissing": 0,
-      "focusChecked": 35
+      "focusChecked": 36
     },
     "config|latte|1400": {
       "axe": {
@@ -323,6 +351,20 @@
       },
       "axeSerious": 82,
       "smallTargets": 6,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map-focus|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -372,7 +414,7 @@
       "axeSerious": 4,
       "smallTargets": 16,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 39
     },
     "storyboard|latte|900": {
       "axe": {
@@ -384,14 +426,14 @@
       "axeSerious": 3,
       "smallTargets": 5,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 33
     },
     "recording|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 12
+      "focusChecked": 13
     },
     "voice|latte|900": {
       "axe": {
@@ -403,7 +445,7 @@
       "axeSerious": 3,
       "smallTargets": 18,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 27
     },
     "annotations|latte|900": {
       "axe": {
@@ -431,7 +473,7 @@
       "axeSerious": 18,
       "smallTargets": 58,
       "focusMissing": 0,
-      "focusChecked": 35
+      "focusChecked": 36
     },
     "config|latte|900": {
       "axe": {
@@ -450,6 +492,20 @@
       },
       "axeSerious": 82,
       "smallTargets": 6,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "map-focus|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 16,
       "focusMissing": 0,
       "focusChecked": 40
     },

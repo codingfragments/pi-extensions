@@ -56,6 +56,7 @@ export function NextBand({ band }) {
           </details>`
         : null
     }
+    ${band.map ? html`<a class="ds-btn ds-btn--ghost band-map" href=${formatRoute({ screen: "map", query: { sel: band.map, focus: "1" } })}>Show in map</a>` : null}
     ${band.action ? html`<a class="ds-btn ds-btn--primary" href=${formatRoute({ screen: band.action.tab })}>${band.action.label}</a>` : null}
   </div>`;
 }
@@ -85,6 +86,7 @@ export function Header({ slug, tab, states, news, band }) {
         </ol>
       </nav>
       <span class="ds-header-tools">
+        <a class="ds-btn ds-btn--ghost map-link" href="#/map" aria-haspopup="dialog" title="The project map: every version and what depends on what">◇ Map</a>
         <a class="ds-btn ds-btn--ghost config-btn" href="#/config" aria-current=${tab === "config" ? "page" : undefined} title="Settings and brands (not a process step)">⚙ Config</a>
         <${ThemeToggle} />
       </span>

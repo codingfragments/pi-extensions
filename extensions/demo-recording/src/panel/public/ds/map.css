@@ -48,6 +48,7 @@
 .ds-map-canvas {
   position: relative;
   overflow: auto;
+  scrollbar-gutter: stable;
   background: var(--surface-sunken);
 }
 .ds-map-heads {
@@ -240,10 +241,77 @@
   background: var(--surface-panel);
 }
 @container (max-width: 60rem) {
+  /* narrow: the details and the outline go under the graph instead of beside it */
   .ds-map-body {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 13rem);
   }
   .ds-map-side {
-    display: none;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--border-subtle);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
+  .ds-map-selected {
+    max-block-size: none;
+    border-block-end: 0;
+    border-inline-end: 1px solid var(--border-subtle);
+  }
+}
+
+/* ---------- The real overlay (UX4b) ---------- */
+.ds-map-count {
+  white-space: nowrap;
+}
+.ds-map-update {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--text-strong);
+}
+.ds-map-notice {
+  margin: var(--space-2) var(--space-4) 0;
+}
+.ds-map-canvas:focus-visible {
+  outline-offset: -2px;
+}
+.ds-node--qa {
+  padding-block: 0;
+  align-content: center;
+  border-radius: var(--radius-sm);
+}
+.ds-node--qa .ds-node-title {
+  font-size: var(--text-xs);
+}
+.ds-node--qa[data-tone="ok"] {
+  box-shadow: inset 4px 0 0 var(--status-ok);
+}
+.ds-node--qa[data-tone="err"] {
+  box-shadow: inset 4px 0 0 var(--status-err);
+}
+.ds-node[data-kind="more"] {
+  border-style: dashed;
+  background: transparent;
+}
+.ds-node[aria-current="true"].ds-node--qa[data-tone="ok"] {
+  box-shadow: inset 4px 0 0 var(--status-ok), 0 0 0 3px var(--surface-overlay), 0 0 0 5px
+    var(--accent);
+}
+.ds-node[aria-current="true"].ds-node--qa[data-tone="err"] {
+  box-shadow: inset 4px 0 0 var(--status-err), 0 0 0 3px var(--surface-overlay), 0 0 0 5px
+    var(--accent);
+}
+.ds-map-selected {
+  overflow: auto;
+  max-block-size: 22rem;
+  align-content: start;
+  min-block-size: 0;
+}
+.ds-map-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-map-side {
+  /* the details take what they need (up to 60%), the outline the rest */
+  grid-template-rows: minmax(0, max-content) minmax(0, 1fr);
 }

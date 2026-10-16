@@ -2,7 +2,7 @@
 // Pure parsing and formatting only (tested in Node, no imports); the hook that listens to the hash is useHashRoute in core.js.
 // Changing a route never changes project state, and an unknown route explains its fallback.
 
-/** The screens of this panel. `map` is parsed but not available yet (UX4). */
+/** The screens of this panel. `map` is an overlay on top of whichever screen is current (UX4b). */
 export const SCREENS = [
   "project",
   "storyboard",
@@ -11,8 +11,8 @@ export const SCREENS = [
   "annotations",
   "render",
   "config",
+  "map",
 ];
-const COMING = ["map"];
 
 /**
  * Parse a hash. null = no route at all. Otherwise { screen, version?, item?, query, raw, valid, reason? };
@@ -37,9 +37,7 @@ export function parseRoute(hash) {
     return {
       ...base,
       valid: false,
-      reason: COMING.includes(screen)
-        ? `“${screen}” is not available yet`
-        : `“${screen}” is not a screen of this panel`,
+      reason: `“${screen}” is not a screen of this panel`,
     };
   const route = { ...base, valid: true };
   if (parts[1] !== undefined) {

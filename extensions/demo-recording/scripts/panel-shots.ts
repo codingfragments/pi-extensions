@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --map       # the project map (UX4): all paths, search, focus, group open, History link
  */
 
 import fs from "node:fs";
@@ -29,6 +30,7 @@ const THEMES = arg("themes", "macchiato,latte").split(",");
 const dialogsOnly = process.argv.includes("--dialogs");
 const frameOnly = process.argv.includes("--frame");
 const versionsOnly = process.argv.includes("--versions");
+const mapOnly = process.argv.includes("--map");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -72,7 +74,29 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (versionsOnly) {
+      if (mapOnly) {
+        const ready = async () => {
+          await page.waitForSelector(".ds-map .ds-node");
+          await page.waitForTimeout(250);
+        };
+        await page.goto(`${panel.url}#/map`);
+        await ready();
+        await shot(page, `map-all-${tag}`, false);
+        await page.goto(`${panel.url}#/map?q=final`);
+        await ready();
+        await shot(page, `map-search-${tag}`, false);
+        await page.goto(`${panel.url}#/map?sel=vo%3A2&focus=1`);
+        await ready();
+        await shot(page, `map-focus-${tag}`, false);
+        await page.goto(`${panel.url}#/map?sel=render%3A2&open=drafts%3Arender%3Aannotations%3A1`);
+        await ready();
+        await shot(page, `map-group-${tag}`, false);
+        await page.goto(`${panel.url}#/voice`);
+        await page.waitForSelector(".history-btn");
+        await page.locator(".history-btn").click();
+        await page.waitForSelector(".ds-histpop .show-in-map");
+        await shot(page, `map-entry-${tag}`, false);
+      } else if (versionsOnly) {
         await page.goto(`${panel.url}#/voice`);
         await page.waitForSelector(".stage-summary");
         await page.waitForTimeout(300);

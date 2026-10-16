@@ -5,6 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
     <title>demo-recording</title>
+    <script>
+      // If a part of the panel cannot load (a content blocker, a bad cache, a broken file) say so in plain words,
+      // instead of leaving a blank page. Deliberately self-contained (the stylesheet may be what failed) and
+      // first in the head, so it sees the errors of everything loaded after it.
+      (function () {
+        var shown = false;
+        window.__panelUp = false;
+        function mount(fn) {
+          if (document.body) fn();
+          else document.addEventListener("DOMContentLoaded", fn);
+        }
+        function say(what, detail) {
+          if (shown) return;
+          shown = true;
+          mount(function () {
+            var box = document.createElement("div");
+            box.id = "boot-notice";
+            box.setAttribute("role", "alert");
+            box.style.cssText =
+              "font:16px/1.5 system-ui,sans-serif;max-width:44rem;margin:2rem auto;padding:1rem 1.25rem;border:1px solid #ed8796;border-left:6px solid #ed8796;border-radius:8px;background:#24273a;color:#cad3f5";
+            var h = document.createElement("strong");
+            h.textContent = "The control room could not load part of itself.";
+            var p1 = document.createElement("p");
+            p1.textContent = what;
+            var p2 = document.createElement("p");
+            p2.textContent =
+              "Reload the page. If it keeps happening, turn off content blockers for this address, or restart the panel (/demo panel).";
+            var row = document.createElement("div");
+            row.style.cssText = "display:flex;gap:.5rem;flex-wrap:wrap";
+            function btn(label, fn) {
+              var b = document.createElement("button");
+              b.type = "button";
+              b.textContent = label;
+              b.style.cssText = "font:inherit;padding:.4rem .9rem;border-radius:6px;border:1px solid #8aadf4;background:#363a4f;color:#cad3f5;cursor:pointer;min-height:32px";
+              b.addEventListener("click", fn);
+              row.appendChild(b);
+              return b;
+            }
+            btn("Reload", function () { location.reload(); });
+            var copy = btn("Copy details", function () {
+              var text = what + (detail ? "\n" + detail : "") + "\n" + navigator.userAgent;
+              (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+                function () { copy.textContent = "Copied"; },
+                function () { copy.textContent = "Copy failed"; },
+              );
+            });
+            box.append(h, p1, p2, row);
+            document.body.prepend(box);
+          });
+        }
+        window.addEventListener(
+          "error",
+          function (e) {
+            var t = e.target;
+            if (t && t !== window && (t.tagName === "SCRIPT" || t.tagName === "LINK")) {
+              say(
+                t.tagName === "SCRIPT"
+                  ? "This script did not load, or a file it loads did not: " + t.src + " (the browser console names the file)."
+                  : "This file did not load: " + t.href,
+                "",
+              );
+            } else if (!window.__panelUp) {
+              say("A script failed while starting: " + (e.message || "unknown error"), (e.filename || "") + ":" + (e.lineno || ""));
+            }
+          },
+          true,
+        );
+        window.addEventListener("unhandledrejection", function (e) {
+          if (!window.__panelUp) say("A script failed while starting: " + String((e.reason && e.reason.message) || e.reason), "");
+        });
+        setTimeout(function () {
+          if (!window.__panelUp) say("The panel did not start in time.", "");
+        }, 10000);
+      })();
+    </script>
     <link rel="stylesheet" href="/ds/tokens.css" />
     <link rel="stylesheet" href="/ds/base.css" />
     <link rel="stylesheet" href="/ds/components.css" />

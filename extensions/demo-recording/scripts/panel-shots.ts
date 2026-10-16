@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --render      # Render (UX7): runs list + inspector, New render summary and Change…
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --annotations # Annotations (UX6): list by scene + inspector, draft saved, conflict, privacy dialog
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --storyboard # Storyboard (UX5c): scene list + inspector, a marked scene
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --voice     # Voice over (UX5): list + inspector, draft saved, failed save, conflict, base moved
@@ -37,6 +38,7 @@ const mapOnly = process.argv.includes("--map");
 const voiceOnly = process.argv.includes("--voice");
 const storyboardOnly = process.argv.includes("--storyboard");
 const annotationsOnly = process.argv.includes("--annotations");
+const renderOnly = process.argv.includes("--render");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -80,7 +82,18 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (annotationsOnly) {
+      if (renderOnly) {
+        await page.goto(`${panel.url}#/render/v2`);
+        await page.waitForSelector(".ds-inspector[data-version='2']");
+        await page.waitForTimeout(300);
+        await shot(page, `render-approved-${tag}`, false);
+        await page.goto(`${panel.url}#/render/v1`);
+        await page.waitForSelector(".ds-inspector[data-version='1'] .ds-why");
+        await shot(page, `render-blocked-${tag}`, false);
+        await page.click(".render-change > summary");
+        await page.waitForTimeout(200);
+        await shot(page, `render-change-${tag}`, false);
+      } else if (annotationsOnly) {
         const { editAnnotationDraft, readAnnotationDraft } = await import(
           "../src/drafts/annotations.ts"
         );
@@ -218,11 +231,9 @@ try {
         await page.waitForTimeout(200);
         await shot(page, `versions-consequence-${tag}`, false);
         await page.keyboard.press("Escape");
-        await page.goto(`${panel.url}#/render`);
-        await page.waitForSelector(".render-card");
-        await page.locator(".render-card", { hasText: "Final v1" }).locator("summary").click();
-        await page.waitForSelector(".render-card .ds-why");
-        await page.locator(".render-card", { hasText: "Final v1" }).scrollIntoViewIfNeeded();
+        await page.goto(`${panel.url}#/render/v1`);
+        await page.waitForSelector(".ds-inspector[data-version='1'] .ds-why");
+        await page.locator(".ds-inspector[data-version='1']").scrollIntoViewIfNeeded();
         await shot(page, `versions-disabled-${tag}`, false);
         await page.goto(`${panel.url}#/recording`);
         await page.waitForSelector(".card.take");

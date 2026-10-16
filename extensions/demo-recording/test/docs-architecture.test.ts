@@ -28,14 +28,16 @@ const slug = (h: string) =>
 const anchors = (md: string) =>
   new Set([...md.matchAll(/^#{1,6} +(.+?)\s*$/gm)].map((m) => slug(m[1] as string)));
 
-const MAIN = ["ARCHITECTURE.md", "ACTORS.md", "CONFIDENCE.md"].map((f) => path.join(DOCS, f));
+const MAIN = ["ARCHITECTURE.md", "ACTORS.md", "CONFIDENCE.md", "BRANCHING.md"].map((f) =>
+  path.join(DOCS, f),
+);
 const diagrams = fs
   .readdirSync(path.join(DOCS, "diagrams"))
   .filter((f) => f.endsWith(".mmd"))
   .map((f) => f.slice(0, -4));
 
 test("every diagram source has its rendered PNG and SVG, and is shown in the docs", () => {
-  assert.ok(diagrams.length >= 9, `the diagram sources (${diagrams.length})`);
+  assert.ok(diagrams.length >= 11, `the diagram sources (${diagrams.length})`);
   const shown = MAIN.map(read).join("\n");
   for (const d of diagrams) {
     for (const ext of ["png", "svg"]) {

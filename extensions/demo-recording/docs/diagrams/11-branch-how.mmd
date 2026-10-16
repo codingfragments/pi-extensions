@@ -1,0 +1,35 @@
+flowchart TB
+  classDef human fill:#fde8c8,stroke:#e08a00,color:#3d2600
+  classDef model fill:#e6d9fb,stroke:#7c4dff,color:#2a1470
+  classDef engine fill:#d6e8ff,stroke:#2f6fdb,color:#0b2a63
+  classDef store fill:#fff,stroke:#8a8a99,color:#333
+  classDef warn fill:#fdecea,stroke:#c0392b,color:#5a1209
+
+  Q{{"<b>Where should the paths split?</b><br/>pick the earliest stage that has to differ"}}:::human
+
+  Q -->|"another story"| S["<b>Storyboard</b><br/>review scenes, then<br/>Send review to agent"]:::human
+  Q -->|"another take of the same story"| R["<b>Recording</b><br/>Request a new take<br/>(cost dialog)"]:::human
+  Q -->|"another narration"| V["<b>Voice over</b><br/>Direction, or edit text<br/>and Save new version"]:::human
+  Q -->|"another look"| A["<b>Annotations</b><br/>Suggest again…, or edit<br/>and Save new version"]:::human
+  Q -->|"another deliverable"| D["<b>Render</b><br/>New render…, pick the<br/>annotation version"]:::human
+
+  S --> W["<b>The engine or the agent writes a new numbered version</b><br/>it names exactly one parent version · nothing existing changes"]:::model
+  R --> W
+  V --> W
+  A --> W
+  D --> W
+
+  W --> N[("<b>New version appears</b><br/>not approved yet, in Versions<br/>and on the map")]:::store
+  N --> P{"Parent approved<br/>and usable?"}:::engine
+  P -->|"no"| X["Approve is disabled and says why:<br/>approve the parent first"]:::warn
+  X --> P
+  P -->|"yes"| RV["<b>You review it</b><br/>marks, notes, QA, diff"]:::human
+  RV --> K{"<b>What should happen to it?</b>"}:::human
+  K -->|"keep as an alternative"| O["<b>Approve only</b><br/>approved, the line does not move"]:::engine
+  K -->|"follow it now"| U["<b>Approve & use</b> or <b>Use for next steps</b><br/>a dialog shows the line before and after"]:::engine
+  K -->|"not good"| RV2["Needs changes → a new version<br/>(this one stays in the history)"]:::human
+  U --> L["<b>The working line moves</b><br/>its ancestors join the line;<br/>the stages below re-pick their newest approved child"]:::engine
+  L --> M{"Is there an approved<br/>version below it?"}:::engine
+  M -->|"yes"| Z["The line continues<br/>to the delivered render"]:::store
+  M -->|"no"| NX["<b>The next stage is missing for this branch</b><br/>the band names the next step:<br/>build it, review it, approve it"]:::human
+  NX --> Q

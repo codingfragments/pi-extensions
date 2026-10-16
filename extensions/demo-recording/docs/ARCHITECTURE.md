@@ -220,7 +220,9 @@ render`. The rules (D30, D44–D47):
   `resuggestedFrom` or `importedFrom`. That is what the panel's diffs compare.
 
 Details and the panel behaviour: [VISION.md](VISION.md) D44–D47, and the
-Stage header in the panel.
+Stage header in the panel. **How to start a new path** (with the map as it
+looks in the panel, a process chart and the step tables):
+[BRANCHING.md](BRANCHING.md).
 
 ---
 
@@ -396,6 +398,7 @@ The reasons, grouped. The full table with rationale is in
 |---|---|
 | know **who plays which role**, on which model, and what each may decide | [ACTORS.md](ACTORS.md) |
 | run it and use the commands | [README](../README.md) |
+| **try a second path** without losing the first (narration, story, look) | [BRANCHING.md](BRANCHING.md) |
 | understand **annotations** in depth | [ANNOTATIONS.md](ANNOTATIONS.md) |
 | understand **renders, outputs and retention** | [RENDER.md](RENDER.md) |
 | understand **QA and fixes** | [QA.md](QA.md) |

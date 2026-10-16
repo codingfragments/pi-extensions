@@ -441,7 +441,7 @@ function Summary({ data, openGroup, ask, asked }) {
       <span class="grow"></span>
       <button class="ds-btn" type="button" data-act="edit-brief" onClick=${() => openGroup("brief")}>Edit brief</button>
     </div>
-    <dl class="ds-facts">
+    <dl class="ds-factlist">
       ${s.rows.map(
         (r) => html`<div class="ds-fact" key=${r.key} data-row=${r.key}>
           <dt>${r.label}</dt>

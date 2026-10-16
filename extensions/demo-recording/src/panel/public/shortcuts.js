@@ -7,4 +7,5 @@ export const SHORTCUTS = [
   ["Esc", "Close the top layer: a dialog, the Versions list, the Map, or clear a search"],
   ["/ · Ctrl/Cmd+K", "Search the settings (in Config)"],
   ["Arrow keys in the Map", "Walk the graph from node to node; Enter selects"],
+  ["+ · − · 0 in the Map", "Zoom in, zoom out, fit the whole graph in the window"],
 ];

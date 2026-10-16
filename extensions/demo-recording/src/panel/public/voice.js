@@ -193,6 +193,25 @@ function DraftNotices({ draft, bodies, base, latest, go }) {
     : null;
 }
 
+/** The picture at each anchor of the narration, so the words can be checked against what is on screen (D132). */
+function Anchors({ anchors }) {
+  if (!anchors?.length) return null;
+  const at = (ms) =>
+    `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
+  return html`<section class="ds-anchors" aria-label="The picture at each anchor">
+    <span class="ds-label">At each anchor</span>
+    <ul class="ds-anchor-list">
+      ${anchors.map(
+        (a) => html`<li class="ds-anchor" key=${a.mark} data-mark=${a.mark}>
+          ${a.image ? html`<img loading="lazy" src=${media("project", a.image)} alt=${`The take at [@${a.mark}], ${at(a.atMs)}${a.dom ? `: ${a.dom}` : ""}`} />` : html`<div class="ds-anchor-none ds-small">no picture for this moment</div>`}
+          <div class="ds-small"><code>[@${a.mark}]</code> <span class="ds-muted">${at(a.atMs)} into the take</span></div>
+          ${a.dom ? html`<div class="ds-small ds-muted ds-anchor-dom">${a.dom}</div>` : null}
+        </li>`,
+      )}
+    </ul>
+  </section>`;
+}
+
 /** The selected section: the narration (editable, a working draft), its review and what the footage says. */
 function SectionInspector({
   data,
@@ -240,6 +259,7 @@ function SectionInspector({
       <span class="ds-hint-text">Anchors in [@brackets] are kept. ${wordCount(text)} words · about ${Math.round(wordCount(text) / 2.58)} s at 155 words per minute.</span>
       ${edited ? html`<span class="ds-row-flex"><button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" data-act="revert" onClick=${() => draft.setText(section.key, section.written)}>Revert this section</button></span>` : null}
     </div>
+    <${Anchors} anchors=${section.anchors} />
     ${issues.map((i) => html`<p class=${`issue ${i.level}`}>${i.level === "error" ? "✖" : "⚠"} ${i.message}</p>`)}
     ${audio ? html`<audio controls preload="none" src=${audio}></audio>` : null}
     ${

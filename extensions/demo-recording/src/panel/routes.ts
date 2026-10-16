@@ -49,6 +49,7 @@ import {
   setSceneReview,
   submitReview,
 } from "../workdir/state.ts";
+import { sectionAnchors } from "./anchors.ts";
 import { approvalMessage, reviewMessage, voReviewMessage } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 import { assertApprovable } from "./version-actions.ts";
@@ -203,6 +204,7 @@ export function panelRoutes(deps: RouteDeps): {
               written,
               spoken: s.body,
               segments: s.segments,
+              anchors: sectionAnchors(p.dir, v.script.take, s.scene, s.segments),
               diff: !baseBodies
                 ? null
                 : before === undefined

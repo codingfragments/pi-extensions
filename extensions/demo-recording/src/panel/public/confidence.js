@@ -57,6 +57,7 @@ export function NeedsEyes({
   setRiskFirst,
   collapseHigh,
   setCollapseHigh,
+  onJump,
   children,
 }) {
   if (!summary) return null;
@@ -69,7 +70,7 @@ export function NeedsEyes({
     ${
       summary.needEyes
         ? html`<b class="eyes-count">${summary.needEyes} need${summary.needEyes === 1 ? "s" : ""} your eyes</b>
-          ${risky.map((i) => html`<button class=${`chip conf-chip conf-${i.level}`} title=${reasonsText(i)} onClick=${() => jumpTo(i.id)}>${i.id}</button>`)}`
+          ${risky.map((i) => html`<button class=${`chip conf-chip conf-${i.level}`} title=${reasonsText(i)} onClick=${() => (onJump ? onJump(i.id) : jumpTo(i.id))}>${i.id}</button>`)}`
         : html`<span class="conf conf-high">● all ${summary.items.length} high confidence</span>`
     }
     <span class="grow"></span>

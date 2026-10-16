@@ -84,12 +84,17 @@ export function useBus() {
 }
 
 /** The current route, kept in step with the hash (back, forward and reload work). */
+const ROUTE_EVENT = "demo-rec-route";
 export function useHashRoute() {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
   useEffect(() => {
     const on = () => setRoute(parseRoute(location.hash));
     window.addEventListener("hashchange", on);
-    return () => window.removeEventListener("hashchange", on);
+    window.addEventListener(ROUTE_EVENT, on); // a replace changes the address without a hashchange
+    return () => {
+      window.removeEventListener("hashchange", on);
+      window.removeEventListener(ROUTE_EVENT, on);
+    };
   }, []);
   /** Go to a route; `replace` rewrites the current history entry (used for fallbacks and restores). */
   const go = useCallback((next, { replace = false } = {}) => {
@@ -98,6 +103,7 @@ export function useHashRoute() {
     if (replace) {
       history.replaceState(null, "", location.pathname + location.search + hash);
       setRoute(parseRoute(hash));
+      window.dispatchEvent(new Event(ROUTE_EVENT));
     } else location.hash = hash;
   }, []);
   return [route, go];
@@ -116,13 +122,23 @@ export function useApi(path, events, re) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const relevant = events.filter((e) => re.test(e.type)).at(-1)?.seq ?? 0;
+  // A reply is only used if it is for the path now asked for and no newer request was made since:
+  // a slow reply for a previous path (or an older refetch) must not overwrite what is shown.
+  const current = useRef(path);
+  const latest = useRef(0);
+  current.current = path;
   const reload = useCallback(() => {
+    const mine = ++latest.current;
+    const stale = () => current.current !== path || latest.current !== mine;
     api(path).then(
       (d) => {
+        if (stale()) return;
         setData(d);
         setError(null);
       },
-      (e) => setError(String(e)),
+      (e) => {
+        if (!stale()) setError(String(e));
+      },
     );
   }, [path]);
   // Refetch whenever a relevant bus event arrives (relevant changes).

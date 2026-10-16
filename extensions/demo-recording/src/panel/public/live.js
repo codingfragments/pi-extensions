@@ -304,5 +304,7 @@ export function FullLogModal({ events, onClose, onPick }) {
 }
 
 export function Log({ events, onPick }) {
-  return html`<${LogList} events=${collapseProgress(events).slice(-300)} onPick=${onPick} />`;
+  // working-draft autosaves are bookkeeping, not news: they stay out of the log
+  const shown = events.filter((e) => e.type !== "draft.changed");
+  return html`<${LogList} events=${collapseProgress(shown).slice(-300)} onPick=${onPick} />`;
 }

@@ -181,8 +181,11 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
     if (!layout || !canvas.current) return;
     const map = new Map(measured ?? []);
     let again = false;
+    // CSS zoom scales what getBoundingClientRect reports: measure in the layout's own units, whatever the zoom
+    const stage = canvas.current.querySelector(".ds-map-stage");
+    const scale = stage && layout.width ? stage.getBoundingClientRect().width / layout.width : 1;
     for (const el of canvas.current.querySelectorAll(".ds-node")) {
-      const h = Math.ceil(el.getBoundingClientRect().height);
+      const h = Math.ceil(el.getBoundingClientRect().height / (scale > 0 ? scale : 1) - 0.01);
       const n = layout.nodes.find((x) => x.id === el.dataset.id);
       if (n && h > n.h + 1) {
         map.set(n.id, h);
@@ -299,7 +302,33 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
     select(next);
   };
   const clampZoom = (z) => Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) * 100) / 100;
-  const zoomBy = (f) => setZoom((z) => clampZoom(z * f));
+  // zooming keeps what is in the middle of the view in the middle of the view
+  const anchor = useRef(null);
+  const zoomNow = useRef(zoom); // the zoom as of the last request, so quick repeats (a held key) add up
+  zoomNow.current = zoom;
+  const zoomBy = (f) => {
+    const c = canvas.current;
+    const z1 = zoomNow.current;
+    const z2 = clampZoom(z1 * f);
+    if (c && z2 !== z1 && !anchor.current)
+      anchor.current = {
+        x: (c.scrollLeft + c.clientWidth / 2) / z1,
+        y: (c.scrollTop + c.clientHeight / 2) / z1,
+      };
+    zoomNow.current = z2;
+    setZoom(z2);
+  };
+  useLayoutEffect(() => {
+    const c = canvas.current;
+    const a = anchor.current;
+    anchor.current = null;
+    if (!c || !a) return;
+    c.scrollTo({
+      left: Math.max(0, a.x * zoom - c.clientWidth / 2),
+      top: Math.max(0, a.y * zoom - c.clientHeight / 2),
+      behavior: "auto",
+    });
+  }, [zoom]);
   const fit = () => {
     const c = canvas.current;
     if (!c || !layout) return;

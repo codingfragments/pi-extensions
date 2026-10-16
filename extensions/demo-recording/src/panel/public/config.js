@@ -11,12 +11,13 @@ import {
   showValue,
 } from "./config-search.js";
 import { post, useApi, useHashRoute } from "./core.js";
+import { confirmAsk, errorToast, toast } from "./dialog.js";
 // demo-recording panel — ⚙ Config → Settings (S5 part 5b, D41/D48): every
 // setting grouped with its effective value, source and per-layer values;
 // edits are global or for this project only, always through a diff
 // confirmation (same two-phase write as demo_rec_config). The raw files are
 // shown read-only; API keys only as "set / not set".
-import { confirmAsk, errorToast, toast } from "./dialog.js";
+import { VoiceInput } from "./voices.js";
 
 const CONFIG_EVENTS = /^(config|project|brand)\./;
 
@@ -63,6 +64,8 @@ function SettingInput({ s, value, onChange, disabled, id }) {
           .map((x) => x.trim())
           .filter(Boolean),
       )}></textarea>`;
+  if (s.key === "voiceName")
+    return html`<${VoiceInput} id=${id} value=${value} disabled=${disabled} onChange=${onChange} emptyLabel="Not set (no voice name)" />`;
   return html`<input class="ds-input" id=${id} type="text" value=${value ?? ""} disabled=${disabled} onInput=${(e) => onChange(e.target.value)} />`;
 }
 

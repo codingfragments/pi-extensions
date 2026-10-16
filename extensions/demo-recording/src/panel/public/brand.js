@@ -2,7 +2,8 @@
 // live preview, then save it as a copy, set it as the default or use it for this project.
 import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { post, token, useApi } from "./core.js";
-import { askText, confirmAsk } from "./dialog.js";
+import { askText, confirmAsk, errorToast, toast } from "./dialog.js";
+import { NarrowSelect } from "./inspector.js";
 
 /** Get/set a dotted path ("colors.accent") in a plain object. */
 const getPath = (o, p) => p.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
@@ -15,6 +16,26 @@ function setPath(o, p, v) {
     cur = cur[k];
   }
   cur[keys.at(-1)] = v;
+  return out;
+}
+
+/** A copy of `o` without the dotted path (and without parents that became empty). */
+function unsetPath(o, p) {
+  const keys = p.split(".");
+  const out = { ...o };
+  const trail = [out];
+  let cur = out;
+  for (const k of keys.slice(0, -1)) {
+    if (cur[k] == null) return out;
+    cur[k] = { ...cur[k] };
+    cur = cur[k];
+    trail.push(cur);
+  }
+  Reflect.deleteProperty(cur, keys.at(-1));
+  for (let n = keys.length - 1; n > 0; n--) {
+    const parent = trail[n - 1];
+    if (Object.keys(trail[n]).length === 0) Reflect.deleteProperty(parent, keys[n - 1]);
+  }
   return out;
 }
 
@@ -130,21 +151,17 @@ const BRAND_FIELDS = [
   },
 ];
 
-function BrandField({ f, value, onChange, disabled }) {
-  const input =
-    f.type === "color"
-      ? html`<input type="color" value=${String(value ?? "#000000" /* ratchet-ok: the colour input needs a hex default */).slice(0, 7)} disabled=${disabled} onInput=${(e) => onChange(e.target.value)} />
-          <code class="small-text">${value}</code>`
-      : f.type === "hex"
-        ? html`<input type="text" class="hex" value=${value ?? ""} placeholder=${f.placeholder ?? ""} disabled=${disabled} onChange=${(e) => onChange(e.target.value.trim())} />
-            <span class="swatch" style=${`background:${value}`}></span>`
-        : f.type === "bool"
-          ? html`<input type="checkbox" checked=${!!value} disabled=${disabled} onChange=${(e) => onChange(e.target.checked)} />`
-          : f.type === "select"
-            ? html`<select value=${value} disabled=${disabled} onChange=${(e) => onChange(e.target.value)}>${f.options.map((o) => html`<option value=${o}>${o}</option>`)}</select>`
-            : html`<input type="range" min=${f.min} max=${f.max} step=${f.step} value=${value} disabled=${disabled} onInput=${(e) => onChange(Number(e.target.value))} />
-                <code class="small-text">${value}</code>`;
-  return html`<label class="brand-field"><span>${f.label}</span>${input}</label>`;
+/** The control of one field: colour, hex, switch, select or slider, with a visible value where it helps. */
+function BrandControl({ f, value, onChange, disabled, id }) {
+  if (f.type === "color")
+    return html`<span class="ds-row-flex"><input class="ds-color" id=${id} type="color" value=${String(value ?? "#000000" /* ratchet-ok: the colour input needs a hex default */).slice(0, 7)} disabled=${disabled} onInput=${(e) => onChange(e.target.value)} /><code class="ds-small">${value}</code></span>`;
+  if (f.type === "hex")
+    return html`<span class="ds-row-flex"><input class="ds-input ds-input--hex" id=${id} type="text" value=${value ?? ""} placeholder=${f.placeholder ?? ""} disabled=${disabled} onChange=${(e) => onChange(e.target.value.trim())} /><span class="ds-swatch" aria-hidden="true" style=${`background:${value}`}></span></span>`;
+  if (f.type === "bool")
+    return html`<label class="ds-check"><input id=${id} type="checkbox" checked=${!!value} disabled=${disabled} onChange=${(e) => onChange(e.target.checked)} /> ${value ? "On" : "Off"}</label>`;
+  if (f.type === "select")
+    return html`<select class="ds-select" id=${id} value=${value} disabled=${disabled} onChange=${(e) => onChange(e.target.value)}>${f.options.map((o) => html`<option value=${o}>${o}</option>`)}</select>`;
+  return html`<span class="ds-row-flex ds-brand-range"><input id=${id} type="range" min=${f.min} max=${f.max} step=${f.step} value=${value} disabled=${disabled} onInput=${(e) => onChange(Number(e.target.value))} /><output class="ds-small" for=${id}>${value}</output></span>`;
 }
 
 export function Brand({ events }) {
@@ -157,20 +174,17 @@ export function Brand({ events }) {
   const [patch, setPatch] = useState({});
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState(null);
+  const [closed, setClosed] = useState(() => new Set());
   const selected = name ?? data?.default;
   const entry = data?.brands.find((b) => b.name === selected);
   const dirty = Object.keys(patch).length > 0;
-  const say = (m) => {
-    setFlash(m);
-    setTimeout(() => setFlash(null), 6000);
-  };
+  const say = (m) => toast(m, { kind: "info" });
   const run = async (fn) => {
     setBusy(true);
     try {
       return await fn();
     } catch (e) {
-      say(`⚠ ${e.message}`);
+      errorToast(e);
       return null;
     } finally {
       setBusy(false);
@@ -178,7 +192,7 @@ export function Brand({ events }) {
   };
   const refresh = (p = patch) =>
     run(async () => setPreview(await post("/api/brand-preview", { name: selected, patch: p })));
-  // Preview when the brand changes (not on every tweak — rendering takes ~1 s).
+  // Preview when the brand changes (not on every tweak: rendering takes about a second).
   useEffect(() => {
     if (selected) {
       setPatch({});
@@ -189,6 +203,8 @@ export function Brand({ events }) {
   if (!data) return html`<section class="card muted">loading…</section>`;
   const value = (p) =>
     getPath(patch, p) !== undefined ? getPath(patch, p) : getPath(entry?.brand, p);
+  const changed = (p) => getPath(patch, p) !== undefined;
+  const changes = BRAND_FIELDS.filter((f) => changed(f.path)).length;
   const groups = [...new Set(BRAND_FIELDS.map((f) => f.group))];
   const save = () =>
     run(async () => {
@@ -240,46 +256,85 @@ export function Brand({ events }) {
       say(`default brand: ${selected}`);
       reload();
     });
-  return html`
-    <section class="card review-head">
-      <div class="row">
-        <h2>Brand</h2>
-        <select value=${selected} onChange=${(e) => setName(e.target.value)}>
-          ${data.brands.map((b) => html`<option value=${b.name}>${b.name}${b.builtin ? " (built-in)" : ""}${b.name === data.default ? " ✓ default" : ""}</option>`)}
-        </select>
-        ${entry?.error ? html`<span class="badge changed">invalid: ${entry.error}</span>` : null}
-        <span class="grow"></span>
-        ${flash ? html`<span class="flash">${flash}</span>` : null}
-        <button disabled=${busy || selected === data.default} onClick=${() => makeDefault("global")}>Set as default</button>
-        <button disabled=${busy || !data.project} title=${data.project ? `writes projects/${data.project}/config.json` : "no active project"} onClick=${() => makeDefault("project")}>Default for this project</button>
-      </div>
-      <p class="muted small-text">New brand from your logos/colors: ask the agent (<code>/demo brand new path/to/brand.zip</code>). User brands live in ${data.userDir}.</p>
-    </section>
-    <div class="brand-grid">
-      <section class="card brand-preview">
-        <div class="row"><h3>Preview</h3><span class="grow"></span>
-          <button disabled=${busy} onClick=${() => refresh()}>${busy ? "rendering…" : dirty ? "Preview tweaks" : "Refresh"}</button></div>
-        ${preview?.title ? html`<img src=${`${preview.title}&token=${token}`} alt="title card" />` : null}
-        ${preview?.framed ? html`<img src=${`${preview.framed}&token=${token}`} alt="framed sample frame" />` : html`<p class="muted">rendering…</p>`}
-        ${preview?.warnings?.length ? html`<ul class="issues">${preview.warnings.map((w) => html`<li class="warn">${w}</li>`)}</ul>` : null}
+  const toggleGroup = (g) =>
+    setClosed((c) => {
+      const n = new Set(c);
+      n.has(g) ? n.delete(g) : n.add(g);
+      return n;
+    });
+  return html`<div class="ds-root ds-workspace brand-editor">
+    <p class="ds-small ds-muted ds-measure">A new brand from your logos and colours: ask the Director (<code>/demo brand new path/to/brand.zip</code>). Your brands live in <code>${data.userDir}</code>.</p>
+    <div class="ds-split">
+      <${NarrowSelect} label="Brand" value=${selected} onChange=${(v) => setName(v)}
+        options=${data.brands.map((b) => [b.name, `${b.name}${b.builtin ? " (built-in)" : ""}${b.name === data.default ? " · default" : ""}`])} />
+      <section class="ds-split-list" aria-label="Brands">
+        <div class="ds-list-head"><span><strong style="color: var(--text-strong)">${data.brands.length} brand${data.brands.length === 1 ? "" : "s"}</strong></span></div>
+        <ul class="ds-list">
+          ${data.brands.map(
+            (
+              b,
+            ) => html`<li key=${b.name}><button class="ds-item" type="button" data-key=${b.name} aria-current=${b.name === selected ? "true" : undefined} onClick=${() => setName(b.name)}>
+              <span class="ds-status" data-tone=${b.error ? "err" : b.name === data.default ? "ok" : undefined} aria-hidden="true">${b.error ? "!" : b.name === data.default ? "✓" : "○"}</span>
+              <span><span class="ds-item-title">${b.name}</span><br /><span class="ds-item-meta">${b.builtin ? "built-in" : "yours"}</span></span>
+              <span class="ds-row-flex">${b.name === data.default ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Default</span>` : null}${b.error ? html`<span class="ds-badge" data-tone="err"><span class="ds-badge-ico" aria-hidden="true">!</span>Invalid</span>` : null}</span>
+            </button></li>`,
+          )}
+        </ul>
       </section>
-      <section class="card brand-form">
-        ${entry?.builtin ? html`<p class="muted small-text">Built-in brands are read-only: tweak, then <b>Save as copy</b>.</p>` : null}
-        ${groups.map(
-          (g) => html`<fieldset><legend>${g}</legend>
-            ${BRAND_FIELDS.filter((f) => f.group === g).map(
-              (
-                f,
-              ) => html`<${BrandField} f=${f} value=${value(f.path)} disabled=${busy || !entry?.brand}
-                onChange=${(v) => setPatch((p) => setPath(p, f.path, v))} />`,
-            )}</fieldset>`,
-        )}
-        <div class="row">
-          <span class="muted small-text">${dirty ? "unsaved tweaks" : "no changes"}</span><span class="grow"></span>
-          <button class="ds-btn ds-btn--ghost" type="button" disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
-          <button disabled=${busy} onClick=${duplicate}>Save as copy…</button>
-          <button class="ds-btn ds-btn--primary" disabled=${busy || !dirty || entry?.builtin} onClick=${save}>Save</button>
+      <section class="ds-split-detail" aria-label="Selected brand">
+        <div class="ds-stack ds-inspector" data-brand=${selected}>
+          <div class="ds-row-flex">
+            <h2>${selected}</h2>
+            ${entry?.builtin ? html`<span class="ds-badge" data-tone="neutral">Built-in</span>` : null}
+            ${selected === data.default ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Default</span>` : null}
+            <span class="ds-grow"></span>
+            <button class="ds-btn" type="button" data-act="default-global" disabled=${busy || selected === data.default} onClick=${() => makeDefault("global")}>Set as default</button>
+            <button class="ds-btn" type="button" data-act="default-project" disabled=${busy || !data.project} title=${data.project ? `writes projects/${data.project}/config.json` : "no active project"} onClick=${() => makeDefault("project")}>Default for this project</button>
+          </div>
+          ${entry?.error ? html`<div class="ds-notice" data-tone="err" role="note"><span class="ds-status" data-tone="err" aria-hidden="true">!</span><div>This brand is invalid: ${entry.error}</div></div>` : null}
+          ${entry?.builtin ? html`<div class="ds-notice" role="note"><span class="ds-status" data-tone="info" aria-hidden="true">i</span><div>Built-in brands are read-only. Tweak it, then <b>Save as copy…</b>.</div></div>` : null}
+          <details class="ds-section" open>
+            <summary><strong>Preview</strong></summary>
+            <div class="ds-section-body ds-stack">
+              <div class="ds-row-flex"><span class="ds-small ds-muted">${dirty ? "Rendered from your tweaks once you press Preview." : "The title card and a sample frame in this brand."}</span><span class="ds-grow"></span>
+                <button class="ds-btn ds-btn--sm" type="button" data-act="preview" disabled=${busy} onClick=${() => refresh()}>${busy ? "Rendering…" : dirty ? "Preview tweaks" : "Refresh"}</button></div>
+              <div class="ds-brand-shots">
+                ${preview?.title ? html`<img src=${`${preview.title}&token=${token}`} alt="title card" />` : null}
+                ${preview?.framed ? html`<img src=${`${preview.framed}&token=${token}`} alt="framed sample frame" />` : html`<p class="ds-small ds-muted">Rendering…</p>`}
+              </div>
+              ${preview?.warnings?.length ? html`<ul class="ds-small">${preview.warnings.map((w) => html`<li>${w}</li>`)}</ul>` : null}
+            </div>
+          </details>
+          ${groups.map((g) => {
+            const fields = BRAND_FIELDS.filter((f) => f.group === g);
+            const open = !closed.has(g);
+            const n = fields.filter((f) => changed(f.path)).length;
+            return html`<section class="ds-group" key=${g} data-group=${g}>
+              <button class="ds-group-head" type="button" aria-expanded=${open} onClick=${() => toggleGroup(g)}><span class="ds-group-chev" aria-hidden="true">${open ? "▾" : "▸"}</span>${g}<span class="ds-cfg-count">${fields.length}</span>${n ? html`<span class="ds-badge" data-tone="accent">${n} changed</span>` : null}</button>
+              ${
+                open
+                  ? fields.map(
+                      (
+                        f,
+                      ) => html`<div class="ds-srow ds-brow" key=${f.path} data-path=${f.path} data-changed=${changed(f.path) ? "true" : undefined}>
+                        <div class="ds-srow-main"><div class="ds-srow-title"><h4><label for=${`brand-${f.path}`}>${f.label}</label></h4><code>${f.path}</code></div></div>
+                        <div class="ds-srow-value"><${BrandControl} f=${f} id=${`brand-${f.path}`} value=${value(f.path)} disabled=${busy || !entry?.brand} onChange=${(v) => setPatch((p) => setPath(p, f.path, v))} /></div>
+                        ${changed(f.path) ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="undo-field" aria-label=${`Undo the change to ${f.label}`} onClick=${() => setPatch((p) => unsetPath(p, f.path))}>Undo</button>` : html`<span></span>`}
+                      </div>`,
+                    )
+                  : null
+              }
+            </section>`;
+          })}
+          <div class="ds-actionbar brand-actionbar">
+            <span class="ds-small ds-muted" role="status">${dirty ? `${changes} unsaved tweak${changes === 1 ? "" : "s"}` : "No changes"}</span>
+            <span class="ds-grow"></span>
+            <button class="ds-btn ds-btn--ghost" type="button" data-act="reset" disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
+            <button class="ds-btn" type="button" data-act="copy" disabled=${busy} onClick=${duplicate}>Save as copy…</button>
+            <button class="ds-btn ds-btn--primary" type="button" data-act="save" disabled=${busy || !dirty || entry?.builtin} onClick=${save}>Save</button>
+          </div>
         </div>
       </section>
-    </div>`;
+    </div>
+  </div>`;
 }

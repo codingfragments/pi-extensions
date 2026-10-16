@@ -178,8 +178,7 @@ Not fixed, in order of how much I think it matters:
    click. Needs a design decision about what "undo" means for a state change that already notified the Director.
 2. **Config is the heaviest page** (79 controls, 4,069 px, 6,161 px at 900 px). Candidates: open only the first
    group; render rows lazily; fold the quick filters into the search.
-3. **The Brand editor** still has its old markup and scores 19. It should be rebuilt on the Config row pattern
-   the way the Settings tab was in UX9a.
+3. ~~**The Brand editor** still has its old markup and scores 19.~~ Rebuilt on the Config row pattern in [UX18](UX18.md).
 4. **48 small targets** (< 24 px), mostly range sliders, small icon buttons in dense rows and list-row checkboxes
    without a 24 px label. Needs a size pass on `ds-btn--sm`, not a per-page fix.
 5. **Arrow-key movement in lists** and a short list of shortcuts, shown on `?`.

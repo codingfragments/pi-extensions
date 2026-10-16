@@ -40,6 +40,13 @@ Audit: two pages added (`project-brief`, `project-history`) so the form stays co
 default view. Project summary: 0 serious findings in both themes; the form page still has 2 (Macchiato) to 4
 (Latte), the legacy form, which UX9 takes on. The total went from 378 to 346 serious and from 608 to 408 small targets (with the two added pages counted); no new literals. Baseline updated.
 
+Try it by hand (a seeded, complete project; or an empty one for the first run):
+
+```fish
+node extensions/demo-recording/scripts/panel-seed.ts /tmp/demo-try
+node extensions/demo-recording/scripts/panel-seed.ts --new
+```
+
 Regenerate the screenshots: `node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --project`.
 
 ## Left for later

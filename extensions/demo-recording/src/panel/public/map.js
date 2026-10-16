@@ -33,6 +33,9 @@ import {
 import { formatRoute } from "./route.js";
 import { HISTORY_EVENTS } from "./version-ui.js";
 
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 1.6;
+const ZOOM_STEP = 1.2;
 const VIEW_LABEL = { all: "All paths", approved: "Approved paths", line: "Production line" };
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])';
@@ -133,6 +136,9 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
   const search = useRef(null);
   const [width, setWidth] = useState(1000);
   const [qText, setQText] = useState(st.q);
+  // zoom: the whole graph in one look (Fit), or closer. A view setting, not part of the address.
+  const [zoom, setZoom] = useState(1);
+  const keysApi = useRef({});
   useEffect(() => setQText(st.q), [st.q]);
 
   const update = useCallback(
@@ -234,6 +240,15 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
           first.focus();
         }
       } else if (
+        ["+", "=", "-", "_", "0"].includes(e.key) &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !/input|textarea|select/i.test(document.activeElement?.tagName ?? "")
+      ) {
+        e.preventDefault();
+        if (e.key === "0") keysApi.current.fit?.();
+        else keysApi.current.zoomBy?.(e.key === "-" || e.key === "_" ? 1 / ZOOM_STEP : ZOOM_STEP);
+      } else if (
         e.key === "/" &&
         !/input|textarea|select/i.test(document.activeElement?.tagName ?? "")
       ) {
@@ -283,7 +298,22 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
     refocus.current = next;
     select(next);
   };
+  const clampZoom = (z) => Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) * 100) / 100;
+  const zoomBy = (f) => setZoom((z) => clampZoom(z * f));
+  const fit = () => {
+    const c = canvas.current;
+    if (!c || !layout) return;
+    const z = Math.min(
+      1,
+      (c.clientWidth - 16) / (layout.width + 8),
+      (c.clientHeight - 16) / (layout.height + 44),
+    );
+    setZoom(clampZoom(z));
+    c.scrollTo({ top: 0, left: 0 });
+  };
+  keysApi.current = { zoomBy, fit };
   const reset = () => {
+    setZoom(1);
     setQText("");
     update({ view: "all", q: "", focus: false, open: new Set() });
   };
@@ -301,11 +331,23 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
   useEffect(() => {
     if (selNode && canvas.current) {
       const c = canvas.current;
-      const top = selNode.y - 40;
-      if (selNode.y < c.scrollTop || selNode.y + selNode.h > c.scrollTop + c.clientHeight)
-        c.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+      const y = selNode.y * zoom;
+      if (y < c.scrollTop || y + selNode.h * zoom > c.scrollTop + c.clientHeight)
+        c.scrollTo({ top: Math.max(0, y - 40), behavior: "auto" });
     }
   }, [st.sel]);
+  // pinch / Ctrl + wheel on the graph zooms it (a plain wheel still scrolls)
+  useEffect(() => {
+    const c = canvas.current;
+    if (!c) return;
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      keysApi.current.zoomBy?.(e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
+    };
+    c.addEventListener("wheel", onWheel, { passive: false });
+    return () => c.removeEventListener("wheel", onWheel);
+  }, [!!layout?.nodes.length]);
 
   const open = details?.open;
   return html`<div class="ds-root ds-overlay">
@@ -330,6 +372,12 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
         </label>
         <button class="ds-chip" type="button" data-act="focus" aria-pressed=${st.focus} aria-disabled=${st.sel ? undefined : "true"} title=${st.sel ? "show only what the selection depends on and what depends on it" : "select a version first"}
           onClick=${() => st.sel && update({ focus: !st.focus })}>Focus connections</button>
+        <span class="ds-seg" role="group" aria-label="Zoom">
+          <button type="button" data-act="zoom-out" aria-label="Zoom out" title="Zoom out (−)" disabled=${zoom <= ZOOM_MIN} onClick=${() => zoomBy(1 / ZOOM_STEP)}>−</button>
+          <button type="button" data-act="fit" title="Fit the whole graph in the window (0)" onClick=${fit}>Fit</button>
+          <button type="button" data-act="zoom-in" aria-label="Zoom in" title="Zoom in (+)" disabled=${zoom >= ZOOM_MAX} onClick=${() => zoomBy(ZOOM_STEP)}>+</button>
+        </span>
+        <span class="ds-small ds-muted ds-map-zoom-level" data-zoom title="Zoom level">${Math.round(zoom * 100)}%</span>
         <button class="ds-btn ds-btn--ghost" type="button" data-act="collapse" onClick=${() => update({ open: new Set() })}>Collapse groups</button>
         <button class="ds-btn ds-btn--ghost" type="button" data-act="reset" onClick=${reset}>Reset view</button>
         ${vis && vis.hidden > 0 ? html`<button class="ds-chip ds-map-hidden" type="button" onClick=${reset}>${vis.hidden} hidden · Show all</button>` : null}
@@ -355,7 +403,7 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
               ? html`<div class="ds-state"><div class="ds-state-ico" aria-hidden="true">…</div><h3>Loading the map</h3></div>`
               : !layout?.nodes.length
                 ? html`<div class="ds-state"><div class="ds-state-ico" aria-hidden="true">⌕</div><h3>${g.nodes.length ? "Nothing matches" : "Nothing yet"}</h3><p>${g.nodes.length ? "The view, the search and the focus show no version." : "Versions appear here as the project grows."}</p>${g.nodes.length ? html`<button class="ds-btn" type="button" onClick=${reset}>Reset view</button>` : null}</div>`
-                : html`<div class="ds-map-heads" style=${`inline-size:${layout.width}px`}>
+                : html`<div class="ds-map-zoom" style=${`zoom:${zoom}`}><div class="ds-map-heads" style=${`inline-size:${layout.width}px`}>
                     ${layout.heads.map((h, i) => html`<div class="ds-map-colhead" key=${h.stage} style=${`inline-size:${layout.col}px;${i === 0 ? `padding-inline-start:${32}px` : ""}`}>${STAGE_NAME[h.stage]} · ${h.count}</div>`)}
                   </div>
                   <div class="ds-map-stage" style=${`inline-size:${layout.width}px;block-size:${layout.height}px`}>
@@ -378,7 +426,7 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
                         <${Badges} n=${n} />
                       </button>`,
                     )}
-                  </div>`
+                  </div></div>`
           }
         </div>
         <aside class="ds-map-side" aria-label="Selection and outline">

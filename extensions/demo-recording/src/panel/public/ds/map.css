@@ -51,6 +51,13 @@
   scrollbar-gutter: stable;
   background: var(--surface-sunken);
 }
+/* Zoom: the browser lays the scaled content out at its new size, so scrolling and the sticky headers keep working */
+.ds-map-zoom {
+  inline-size: max-content;
+}
+.ds-map-zoom-level {
+  min-inline-size: 3ch;
+}
 .ds-map-heads {
   position: sticky;
   inset-block-start: 0;

@@ -4,3 +4,4 @@ import { html, render } from "/vendor/preact-htm.module.js";
 import { App } from "./shell.js";
 
 render(html`<${App} />`, document.getElementById("app"));
+window.__panelUp = true; // index.html says "could not load" if this never happens

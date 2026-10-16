@@ -19,6 +19,7 @@ import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { costRoutes } from "./panel/cost.ts";
+import { graphRoutes } from "./panel/graph-routes.ts";
 import { jobRoutes } from "./panel/job-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
 import { renderRoutes } from "./panel/render-routes.ts";
@@ -353,6 +354,7 @@ export class Runtime {
     });
     const cost = costRoutes(this);
     const jobs = jobRoutes(this);
+    const graph = graphRoutes(this);
     const versions = versionRoutes({
       activeProject: () => this.activeProject(),
       notifyAgent: (text) => this.notifyAgent(text),
@@ -363,6 +365,7 @@ export class Runtime {
       get: {
         ...routes.get,
         ...jobs.get,
+        ...graph.get,
         ...versions.get,
         ...brand.get,
         ...stages.get,

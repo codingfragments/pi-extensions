@@ -204,6 +204,10 @@ Focusing a graph branch never selects a new production line.
 - Provide an obvious way back to the whole graph. Do not lose the production
   line marker while exploring another branch.
 
+> **First cut decided in the UX4 grill (D119):** nodes are versions, draft groups and QA nodes; media files
+> are listed in the selected render's details, not drawn. Entry points: the header, History rows and the
+> blocked band. The engine side (`GET /api/graph`) is UX4a; the overlay is UX4b.
+
 ### Coverage and interaction details proposed for spec review
 
 - Include stage versions plus recorded audio, edit timelines, render variants,

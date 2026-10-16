@@ -134,6 +134,7 @@ export function History({ stage, rows, viewed, onUse }) {
                         <br /><${RowBadges} row=${r} viewing=${viewed === r.version} />
                       </span>
                       <span class="ds-row-flex">
+                        <a class="ds-btn ds-btn--sm ds-btn--ghost show-in-map" href=${formatRoute({ screen: "map", query: { sel: `${stage}:${r.version}`, focus: "1" } })} onClick=${() => setOpen(false)}>Show in map</a>
                         ${
                           r.approved && !r.inLine && !r.blocked
                             ? html`<button class="ds-btn ds-btn--sm" type="button" onClick=${() => {

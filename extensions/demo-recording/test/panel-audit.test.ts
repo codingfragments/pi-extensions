@@ -62,7 +62,7 @@ test("the baseline covers every screen, theme and width, and starts with no miss
   const base = JSON.parse(fs.readFileSync(AUDIT_BASELINE, "utf8")) as AuditResult;
   assert.ok(base.axeVersion, "the baseline was recorded with axe-core");
   const keys = Object.keys(base.pages);
-  assert.equal(keys.length, 10 * 2 * 2, "10 screens × 2 themes × 2 widths");
+  assert.equal(keys.length, 12 * 2 * 2, "12 screens (with the map) × 2 themes × 2 widths");
   for (const k of keys)
     assert.equal(base.pages[k]?.focusMissing, 0, `${k}: every tab stop shows a focus indicator`);
 });
@@ -98,7 +98,7 @@ test(
         `panel audit improved (lower the baseline: node extensions/demo-recording/scripts/panel-audit.ts --update):\n${better.join("\n")}`,
       );
     // every screen of the seeded project really has content to audit
-    assert.ok(Object.keys(now.pages).length === 40);
+    assert.ok(Object.keys(now.pages).length === 48);
   },
 );
 

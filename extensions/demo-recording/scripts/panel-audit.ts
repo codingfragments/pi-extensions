@@ -75,6 +75,8 @@ export const SCREENS = [
   "annotations",
   "render",
   "config",
+  "map",
+  "map-focus",
   "dialog-cost",
   "dialog-danger",
   "toast",
@@ -155,7 +157,13 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
           await page.addInitScript(`localStorage.setItem("demo-rec-theme", "${theme}")`);
           await page.goto(url as string);
           await page.waitForSelector("header.top");
-          if (screen in LABELS) {
+          if (screen === "map" || screen === "map-focus") {
+            await page.goto(
+              `${url}#/map${screen === "map-focus" ? "?sel=render%3A2&focus=1" : ""}`,
+            );
+            await page.waitForSelector(".ds-map .ds-node");
+            await page.waitForTimeout(400);
+          } else if (screen in LABELS) {
             await page
               .locator("header.top a", {
                 hasText: screen === "config" ? "Config" : LABELS[screen],

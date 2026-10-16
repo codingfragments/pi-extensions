@@ -50,16 +50,16 @@ test("routes: parse and format round-trip, versions and items included", () => {
   assert.equal(parseRoute("")?.valid, undefined, "an empty hash is no route");
   assert.equal(parseRoute("#/"), null);
   assert.equal(parseRoute(""), null);
-  assert.ok(SCREENS.includes("config") && !SCREENS.includes("map"));
+  assert.ok(SCREENS.includes("config") && SCREENS.includes("map"));
 });
 
 test("routes: an unknown or unavailable route says why instead of silently becoming something else", () => {
   const unknown = parseRoute("#/nowhere");
   assert.equal(unknown?.valid, false);
   assert.match(unknown?.reason ?? "", /“nowhere” is not a screen of this panel/);
-  const map = parseRoute("#/map?view=approved");
-  assert.equal(map?.valid, false);
-  assert.match(map?.reason ?? "", /“map” is not available yet/);
+  const map = parseRoute("#/map?view=approved&sel=vo:3");
+  assert.equal(map?.valid, true, "the map is an overlay route now");
+  assert.deepEqual(map?.query, { view: "approved", sel: "vo:3" });
   const badVersion = parseRoute("#/voice/three");
   assert.equal(badVersion?.valid, false);
   assert.match(badVersion?.reason ?? "", /not a version/);

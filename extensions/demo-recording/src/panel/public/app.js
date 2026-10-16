@@ -31,6 +31,7 @@ import { askText, confirmAsk, errorToast } from "./dialog.js";
 import { newsTab, nextBand, stepStates, stripState } from "./frame-state.js";
 import { ActivityDrawer, ActivityStrip, Header } from "./frame.js";
 import { activityRows } from "./live.js";
+import { ProjectMap } from "./map.js";
 import { Project } from "./project.js";
 import { Recording } from "./recording.js";
 import { Render } from "./render.js";
@@ -967,10 +968,29 @@ function App() {
       go({ screen: "project" }, { replace: true });
     }
   }, [state, route]);
-  const tab = route?.valid ? route.screen : "project";
+  // The map is an overlay: the screen under it stays the current screen (and the one remembered).
+  const mapOpen = route?.valid && route.screen === "map";
+  const under = useRef(null);
+  const cameFrom = useRef(false); // the entry before the map is one of ours: closing can go Back
+  if (route?.valid && route.screen !== "map") under.current = route;
+  const tab = mapOpen
+    ? (under.current?.screen ?? "project")
+    : route?.valid
+      ? route.screen
+      : "project";
   useEffect(() => {
-    if (slug && route?.valid) writeLastPlace(slug, route);
+    if (slug && route?.valid && route.screen !== "map") writeLastPlace(slug, route);
   }, [slug, route?.raw]);
+  const wasMap = useRef(false);
+  useEffect(() => {
+    // the first map route of a visit: was there a screen before it in this tab's history?
+    if (mapOpen && !wasMap.current) cameFrom.current = !!under.current;
+    wasMap.current = !!mapOpen;
+  }, [mapOpen]);
+  const closeMap = () => {
+    if (cameFrom.current && history.length > 1) history.back();
+    else go(under.current ?? readLastPlace(slug) ?? { screen: "project" }, { replace: true });
+  };
   useEffect(() => setNotice(null), [tab]);
 
   // A result that arrives for another screen puts a badge on its step. It never moves you.
@@ -1018,6 +1038,7 @@ function App() {
       ${stateError ? html`<section class="card error">${stateError}</section>` : null}
       ${body}
     </main>
+    ${mapOpen ? html`<${ProjectMap} route=${route} go=${go} slug=${slug} events=${events} onClose=${closeMap} />` : null}
     <${ActivityStrip} strip=${strip} status=${status} open=${drawer} buttonRef=${stripButton}
       onToggle=${(forceOpen) => setDrawer((o) => (forceOpen === true ? true : !o))} />
     <${ActivityDrawer} open=${drawer} onClose=${() => setDrawer(false)} events=${events} rows=${rows} jobs=${jobs}

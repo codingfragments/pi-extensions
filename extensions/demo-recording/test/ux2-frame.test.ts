@@ -101,12 +101,12 @@ test(
         await page.locator("main .route-notice").innerText(),
         /“nowhere” is not a screen of this panel\. Showing Project\./,
       );
+      // the map is an overlay route now: it opens, and Escape returns to the screen under it
       await page.goto(`${panel.url}#/map`);
-      await page.waitForFunction(`location.hash === "#/project"`);
-      assert.match(
-        await page.locator("main .route-notice").innerText(),
-        /“map” is not available yet/,
-      );
+      await page.waitForSelector(".ds-map .ds-node");
+      await page.keyboard.press("Escape");
+      await page.waitForSelector(".ds-map", { state: "detached" });
+      assert.match(await page.evaluate("location.hash"), /^#\/(project|nowhere)?$|^#\/project$/);
       // the notice goes away when you move on
       await page.locator("nav.steps a", { hasText: "Storyboard" }).click();
       await page.waitForFunction(`!document.querySelector("main .route-notice")`);

@@ -206,7 +206,7 @@ Focusing a graph branch never selects a new production line.
 
 > **First cut decided in the UX4 grill (D119):** nodes are versions, draft groups and QA nodes; media files
 > are listed in the selected render's details, not drawn. Entry points: the header, History rows and the
-> blocked band. The engine side (`GET /api/graph`) is UX4a; the overlay is UX4b.
+> blocked band. The engine side (`GET /api/graph`) is UX4a (#60); the overlay is UX4b ([report](ux/UX4.md), D120).
 
 ### Coverage and interaction details proposed for spec review
 

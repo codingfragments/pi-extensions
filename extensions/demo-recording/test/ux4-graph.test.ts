@@ -18,6 +18,7 @@ import { Runtime } from "../src/runtime.ts";
 import { writeStoryboard } from "../src/storyboard/store.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
 import { approve, readState } from "../src/workdir/state.ts";
+import { bigProject } from "./helpers/big-project.ts";
 import { seedPanelProject } from "./helpers/panel-seed.ts";
 
 const graphOf = (dir: string, slug = "keycraft") =>
@@ -245,68 +246,23 @@ test("graph: cached until a record changes; the revision tells when what is show
 });
 
 test("graph: a project of about 300 nodes builds quickly", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "graph-big-"));
+  const big = bigProject();
   try {
-    const p = ensureProject(root, { project: "big", appName: "Big", appUrl: "https://big.test" });
-    const sb = (v: number) =>
-      `version: ${v}\napp: big\nstart_url: /\nscenes:\n  - id: s1\n    title: One\n    steps:\n      - { do: pause, ms: 100 }\n`;
-    for (let i = 1; i <= 6; i++) writeStoryboard(p.dir, sb(i));
-    for (let t = 1; t <= 14; t++) {
-      const d = path.join(p.dir, "takes", `take-${String(t).padStart(3, "0")}`);
-      fs.mkdirSync(d, { recursive: true });
-      fs.writeFileSync(
-        path.join(d, "take.json"),
-        JSON.stringify({
-          take: `take-${t}`,
-          status: "ok",
-          storyboardVersion: 1 + (t % 6),
-          durationMs: 60000 + t,
-        }),
-      );
-    }
-    fs.mkdirSync(path.join(p.dir, "vo"), { recursive: true });
-    for (let v = 1; v <= 24; v++)
-      fs.writeFileSync(
-        path.join(p.dir, "vo", `script.v${v}.md`),
-        `---\ntake: take-${String(1 + (v % 14)).padStart(3, "0")}\n---\n## s1\ntext\n`,
-      );
-    fs.mkdirSync(path.join(p.dir, "annotations"), { recursive: true });
-    for (let v = 1; v <= 30; v++)
-      fs.writeFileSync(
-        path.join(p.dir, "annotations", `v${v}.json`),
-        JSON.stringify({ basedOn: { vo: 1 + (v % 24) }, take: "take-001", items: [] }),
-      );
-    for (let r = 1; r <= 220; r++) {
-      const rec = startRecord(p.dir, {
-        kind: r % 9 === 0 ? "final" : "draft",
-        basedOn: { annotations: 1 + (r % 30) },
-        timeline: 1,
-        voVersion: 1,
-        take: "take-001",
-        by: "panel",
-        options: normalizeOptions({}),
-        brands: ["neutral"],
-        size: { width: 960, height: 540 },
-      });
-      rec.status = "done";
-      saveRecord(p.dir, rec);
-    }
-    approve(p.dir, "storyboard", 2);
-    const state = readState(p.dir) as NonNullable<ReturnType<typeof readState>>;
+    const state = readState(big.dir) as NonNullable<ReturnType<typeof readState>>;
     const t0 = performance.now();
-    const g = buildGraph(p.dir, "big", state);
+    const g = buildGraph(big.dir, big.slug, state);
     const ms = performance.now() - t0;
     assert.ok(g.nodes.length >= 290, `a large graph (${g.nodes.length} nodes)`);
     assert.ok(g.edges.length > 250);
     console.log(`graph: ${g.nodes.length} nodes, ${g.edges.length} edges in ${ms.toFixed(0)} ms`);
     assert.ok(ms < 2500, `built in ${ms.toFixed(0)} ms`);
     // a second call from the cache is far cheaper
-    projectGraph(p.dir, "big", state);
+    projectGraph(big.dir, big.slug, state);
     const t1 = performance.now();
-    projectGraph(p.dir, "big", state);
+    projectGraph(big.dir, big.slug, state);
     assert.ok(performance.now() - t1 < ms, "cached");
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(big.root, { recursive: true, force: true });
   }
 });
 

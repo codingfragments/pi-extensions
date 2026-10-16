@@ -129,9 +129,15 @@ try {
         await page.goto(`${panel.url}#/render/v1`);
         await page.waitForSelector(".ds-inspector[data-version='1'] .ds-why");
         await shot(page, `render-blocked-${tag}`, false);
+        await page.click("[data-act=new-render]");
         await page.click(".render-change > summary");
         await page.waitForTimeout(200);
         await shot(page, `render-change-${tag}`, false);
+        await page.goto(`${panel.url}#/render`);
+        await page.waitForSelector(".ds-runs .ds-run");
+        await page.click("[data-act=toggle-drafts]");
+        await page.waitForTimeout(200);
+        await shot(page, `render-drafts-${tag}`, false);
       } else if (annotationsOnly) {
         const { editAnnotationDraft, readAnnotationDraft } = await import(
           "../src/drafts/annotations.ts"

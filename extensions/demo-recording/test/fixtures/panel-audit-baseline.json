@@ -41,7 +41,7 @@
       "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 29
     },
     "config|macchiato|1400": {
       "axe": {},
@@ -139,7 +139,7 @@
       "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 29
     },
     "config|macchiato|900": {
       "axe": {},
@@ -237,7 +237,7 @@
       "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 29
     },
     "config|latte|1400": {
       "axe": {},
@@ -335,7 +335,7 @@
       "axeSerious": 0,
       "smallTargets": 3,
       "focusMissing": 0,
-      "focusChecked": 32
+      "focusChecked": 29
     },
     "config|latte|900": {
       "axe": {},

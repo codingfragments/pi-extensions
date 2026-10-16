@@ -994,6 +994,33 @@
 .ds-version[aria-current="true"] {
   background: var(--accent-tint);
 }
+/* Versions list: the whole row selects (a stretched link); the row's own buttons stay separate and reachable */
+.ds-version--row {
+  position: relative;
+  min-height: var(--target-min, 44px);
+}
+.ds-version--row:hover {
+  background: var(--surface-raised);
+}
+.ds-version--row[aria-current="true"]:hover {
+  background: var(--accent-tint);
+}
+.ds-version--row .ds-version-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.ds-version--row .ds-version-main:focus-visible {
+  outline: none;
+}
+.ds-version--row:has(.ds-version-main:focus-visible) {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: -2px;
+}
+.ds-version--row .ds-row-flex {
+  position: relative;
+  z-index: 1;
+}
 .ds-setting {
   display: grid;
   gap: var(--space-2);

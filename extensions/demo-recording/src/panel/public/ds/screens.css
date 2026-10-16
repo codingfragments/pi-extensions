@@ -1567,21 +1567,6 @@ video.ann-thumb {
   margin-top: var(--space-3);
 }
 
-.flavor-view .flavor-player {
-  order: 2;
-}
-
-@container rcard (min-width: 1150px) {
-  .flavor-view {
-    grid-template-columns: minmax(420px, 1.1fr) minmax(400px, 1fr);
-    align-items: start;
-  }
-
-  .flavor-view .flavor-player {
-    order: 0;
-  }
-}
-
 .flavor-player .render-video {
   width: 100%;
   margin: 0 0 var(--space-1);
@@ -2008,4 +1993,104 @@ video.ann-thumb {
 }
 .ds-chip.conf-chip.conf-medium {
   color: var(--status-warn);
+}
+
+/* ---------- Render: the runs table, the detail grid and the decision bar (UX10) ---------- */
+.ds-runs-wrap {
+  container-type: inline-size;
+}
+
+.ds-runs {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+}
+
+.ds-run-head,
+.ds-run {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(
+      0,
+      0.8fr
+    );
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+.ds-run-head {
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.ds-runs-list {
+  padding: 0;
+  gap: 0;
+}
+
+.ds-runs-list .ds-run {
+  border-radius: 0;
+  padding: var(--space-2) var(--space-4);
+}
+
+.ds-run .run-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.ds-run .run-size,
+.ds-run-head .run-size {
+  text-align: start;
+}
+
+@container (max-width: 60rem) {
+  .ds-run-head,
+  .ds-run {
+    grid-template-columns: 1.25rem minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+
+  .run-size,
+  .run-when {
+    display: none;
+  }
+}
+
+.render-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@container (min-width: 72rem) {
+  .render-detail-grid {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.qa-passes {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.render-actionbar {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.render-actionbar .render-consequence {
+  flex: 1 1 16rem;
+  max-inline-size: 68ch;
+}
+
+.ds-run-detail {
+  min-inline-size: 0;
 }

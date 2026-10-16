@@ -1427,3 +1427,57 @@ dialog.ds-dialog::backdrop {
     grid-column: 1 / -1;
   }
 }
+
+/* ---------- Config: layers side by side, search highlight (UX9a) ---------- */
+.ds-layers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-block: var(--space-3);
+}
+@container (max-width: 44rem) {
+  .ds-layers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ds-layer {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+.ds-layer-value {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.ds-layer-edit {
+  align-items: flex-start;
+}
+.ds-setting-label {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.ds-hit {
+  padding: 0 1px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint);
+  color: var(--text-strong);
+}
+.config-search {
+  margin-block: var(--space-3);
+}
+.settings-groups {
+  container-type: inline-size;
+}
+.ds-layer-edit {
+  flex-wrap: wrap;
+}
+.ds-layer-edit .ds-input,
+.ds-layer-edit .ds-select,
+.ds-layer-edit .ds-textarea {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+}

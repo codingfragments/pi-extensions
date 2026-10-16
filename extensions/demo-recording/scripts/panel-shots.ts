@@ -9,6 +9,7 @@
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --dialogs   # dialogs and toast only
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --frame     # the frame's states (UX2): menu, running, failed, drawer
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --versions  # versions (UX3): History, the consequence dialog, a disabled action
+ *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --config      # Config (UX9a): settings with their layers, a search, a filter, the editor
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --project     # Project (UX8): summary, the brief group, findings
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --render      # Render (UX7): runs list + inspector, New render summary and Change…
  *   node extensions/demo-recording/scripts/panel-shots.ts --out /tmp/p --annotations # Annotations (UX6): list by scene + inspector, draft saved, conflict, privacy dialog
@@ -41,6 +42,7 @@ const storyboardOnly = process.argv.includes("--storyboard");
 const annotationsOnly = process.argv.includes("--annotations");
 const renderOnly = process.argv.includes("--render");
 const projectOnly = process.argv.includes("--project");
+const configOnly = process.argv.includes("--config");
 
 const TABS: [id: string, label: string][] = [
   ["project", "Project"],
@@ -55,6 +57,13 @@ const tabs = arg("tabs", "").split(",").filter(Boolean);
 
 process.env.DEMO_REC_NO_OPEN = "1";
 const seed = seedPanelProject();
+// the panel's config routes read the config file from the environment: never the real one, never in a screenshot
+const demoConfig = path.join(seed.root, "demo-global-config.json");
+fs.writeFileSync(
+  demoConfig,
+  `${JSON.stringify({ voiceName: "Narrator_voice", fps: 24 }, null, 2)}\n`,
+);
+process.env.DEMO_REC_CONFIG = demoConfig;
 const rt = new Runtime(() => ({
   ...resolveConfig({ env: { DEMO_REC_CONFIG: path.join(seed.root, "none.json") } }),
   root: seed.root,
@@ -84,7 +93,20 @@ try {
       await page.goto(panel.url);
       await page.waitForSelector("header.top");
       const tag = `${theme === "macchiato" ? "dark" : "light"}-${width}`;
-      if (projectOnly) {
+      if (configOnly) {
+        await page.goto(`${panel.url}#/config`);
+        await page.waitForSelector(".ds-setting");
+        await page.waitForTimeout(300);
+        await shot(page, `config-all-${tag}`, false);
+        await page.goto(`${panel.url}#/config?q=voice`);
+        await page.waitForSelector("mark.ds-hit");
+        await shot(page, `config-search-${tag}`, false);
+        await page.click(".ds-setting[data-key='voiceName'] [data-act=edit-global]");
+        await shot(page, `config-edit-${tag}`, false);
+        await page.goto(`${panel.url}#/config?filter=changed`);
+        await page.waitForSelector(".ds-setting");
+        await shot(page, `config-changed-${tag}`, false);
+      } else if (projectOnly) {
         await page.goto(`${panel.url}#/project`);
         await page.waitForSelector(".project-summary");
         await page.waitForTimeout(300);

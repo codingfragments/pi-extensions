@@ -223,20 +223,21 @@ test(
         "raw global file shown",
       );
       // fps 30 → 24 (global)
-      const fps = page.locator(".setting", { has: page.locator(".mono", { hasText: /^fps$/ }) });
-      await fps.locator("input").fill("24");
-      await fps.getByRole("button", { name: "Save" }).click();
+      const fps = page.locator(".ds-setting[data-key='fps']");
+      await fps.locator("[data-act=edit-global]").click();
+      await fps.locator("[data-layer=global] input").fill("24");
+      await fps.locator("[data-layer=global] [data-act=save]").click();
       await page.waitForTimeout(600);
       assert.match(dialogs.at(-1) ?? "", /Set fps\?[\s\S]*Global[\s\S]*"fps": 24/);
       assert.equal(JSON.parse(fs.readFileSync(globalFile, "utf8")).fps, 24);
-      // Project scope: reset the voiceName override
-      await page.getByRole("button", { name: /^This project/ }).click();
-      const vn = page.locator(".setting", {
-        has: page.locator(".mono", { hasText: /^voiceName$/ }),
-      });
-      await vn.getByRole("button", { name: "reset" }).click();
+      // The project's voiceName override: removed from its own cell, no page-level scope to switch
+      const vn = page.locator(".ds-setting[data-key='voiceName']");
+      await vn.locator("[data-act=remove-project]").click();
       await page.waitForTimeout(600);
-      assert.match(dialogs.at(-1) ?? "", /Reset voiceName\?[\s\S]*Project kc/);
+      assert.match(
+        dialogs.at(-1) ?? "",
+        /Remove the project override of voiceName\?[\s\S]*Project kc/,
+      );
       assert.equal(
         JSON.parse(fs.readFileSync(path.join(p.dir, "config.json"), "utf8")).voiceName,
         undefined,

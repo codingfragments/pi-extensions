@@ -28,7 +28,7 @@ works in the address bar. Press `/` on the showcase to focus the search field.
 | `../../src/panel/public/ds/tokens.css` | The **only** file with colour literals: both themes, type, space, radius, elevation, motion, layers, layout. **The panel loads it too** (UX1): one source, no copies. |
 | `../../src/panel/public/ds/base.css` | Global safe rules (one focus ring, `[hidden]`, reduced motion) and the element defaults scoped to `.ds-root`. |
 | `../../src/panel/public/ds/components.css` | The `ds-` components. Tokens only. |
-| `config.css`, `config.js` | The Config page component and its search prototype (fixture data with the real keys and groups). Moves into the panel in UX9. |
+| `config.js` | The Config mock's logic and fixture data (the real keys and groups). Its stylesheet is the panel's own since UX9a (`../../src/panel/public/ds/config.css`), and the real screen is built on the same markup ([report](UX9a.md)). |
 | `map.js` | The map's prototype logic (fixture data). The real map is in the panel since UX4 (`src/panel/public/map.js`, `graph-model.js`, `ds/map.css`, [report](UX4.md)); this prototype stays as the tile's fixture. |
 | `shell.js` | Builds the frame (header, stepper, next action, strip, drawer) for the mock screens. Replaced by the real frame in UX2. |
 | `tile.css`, `tile.js` | Showcase page chrome and behaviour. |

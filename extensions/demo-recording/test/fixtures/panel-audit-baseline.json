@@ -44,22 +44,9 @@
       "focusChecked": 32
     },
     "config|macchiato|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 37
-        },
-        "label": {
-          "impact": "critical",
-          "nodes": 37
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 76,
-      "smallTargets": 6,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -160,22 +147,9 @@
       "focusChecked": 32
     },
     "config|macchiato|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 37
-        },
-        "label": {
-          "impact": "critical",
-          "nodes": 37
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 76,
-      "smallTargets": 6,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -291,22 +265,9 @@
       "focusChecked": 32
     },
     "config|latte|1400": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 43
-        },
-        "label": {
-          "impact": "critical",
-          "nodes": 37
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 82,
-      "smallTargets": 6,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },
@@ -427,22 +388,9 @@
       "focusChecked": 32
     },
     "config|latte|900": {
-      "axe": {
-        "color-contrast": {
-          "impact": "serious",
-          "nodes": 43
-        },
-        "label": {
-          "impact": "critical",
-          "nodes": 37
-        },
-        "select-name": {
-          "impact": "critical",
-          "nodes": 2
-        }
-      },
-      "axeSerious": 82,
-      "smallTargets": 6,
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
     },

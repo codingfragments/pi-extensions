@@ -1,4 +1,7 @@
-/* Config page component (UX0 mock of UX9). Tokens only. */
+/* Config page (UX0 mock, now the panel's own since UX9a). Tokens only. */
+.ds-cfg-root {
+  container-type: inline-size;
+}
 
 .ds-cfg {
   display: grid;
@@ -12,8 +15,15 @@
   display: grid;
   gap: 2px;
 }
-.ds-cfg-nav a {
+.ds-cfg-nav a,
+.ds-cfg-nav button {
   display: flex;
+  inline-size: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
   align-items: center;
   gap: var(--space-2);
   min-block-size: var(--target-min);
@@ -23,15 +33,18 @@
   font-size: var(--text-sm);
   text-decoration: none;
 }
-.ds-cfg-nav a:hover {
+.ds-cfg-nav a:hover,
+.ds-cfg-nav button:hover {
   background: var(--surface-raised);
 }
-.ds-cfg-nav a[aria-current="true"] {
+.ds-cfg-nav a[aria-current="true"],
+.ds-cfg-nav button[aria-current="true"] {
   background: var(--accent-tint);
   color: var(--text-strong);
   font-weight: var(--weight-medium);
 }
-.ds-cfg-nav a[data-empty="true"] {
+.ds-cfg-nav a[data-empty="true"],
+.ds-cfg-nav button[data-empty="true"] {
   color: var(--text-muted);
 }
 .ds-cfg-count {
@@ -44,6 +57,9 @@
   display: grid;
   gap: var(--space-4);
   min-inline-size: 0;
+}
+.ds-cfg-searchbox {
+  max-inline-size: 40rem;
 }
 .ds-cfg-top {
   display: grid;
@@ -163,7 +179,9 @@
     flex-wrap: wrap;
     gap: var(--space-1);
   }
-  .ds-cfg-nav a {
+  .ds-cfg-nav a,
+  .ds-cfg-nav button {
+    inline-size: auto;
     border: 1px solid var(--border-control);
     border-radius: var(--radius-pill);
   }

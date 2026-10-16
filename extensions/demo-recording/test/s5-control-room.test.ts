@@ -414,8 +414,8 @@ test(
         await page.waitForTimeout(250);
       }
       await page.locator("a.config-btn").click();
-      await page.waitForSelector(".setting-group");
-      await page.locator(".subtabs .chip", { hasText: "Brands" }).click();
+      await page.waitForSelector(".ds-srow");
+      await page.locator(".ds-tabs .ds-tab", { hasText: "Brands" }).click();
       await page.waitForSelector(".brand-grid");
       await page.locator("nav.steps a", { hasText: "Recording" }).click();
       await page.waitForSelector(".card.take");

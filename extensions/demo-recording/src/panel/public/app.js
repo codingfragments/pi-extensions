@@ -1,6 +1,7 @@
 import { html, render, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Annotations } from "./annotations.js";
-import { Settings } from "./config.js";
+import { queryFromSearch, searchFromQuery } from "./config-search.js";
+import { ConfigHead, Settings } from "./config.js";
 import { api, post, token, useApi, useBus, useHashRoute } from "./core.js";
 import { setModels } from "./cost.js";
 // demo-recording side panel — the control room (S5 part 4): stage tabs
@@ -307,16 +308,24 @@ function Brand({ events }) {
 // ---------------- CONFIG ----------------
 
 function Config({ events }) {
-  const [view, setView] = useState("settings");
+  // Settings or Brands, in the address with the search (#/config?view=brands, #/config?q=voice)
+  const [route, go] = useHashRoute();
+  const st = searchFromQuery(route?.query);
+  const setView = (view) =>
+    go(
+      { screen: "config", query: queryFromSearch(view === "brands" ? { view } : { ...st, view }) },
+      { replace: true },
+    );
   return html`
-    <div class="subtabs">${[
+    <div class="ds-root ds-cfg-head"><${ConfigHead} /></div>
+    <div class="ds-tabs" role="tablist" aria-label="Config sections">${[
       ["settings", "Settings"],
       ["brands", "Brands"],
     ].map(
       ([id, label]) =>
-        html`<button class=${`chip ${view === id ? "on" : ""}`} onClick=${() => setView(id)}>${label}</button>`,
+        html`<button class="ds-tab" role="tab" type="button" key=${id} aria-selected=${st.view === id} onClick=${() => setView(id)}>${label}</button>`,
     )}</div>
-    ${view === "settings" ? html`<${Settings} events=${events} />` : html`<${Brand} events=${events} />`}`;
+    ${st.view === "settings" ? html`<${Settings} events=${events} />` : html`<${Brand} events=${events} />`}`;
 }
 
 // ---------------- APP ----------------

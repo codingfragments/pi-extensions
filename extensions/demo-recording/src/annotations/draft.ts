@@ -1,45 +1,20 @@
 /**
- * The annotation draft (S5 part 8, D58): panel edits accumulate in
- * `annotations/draft.json` on top of a version; "Save" writes ONE new version
- * with every change recorded in the items' `edits`, "Discard" drops it. The
- * draft survives panel reloads and restarts.
+ * Edits of an annotation draft (S5 part 8, D58; UX6a, D122). This file holds the edit operations only:
+ * what a toggle, a text change, a nudge, a target swap or a reset does to a copy of an annotation file,
+ * with their validation. Where a draft lives, its revisions and conflicts are in
+ * src/drafts/annotations.ts (one draft per base version, like the voice-over's).
  */
 
-import fs from "node:fs";
-import path from "node:path";
-import { annotationsDir, readAnnotations, validateAnnotations, writeAnnotations } from "./file.ts";
+import { validateAnnotations } from "./file.ts";
 import {
   type AnnotationEdit,
   type AnnotationFile,
   type AnnotationItem,
+  type AnnotationTarget,
   DEFAULT_DURATION,
   MAX_TEXT,
   MAX_ZOOMS,
 } from "./types.ts";
-
-export interface AnnotationDraft {
-  /** The version the draft started from. */
-  base: number;
-  updatedAt: string;
-  file: AnnotationFile;
-  /** Number of edits since the base. */
-  changes: number;
-}
-
-const draftFile = (projectDir: string) => path.join(annotationsDir(projectDir), "draft.json");
-
-export function readDraft(projectDir: string): AnnotationDraft | undefined {
-  const f = draftFile(projectDir);
-  if (!fs.existsSync(f)) return undefined;
-  return JSON.parse(fs.readFileSync(f, "utf8")) as AnnotationDraft;
-}
-
-export function discardDraft(projectDir: string): boolean {
-  const f = draftFile(projectDir);
-  if (!fs.existsSync(f)) return false;
-  fs.rmSync(f);
-  return true;
-}
 
 export type DraftOp =
   | { op: "toggle"; id: string; enabled?: boolean }
@@ -47,33 +22,40 @@ export type DraftOp =
   /** ±ms on the anchor (start) or the duration. */
   | { op: "nudge"; id: string; field: "start" | "duration"; deltaMs: number }
   /** Swap in alternative n (0-based) as the target; the old target becomes an alternative. */
-  | { op: "target"; id: string; alternative: number };
+  | { op: "target"; id: string; alternative: number }
+  /** Back to how the designer suggested it (D122): every recorded change of the item undone. */
+  | { op: "reset"; id: string };
 
-/** Apply one edit to a draft (created from `base` when there is none, or when it is for another version). */
-export function editDraft(
-  projectDir: string,
-  base: number,
-  op: DraftOp,
-  now = new Date(),
-): AnnotationDraft {
-  let d = readDraft(projectDir);
-  if (!d || d.base !== base) {
-    const file = readAnnotations(projectDir, base);
-    if (!file) throw new Error(`annotations v${base} do not exist`);
-    d = { base, updatedAt: now.toISOString(), file, changes: 0 };
-  }
-  const it = d.file.items.find((x) => x.id === op.id);
-  if (!it) throw new Error(`annotation ${op.id} is not in v${base}`);
+const sameTarget = (a: AnnotationTarget, b: AnnotationTarget) =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+/** Can this item be reset: it was suggested, and the user changed it. */
+export function canReset(it: AnnotationItem): boolean {
+  return (
+    it.origin !== "manual" &&
+    !(it.edits ?? []).some((e) => e.field === "added") &&
+    (it.edits ?? []).some((e) => e.field !== "added")
+  );
+}
+
+/**
+ * Apply one edit to `file` in place (the caller passes a copy). Returns false when it changed nothing.
+ * Throws, leaving `file` valid, when the edit is not allowed.
+ */
+export function applyDraftOp(file: AnnotationFile, op: DraftOp, now = new Date()): boolean {
+  const it = file.items.find((x) => x.id === op.id);
+  if (!it) throw new Error(`annotation ${op.id} is not in this version`);
+  const before = JSON.stringify(it);
   const edit = (field: AnnotationEdit["field"], from: unknown) => {
     it.edits = [...(it.edits ?? []), { at: now.toISOString(), field, from }];
   };
   if (op.op === "toggle") {
     const next = op.enabled ?? !it.enabled;
-    if (next === it.enabled) return d;
+    if (next === it.enabled) return false;
     if (
       next &&
       it.type === "zoom" &&
-      d.file.items.filter((x) => x.enabled && x.type === "zoom").length >= MAX_ZOOMS
+      file.items.filter((x) => x.enabled && x.type === "zoom").length >= MAX_ZOOMS
     )
       throw new Error(`at most ${MAX_ZOOMS} zooms per demo — turn another zoom off first`);
     edit("enabled", it.enabled);
@@ -84,7 +66,7 @@ export function editDraft(
     if (!text) throw new Error("the text can't be empty");
     if (text.length > MAX_TEXT)
       throw new Error(`≤ ${MAX_TEXT} characters — it marks, it doesn't narrate`);
-    if (text === it.text) return d;
+    if (text === it.text) return false;
     edit("text", it.text);
     it.text = text;
     it.origin = "edited";
@@ -116,21 +98,49 @@ export function editDraft(
     );
     it.target = alt;
     it.origin = "edited";
+  } else if (op.op === "reset") {
+    if (!canReset(it))
+      throw new Error(
+        it.origin === "manual" || (it.edits ?? []).some((e) => e.field === "added")
+          ? `${it.id} was added by hand: it has no suggested version to go back to`
+          : `${it.id} has not been changed`,
+      );
+    // the first recorded `from` of a field is how the designer suggested it
+    const first = (f: AnnotationEdit["field"]) => (it.edits ?? []).find((e) => e.field === f);
+    const enabled = first("enabled");
+    const text = first("text");
+    const start = first("start");
+    const duration = first("duration");
+    const target = first("target");
+    if (enabled) {
+      if (
+        enabled.from === true &&
+        it.type === "zoom" &&
+        !it.enabled &&
+        file.items.filter((x) => x.enabled && x.type === "zoom").length >= MAX_ZOOMS
+      )
+        throw new Error(`at most ${MAX_ZOOMS} zooms per demo — turn another zoom off first`);
+      it.enabled = enabled.from === true;
+    }
+    if (text) it.text = text.from as string;
+    if (start)
+      it.anchor = {
+        ...it.anchor,
+        offsetMs: (start.from as number) ?? 0,
+      } as AnnotationItem["anchor"];
+    if (duration) {
+      if (duration.from === undefined) Reflect.deleteProperty(it, "durMs");
+      else it.durMs = duration.from as number;
+    }
+    if (target?.from && it.target) {
+      const original = target.from as AnnotationTarget;
+      const current = it.target;
+      it.alternatives = (it.alternatives ?? []).map((a) => (sameTarget(a, original) ? current : a));
+      it.target = original;
+    }
+    Reflect.deleteProperty(it, "edits");
+    it.origin = "suggested";
   }
-  validateAnnotations(d.file);
-  d.changes += 1;
-  d.updatedAt = now.toISOString();
-  fs.mkdirSync(annotationsDir(projectDir), { recursive: true });
-  fs.writeFileSync(draftFile(projectDir), `${JSON.stringify(d, null, 2)}\n`);
-  return d;
-}
-
-/** Save the draft as the next version (one version for all edits). */
-export function saveDraft(projectDir: string): AnnotationFile {
-  const d = readDraft(projectDir);
-  if (!d) throw new Error("no unsaved annotation changes");
-  const { version: _v, ...rest } = d.file;
-  const stored = writeAnnotations(projectDir, { ...rest, by: "user edits", editedFrom: d.base });
-  discardDraft(projectDir);
-  return stored;
+  validateAnnotations(file);
+  return JSON.stringify(it) !== before;
 }

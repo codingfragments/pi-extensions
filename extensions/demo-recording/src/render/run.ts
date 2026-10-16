@@ -11,7 +11,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { readDraft } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations } from "../annotations/file.ts";
 import {
   ANNOTATION_TYPES,
@@ -20,6 +19,7 @@ import {
 } from "../annotations/types.ts";
 import { resolveBrand } from "../brand/brand.ts";
 import type { DemoRecConfig } from "../config.ts";
+import { preferredAnnotationDraft, readAnnotationDraft } from "../drafts/annotations.ts";
 import { type CutResult, renderCut } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { type RenderOverrides, applyShifts } from "../qa/overrides.ts";
@@ -148,8 +148,12 @@ export function planRender(
     annotationVersion = (req.annotations ?? state.line.annotations) as number;
     file = readAnnotations(projectDir, annotationVersion);
   } else if (fromDraft) {
-    const d = readDraft(projectDir);
-    if (!d) throw new Error("there are no unsaved annotation changes to render");
+    // the draft of the version asked for, else the one on the line's version, else the latest edited
+    const d =
+      req.annotations !== undefined && req.annotations !== null
+        ? readAnnotationDraft(projectDir, req.annotations)
+        : preferredAnnotationDraft(projectDir, state.line.annotations);
+    if (!d?.changes) throw new Error("there are no unsaved annotation changes to render");
     annotationVersion = d.base;
     file = d.file;
   } else if (req.annotations !== null) {

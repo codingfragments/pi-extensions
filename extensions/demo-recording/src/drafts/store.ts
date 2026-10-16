@@ -60,9 +60,9 @@ export interface DraftSummary {
 }
 
 /** A write based on a revision that is no longer the current one. `current` is null when there is none. */
-export class DraftConflict extends Error {
-  readonly current: WorkingDraft | null;
-  constructor(current: WorkingDraft | null, expected: number | null) {
+export class DraftConflict<T extends { revision: number } = WorkingDraft> extends Error {
+  readonly current: T | null;
+  constructor(current: T | null, expected: number | null) {
     super(
       current
         ? `the draft changed since you last saw it (you have revision ${expected ?? "none"}, it is at ${current.revision})`
@@ -73,20 +73,21 @@ export class DraftConflict extends Error {
   }
 }
 
-interface LastRecord {
+export interface LastRecord {
   revision: number;
   how: "saved" | "discarded";
   savedAs?: number;
   at: string;
 }
 
-const draftsDir = (projectDir: string, stage: DraftStage) => path.join(projectDir, "drafts", stage);
-const draftFile = (projectDir: string, stage: DraftStage, base: number) =>
+export const draftsDir = (projectDir: string, stage: string) =>
+  path.join(projectDir, "drafts", stage);
+export const draftFile = (projectDir: string, stage: string, base: number) =>
   path.join(draftsDir(projectDir, stage), `v${base}.json`);
-const lastFile = (projectDir: string, stage: DraftStage, base: number) =>
+export const lastFile = (projectDir: string, stage: string, base: number) =>
   path.join(draftsDir(projectDir, stage), `v${base}.last.json`);
 
-function readJson<T>(file: string): T | undefined {
+export function readJson<T>(file: string): T | undefined {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   } catch (err) {
@@ -98,10 +99,10 @@ function readJson<T>(file: string): T | undefined {
 export const readDraft = (projectDir: string, stage: DraftStage, base: number) =>
   readJson<WorkingDraft>(draftFile(projectDir, stage, base));
 
-const readLast = (projectDir: string, stage: DraftStage, base: number) =>
+export const readLast = (projectDir: string, stage: string, base: number) =>
   readJson<LastRecord>(lastFile(projectDir, stage, base));
 
-const writeLast = (projectDir: string, stage: DraftStage, base: number, rec: LastRecord) =>
+export const writeLast = (projectDir: string, stage: string, base: number, rec: LastRecord) =>
   writeFileAtomic(lastFile(projectDir, stage, base), `${JSON.stringify(rec, null, 2)}\n`);
 
 export function summarize(d: WorkingDraft): DraftSummary {

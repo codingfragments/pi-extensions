@@ -11,7 +11,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { editDraft } from "../src/annotations/draft.ts";
 import { writeAnnotations } from "../src/annotations/file.ts";
 import { resolveConfig } from "../src/config.ts";
 import type { SceneTimeline, Timeline } from "../src/edit/timeline.ts";
@@ -47,6 +46,7 @@ import { writeZip } from "../src/util/zip.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
 import { nextStep } from "../src/workdir/stages.ts";
 import { acceptStage, acceptTake, approve, readState } from "../src/workdir/state.ts";
+import { editDraft } from "./helpers/annotation-drafts.ts";
 
 async function chromiumAvailable(): Promise<boolean> {
   try {

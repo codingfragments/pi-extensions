@@ -8,9 +8,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { readDraft } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations, writeAnnotations } from "../annotations/file.ts";
 import { listBrands } from "../brand/brand.ts";
+import { listAnnotationDrafts, preferredAnnotationDraft } from "../drafts/annotations.ts";
 import { confirmItem, qaBlocker, readQa } from "../qa/run.ts";
 import { type RenderRequest, finalBlocker, latestTimelineFor } from "../render/run.ts";
 import {
@@ -37,7 +37,7 @@ export function rendersView(rt: Runtime) {
   const state = readState(p.dir) ?? p.state;
   const accepted = state.accepted.render ?? {};
   const job = rt.jobs.latest("render");
-  const draft = readDraft(p.dir);
+  const draft = preferredAnnotationDraft(p.dir, state.line.annotations);
   return {
     project: p.slug,
     finalBlocker: finalBlocker(p.dir) ?? null,
@@ -65,6 +65,7 @@ export function rendersView(rt: Runtime) {
         };
       }),
     draft: draft ? { base: draft.base, changes: draft.changes } : null,
+    drafts: listAnnotationDrafts(p.dir).map((d) => ({ base: d.base, changes: d.changes })),
     hasEdit: latestTimelineFor(p.dir) !== undefined,
     job: job ? { id: job.id, status: job.status, error: job.error ?? null } : null,
     renders: listRenders(p.dir).map((r) => ({

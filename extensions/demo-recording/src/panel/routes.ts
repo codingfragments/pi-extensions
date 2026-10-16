@@ -6,7 +6,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { readDraft } from "../annotations/draft.ts";
 import { readAnnotations } from "../annotations/file.ts";
 import type { EventBus } from "../bus.ts";
 import { type ConfidenceSummary, formatConfidence } from "../confidence/level.ts";

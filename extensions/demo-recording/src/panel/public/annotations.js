@@ -8,6 +8,7 @@ import { ConfBadge, ConfReasons, NeedsEyes, byRisk, confOf, itemDomId } from "./
 import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost, getModels } from "./cost.js";
 import { confirmAsk } from "./dialog.js";
+import { TAB } from "./drafts.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 const TYPES = ["zoom", "highlight", "spotlight", "callout", "chapter", "redact"];
@@ -347,14 +348,29 @@ export function Annotations({ events, stages }) {
   };
   const edit = async (op) => {
     try {
-      setView(await post("/api/annotations-edit", { version: d.version, ...op }));
+      const r = await post("/api/annotations-edit", {
+        version: d.version,
+        revision: d.draft?.revision ?? null,
+        author: TAB,
+        ...op,
+      });
+      setView(r);
+      if (r.conflict) say(`⚠ ${r.message} — the view shows the draft as it is now`);
     } catch (e) {
       say(`⚠ ${e.message}`);
     }
   };
   const save = async () => {
     try {
-      const r = await post("/api/annotations-save", {});
+      const r = await post("/api/annotations-save", {
+        version: d.draft.base,
+        revision: d.draft.revision,
+      });
+      if (r.conflict) {
+        setView(r);
+        say(`⚠ ${r.message}`);
+        return;
+      }
       setVersion(r.version);
       say(`saved as v${r.version}`);
     } catch (e) {
@@ -370,7 +386,12 @@ export function Annotations({ events, stages }) {
     });
     if (!ok) return;
     try {
-      setView(await post("/api/annotations-discard", {}));
+      const r = await post("/api/annotations-discard", {
+        version: d.draft.base,
+        revision: d.draft.revision,
+      });
+      setView(r);
+      if (r.conflict) say(`⚠ ${r.message}`);
     } catch (e) {
       say(`⚠ ${e.message}`);
     }
@@ -418,8 +439,8 @@ export function Annotations({ events, stages }) {
             <button class="primary" onClick=${save}>Save as v${Math.max(...d.versions) + 1}</button>
             <button class="ghost" onClick=${discard}>Discard</button>
           </div>`
-          : d.otherDraft
-            ? html`<div class="draft-bar muted">Unsaved changes on v${d.otherDraft} — <button class="ghost" onClick=${() => setVersion(d.otherDraft)}>open v${d.otherDraft}</button></div>`
+          : d.otherDrafts?.length
+            ? html`<div class="draft-bar muted">Unsaved changes on ${d.otherDrafts.map((o) => `v${o.base}`).join(", ")} — ${d.otherDrafts.map((o) => html`<button class="ghost" onClick=${() => setVersion(o.base)}>open v${o.base}</button>`)}</div>`
             : null
       }
       <div class="filters row">

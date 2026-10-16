@@ -214,7 +214,7 @@ approved. See [RENDER.md](RENDER.md).
 |---|---|
 | `context` | the input pack (with `base` + `instructions` for a re-suggest) |
 | `suggest` | submit suggestions → next version (with `base`: keep the user's changes) |
-| `get` | a version (or `draft=true`: the panel's unsaved draft) with weights and budget |
+| `get` | a version with weights and budget (the panel's unsaved draft is private until the user saves it, D121; `draft=true` says so) |
 | `write` | a full revision as JSON (exact changes the user asked for) |
 | `import` | carry what still matches from version `from` |
 | `preview` | a clip + still of one annotation (the still comes back as an image) |

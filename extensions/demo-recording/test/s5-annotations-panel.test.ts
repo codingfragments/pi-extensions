@@ -233,16 +233,23 @@ test(
       assert.equal(v.resolved["co-kpi"]?.startMs, 1650, "anchor 1.5 s + 0.3 s − 0.15 s lead");
       assert.ok(v.budget.enabled >= 1);
       const coOn = v.file.items.find((x) => x.id === "co-kpi")?.enabled;
-      // Draft edits
-      r = await post("annotations-edit", { version: 1, op: "toggle", id: "co-kpi" });
+      // Draft edits: each carries the revision last seen (the draft contract, D115)
+      let rev: number | null = null;
+      const ed = async (o: Record<string, unknown>) => {
+        const x = await post("annotations-edit", { revision: rev, ...o });
+        const j = x.json as unknown as { draft?: { revision: number } | null; saved?: boolean };
+        if (x.status === 200 && j.saved) rev = j.draft?.revision ?? null;
+        return x;
+      };
+      r = await ed({ version: 1, op: "toggle", id: "co-kpi" });
       assert.equal(r.status, 200, String(r.json.error));
-      r = await post("annotations-edit", {
+      r = await ed({
         version: 1,
         op: "text",
         id: "co-kpi",
         text: "3.1 % looks harmless",
       });
-      r = await post("annotations-edit", {
+      r = await ed({
         version: 1,
         op: "nudge",
         id: "co-kpi",
@@ -258,7 +265,7 @@ test(
       assert.equal(co?.anchor.offsetMs, 800);
       assert.equal(v.resolved["co-kpi"]?.startMs, 2150, "timing re-resolved for the draft");
       // Errors come back as 4xx with a message
-      r = await post("annotations-edit", {
+      r = await ed({
         version: 1,
         op: "text",
         id: "co-kpi",
@@ -271,7 +278,7 @@ test(
       assert.ok(r.status >= 400);
       assert.match(String(r.json.error), /save or discard/);
       // Save → v2, one version for all edits
-      r = await post("annotations-save", {});
+      r = await post("annotations-save", { version: 1, revision: rev });
       v = r.json as unknown as View;
       assert.equal(v.version, 2);
       assert.equal(v.draft, null);
@@ -283,8 +290,9 @@ test(
         ),
       );
       // Discard
-      await post("annotations-edit", { version: 2, op: "toggle", id: "ch-a" });
-      r = await post("annotations-discard", {});
+      rev = null;
+      await ed({ version: 2, op: "toggle", id: "ch-a" });
+      r = await post("annotations-discard", { version: 2, revision: rev });
       assert.equal((r.json as unknown as View).draft, null);
       assert.deepEqual(annotationVersions(dir), [1, 2]);
       // Re-suggest on v2 → agent message with base and the kept items rule
@@ -315,7 +323,13 @@ test(
     const { rt, panel, get, post } = await panelFor();
     try {
       runSuggest(rt, { suggestions: STUB.map((s) => toSuggestion(s)) });
-      await post("annotations-edit", { version: 1, op: "text", id: "co-kpi", text: "Draft text" });
+      await post("annotations-edit", {
+        version: 1,
+        revision: null,
+        op: "text",
+        id: "co-kpi",
+        text: "Draft text",
+      });
       let r = await post("annotation-preview", { version: 1, id: "co-kpi", kind: "still" });
       assert.equal(r.status, 200, String(r.json.error));
       const still = String(r.json.still);

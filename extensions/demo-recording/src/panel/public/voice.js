@@ -109,10 +109,10 @@ function Direction({ data, onSent }) {
     <${Chips} label="Stance" options=${DIR_STANCES.map((x) => [x, x])} value=${d.stance} onChange=${set("stance")} />
     <${Chips} label="Tone" options=${DIR_TONES.map((x) => [x, x])} value=${d.tone} onChange=${set("tone")} />
     <${Chips} label="Length" options=${DIR_LENGTHS} value=${d.length} onChange=${set("length")} />
-    <div class="dir-row"><span class="dir-label">Focus</span><input class="grow" value=${d.focus} placeholder="what the story should lean on, e.g. the EMEA churn drill-down" onInput=${(e) => set("focus")(e.target.value)} aria-label="focus" /></div>
+    <div class="dir-row"><span class="dir-label">Focus</span><input class="ds-input grow" value=${d.focus} placeholder="what the story should lean on, e.g. the EMEA churn drill-down" onInput=${(e) => set("focus")(e.target.value)} aria-label="focus" /></div>
     <div class="dir-row"><span class="dir-label">Notes</span><textarea class="grow" value=${d.notes} placeholder="anything else: less hype, say each number once, …" onInput=${(e) => set("notes")(e.target.value)} aria-label="direction notes"></textarea></div>
     <div class="row">
-      <label class="check small-text"><input type="checkbox" checked=${save} onChange=${(e) => setSave(e.target.checked)} /> save as the project's default direction (brief)</label>
+      <label class="ds-check small-text"><input type="checkbox" checked=${save} onChange=${(e) => setSave(e.target.checked)} /> save as the project's default direction (brief)</label>
       <span class="grow"></span>
       ${err ? html`<span class="error small-text">${err}</span>` : null}
       <button class="ds-btn ds-btn--primary" disabled=${busy} onClick=${send}>Draft new version</button><${CostHint} />
@@ -373,7 +373,7 @@ export function Voice({ events, stages }) {
             <select aria-label="compare with" value=${data.base} onChange=${(e) => setCompare(Number(e.target.value))}>
               ${data.versions.filter((v) => v !== data.version).map((v) => html`<option value=${v}>compare with v${v}</option>`)}
             </select>
-            <label class="check"><input type="checkbox" checked=${showChanges} onChange=${(e) => setShowChanges(e.target.checked)} /> show changes</label>
+            <label class="ds-check"><input type="checkbox" checked=${showChanges} onChange=${(e) => setShowChanges(e.target.checked)} /> show changes</label>
             ${
               data.meta?.direction
                 ? html`<span class="muted">direction: ${Object.entries(data.meta.direction)

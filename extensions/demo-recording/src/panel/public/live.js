@@ -295,8 +295,8 @@ export function FullLogModal({ events, onClose, onPick }) {
         <option value="">all types</option>
         ${prefixes.map((p) => html`<option value=${p}>${p}.*</option>`)}
       </select>
-      <label class="check small-text" title="every progress update as its own line, instead of one line per job"><input type="checkbox" checked=${allTicks} onChange=${(e) => setAllTicks(e.target.checked)} /> show all progress</label>
-      <label class="check small-text"><input type="checkbox" checked=${follow} onChange=${(e) => setFollow(e.target.checked)} /> follow newest</label>
+      <label class="ds-check small-text" title="every progress update as its own line, instead of one line per job"><input type="checkbox" checked=${allTicks} onChange=${(e) => setAllTicks(e.target.checked)} /> show all progress</label>
+      <label class="ds-check small-text"><input type="checkbox" checked=${follow} onChange=${(e) => setFollow(e.target.checked)} /> follow newest</label>
       <span class="muted small-text">click a line for the whole event</span>
     </div>
     <${LogList} events=${shown} onPick=${onPick} follow=${follow} className="log log-full" />

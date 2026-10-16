@@ -74,8 +74,8 @@ export function NeedsEyes({
         : html`<span class="conf conf-high">● all ${summary.items.length} high confidence</span>`
     }
     <span class="grow"></span>
-    ${setRiskFirst ? html`<label class="check"><input type="checkbox" checked=${riskFirst} onChange=${(e) => setRiskFirst(e.target.checked)} /> riskiest first</label>` : null}
-    ${setCollapseHigh ? html`<label class="check" title="show high-confidence items as one line"><input type="checkbox" checked=${collapseHigh} onChange=${(e) => setCollapseHigh(e.target.checked)} /> collapse high</label>` : null}
+    ${setRiskFirst ? html`<label class="ds-check"><input type="checkbox" checked=${riskFirst} onChange=${(e) => setRiskFirst(e.target.checked)} /> riskiest first</label>` : null}
+    ${setCollapseHigh ? html`<label class="ds-check" title="show high-confidence items as one line"><input type="checkbox" checked=${collapseHigh} onChange=${(e) => setCollapseHigh(e.target.checked)} /> collapse high</label>` : null}
     ${children}
   </div>`;
 }

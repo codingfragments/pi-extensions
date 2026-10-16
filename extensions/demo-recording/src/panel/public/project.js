@@ -198,7 +198,7 @@ function Facts({ events, focus }) {
       <span class="muted small-text">fields of brief.md · ${data.briefVersions.length} version${data.briefVersions.length === 1 ? "" : "s"} · tool settings live under ⚙ Config</span>
       <span class="grow"></span>
       ${flash ? html`<span class="flash">${flash}</span>` : null}
-      <button disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
+      <button class="ds-btn ds-btn--ghost" type="button" disabled=${busy || !dirty} onClick=${() => setPatch({})}>Reset</button>
       <button class="ds-btn ds-btn--primary" disabled=${busy || !dirty} onClick=${save}>Save facts</button>
     </div>
 

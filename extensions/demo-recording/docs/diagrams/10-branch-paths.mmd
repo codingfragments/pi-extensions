@@ -1,0 +1,42 @@
+flowchart LR
+  classDef line fill:#e3f5e1,stroke:#1b5e3a,stroke-width:4px,color:#0d3b22
+  classDef kept fill:#e3f5e1,stroke:#2e8b57,color:#0d3b22
+  classDef draft fill:#fff,stroke:#8a8a99,stroke-dasharray:5 4,color:#333
+  classDef note fill:#fff8dc,stroke:#d4b84a,color:#4a3b00
+
+  subgraph SB["storyboard"]
+    sb1["v1 ✓"]:::line
+    sb2["v2 ✓ (kept)"]:::kept
+  end
+  subgraph RC["recording"]
+    t1["take-001 ✓"]:::line
+    t2["take-002<br/>just recorded"]:::draft
+  end
+  subgraph VO["voice over"]
+    vo1["v1 ✓"]:::line
+    vo2["v2 ✓ (kept)"]:::kept
+  end
+  subgraph AN["annotations"]
+    an1["v1 ✓"]:::line
+    an2["v2 draft"]:::draft
+  end
+  subgraph RN["render"]
+    r2["final v2 ✓<br/>delivered"]:::line
+    r1["final v1<br/>QA blocked"]:::draft
+  end
+
+  sb1 --> t1
+  sb2 --> t2
+  t1 --> vo1
+  t1 --> vo2
+  vo1 --> an1
+  vo2 --> an2
+  an1 --> r2
+  an1 --> r1
+
+  b2>"Branch 2: another story.<br/>New storyboard, new take."]:::note
+  b1>"Branch 1: another narration<br/>on the same take."]:::note
+  a>"Line A: the delivered path.<br/>Bold = the production line."]:::note
+  b2 -.-> sb2
+  b1 -.-> vo2
+  a -.-> r2

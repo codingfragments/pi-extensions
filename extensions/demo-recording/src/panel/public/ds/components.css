@@ -1417,7 +1417,7 @@ dialog.ds-dialog::backdrop {
 }
 
 /* ---------- Project summary (UX8): the brief in human terms ---------- */
-.ds-facts {
+.ds-factlist {
   display: grid;
   gap: 1px;
   margin: var(--space-3) 0;

@@ -66,6 +66,25 @@ the timeline (`render/vN.overrides.json`):
 Content problems — a wrong number, an error toast in the footage — are never
 fixed automatically: change the voice-over, re-record the scene, or confirm.
 
+## Sync diagnostics (measured beside planned)
+
+The drift check does not only say "late by N ms". For every anchor it records, in `vN.qa.json` under `diagnostics` and as a table in
+`qa-report.md`:
+
+| | |
+|---|---|
+| **event** | where the picture's event is in the full video (scene start + the anchor's output time) |
+| **measured** | where the transcript of the *rendered audio* puts the narration, raw and snapped to the audio onset; the drift the check reports is measured − event |
+| **planned** | where the edit put the narration (scene start + the plan's audio time) and the drift that makes (audio − event) |
+| **edit** | the same, from the edit's own timeline before any render override moved the narration |
+| **gap** | measured audio start − planned audio start. It should be near zero: the render's audio should be where the plan put it |
+| **matches, heard** | how often the anchor's first words were found within 3 s, and the words the transcript has around the match, with times |
+
+A gap over 300 ms (`DRIFT_DISAGREE_MS`) is said in the item itself ("the edit planned +0 ms: the two disagree by 1,400 ms, so the
+measurement or the render is off"), and when the narration lands on its moment but the gap is still big, an info item says so. **What
+blocks does not change** (P1a Q0 only adds information); nothing acts on the measured number until the calibration shows it can be trusted
+(PLAN_QA_CHANGE.md, D-QA-6).
+
 ## Files
 
 ```

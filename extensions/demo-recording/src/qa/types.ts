@@ -28,6 +28,46 @@ export interface QaItem {
   confirmed?: { at: string; reason: string };
 }
 
+/**
+ * What the drift check saw at one anchor (P1a Q0): the measurement beside the edit's plan, so a
+ * disagreement can be traced instead of guessed at. Times are ms in the full video.
+ */
+export interface AnchorDiag {
+  scene: string;
+  mark: string;
+  /** Where the picture's event is: scene start + the anchor's output time. */
+  eventMs: number;
+  /** Where the edit put the anchored narration: scene start + the plan's audio time. */
+  plannedAudioMs: number;
+  /** What the edit planned: audio time − event time (positive = late). */
+  plannedDriftMs: number;
+  /** The same, from the edit's own timeline before any render override. Differs when overrides moved the narration. */
+  editDriftMs: number;
+  /** The first words of the anchored segment, as searched in the transcript. */
+  words: string[];
+  /** Transcript matches of those words within 3 s of the event. */
+  matches: number;
+  /** The words the transcript has around the match, with times. */
+  heard: [string, number][];
+  /** Where the transcript puts the narration (undefined: not found). */
+  rawMeasuredMs?: number;
+  /** The same, snapped to the audio onset: what the check uses. */
+  measuredMs?: number;
+  /** What the check reports: measured − event (positive = late). */
+  measuredDriftMs?: number;
+  /** measured − planned audio: how far the rendered audio is from where the plan put it. Should be near zero. */
+  gapMs?: number;
+}
+
+export interface QaDiagnostics {
+  anchors: AnchorDiag[];
+  /** The full-video start of every scene, as the check used it. */
+  sceneStart: Record<string, number>;
+  titleMs: number;
+  /** The transcript the measurement came from: [word, start ms]. */
+  heard: [string, number][];
+}
+
 export interface QaReport {
   render: number;
   /** The variant the media checks ran on (content is the same in every variant). */
@@ -35,6 +75,8 @@ export interface QaReport {
   createdAt: string;
   whisper: boolean;
   items: QaItem[];
+  /** What the drift check measured (P1a Q0); absent in reports made before it. */
+  diagnostics?: QaDiagnostics;
 }
 
 export type QaStatus = "pass" | "blocked" | "confirmed" | "error";

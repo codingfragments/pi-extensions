@@ -34,10 +34,12 @@ import { readManifest, whisperWords } from "../tts/synthesize.ts";
 import { parseVo } from "../vo/script.ts";
 import { pageHas, spokenValues } from "./numbers.ts";
 import { type RenderOverrides, applyShifts } from "./overrides.ts";
-import type { QaFix, QaItem, QaReport, QaSummary } from "./types.ts";
+import type { AnchorDiag, QaDiagnostics, QaFix, QaItem, QaReport, QaSummary } from "./types.ts";
 
 export const DRIFT_BLOCK_MS = 300;
 export const DRIFT_WARN_MS = 150;
+/** Measured vs the edit's plan: a bigger gap than this means the measurement or the render is off (D-QA-6). */
+export const DRIFT_DISAGREE_MS = 300;
 
 export const qaFile = (projectDir: string, v: number) =>
   path.join(projectDir, "render", `v${v}.qa.json`);
@@ -101,7 +103,7 @@ function audioOut(sc: SceneTimeline, ms: number): number | undefined {
   return p ? p.at + (ms - p.src[0]) : undefined;
 }
 
-interface Ctx {
+export interface Ctx {
   projectDir: string;
   config: DemoRecConfig;
   rec: RenderRecord;
@@ -112,6 +114,8 @@ interface Ctx {
   timing: { titleMs: number; sceneStart: Record<string, number>; itemStart: number[] };
   full: string;
   signal?: AbortSignal;
+  /** Words with times from audio (default: Whisper). Tests and the calibration inject their own. */
+  transcribe?: typeof whisperWords;
 }
 
 // --- values (D71) ---------------------------------------------------------------------
@@ -249,7 +253,9 @@ export function checkFootage(c: Ctx): QaItem[] {
 
 // --- drift (D72, D75) --------------------------------------------------------------------
 
-export async function checkDrift(c: Ctx): Promise<{ items: QaItem[]; whisper: boolean }> {
+export async function checkDrift(
+  c: Ctx,
+): Promise<{ items: QaItem[]; whisper: boolean; diagnostics?: QaDiagnostics }> {
   const m = readManifest(c.projectDir, c.t.voVersion);
   const vo = readVoText(c.projectDir, c.t.voVersion);
   if (!m || !vo) return { items: [], whisper: false };
@@ -266,7 +272,7 @@ export async function checkDrift(c: Ctx): Promise<{ items: QaItem[]; whisper: bo
     // Whisper's word starts are loose (±0.3 s after pauses): refine them on the audio
     // envelope, as the voice pipeline does, and snap each anchored word to its onset.
     env = await envelope(wav);
-    const raw = await whisperWords(wav, said.join(" "), c.config.align.model);
+    const raw = await (c.transcribe ?? whisperWords)(wav, said.join(" "), c.config.align.model);
     heard = refineOnsets(dropSilentWords(raw, env), env).map((w) => ({ w: w.w, s: w.s }));
   } catch (err) {
     return {
@@ -284,7 +290,10 @@ export async function checkDrift(c: Ctx): Promise<{ items: QaItem[]; whisper: bo
     fs.rmSync(wav, { force: true });
   }
   const H = heard.map((h) => ({ n: norm(h.w), s: h.s * 1000 }));
+  // The edit's own plan, before any render override moved the narration (P1a Q0).
+  const original = readOriginalTimeline(c.projectDir, c.rec);
   const items: QaItem[] = [];
+  const anchors: AnchorDiag[] = [];
   for (const sc of c.t.scenes) {
     const start = c.timing.sceneStart[sc.id] ?? 0;
     const sec = m.sections[sc.id];
@@ -298,25 +307,65 @@ export async function checkDrift(c: Ctx): Promise<{ items: QaItem[]; whisper: bo
         .map((w) => norm(w.w));
       if (!first.length) continue;
       const expect = start + a.out;
+      const diag: AnchorDiag = {
+        scene: sc.id,
+        mark: a.mark,
+        eventMs: Math.round(expect),
+        plannedAudioMs: Math.round(start + a.audioAt),
+        plannedDriftMs: Math.round(a.audioAt - a.out),
+        editDriftMs: Math.round(
+          original?.scenes.find((x) => x.id === sc.id)?.anchors.find((x) => x.mark === a.mark)
+            ?.drift ?? a.audioAt - a.out,
+        ),
+        words: first,
+        matches: 0,
+        heard: [],
+      };
+      anchors.push(diag);
       let best: number | undefined;
+      let bestAt = -1;
       for (let i = 0; i + first.length <= H.length; i++) {
         if (!first.every((f, j) => H[i + j]?.n === f)) continue;
         const ts = (H[i] as { s: number }).s;
         if (Math.abs(ts - expect) > 3000) continue;
-        if (best === undefined || Math.abs(ts - expect) < Math.abs(best - expect)) best = ts;
+        diag.matches++;
+        if (best === undefined || Math.abs(ts - expect) < Math.abs(best - expect)) {
+          best = ts;
+          bestAt = i;
+        }
       }
       if (best === undefined) continue;
+      diag.rawMeasuredMs = Math.round(best);
+      diag.heard = H.slice(Math.max(0, bestAt - 2), bestAt + first.length + 3).map(
+        (h) => [h.n, Math.round(h.s)] as [string, number],
+      );
       best = snapToOnset(best / 1000, env) * 1000;
       const drift = Math.round(best - expect);
+      diag.measuredMs = Math.round(best);
+      diag.measuredDriftMs = drift;
+      diag.gapMs = Math.round(best - diag.plannedAudioMs);
       const abs = Math.abs(drift);
-      if (abs <= DRIFT_WARN_MS) continue;
+      const disagree = Math.abs(diag.gapMs) > DRIFT_DISAGREE_MS;
+      const planned = `the edit planned ${diag.plannedDriftMs >= 0 ? "+" : "−"}${Math.abs(diag.plannedDriftMs)} ms`;
+      if (abs <= DRIFT_WARN_MS) {
+        if (disagree)
+          items.push({
+            id: "",
+            check: "drift",
+            level: "info",
+            scene: sc.id,
+            atMs: expect,
+            message: `@${a.mark}: the measured narration is ${Math.abs(diag.gapMs)} ms ${diag.gapMs > 0 ? "after" : "before"} where the edit put it, though it lands on its moment: the measurement and the render disagree (see the diagnostics in the QA report)`,
+          });
+        continue;
+      }
       items.push({
         id: "",
         check: "drift",
         level: abs > DRIFT_BLOCK_MS ? "blocking" : "warning",
         scene: sc.id,
         atMs: expect,
-        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment`,
+        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms, so the measurement or the render is off` : ""}`,
         fix: {
           kind: "shift-narration",
           scene: sc.id,
@@ -327,7 +376,27 @@ export async function checkDrift(c: Ctx): Promise<{ items: QaItem[]; whisper: bo
       });
     }
   }
-  return { items, whisper: true };
+  return {
+    items,
+    whisper: true,
+    diagnostics: {
+      anchors,
+      sceneStart: { ...c.timing.sceneStart },
+      titleMs: c.timing.titleMs,
+      heard: H.map((h) => [h.n, Math.round(h.s)] as [string, number]),
+    },
+  };
+}
+
+/** The edit's timeline as the edit wrote it (no render overrides). */
+function readOriginalTimeline(projectDir: string, rec: RenderRecord): Timeline | undefined {
+  try {
+    return JSON.parse(
+      fs.readFileSync(path.join(projectDir, "edit", `timeline.v${rec.timeline}.json`), "utf8"),
+    ) as Timeline;
+  } catch {
+    return undefined;
+  }
 }
 
 // --- media ------------------------------------------------------------------------------
@@ -540,6 +609,7 @@ export async function runQa(o: {
     createdAt: new Date().toISOString(),
     whisper: drift.whisper,
     items,
+    ...(drift.diagnostics ? { diagnostics: drift.diagnostics } : {}),
   };
   fs.writeFileSync(qaFile(o.projectDir, o.rec.version), `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(
@@ -629,6 +699,24 @@ export function formatQaMarkdown(report: QaReport): string {
         `- ${it.atMs !== undefined ? `\`${secStr(it.atMs)}\` ` : ""}${it.scene ? `(${it.scene}) ` : ""}${it.message}${it.fix ? ` — fix: ${it.fix.label}` : ""}${it.confirmed ? ` — **confirmed**: ${it.confirmed.reason}` : ""}`,
       );
     lines.push("");
+  }
+  const d = report.diagnostics;
+  if (d?.anchors.length) {
+    const ms = (n: number | undefined) => (n === undefined ? "n/a" : `${n > 0 ? "+" : ""}${n}`);
+    lines.push(
+      "## Sync diagnostics",
+      "",
+      "Per anchor, in ms of the full video. *measured* is what the transcript of the rendered audio says; *planned* is what the edit planned;",
+      "*edit* is the edit's own plan before any render override. *gap* = measured audio start − planned audio start: it should be near zero.",
+      "",
+      "| scene | anchor | event | measured drift | planned drift | edit drift | gap | matches |",
+      "|---|---|---:|---:|---:|---:|---:|---:|",
+      ...d.anchors.map(
+        (a) =>
+          `| ${a.scene} | @${a.mark} | ${a.eventMs} | ${ms(a.measuredDriftMs)} | ${ms(a.plannedDriftMs)} | ${ms(a.editDriftMs)} | ${ms(a.gapMs)} | ${a.matches} |`,
+      ),
+      "",
+    );
   }
   return lines.join("\n");
 }

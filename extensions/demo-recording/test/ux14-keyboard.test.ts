@@ -192,5 +192,5 @@ test("every shortcut the sheet promises is handled somewhere in the panel", () =
   assert.match(read("map.js"), /ArrowRight|ArrowDown/, "arrows in the Map");
   assert.match(read("map.js"), /"\+", "=", "-", "_", "0"/, "zoom keys in the Map");
   assert.match(read("keys.js"), /ArrowDown[\s\S]*Home[\s\S]*End/, "arrows, Home and End in lists");
-  assert.equal(SHORTCUTS.length, 7);
+  assert.equal(SHORTCUTS.length, 9);
 });

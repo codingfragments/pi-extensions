@@ -32,10 +32,27 @@ import {
 } from "./graph-model.js";
 import { formatRoute } from "./route.js";
 import { HISTORY_EVENTS } from "./version-ui.js";
+import { WHEEL_MODES, classifyWheel } from "./wheel-kind.js";
 
+const WHEEL_KEY = "demo-rec-map-wheel";
+const WHEEL_LABEL = { auto: "Auto", zoom: "Zooms", scroll: "Scrolls" };
+function readWheelMode() {
+  try {
+    const m = localStorage.getItem(WHEEL_KEY);
+    return WHEEL_MODES.includes(m) ? m : "auto";
+  } catch {
+    return "auto";
+  }
+}
 const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 1.6;
 const ZOOM_STEP = 1.2;
+/** One wheel notch (a delta of 100) is one zoom step; a pinch sends small deltas and zooms smoothly. */
+const WHEEL_GAIN = Math.log(ZOOM_STEP) / 100;
+/** What starts a pan: nothing you can press. */
+const PRESSABLE = ".ds-node, button, a, input, select, textarea, summary, label, [role=button]";
+/** A press that moves less than this is a click, not a drag. */
+const PAN_SLOP = 4;
 const VIEW_LABEL = { all: "All paths", approved: "Approved paths", line: "Production line" };
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])';
@@ -139,6 +156,10 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
   // zoom: the whole graph in one look (Fit), or closer. A view setting, not part of the address.
   const [zoom, setZoom] = useState(1);
   const keysApi = useRef({});
+  // what the wheel does: auto (a mouse wheel zooms, a trackpad scroll pans), or always one of them
+  const [wheelMode, setWheelMode] = useState(readWheelMode);
+  const wheelModeRef = useRef(wheelMode);
+  wheelModeRef.current = wheelMode;
   useEffect(() => setQText(st.q), [st.q]);
 
   const update = useCallback(
@@ -181,8 +202,11 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
     if (!layout || !canvas.current) return;
     const map = new Map(measured ?? []);
     let again = false;
+    // CSS zoom scales what getBoundingClientRect reports: measure in the layout's own units, whatever the zoom
+    const stage = canvas.current.querySelector(".ds-map-stage");
+    const scale = stage && layout.width ? stage.getBoundingClientRect().width / layout.width : 1;
     for (const el of canvas.current.querySelectorAll(".ds-node")) {
-      const h = Math.ceil(el.getBoundingClientRect().height);
+      const h = Math.ceil(el.getBoundingClientRect().height / (scale > 0 ? scale : 1) - 0.01);
       const n = layout.nodes.find((x) => x.id === el.dataset.id);
       if (n && h > n.h + 1) {
         map.set(n.id, h);
@@ -298,8 +322,34 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
     refocus.current = next;
     select(next);
   };
-  const clampZoom = (z) => Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) * 100) / 100;
-  const zoomBy = (f) => setZoom((z) => clampZoom(z * f));
+  const clampZoom = (z) => Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) * 1000) / 1000;
+  // zooming keeps the point under the pointer (or the middle of the view, for the keys and buttons) where it is
+  const anchor = useRef(null);
+  const zoomNow = useRef(zoom); // the zoom as of the last request, so quick repeats (a held key) add up
+  zoomNow.current = zoom;
+  const zoomBy = (f, at) => {
+    const c = canvas.current;
+    const z1 = zoomNow.current;
+    const z2 = clampZoom(z1 * f);
+    if (c && z2 !== z1 && !anchor.current) {
+      const px = at?.x ?? c.clientWidth / 2;
+      const py = at?.y ?? c.clientHeight / 2;
+      anchor.current = { ux: (c.scrollLeft + px) / z1, uy: (c.scrollTop + py) / z1, px, py };
+    }
+    zoomNow.current = z2;
+    setZoom(z2);
+  };
+  useLayoutEffect(() => {
+    const c = canvas.current;
+    const a = anchor.current;
+    anchor.current = null;
+    if (!c || !a) return;
+    c.scrollTo({
+      left: Math.max(0, a.ux * zoom - a.px),
+      top: Math.max(0, a.uy * zoom - a.py),
+      behavior: "auto",
+    });
+  }, [zoom]);
   const fit = () => {
     const c = canvas.current;
     if (!c || !layout) return;
@@ -312,6 +362,14 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
     c.scrollTo({ top: 0, left: 0 });
   };
   keysApi.current = { zoomBy, fit };
+  const chooseWheel = (m) => {
+    setWheelMode(m);
+    try {
+      localStorage.setItem(WHEEL_KEY, m);
+    } catch {
+      // no storage: it is just not remembered
+    }
+  };
   const reset = () => {
     setZoom(1);
     setQText("");
@@ -336,17 +394,97 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
         c.scrollTo({ top: Math.max(0, y - 40), behavior: "auto" });
     }
   }, [st.sel]);
-  // pinch / Ctrl + wheel on the graph zooms it (a plain wheel still scrolls)
+  // The wheel zooms at the pointer (a pinch too); Shift + wheel, or a sideways scroll, still scrolls.
+  // Dragging the background pans, with the mouse; anything you can press (a version, a button) is left alone.
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
+    const wheelState = { at: 0, kind: null };
     const onWheel = (e) => {
-      if (!e.ctrlKey) return;
+      const kind = classifyWheel(e, wheelState, wheelModeRef.current, performance.now());
+      if (kind === "pan") return; // a trackpad's two-finger scroll, or Shift + wheel: the browser scrolls, with inertia
       e.preventDefault();
-      keysApi.current.zoomBy?.(e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const dy = Math.max(-150, Math.min(150, e.deltaY * unit));
+      const r = c.getBoundingClientRect();
+      keysApi.current.zoomBy?.(Math.exp(-dy * WHEEL_GAIN), {
+        x: e.clientX - r.left,
+        y: e.clientY - r.top,
+      });
     };
+    let drag = null;
+    const onDown = (e) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      if (e.target.closest(PRESSABLE)) return;
+      // the scrollbars are not the background
+      const r = c.getBoundingClientRect();
+      if (e.clientX - r.left > c.clientWidth || e.clientY - r.top > c.clientHeight) return;
+      drag = {
+        x: e.clientX,
+        y: e.clientY,
+        left: c.scrollLeft,
+        top: c.scrollTop,
+        moved: false,
+        id: e.pointerId,
+      };
+    };
+    const onMove = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < PAN_SLOP) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        c.setPointerCapture?.(e.pointerId);
+        c.dataset.panning = "true";
+      }
+      c.scrollLeft = drag.left - dx;
+      c.scrollTop = drag.top - dy;
+    };
+    const onUp = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (drag.moved) c.releasePointerCapture?.(e.pointerId);
+      delete c.dataset.panning;
+      drag = null;
+    };
+    // Safari sends pinches as gesture events instead of Ctrl + wheel
+    let pinch = null;
+    const onGestureStart = (e) => {
+      e.preventDefault();
+      pinch = { scale: 1 };
+    };
+    const onGestureChange = (e) => {
+      e.preventDefault();
+      if (!pinch) return;
+      const r = c.getBoundingClientRect();
+      keysApi.current.zoomBy?.(e.scale / pinch.scale, {
+        x: e.clientX - r.left,
+        y: e.clientY - r.top,
+      });
+      pinch.scale = e.scale;
+    };
+    const onGestureEnd = (e) => {
+      e.preventDefault();
+      pinch = null;
+    };
+    c.addEventListener("gesturestart", onGestureStart);
+    c.addEventListener("gesturechange", onGestureChange);
+    c.addEventListener("gestureend", onGestureEnd);
     c.addEventListener("wheel", onWheel, { passive: false });
-    return () => c.removeEventListener("wheel", onWheel);
+    c.addEventListener("pointerdown", onDown);
+    c.addEventListener("pointermove", onMove);
+    c.addEventListener("pointerup", onUp);
+    c.addEventListener("pointercancel", onUp);
+    return () => {
+      c.removeEventListener("gesturestart", onGestureStart);
+      c.removeEventListener("gesturechange", onGestureChange);
+      c.removeEventListener("gestureend", onGestureEnd);
+      c.removeEventListener("wheel", onWheel);
+      c.removeEventListener("pointerdown", onDown);
+      c.removeEventListener("pointermove", onMove);
+      c.removeEventListener("pointerup", onUp);
+      c.removeEventListener("pointercancel", onUp);
+    };
   }, [!!layout?.nodes.length]);
 
   const open = details?.open;
@@ -397,7 +535,7 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
           : null
       }
       <div class="ds-map-body">
-        <div class="ds-map-canvas" tabindex="0" role="region" aria-label="Dependency graph, scrolls in both directions. Arrow keys move between versions." ref=${canvas}>
+        <div class="ds-map-canvas" tabindex="0" role="region" aria-label="Dependency graph. Drag the background to pan, use the wheel to zoom, arrow keys move between versions." ref=${canvas}>
           ${
             !g
               ? html`<div class="ds-state"><div class="ds-state-ico" aria-hidden="true">…</div><h3>Loading the map</h3></div>`
@@ -448,6 +586,13 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
         </aside>
       </div>
       <div class="ds-map-foot">
+        <span class="ds-row-flex ds-map-wheel">
+          <span class="ds-small ds-muted">Wheel</span>
+          <span class="ds-seg" role="group" aria-label="What the wheel and a two-finger scroll do"
+            title="Auto: a mouse wheel zooms, a trackpad scroll pans. A pinch always zooms.">
+            ${WHEEL_MODES.map((m) => html`<button type="button" key=${m} data-wheel=${m} aria-pressed=${wheelMode === m} onClick=${() => chooseWheel(m)}>${WHEEL_LABEL[m]}</button>`)}
+          </span>
+        </span>
         <span class="ds-muted ds-small ds-map-summary">${sel ? `${sel.label}${sel.inLine ? " · in production line" : ""}` : "Looking never changes what the next steps use."}</span>
         <span class="ds-grow"></span>
         ${open ? html`<a class="ds-btn ds-btn--primary ds-map-open" href=${formatRoute({ screen: open.screen, ...(open.version !== undefined ? { version: open.version } : {}) })}>Open ${sel.short} in ${open.label}</a>` : html`<button class="ds-btn ds-btn--primary ds-map-open" type="button" aria-disabled="true">Open in stage</button>`}

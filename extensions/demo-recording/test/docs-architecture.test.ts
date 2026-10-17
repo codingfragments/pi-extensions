@@ -28,9 +28,15 @@ const slug = (h: string) =>
 const anchors = (md: string) =>
   new Set([...md.matchAll(/^#{1,6} +(.+?)\s*$/gm)].map((m) => slug(m[1] as string)));
 
-const MAIN = ["ARCHITECTURE.md", "ACTORS.md", "CONFIDENCE.md", "BRANCHING.md"].map((f) =>
-  path.join(DOCS, f),
-);
+const MAIN = [
+  "ARCHITECTURE.md",
+  "ACTORS.md",
+  "CONFIDENCE.md",
+  "BRANCHING.md",
+  "GUIDE.md",
+  "CONTROL_ROOM.md",
+  "TUTORIAL-101.md",
+].map((f) => path.join(DOCS, f));
 const diagrams = fs
   .readdirSync(path.join(DOCS, "diagrams"))
   .filter((f) => f.endsWith(".mmd"))

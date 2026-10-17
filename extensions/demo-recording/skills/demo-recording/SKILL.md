@@ -69,8 +69,9 @@ annotations → render.
   `demo_rec_project status` shows the line and every approved version with its
   lineage.
 - **Approval.** You can't approve anything yourself; the user does it in the
-  panel. `demo_rec_take accept` is the exception: it approves a take you were
-  explicitly asked to approve.
+  panel. `demo_rec_take propose` only leaves a suggestion for a take. After an
+  approval, say what comes next and what it costs, then wait: anything that
+  spends credits or model time needs the user's Allow (the panel dialog or `/demo allow`).
 
 **The project's memory** lives in the project, not in this chat:
 - **Read it first.** When you (re)open a project, or see a
@@ -272,7 +273,7 @@ running take.
 ## After the take
 
 The narrated video is produced with the **demo-voiceover** skill:
-`demo_rec_take analyze` → `demo_rec_take accept` → `demo_rec_vo template/write`
+`demo_rec_take analyze` → `demo_rec_take propose` → `demo_rec_vo template/write`
 → the user approves in the panel's Voice tab → `demo_rec_tts` → `demo_rec_edit`.
 Then the **demo-annotations** skill suggests the visual emphasis
 (`demo_rec_annotations context` → `suggest`); the user reviews and approves it in

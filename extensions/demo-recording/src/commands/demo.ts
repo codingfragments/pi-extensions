@@ -172,7 +172,7 @@ function cmdVoiceover(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   });
   kick(
     pi,
-    `/skill:demo-voiceover Analyze the latest complete take of "${p.slug}" (demo_rec_take analyze), accept it, and write the voice-over ` +
+    `/skill:demo-voiceover Analyze the latest complete take of "${p.slug}" (demo_rec_take analyze), suggest it for approval (you cannot approve it), and write the voice-over ` +
       `(template, then write) for my review in the panel's Voice tab.${notes ? ` Notes from me: ${notes}` : ""}`,
   );
   report(

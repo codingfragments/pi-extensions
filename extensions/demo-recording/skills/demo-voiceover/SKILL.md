@@ -20,7 +20,8 @@ clock.
    keyframes.
    - If a scene shows an **error toast** or looks wrong, tell the user before
      writing. A re-take may be better than narrating around it.
-2. `demo_rec_take accept` the take you are writing for.
+2. `demo_rec_take propose` the take you are writing for. **You cannot approve it:** only the user approves a recording, in the panel
+   (Recording tab, "Approve & use"). Tell them so; the voice-over can only be approved after the recording is.
 3. Read the brief (`demo_rec_project read_brief`): audience, **stance**, goal,
    must-show and must-avoid.
 4. `demo_rec_vo template` gives the skeleton with each scene's marks and word

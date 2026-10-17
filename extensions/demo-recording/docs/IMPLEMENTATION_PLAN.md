@@ -332,7 +332,7 @@ Tool names use the `demo_rec_` prefix (collision-resistant, see repo AGENTS.md).
 | `demo_rec_browser` | 1 | discovery browser: `open`, `look` (screenshot + DOM digest), `act` (move/click/hover/type/scroll/navigate via virtual cursor, safety-checked), `close` |
 | `demo_rec_storyboard` | 1 | `write` (validate + version + push to panel), `get`, `diff` |
 | `demo_rec_record` | 2 | start a take of the approved storyboard (background job); `status`, `cancel`, `resume` |
-| `demo_rec_take` | 3 | `keyframes` (images + events + DOM values per scene, for the director), `accept` |
+| `demo_rec_take` | 3 | `keyframes` (images + events + DOM values per scene, for the director), `propose` (a suggestion; only the user approves, P1a) |
 | `demo_rec_vo` | 3 | `write` (validate anchors/bindings against the take, version, push to panel) |
 | `demo_rec_tts` | 4 | synthesize the approved VO per scene via the provider chain (background) |
 | `demo_rec_edit` | 4 | build timeline (sync solver) + render scenes and full video (background) |

@@ -16,10 +16,12 @@ import {
   describeConfig,
   formatChange,
   formatEntries,
+  layerFiles,
   parseValue,
   planChange,
 } from "../config-edit.ts";
 import { formatDoctor, runDoctor } from "../doctor.ts";
+import { envNotice } from "../env-overrides.ts";
 import { allowedMessage, deniedMessage } from "../grants.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
@@ -107,7 +109,7 @@ async function cmdNew(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   report(
     ctx,
     `${handle.created ? "Created" : "Opened existing"} demo project "${handle.slug}"\n` +
-      `folder: ${handle.dir}\nbrief:  ${handle.dir}/brief.md\npanel:  ${panel.url}`,
+      `folder: ${handle.dir}\nbrief:  ${handle.dir}/brief.md\npanel:  ${panel.url}${noticeFor(rt)}`,
   );
   if (ctx.hasUI && handle.created) {
     // Hand over to the director: draft the brief with the user (demo-brief skill).
@@ -159,7 +161,16 @@ async function cmdOpen(
   pi.appendEntry(ACTIVE_ENTRY, { project: handle.slug });
   rt.primeContext();
   const panel = await rt.ensurePanel();
-  report(ctx, `active project: ${handle.slug} (phase: ${handle.state.phase})\npanel: ${panel.url}`);
+  report(
+    ctx,
+    `active project: ${handle.slug} (phase: ${handle.state.phase})\npanel: ${panel.url}${noticeFor(rt)}`,
+  );
+}
+
+/** The environment-override notice for the end of a report, with a leading blank line (F12). */
+function noticeFor(rt: Runtime): string {
+  const n = envNotice(rt.envOverrides());
+  return n ? `\n\n${n}` : "";
 }
 
 function kick(pi: ExtensionAPI, text: string) {
@@ -433,6 +444,8 @@ function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
     lines.push("project: none active — /demo new or /demo open");
   }
   lines.push(`panel:   ${rt.panelUrl ?? "not started — /demo panel"}`);
+  const notice = envNotice(rt.envOverrides());
+  if (notice) lines.push("", notice);
   report(ctx, lines.join("\n"));
 }
 
@@ -499,6 +512,7 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return cmdAnswer(rt, sub, rest, ctx);
           case "doctor": {
             const results = await runDoctor(rt.getConfig(true), {
+              files: layerFiles(process.env, os.homedir(), rt.activeProject()?.dir),
               ...(ctx.modelRegistry ? { registry: ctx.modelRegistry as never } : {}),
               ...(ctx.model ? { sessionModel: ctx.model } : {}),
             });

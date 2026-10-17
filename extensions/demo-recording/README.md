@@ -242,7 +242,7 @@ fish extensions/demo-recording/scripts/fixture-walkthrough.fish        # --no-pi
 | `/demo status` | root, config sources, phase, approvals, panel URL |
 | `/demo discover [notes]` | start discovery + storyboard (demo-recording skill) |
 | `/demo panel` | starts the side panel and opens it in your browser (URL with token; `DEMO_REC_NO_OPEN=1` to only print it) |
-| `/demo doctor` | prerequisite check |
+| `/demo doctor` | prerequisite check; also lists every `DEMO_REC_*` environment override in effect (what it sets, what it hides, test switches like `DEMO_REC_NO_OPEN` flagged) |
 | `/demo allow [id \| all]` · `/demo deny [id \| all]` | answer what the Director asked to spend (voice, a take); the same as Allow / Not now in the panel |
 | `/demo brand [list \| use <name> \| new [zip] \| rerender [name]]` | brand packages (S5) |
 | `/demo config`, `/demo voices`, `/demo voiceover`, `/demo render` | settings, voice picker, voice-over, render (S5) |

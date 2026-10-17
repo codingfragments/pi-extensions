@@ -193,3 +193,8 @@
     grid-row: 2;
   }
 }
+
+.ds-cfg-env-list {
+  margin: var(--space-2) 0 0;
+  padding-inline-start: var(--space-4);
+}

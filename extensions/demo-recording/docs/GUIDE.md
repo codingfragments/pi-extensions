@@ -37,7 +37,9 @@ You stay in charge in four ways:
 | **`ffmpeg` 7+** and **`uv`** on your PATH | the edit and render; word timings and the local voice |
 | **`ELEVENLABS_API_KEY`** (and optionally **`OPENAI_API_KEY`**), exported **before** starting pi | the voice. Keys come from the environment only: they are never shown, stored or sent anywhere but the voice service |
 
-Run `/demo doctor` first: it checks all of this and prints presence only, never a key.
+Run `/demo doctor` first: it checks all of this and prints presence only, never a key. It also lists the `DEMO_REC_*` environment
+variables that are overriding your config file (what they set, what they hide); the same list shows when a project opens and at the top of
+**Config**, so a variable you set for a test cannot silently win.
 
 ## 3. The whole path on one page
 

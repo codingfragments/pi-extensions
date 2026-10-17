@@ -7,8 +7,11 @@
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { type LayerFiles, layerFiles } from "./config-edit.ts";
 import type { DemoRecConfig } from "./config.ts";
+import { envOverrides, formatOverride } from "./env-overrides.ts";
 import {
   MIN_ROLE_CONTEXT,
   type ModelInfo,
@@ -42,6 +45,9 @@ export interface DoctorProbes {
   registry?: RegistryLike;
   /** The current session model, when running inside pi. */
   sessionModel?: ModelInfo;
+  /** The config files in play (default: the global file only), for the environment-override check. */
+  files?: LayerFiles;
+  home?: string;
 }
 
 const GiB = 1024 ** 3;
@@ -146,6 +152,18 @@ export async function runDoctor(
       "chromium",
       "fail",
       "Playwright Chromium not installed — run `npx playwright install chromium`",
+    );
+
+  // F12: variables that win over the config file, and test switches that remove behaviour
+  const home = p.home ?? os.homedir();
+  const overrides_ = envOverrides(p.files ?? layerFiles(p.env, home), p.env, home);
+  if (!overrides_.length)
+    add("environment overrides", "pass", "none: the config file and defaults apply");
+  for (const o of overrides_)
+    add(
+      `env ${o.variable}`,
+      "warn",
+      `${formatOverride(o)}${o.strong ? " — remove it unless you are testing" : ""}`,
     );
 
   add(

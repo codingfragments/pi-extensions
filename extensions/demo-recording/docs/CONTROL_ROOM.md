@@ -169,6 +169,8 @@ output and look, discovery budgets), grouped, with the most important first. It 
 
 ![Config: settings by group, with their source](images/guide/10-config.jpg)
 
+- **Environment overrides** are listed in a warning at the top whenever a `DEMO_REC_*` variable is set: what it sets, the value it hides,
+  and test switches (`DEMO_REC_NO_OPEN`, `DEMO_REC_NO_VOICE_LIST`) flagged as such, so a variable left over from a test cannot silently win.
 - **Search** finds a setting by name, key, description or value (`/` or Cmd/Ctrl+K inside Config); **Changed**, **Overridden here** and
   **From environment** filter. API keys are shown only as *set* or *not set* and are never searched or displayed.
 - Each row shows the **effective value and where it comes from**; **Scopes** shows each layer (environment, project, global, default)

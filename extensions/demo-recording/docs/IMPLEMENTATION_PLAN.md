@@ -1244,10 +1244,10 @@ below. Everything here is **planned, nothing is implemented**. Details, sizes an
 | **P3** | **Discovery you can steer and read** | start or enhance from the Project page with a budget; a discovery report with storyboard guidance; measured progress; an enlarged live preview; discovery checks | about 15 | planned |
 | **P4** | **The Director in the open** | a pending question answered in chat or panel; role labels; the Activity panel docked | about 11 | planned |
 | **P5** | **Compare and small options** | ask the Director to compare versions; the logo bug option explained | about 7 | planned |
+| **Run 3** | **A full run after the P phases** | everything built so far on a different app, without login: it finds what P2 to P5 and the first runs did not, and its findings go into S7, S6 and S8 | about 2 | after P5, before S7 |
 | **S7** | **Auth, safety hardening, real-app acceptance** | `/demo login <app>` with a saved session and a login probe, re-login on expiry, session checks before discovery, before recording and during a take; hardening for real single-page apps; a safety review; secrets hygiene and a leak test (required for v1) | about 8 | planned |
 | **S6** | **Parallel discovery lanes** | several explorer lanes in parallel (opt-in), one progress bar per lane; builds on P3 | about 6 | planned |
 | **S8** | **Native OS-capture backend** | `--cursor=native` on macOS (optional) | later | planned |
-| **Run 3** | **A full run after everything** | the v1 acceptance on a different app (with a login if S7 is done) | about 2 | at the end |
 
 The order of P2 to P5 is a default and can change after run 2. **Wanted, not scheduled:** the map minimap, a full annotation editor,
 flexible stage lineage, cursor frame-locking, background music, other languages ([VISION.md](VISION.md#later-wanted-not-scheduled),

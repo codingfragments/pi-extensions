@@ -23,10 +23,10 @@ they give the order of magnitude, not dates.
 | **P3** | **Discovery you can steer and read** (start or enhance from the Project page with a budget choice; a discovery report with guidance for the storyboard; measured progress and coverage; an enlarged live preview; discovery checks) | F1 F2 F3 F5 F6 (F8 is the model for the bar) | about 15 |
 | **P4** | **The Director in the open** (a pending question answered in chat or in the panel, both in sync; role labels in the chat; Activity as a docked panel) | F7 F18 F23 | about 11 |
 | **P5** | **Compare and small options** (ask the Director to compare versions; the logo bug option explained) | F14 F28 | about 7 |
+| **Run 3** | **A full run after P5, before S7**, ideally on a different app (no login yet), to find what P2 to P5 did not; its findings go into S7, S6 and S8 | | about 2 |
 | **S7** | **Login and sessions, real-app acceptance** (required for v1; with the session checks of F4) | F4 | about 8 |
 | **S6** | Parallel discovery lanes (opt-in; builds on P3's measured progress) | F6 | about 6 |
 | **S8** | Native capture (optional) | | later |
-| **Run 3** | **A full run at the end, after everything**, ideally on a different app (and a login if S7 is done), as the v1 acceptance | | about 2 |
 
 Total about 113 days. The QA change itself (P1) is about 46; its first user-visible result (milestone M2, "QA is a report") comes after
 about 16 days.
@@ -57,7 +57,8 @@ P5 or later.
 6. After run 2 the order of **P2 to P5** is a default and can change: P2 first (where the time is spent while reviewing), P3 before S6
    (measured progress and the discovery report are what parallel lanes need), then P4, then P5. **W7 (docs made true) must follow A1
    immediately**, not wait.
-7. **Run 3** closes the project's v1 as an acceptance, on a different app.
+7. **Run 3** after P5 and before S7: a full run on a different app (no login yet), so S7, S6 and S8 start from fresh findings. S7's own real-app
+   acceptance closes v1.
 
 ## Timeline
 ```
@@ -71,10 +72,10 @@ P2      Review workspaces .............. about 16
 P3      Discovery ...................... about 15
 P4      The Director in the open ....... about 11
 P5      Compare and small options ...... about 7
+RUN 3   the full run, a different app .. about 2          (no login yet)
 S7      Login and sessions ............. about 8          (as soon as the real app is chosen)
 S6      Parallel discovery lanes ....... about 6          (needs P3's measured progress)
 S8      Native capture ................. optional, later
-RUN 3   the full run, a different app .. about 2
 ```
 The milestones M1 to M7 and their acceptance tests are in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md#milestones-and-acceptance-what-you-can-do-after-each).
 

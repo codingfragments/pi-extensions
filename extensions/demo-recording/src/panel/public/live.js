@@ -103,7 +103,7 @@ function recordingRow(events) {
 }
 
 function jobRow(events, key, title, progressType, finishedType) {
-  const ev = last(events, [progressType, finishedType]);
+  const ev = last(events, [...[progressType].flat(), finishedType]);
   if (!ev) return null;
   if (ev.type === finishedType)
     return {
@@ -146,7 +146,14 @@ export function activityRows(events) {
     analysisRow(events),
     jobRow(events, "tts", "Voice", "tts.progress", "tts.finished"),
     jobRow(events, "edit", "Edit and draft render", "edit.progress", "edit.finished"),
-    jobRow(events, "design", "Annotation designer", "design.progress", "design.finished"),
+    // design.announced: an automatic start says so before its first step (P1a, run-and-tell)
+    jobRow(
+      events,
+      "design",
+      "Annotation designer",
+      ["design.announced", "design.progress"],
+      "design.finished",
+    ),
     jobRow(events, "render", "Render", "render.progress", "render.finished"),
   ].filter(Boolean);
   const running = rows.filter((r) => r.state === "running").sort((a, b) => a.at - b.at);

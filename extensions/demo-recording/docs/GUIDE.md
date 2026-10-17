@@ -19,8 +19,12 @@ You stay in charge in four ways:
 
 - **You write the brief** (who watches, what they should believe afterwards, how long).
 - **You approve each stage** in the panel: storyboard, recording, voice-over, annotations, final render. The agent cannot approve
-  for you.
-- **You are asked before anything costs money or takes long** (a new take, the voice, a separate designer run).
+  for you: it has no tool that does (a test keeps it that way). When it thinks a take is ready it can only *suggest* it, and the
+  Recording step gets a "new" badge.
+- **You are asked before anything costs money or takes long.** A new take and the voice are never started by the Director on its own:
+  it asks, the panel shows **The Director asks to synthesize voice-over v3 (…) / Allow / Not now** (or you type `/demo allow` in
+  chat), and only your answer lets it go on. The separate annotation designer starts by itself after the voice step, but says so,
+  with its models and input size, in Activity (turn it off with `annotations.autoSuggest`).
 - **Nothing is ever overwritten.** Every change is a new numbered version, so you can compare, go back, or try a second idea
   next to the first ([BRANCHING.md](BRANCHING.md)).
 
@@ -33,7 +37,9 @@ You stay in charge in four ways:
 | **`ffmpeg` 7+** and **`uv`** on your PATH | the edit and render; word timings and the local voice |
 | **`ELEVENLABS_API_KEY`** (and optionally **`OPENAI_API_KEY`**), exported **before** starting pi | the voice. Keys come from the environment only: they are never shown, stored or sent anywhere but the voice service |
 
-Run `/demo doctor` first: it checks all of this and prints presence only, never a key.
+Run `/demo doctor` first: it checks all of this and prints presence only, never a key. It also lists the `DEMO_REC_*` environment
+variables that are overriding your config file (what they set, what they hide); the same list shows when a project opens and at the top of
+**Config**, so a variable you set for a test cannot silently win.
 
 ## 3. The whole path on one page
 
@@ -124,7 +130,7 @@ that is good enough to build on; each approved take can get its own voice-over.
 
 ### 3. Voice-over: written from what actually happened
 
-`/demo voiceover [notes]` (or the Director on its own after you approve a take) analyses the take (dead time, typed text, error toasts,
+`/demo voiceover [notes]` (or the Director, once you have approved the take) analyses the take (dead time, typed text, error toasts,
 what was on screen at each moment) and writes the narration **from the actual run**. It quotes real on-screen values and pins phrases to
 events with anchors like `[@m1]`, so a number is said when it appears.
 
@@ -143,7 +149,8 @@ When the voice-over is right, **Approve & use**. Approving unlocks the voice.
 ### 3b. Voice and edit: this is where credits are spent
 
 **Generate voice & render…** shows a cost dialog first: how many characters are cached (free) and how many are billed, in credits
-and in money. It can never be switched off for the voice. Then the engine (no agent) synthesizes the voice with the first engine of
+and in money. It can never be switched off for the voice. (If the Director gets there first, it does not synthesize: it asks, with the
+same numbers, and waits for your **Allow**.) Then the engine (no agent) synthesizes the voice with the first engine of
 your chain that works (ElevenLabs, then OpenAI, then the local Kokoro; one engine for the whole video), and **edits the take to the
 voice**:
 
@@ -208,9 +215,9 @@ The steps, per stage, are in [BRANCHING.md](BRANCHING.md).
 | Step | What it costs | Asked first? |
 |---|---|---|
 | Discovery, storyboard, voice-over, review rounds | model turns (the session model). No number can be shown for a turn; buttons that start one say "starts the Director" and name the model | a hint on the button |
-| A new take | the improvise steps' small model, browser time | **yes**, with the estimate (can be silenced for the session) |
-| Voice | ElevenLabs credits (or OpenAI characters); cached sections are free | **yes**, always, with credits and money |
-| A separate designer run | one call on the designer's model | **yes**, with the input size (can be silenced for the session) |
+| A new take | the improvise steps' small model, browser time | **yes**, with the estimate (dialog; if the Director starts it, **The Director asks** with Allow) |
+| Voice | ElevenLabs credits (or OpenAI characters); cached sections are free | **yes**, always, with credits and money (dialog, or **The Director asks** with Allow) |
+| A separate designer run | one call on the designer's model | the panel's re-suggest asks (dialog); the automatic one after the voice step **announces itself** with its models and input size |
 | Edit and render | CPU only | no |
 
 The estimate is a free dry run: `demo_rec_tts check` prints the voice cost for the production line without synthesizing.

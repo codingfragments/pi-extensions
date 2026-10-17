@@ -50,6 +50,9 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   // asks the Director to draft the brief with the user: an agent turn
   "brief-draft": ["turn"],
   "finding-mark": ["none"],
+  // the user allows or refuses what the Director asked to spend (P1a): the click is the confirmation
+  grant: ["none"],
+  "grant-deny": ["none"],
   "input-mark": ["none"],
   "project-facts": ["none"],
   render: ["local"],

@@ -3,6 +3,7 @@
 // own modules; app.js only starts it.
 import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Annotations } from "./annotations.js";
+import { DirectorAsks } from "./asks.js";
 import { Config } from "./config.js";
 import { useApi, useBus, useHashRoute } from "./core.js";
 import { setModels } from "./cost.js";
@@ -126,6 +127,7 @@ export function App() {
     <${Header} slug=${slug} tab=${tab} states=${states} news=${news} band=${band} />
     <main class=${tab}>
       ${notice ? html`<div class="ds-root ds-notice route-notice" role="note" data-tone="warn"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div class="ds-grow">${notice}</div><button class="ds-btn ds-btn--sm" type="button" onClick=${() => setNotice(null)}>Dismiss</button></div>` : null}
+      <${DirectorAsks} events=${events} />
       ${stateError ? html`<section class="card error">${stateError}</section>` : null}
       ${body}
     </main>

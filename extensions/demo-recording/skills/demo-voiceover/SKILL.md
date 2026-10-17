@@ -20,7 +20,8 @@ clock.
    keyframes.
    - If a scene shows an **error toast** or looks wrong, tell the user before
      writing. A re-take may be better than narrating around it.
-2. `demo_rec_take accept` the take you are writing for.
+2. `demo_rec_take propose` the take you are writing for. **You cannot approve it:** only the user approves a recording, in the panel
+   (Recording tab, "Approve & use"). Tell them so; the voice-over can only be approved after the recording is.
 3. Read the brief (`demo_rec_project read_brief`): audience, **stance**, goal,
    must-show and must-avoid.
 4. `demo_rec_vo template` gives the skeleton with each scene's marks and word
@@ -152,7 +153,8 @@ with a stance, tone, length, focus and notes:
    a word diff in the Voice tab and approves it. In 2 lines, say what you
    changed.
 
-`[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked.
+`[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked, **not started**: `demo_rec_tts start` asks the
+user to allow it (the estimate is in the request) and is refused until they do. Say what you wait for in one line and stop.
 
 ## Voice and edit (after approval)
 
@@ -164,7 +166,7 @@ with a stance, tone, length, focus and notes:
    The panel's **"Generate voice & render"** runs TTS, the edit and a draft
    render itself, after showing the user the cost. When you get a note that
    it started, **don't start them yourself**; wait for the edit report.
-2. `demo_rec_tts start` synthesizes every section in the background. One
+2. `demo_rec_tts start` (after the user's **Allow**; without it the tool answers NOT STARTED and files the request) synthesizes every section in the background. One
    engine is used for the whole video, and unchanged sections come from the
    cache. Wait for the `[demo-recording]` message; don't poll.
 3. `demo_rec_edit start` runs the audio-led edit and renders per-scene videos

@@ -133,7 +133,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
           ...(conf ? [formatConfidence(conf, "section")] : []),
           ...(stored.validated.script.take !== acceptedTakeId(readState(p.dir) ?? state)
             ? [
-                `⚠ ${stored.validated.script.take} is not the accepted recording (${acceptedTakeId(readState(p.dir) ?? state) ?? "none accepted"}): this voice-over can only be approved after \`demo_rec_take accept take=${stored.validated.script.take}\` (the stage chain: storyboard → recording → voice-over).`,
+                `⚠ ${stored.validated.script.take} is not the accepted recording (${acceptedTakeId(readState(p.dir) ?? state) ?? "none accepted"}): this voice-over can only be approved after the user approves recording ${stored.validated.script.take} in the panel (the stage chain: storyboard → recording → voice-over).`,
               ]
             : []),
           `The user reviews it in the panel (Voice tab): ${panel.url}. Wait for their [demo-panel] feedback; voice synthesis needs their approval.`,

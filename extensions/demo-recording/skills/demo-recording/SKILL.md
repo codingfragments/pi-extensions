@@ -69,8 +69,9 @@ annotations → render.
   `demo_rec_project status` shows the line and every approved version with its
   lineage.
 - **Approval.** You can't approve anything yourself; the user does it in the
-  panel. `demo_rec_take accept` is the exception: it approves a take you were
-  explicitly asked to approve.
+  panel. `demo_rec_take propose` only leaves a suggestion for a take. After an
+  approval, say what comes next and what it costs, then wait: anything that
+  spends credits or model time needs the user's Allow (the panel dialog or `/demo allow`).
 
 **The project's memory** lives in the project, not in this chat:
 - **Read it first.** When you (re)open a project, or see a
@@ -242,12 +243,18 @@ target in discovery, add a `deep_link`).
    Then write the next version and summarize the diff in one or two lines.
    The user may approve all high-confidence scenes in one click; their marks
    (and any CHANGES) arrive in the same review message.
-3. `[demo-panel] … APPROVED` → recording is unlocked. Record when the user
-   asks, or offer to record now.
+3. `[demo-panel] … APPROVED` → recording is unlocked. Call `demo_rec_record`: it asks the user to
+   allow it and refuses until they do. Tell them in one line what you wait for, then stop.
 
-**The user is asked before money and long jobs.** In the panel, *Request a new take*, a separate designer
-run and *Generate voice & render* each open a dialog with an estimate first. A `[demo-panel]` message for
-them arrives only after the user said yes, so don't ask again; if there is no message, they cancelled.
+**The user is asked before money and long jobs.** `demo_rec_tts start` and `demo_rec_record start` are
+**refused until the user allows them**: the tool answers "NOT STARTED", files a request with the estimate, and
+the panel shows *Allow / Not now* (they can also type `/demo allow`). Say what you are waiting for in one line,
+**stop, and do not retry or ask again**: a `[demo-recording] The user ALLOWED …` message arrives when they
+answer (a `did NOT allow` note means don't try again unless they ask). The permission is for exactly that
+version, for 15 minutes, once. In the panel, *Request a new take*, a separate designer run and *Generate voice
+& render* open a dialog first; a `[demo-panel]` message for them arrives only after the user said yes (for the
+take, the click is the permission), so don't ask again. The separate designer starts by itself after the edit
+and announces itself (run-and-tell): don't start it yourself.
 `demo_rec_tts check` shows the cost of the production line's voice-over before anything is spent.
 
 ## Recording
@@ -272,7 +279,7 @@ running take.
 ## After the take
 
 The narrated video is produced with the **demo-voiceover** skill:
-`demo_rec_take analyze` → `demo_rec_take accept` → `demo_rec_vo template/write`
+`demo_rec_take analyze` → `demo_rec_take propose` → `demo_rec_vo template/write`
 → the user approves in the panel's Voice tab → `demo_rec_tts` → `demo_rec_edit`.
 Then the **demo-annotations** skill suggests the visual emphasis
 (`demo_rec_annotations context` → `suggest`); the user reviews and approves it in

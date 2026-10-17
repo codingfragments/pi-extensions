@@ -1,7 +1,9 @@
 /**
  * demo_rec_take — list takes, analyze one for the voice-over (keyframes +
- * marks + page text + dead time + motion), and accept it as the take the VO
- * is written for.
+ * marks + page text + dead time + motion), and propose it for approval.
+ *
+ * The agent can't approve (P1a, F15): approving a recording is the user's click in the
+ * panel ("Approve & use"). `propose` only leaves a visible suggestion.
  */
 
 import fs from "node:fs";
@@ -12,7 +14,7 @@ import { Type } from "typebox";
 import { analyzeTake, formatAnalysis, readAnalysis } from "../analysis/take.ts";
 import { visionWarning } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
-import { acceptTake, acceptedTakeId, readState } from "../workdir/state.ts";
+import { acceptedTakeId, readState } from "../workdir/state.ts";
 import { type ToolContent, result, text } from "./common.ts";
 
 export interface TakeInfo {
@@ -57,10 +59,10 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
     description:
       "Recorded takes. list: all takes with status. analyze: everything needed to write the voice-over FROM THE ACTUAL RUN — per scene: " +
       "timing, marks with timestamps, the exact page text at each mark (quote values from here), typed/improvised inputs, error toasts, dead time " +
-      "(cut by the editor), streaming content and on-screen motion, plus keyframe images. accept: mark the take the voice-over is written for. " +
-      "Default take: the latest complete take of the approved storyboard.",
+      "(cut by the editor), streaming content and on-screen motion, plus keyframe images. propose: suggest a take for approval — you can't approve " +
+      "it yourself, the user does that in the panel (Recording tab, Approve & use). Default take: the latest complete take of the approved storyboard.",
     parameters: Type.Object({
-      action: StringEnum(["list", "analyze", "accept"] as const),
+      action: StringEnum(["list", "analyze", "propose"] as const),
       take: Type.Optional(
         Type.String({
           description:
@@ -94,18 +96,17 @@ export function registerTakeTool(pi: ExtensionAPI, rt: Runtime): void {
       if (!fs.existsSync(path.join(takeDir, "take.json")))
         throw new Error(`unknown take "${take}"`);
 
-      if (params.action === "accept") {
+      if (params.action === "propose") {
         const info = listTakes(p.dir).find((t) => t.id === take);
         if (info?.status !== "ok")
           throw new Error(`${take} is not complete (status ${info?.status})`);
-        acceptTake(p.dir, take);
         rt.bus.publish(
-          "take.accepted",
-          { take, by: "agent", message: `${take} accepted for the voice-over` },
+          "take.proposed",
+          { take, by: "agent", message: `the Director suggests approving ${take}` },
           p.slug,
         );
         return result(
-          `${take} accepted. Next: analyze it (if not done) and write the voice-over with demo_rec_vo.`,
+          `Suggested ${take} for approval. You cannot approve it: tell the user to approve it in the panel (Recording tab, "Approve & use"). The voice-over can be written now, but it can only be approved after the recording is. Then stop and wait for their [demo-panel] message.`,
         );
       }
 

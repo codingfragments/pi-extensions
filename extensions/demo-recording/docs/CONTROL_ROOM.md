@@ -90,6 +90,10 @@ A list of sections (an intro, one per scene, an outro) and one in detail.
 | **compare with v1** | the words that changed, per section |
 | **Generate voice & render…** | the cost dialog, then the voice and the edit (no agent). Only for an approved version in the production line |
 
+**The Director asks.** When the Director wants to spend (a voice synthesis, a new take) and you have not allowed it, nothing starts: a bar
+appears on every screen, above the content: *The Director asks to … / Allow / Not now*. Allow lets that one thing go (for 15 minutes,
+once); Not now tells the Director not to try again unless you ask. In chat the same is `/demo allow [id | all]` and `/demo deny [id | all]`.
+
 If a newer version exists than the one a draft was started on, the draft is flagged ("v2 exists") and **Compare with v2** shows both;
 a draft is never rebased or dropped for you.
 
@@ -165,6 +169,8 @@ output and look, discovery budgets), grouped, with the most important first. It 
 
 ![Config: settings by group, with their source](images/guide/10-config.jpg)
 
+- **Environment overrides** are listed in a warning at the top whenever a `DEMO_REC_*` variable is set: what it sets, the value it hides,
+  and test switches (`DEMO_REC_NO_OPEN`, `DEMO_REC_NO_VOICE_LIST`) flagged as such, so a variable left over from a test cannot silently win.
 - **Search** finds a setting by name, key, description or value (`/` or Cmd/Ctrl+K inside Config); **Changed**, **Overridden here** and
   **From environment** filter. API keys are shown only as *set* or *not set* and are never searched or displayed.
 - Each row shows the **effective value and where it comes from**; **Scopes** shows each layer (environment, project, global, default)

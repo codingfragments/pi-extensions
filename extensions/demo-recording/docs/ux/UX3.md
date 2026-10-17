@@ -52,7 +52,7 @@ vocabulary on every screen. Browsing never writes.
   | flavor | **variant** |
   | unsaved changes in annotations | **Working draft** |
 
-  Stored names and the tools keep their old words (`accepted`, `line`, `orphaned`, `demo_rec_take accept`).
+  Stored names and the tools keep their old words (`accepted`, `line`, `orphaned`, `demo_rec_take propose`, formerly `accept`).
 - **The old routes stay** (`approve`, `select`, `unaccept`, `unaccept-preview`) for the tools and older callers.
   `approveVersion` is a new engine function; `acceptStage` is untouched. The checks that decide what may be
   approved (QA gate, unsaved annotation changes, voice-over errors, an incomplete take) are one function used

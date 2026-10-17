@@ -5,6 +5,7 @@
  * the work to the Director as before.
  */
 
+import { annotationContext } from "../annotations/context.ts";
 import { type DesignerRunResult, runDesigner } from "../annotations/designer-run.ts";
 import type { Job } from "../jobs.ts";
 import type { Runtime } from "../runtime.ts";
@@ -45,6 +46,30 @@ export function startDesigner(
   if (!access) return { skipped: "no model access" };
   const p = rt.requireProject();
   const { version, timeline } = timelineFor(p.dir, o.voVersion);
+  // Run-and-tell (P1a): it starts by itself after the voice step, so it says so, with what it costs.
+  if (o.trigger === "auto") {
+    let pack = "";
+    try {
+      const text = annotationContext({
+        projectDir: p.dir,
+        timeline,
+        timelineVersion: version,
+        ...(o.base !== undefined ? { base: o.base } : {}),
+      });
+      pack = `, about ${Math.round(text.length / 4).toLocaleString("en-US")} tokens in, one call`;
+    } catch {
+      // the announcement just goes without the number
+    }
+    rt.bus.publish(
+      "design.announced",
+      {
+        trigger: "auto",
+        models: avail.models,
+        message: `🎨 started by itself after the voice step: the annotation designer (${avail.models.join(" → ")}${pack}). Turn it off with annotations.autoSuggest.`,
+      },
+      p.slug,
+    );
+  }
   const job = rt.jobs.start<DesignerRunResult>(
     "design",
     p.slug,

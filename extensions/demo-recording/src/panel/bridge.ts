@@ -52,10 +52,10 @@ export function approvalMessage(
   if (artifact === "annotations")
     return `${PANEL_PREFIX} Annotations v${version} for project "${project}" are ACCEPTED by the user (Annotations tab). A final render is now possible: offer it (demo_rec_render action=start kind=final annotations=${version}; ask which brands and whether to burn in subtitles) — or the user renders it in the Render tab.`;
   if (artifact === "recording")
-    return `${PANEL_PREFIX} Recording take-${String(version).padStart(3, "0")} for project "${project}" is ACCEPTED by the user (Recording tab). Write the voice-over for this take (demo-voiceover skill).`;
+    return `${PANEL_PREFIX} Recording take-${String(version).padStart(3, "0")} for project "${project}" is ACCEPTED by the user (Recording tab). Write the voice-over for this take (demo-voiceover skill), then stop and wait for their review.`;
   return artifact === "storyboard"
-    ? `${PANEL_PREFIX} Storyboard v${version} for project "${project}" is APPROVED by the user (a valid input to build on). Recording is unlocked (demo_rec_record storyboard=${version}).`
-    : `${PANEL_PREFIX} Voice-over script v${version} for project "${project}" is APPROVED by the user (a valid input to build on). Voice synthesis is unlocked (demo_rec_tts version=${version}).`;
+    ? `${PANEL_PREFIX} Storyboard v${version} for project "${project}" is APPROVED by the user (a valid input to build on). Recording is unlocked: demo_rec_record storyboard=${version} asks the user to allow it (it uses recording time and model calls); call it, tell them what you are waiting for, and stop until they answer.`
+    : `${PANEL_PREFIX} Voice-over script v${version} for project "${project}" is APPROVED by the user (a valid input to build on). Voice synthesis is unlocked: demo_rec_tts version=${version} asks the user to allow it (it bills voice credits, the estimate is shown); call it, tell them what you are waiting for, and stop until they answer.`;
 }
 
 export function voReviewMessage(

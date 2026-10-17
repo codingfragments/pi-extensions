@@ -228,6 +228,7 @@ export function newsTab(e) {
       return "storyboard";
     case "take.finished":
     case "take.analyzed":
+    case "take.proposed":
       return "recording";
     case "vo.written":
       return e.data?.by === "user" ? null : "voice";

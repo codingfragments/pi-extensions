@@ -257,7 +257,7 @@ test(
     const { serveFixture } = await import("../src/fixture/server.ts");
     const { approve } = await import("../src/workdir/state.ts");
     const fixture = await serveFixture(0);
-    const { tools, messages, statuses, events, ctx } = await load();
+    const { tools, commands, sent, messages, statuses, events, ctx } = await load();
     try {
       const project = tools.get("demo_rec_project");
       const sbTool = tools.get("demo_rec_storyboard");
@@ -274,6 +274,13 @@ test(
         yaml: "start_url: /\nscenes:\n  - id: 01-a\n    title: A\n    steps:\n      - { do: hover, target: { role: link, name: Search }, mark: hovered }\n      - { do: click, target: { role: link, name: Search } }\n",
       });
       approve(path.join(root, "projects", "bg"), "storyboard", 1);
+
+      // P1a: the Director may not start a take on its own: it is refused until the user allows it
+      const asked = await record.execute("2b", {}, undefined, undefined, ctx as never);
+      assert.match(textOf(asked), /^NOT STARTED\./);
+      assert.match(textOf(asked), /record a new take of storyboard v1 \(1 scene\(s\)\)/);
+      await commands.get("demo")?.handler("allow", ctx);
+      assert.match(sent.at(-1)?.text ?? "", /The user ALLOWED: record a new take of storyboard v1/);
 
       const t0 = Date.now();
       const started = await record.execute("3", {}, undefined, undefined, ctx as never);

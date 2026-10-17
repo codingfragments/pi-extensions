@@ -20,6 +20,7 @@ import { firstLine, jobFacts } from "../util/events.ts";
 import { readVo } from "../vo/store.ts";
 import { readState, requireSelected } from "../workdir/state.ts";
 import { result } from "./common.ts";
+import { askFirst, notAllowed, spendTarget } from "./spend.ts";
 
 export function voiceSummary(m: VoiceManifest): string {
   const lines = [
@@ -140,6 +141,17 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
       const p = rt.requireProject();
       const state = readState(p.dir) ?? p.state;
       const version = requireSelected(p.dir, state, "vo", params.version);
+      const target = spendTarget("tts", version);
+      if (!rt.grants.has("tts", p.slug, target)) {
+        // the cost, before anything is spent (D97); no estimate (no key, no engine) still asks
+        let cost = "";
+        try {
+          cost = ` (${formatEstimate((await voiceEstimate(rt, version)).estimate)})`;
+        } catch {
+          // ask without the number
+        }
+        return askFirst(rt, "tts", target, `synthesize voice-over v${version}${cost}`);
+      }
       const job = startTts(rt, version, { by: "agent" });
       const existing = readManifest(p.dir, version);
       return result(
@@ -165,6 +177,9 @@ export function startTts(
   },
 ): Job<VoiceManifest> {
   const p = rt.requireProject();
+  // the agent only spends what the user allowed (P1a); the panel's start is the user's own click
+  if (opts.by === "agent" && !rt.grants.consume("tts", p.slug, spendTarget("tts", version)))
+    throw notAllowed("tts", spendTarget("tts", version));
   const cfg = rt.getConfig(true);
   const brief = fs.existsSync(path.join(p.dir, "brief.md"))
     ? fs.readFileSync(path.join(p.dir, "brief.md"), "utf8")

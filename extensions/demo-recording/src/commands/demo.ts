@@ -16,10 +16,13 @@ import {
   describeConfig,
   formatChange,
   formatEntries,
+  layerFiles,
   parseValue,
   planChange,
 } from "../config-edit.ts";
 import { formatDoctor, runDoctor } from "../doctor.ts";
+import { envNotice } from "../env-overrides.ts";
+import { allowedMessage, deniedMessage } from "../grants.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
 import { startRender } from "../tools/render.ts";
@@ -43,6 +46,8 @@ export const SUBCOMMANDS = [
   "config",
   "panel",
   "doctor",
+  "allow",
+  "deny",
 ] as const;
 
 const USAGE = [
@@ -58,6 +63,8 @@ const USAGE = [
   "/demo config [show [prefix] | set <key> <value> [--project] | unset <key> [--project]]",
   "/demo panel                                     start the side panel, open it in your browser",
   "/demo doctor                                    check prerequisites",
+  "/demo allow [id | all]                          let the Director spend what it asked for (voice, a take)",
+  "/demo deny [id | all]                           refuse what the Director asked to spend",
 ].join("\n");
 
 function report(
@@ -102,7 +109,7 @@ async function cmdNew(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   report(
     ctx,
     `${handle.created ? "Created" : "Opened existing"} demo project "${handle.slug}"\n` +
-      `folder: ${handle.dir}\nbrief:  ${handle.dir}/brief.md\npanel:  ${panel.url}`,
+      `folder: ${handle.dir}\nbrief:  ${handle.dir}/brief.md\npanel:  ${panel.url}${noticeFor(rt)}`,
   );
   if (ctx.hasUI && handle.created) {
     // Hand over to the director: draft the brief with the user (demo-brief skill).
@@ -154,7 +161,16 @@ async function cmdOpen(
   pi.appendEntry(ACTIVE_ENTRY, { project: handle.slug });
   rt.primeContext();
   const panel = await rt.ensurePanel();
-  report(ctx, `active project: ${handle.slug} (phase: ${handle.state.phase})\npanel: ${panel.url}`);
+  report(
+    ctx,
+    `active project: ${handle.slug} (phase: ${handle.state.phase})\npanel: ${panel.url}${noticeFor(rt)}`,
+  );
+}
+
+/** The environment-override notice for the end of a report, with a leading blank line (F12). */
+function noticeFor(rt: Runtime): string {
+  const n = envNotice(rt.envOverrides());
+  return n ? `\n\n${n}` : "";
 }
 
 function kick(pi: ExtensionAPI, text: string) {
@@ -172,7 +188,7 @@ function cmdVoiceover(pi: ExtensionAPI, rt: Runtime, rest: string[], ctx: Extens
   });
   kick(
     pi,
-    `/skill:demo-voiceover Analyze the latest complete take of "${p.slug}" (demo_rec_take analyze), accept it, and write the voice-over ` +
+    `/skill:demo-voiceover Analyze the latest complete take of "${p.slug}" (demo_rec_take analyze), suggest it for approval (you cannot approve it), and write the voice-over ` +
       `(template, then write) for my review in the panel's Voice tab.${notes ? ` Notes from me: ${notes}` : ""}`,
   );
   report(
@@ -358,6 +374,62 @@ async function cmdBrand(
   );
 }
 
+/**
+ * `/demo allow` and `/demo deny` (P1a): the user answers what the Director asked to spend. Typed
+ * by the user, so the agent cannot do it for itself.
+ */
+export function cmdAnswer(
+  rt: Runtime,
+  verb: "allow" | "deny",
+  rest: string[],
+  ctx: ExtensionCommandContext,
+) {
+  const p = rt.requireProject();
+  const open = rt.grants.pending(p.slug);
+  if (!open.length) return report(ctx, "nothing is waiting for your answer");
+  const what = rest[0];
+  const list = open.map((r) => `  ${r.id}  ${r.summary}`).join("\n");
+  const chosen = what === "all" ? open : open.filter((r) => r.id === what);
+  if (!what && open.length > 1)
+    return report(
+      ctx,
+      `${open.length} requests are waiting — say which: /demo ${verb} <id> or /demo ${verb} all\n${list}`,
+      "warning",
+    );
+  const targets = what ? chosen : open;
+  if (!targets.length)
+    return report(ctx, `no open request "${what}". Waiting:\n${list}`, "warning");
+  for (const r of targets) {
+    if (verb === "allow") {
+      rt.grants.allow(r.id, "chat");
+      rt.bus.publish(
+        "confirm.granted",
+        { kind: r.kind, target: r.target, by: "chat", message: `allowed: ${r.kind} ${r.target}` },
+        p.slug,
+      );
+    } else {
+      rt.grants.deny(r.id);
+      rt.bus.publish(
+        "confirm.denied",
+        {
+          kind: r.kind,
+          target: r.target,
+          by: "chat",
+          message: `not allowed: ${r.kind} ${r.target}`,
+        },
+        p.slug,
+      );
+    }
+  }
+  report(
+    ctx,
+    `${verb === "allow" ? "allowed" : "not allowed"}: ${targets.map((r) => r.summary).join("; ")}`,
+  );
+  const said = targets.map((r) => r.summary).join("; ");
+  if (verb === "allow") rt.notifyAgent(allowedMessage(said));
+  else rt.tellAgent(deniedMessage(said));
+}
+
 function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
   const cfg = rt.getConfig();
   const p = rt.activeProject();
@@ -372,6 +444,8 @@ function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
     lines.push("project: none active — /demo new or /demo open");
   }
   lines.push(`panel:   ${rt.panelUrl ?? "not started — /demo panel"}`);
+  const notice = envNotice(rt.envOverrides());
+  if (notice) lines.push("", notice);
   report(ctx, lines.join("\n"));
 }
 
@@ -433,8 +507,12 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
               `demo panel: ${panel.url}${opened ? "\n(opened in your browser)" : ""}`,
             );
           }
+          case "allow":
+          case "deny":
+            return cmdAnswer(rt, sub, rest, ctx);
           case "doctor": {
             const results = await runDoctor(rt.getConfig(true), {
+              files: layerFiles(process.env, os.homedir(), rt.activeProject()?.dir),
               ...(ctx.modelRegistry ? { registry: ctx.modelRegistry as never } : {}),
               ...(ctx.model ? { sessionModel: ctx.model } : {}),
             });

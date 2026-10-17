@@ -25,6 +25,7 @@ import {
   planChange,
 } from "../config-edit.ts";
 import { type DemoRecConfig, defaultConfig } from "../config.ts";
+import { envOverrides } from "../env-overrides.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
@@ -267,6 +268,7 @@ export function configRoutes(deps: ConfigRouteDeps): {
           groups: settingsView(f, env(), home(), cfg.root),
           apiKeys: API_KEY_VARS.map((k) => ({ ...k, set: !!env()[k.name] })),
           sources: cfg.sources,
+          envOverrides: envOverrides(f, env(), home()),
         };
       },
     },

@@ -8,11 +8,15 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { EventBus } from "./bus.ts";
+import { layerFiles } from "./config-edit.ts";
 import { type DemoRecConfig, resolveConfig } from "./config.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
 import { voiceFit } from "./edit/pipeline.ts";
+import { type EnvOverride, envOverrides } from "./env-overrides.ts";
+import { GrantStore } from "./grants.ts";
 import { Jobs } from "./jobs.ts";
 import type { RegistryLike } from "./models.ts";
 import { annotationRoutes } from "./panel/annotation-routes.ts";
@@ -20,6 +24,7 @@ import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { costRoutes } from "./panel/cost.ts";
 import { draftRoutes } from "./panel/draft-routes.ts";
+import { grantRoutes } from "./panel/grant-routes.ts";
 import { graphRoutes } from "./panel/graph-routes.ts";
 import { jobRoutes } from "./panel/job-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
@@ -90,6 +95,8 @@ export class Runtime {
   private readonly agent: AgentBridge | undefined;
   discovery: DiscoverySession | undefined;
   readonly jobs = new Jobs();
+  /** What the user has allowed the Director to spend (P1a). */
+  readonly grants = new GrantStore();
   private ui: StatusSink | undefined;
   private lastStatus = 0;
 
@@ -116,6 +123,15 @@ export class Runtime {
   }
 
   /** Resolved config; `reload` re-reads file/env (e.g. after the user edits config). */
+  /** The `DEMO_REC_*` variables that are overriding the files right now (F12). */
+  envOverrides(): EnvOverride[] {
+    return envOverrides(
+      layerFiles(process.env, os.homedir(), this.activeProject()?.dir),
+      process.env,
+      os.homedir(),
+    );
+  }
+
   /** Effective config: defaults < global file < active project's config.json < env. */
   getConfig(reload = false): DemoRecConfig {
     const key = this.activeSlug ?? "";
@@ -284,6 +300,7 @@ export class Runtime {
         ttsChain: cfg.ttsChain,
         sources: cfg.sources,
       },
+      envOverrides: this.envOverrides(),
       project: p ? { slug: p.slug, dir: p.dir, app: p.app, state: p.state } : null,
       discovery:
         this.discovery && !this.discovery.isClosed
@@ -330,6 +347,9 @@ export class Runtime {
     });
     const brand = brandRoutes(this);
     const stages = stageRoutes({
+      grant: (kind, project, target) => {
+        this.grants.issue(kind, project, target, "panel");
+      },
       activeProject: () => this.activeProject(),
       notifyAgent: (text) => this.notifyAgent(text),
       tellAgent: (text) => this.tellAgent(text),
@@ -361,6 +381,7 @@ export class Runtime {
       publish: (type, data, slug) => this.bus.publish(type, data, slug),
     });
     const cost = costRoutes(this);
+    const grants = grantRoutes(this);
     const jobs = jobRoutes(this);
     const graph = graphRoutes(this);
     const drafts = draftRoutes({
@@ -378,6 +399,7 @@ export class Runtime {
         ...routes.get,
         ...jobs.get,
         ...graph.get,
+        ...grants.get,
         ...drafts.get,
         ...versions.get,
         ...brand.get,
@@ -400,6 +422,7 @@ export class Runtime {
         ...versions.post,
         ...drafts.post,
         ...cost.post,
+        ...grants.post,
       },
     };
   }

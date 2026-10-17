@@ -112,6 +112,7 @@ The first step, with three views:
 ### Dialogs, errors and cost warnings (S5)
 
 - **Decisions** (approve, withdraw an approval with the list of what becomes blocked, saving config or brands with a diff, deleting renders, discarding changes, naming a copy, giving a reason) are in-panel dialogs: Escape cancels, Enter confirms, a destructive one starts on *Cancel*. **Errors** are non-blocking toasts that stay until dismissed, with *Copy*. No native `alert` / `confirm` / `prompt` is used.
+- **The Director asks first** (P1a): a voice synthesis or a take that the Director starts is refused until you allow it (*The Director asks … / Allow / Not now*, or `/demo allow`); an engine-held, one-use grant, not a token the model handles. The agent has no tool that approves, and a test enforces both.
 - **Ask first** before money and long jobs: *Generate voice & render* (cached vs billed characters, credits and money; never skippable), *Request a new take* (improvise steps, their models and whether those have credentials, the last take's length) and a *separate designer run* (the input pack in tokens and its models). The last two offer "Don't ask again this session".
 - **Hints:** buttons that start an agent turn say so ("starts the Director · claude-opus-4-5"); the cost of a turn can't be estimated, so no number is shown.
 - **`POST /api/estimate`** is the free dry run behind the dialogs, and every panel route has a cost class that a test enforces. `demo_rec_tts check` prints the voice cost for the production line too.
@@ -241,7 +242,8 @@ fish extensions/demo-recording/scripts/fixture-walkthrough.fish        # --no-pi
 | `/demo status` | root, config sources, phase, approvals, panel URL |
 | `/demo discover [notes]` | start discovery + storyboard (demo-recording skill) |
 | `/demo panel` | starts the side panel and opens it in your browser (URL with token; `DEMO_REC_NO_OPEN=1` to only print it) |
-| `/demo doctor` | prerequisite check |
+| `/demo doctor` | prerequisite check; also lists every `DEMO_REC_*` environment override in effect (what it sets, what it hides, test switches like `DEMO_REC_NO_OPEN` flagged) |
+| `/demo allow [id \| all]` · `/demo deny [id \| all]` | answer what the Director asked to spend (voice, a take); the same as Allow / Not now in the panel |
 | `/demo brand [list \| use <name> \| new [zip] \| rerender [name]]` | brand packages (S5) |
 | `/demo config`, `/demo voices`, `/demo voiceover`, `/demo render` | settings, voice picker, voice-over, render (S5) |
 

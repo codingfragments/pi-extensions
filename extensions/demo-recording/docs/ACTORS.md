@@ -98,7 +98,8 @@ needs you or the Director · model profile · failure modes**.
 ### You (human)
 
 - **Responsibility:** the story, the risk, the final yes. You are the only one
-  who may accept anything.
+  who may accept anything, and the only one who lets the Director spend: voice credits and
+  recording time wait for your Allow (panel or `/demo allow`).
 - **Decide in the panel:** approve per scene (storyboard), accept the take,
   approve the script, toggle and accept annotations, confirm a voice
   generation after its estimate, fix or confirm blocking QA items **with a
@@ -205,7 +206,7 @@ needs you or the Director · model profile · failure modes**.
   the direction). `<!-- confidence: 2 — why -->` marks its own doubt.
 - **Tools:** `demo_rec_vo` (template, write, get).
 - **Decides alone:** wording. **You approve** the script; only then is voice
-  synthesis unlocked.
+  synthesis unlocked, and even then it waits for your Allow.
 - **Engine checks:** anchors in order and valid, bindings (`{{dom:mark|regex}}`)
   resolve, banned marketing words, speech vs footage; **confidence** (a number
   not on the page, a ratio that forces freezes, missing marks, changes vs the

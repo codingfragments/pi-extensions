@@ -1,72 +1,80 @@
-# Roadmap: P1 and the backlog after the real-app run
+# Roadmap: the phases after the first real-app run
 
-Status: **planned, nothing implemented.** Source: the findings of the first real-app run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)).
-The plan for the first and largest phase is [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md). The phase table is also in
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left).
+Status: **planned, nothing implemented.** Source: the 32 findings of the first real-app run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)),
+grouped into phases with the user (meaningful groups, not a list of tweaks). The plan for the first and largest phase is
+[PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md). The phase table is also in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left).
 
 Rules that held through the UX pass and still hold: every slice is its own branch and PR, with tests, a docs update, before/after
 screenshots at 900 and 1400 px where the panel changes, and CI green before merge; no push or merge without consent; the user
 approves, the agent proposes. Sizes: S about a day, M 2 to 4 days, L about 5 to 6. Estimates are rough and sequential for one person;
 they give the order of magnitude, not dates.
 
-## The phases left
+## The phases
 
-The project's phases are in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left): real-app run 1 (in progress), **P1 the
-quality changes (next)**, **run 2** (the S5 acceptance repeated, to prove P1), then the **findings backlog** (phase B), and S6, S7 and
-S8 as they were always planned. This roadmap adds the detail of P1's steps and the plans for the backlog, whose packages are listed
-below with indicative sizes so the order can be decided after run 2.
-
-### P1 QA change (next), about 35 days
-
-| Step | Name | Contents | Findings | Days |
-|---|---|---|---|---|
-| P1a | Safety and truth | the agent can no longer approve or spend without a confirmation (A1); QA diagnostics and a calibration test of the drift measurement (Q0); doctor warns about environment overrides (A6) | F15 F17 F25 F12 | about 7 |
-| P1b | QA becomes a report | severity model with hard stops only, integrity checks, noise collapsed, stage-agnostic findings model, popup shell (Q1); identity and ignore scopes with memory (Q2); run-and-tell notifications and the "Draft (no annotations)" label (A3) | F22 F27 F30 F31 | about 9 |
-| P1c | The fix loop | the Director's working state from pi events (A2); flag and propose loop with free text (Q3); earliest-stage draft, working focus and pending fixes (Q4); later stages read the pending fixes (Q5); timing hints `[@mark +300ms]` (Q6); retire the overrides (Q7) | F9 F11 F13 F24 F26 F29 | about 19 |
-
-After P1 comes run 2. The QA becomes stage-wide (the stage adapters, QS) as the first item of the backlog below, because it needs the fix loop to be useful.
-
-### Planned phases from the project plan
-S6, S7 and S8: see the table in the implementation plan. S7's session checks (F4) and S6's per-lane progress (F6) are described under
-W6 and W3 below.
-
-### Findings backlog (phase B: rolled in after run 2; indicative sizes)
-
-| Package | Contents | Findings | Days |
+| Phase | Theme: what changes for you | Findings | Days |
 |---|---|---|---|
-| **BK-QA** QA everywhere and layout | the stage adapters (voice-over, recording, annotations, storyboard) with the confidence signals folded in, one popup on every stage; the list and inspector layout (wider list, no overflow, a sticky inspector), step-through for annotations, the logo bug option, zoom limits as settings | F32 F19 F20 F28 F21 | about 14 |
-| **BK-DISC** Discovery | start or enhance a discovery from the Project page with a budget choice; a discovery report with guidance for the storyboard; measured progress and coverage; an enlarged live preview; discovery checks | F1 F2 F3 F5 F6 | about 15 |
-| **BK-REC** Recording review and frames | one chapter-and-frame component; the recording review workspace (three columns, a smaller player, notes at a timestamp); the voice-over filmstrip with "not mentioned" frames | F10 F16 | about 12 |
-| **BK-REST** The rest | the Activity panel docked; a pending question answered in chat or in the panel (A4); role labels (A5); compare versions; the coherence review (Q8); extra checks (Q9); docs made true | F7 F14 F18 F23 | about 17 |
+| **P1** | **QA change: a report, after every phase, with visible fixes, and the Director under control** | F9 F11 F12 F13 F15 F17 F21 F22 F24 F25 F26 F27 F29 F30 F31 F32 | about 46 |
+| P1a | Safety and truth: the agent can no longer approve or spend without a confirmation (A1); QA diagnostics and a calibration test of the drift measurement (Q0); doctor warns about environment overrides (A6) | F15 F17 F25 F12 | about 7 |
+| P1b | QA becomes a report: severity model with hard stops only, integrity checks, noise collapsed, stage-agnostic findings model, popup shell (Q1); identity and ignore scopes with memory (Q2); run-and-tell notifications (A3) | F22 F27 F30 F31 | about 9 |
+| P1c | The fix loop: the Director's working state from pi events (A2); flag and propose loop with free text (Q3); earliest-stage draft, working focus and pending fixes (Q4); later stages read the pending fixes (Q5); timing hints (Q6); retire the overrides (Q7) | F9 F11 F13 F24 F26 F29 | about 19 |
+| P1d | QA after every phase: the stage adapters (voice-over, recording, annotations, storyboard) with the confidence signals folded in, one popup on every stage; zoom limits as settings (feeds the annotation check) | F32 F21 | about 11 |
+| **Run 2** | the S5 real-app run repeated on the same app, to prove P1 ([acceptance criteria](PLAN_QA_CHANGE.md#run-2-acceptance-the-repeated-s5-run)) | | about 2 |
+| **P2** | **Review workspaces: review the recording, the script and the annotations without fighting the screen** (a chapter-and-frame component; the recording review with timestamped notes; the voice-over filmstrip with the frames the script does not mention; the list and inspector layout: sticky detail, wider list, no overflow, step-through) | F10 F16 F19 F20 | about 16 |
+| **P3** | **Discovery you can steer and read** (start or enhance from the Project page with a budget choice; a discovery report with guidance for the storyboard; measured progress and coverage; an enlarged live preview; discovery checks) | F1 F2 F3 F5 F6 (F8 is the model for the bar) | about 15 |
+| **P4** | **The Director in the open** (a pending question answered in chat or in the panel, both in sync; role labels in the chat; Activity as a docked panel) | F7 F18 F23 | about 11 |
+| **P5** | **Compare and small options** (ask the Director to compare versions; the logo bug option explained) | F14 F28 | about 7 |
+| **S7** | **Login and sessions, real-app acceptance** (required for v1; with the session checks of F4) | F4 | about 8 |
+| **S6** | Parallel discovery lanes (opt-in; builds on P3's measured progress) | F6 | about 6 |
+| **S8** | Native capture (optional) | | later |
+| **Run 3** | **A full run at the end, after everything**, ideally on a different app (and a login if S7 is done), as the v1 acceptance | | about 2 |
 
-The order I would suggest after run 2 (to be decided then): BK-QA, BK-DISC (before S6), BK-REC, BK-REST; S7 as soon as a real app is chosen
-for the acceptance run.
+Total about 113 days. The QA change itself (P1) is about 46; its first user-visible result (milestone M2, "QA is a report") comes after
+about 16 days.
+
+### Findings by phase (all 32)
+| Phase | Findings |
+|---|---|
+| P1 | F9 F11 F12 F13 F15 F17 F21 F22 F24 F25 F26 F27 (moot after Q1: flag-and-fix replaces "accept all") F29 F30 F31 F32 |
+| P2 | F10 F16 F19 F20 |
+| P3 | F1 F2 F3 F5 F6 |
+| P4 | F7 F18 F23 |
+| P5 | F14 F28 |
+| S7 | F4 |
+| keep | F8 (praise: the segmented progress bar of the recording; the model for the discovery bar and S6's per-lane bars) |
+
+Slice IDs used below and in the QA plan (A1, Q0, D1, R0, L1 and so on) map to phases as: A1 A2 A3 A6 Q0 to Q7 QS and L5 in P1;
+R0 R1 R2 L1 L2 in P2; D1 to D4 and QS-disc in P3; A4 A5 L3 in P4; L4 L6 and Q8 (the coherence review) in P5; Q9 (extra checks) in
+P5 or later.
 
 ## Order and why
 1. **P1a first**: the cost gate stops credits being spent by the Director on its own, and the calibration decides whether the QA
    measurement or the fixes were the real problem (if the measurement, P1c shrinks).
 2. **P1b** before any new UI for fixes: the report and the memory of decisions are what the fix loop stands on.
 3. **P1c** is the largest and riskiest (timing hints change the script language and the sync edit); start it with a spike on the sync edit.
-4. **Run 2** right after P1: the same app and brief, to compare the QA reports of run 1 (renders v2 to v8) with the new ones and to try the fix loop on real findings. Then **BK-QA** (the stage adapters before the fix loop would only show findings), then **BK-DISC** (before S6: measured progress
-   and the discovery report are what parallel lanes need), **BK-REC** (one shared component), **BK-REST**.
-5. **W7 (docs made true) must follow A1 immediately**, not wait.
-6. A real-app run after M2 and again after M4 is the real test of the plan (budget a day each).
+4. **P1d** completes the quality theme: the same findings and popup on every stage, after the fix loop exists to act on them.
+5. **Run 2** right after P1: the same app and brief, to compare the QA reports of run 1 (renders v2 to v8) with the new ones and to try the
+   fix loop on real findings.
+6. After run 2 the order of **P2 to P5** is a default and can change: P2 first (where the time is spent while reviewing), P3 before S6
+   (measured progress and the discovery report are what parallel lanes need), then P4, then P5. **W7 (docs made true) must follow A1
+   immediately**, not wait.
+7. **Run 3** closes the project's v1 as an acceptance, on a different app.
 
 ## Timeline
 ```
-RUN 1   the real-app run finishes: the summary and the decisions (this record)
+RUN 1   done: the findings and the grouping (this record)
 P1a     Safety and truth ............... about 7 days    M1
 P1b     QA becomes a report ............ about 9          M2, M3      (first user-visible result at about day 16)
 P1c     The fix loop ................... about 19         M4, M5
- RUN 2   the S5 acceptance repeated on the same app ..... about 2 days (the user's time and credits)
- ...    then the findings backlog (phase B), in the order above (indicative):
-BK-QA   QA everywhere and layout ....... about 14         M6
-BK-DISC Discovery ...................... about 15
-S6      Parallel discovery lanes ....... about 6          (needs BK-DISC's measured progress)
-BK-REC  Recording review and frames .... about 12
-BK-REST The rest ....................... about 17
-S7      Auth and real-app acceptance ... about 8          (as soon as the real app is chosen)
+P1d     QA after every phase ........... about 11         M6
+RUN 2   the S5 run repeated, same app .. about 2
+P2      Review workspaces .............. about 16
+P3      Discovery ...................... about 15
+P4      The Director in the open ....... about 11
+P5      Compare and small options ...... about 7
+S7      Login and sessions ............. about 8          (as soon as the real app is chosen)
+S6      Parallel discovery lanes ....... about 6          (needs P3's measured progress)
 S8      Native capture ................. optional, later
+RUN 3   the full run, a different app .. about 2
 ```
 The milestones M1 to M7 and their acceptance tests are in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md#milestones-and-acceptance-what-you-can-do-after-each).
 
@@ -125,9 +133,6 @@ As planned (`/demo login`, a login probe, re-login on expiry) plus: check the se
 After A1: GUIDE, README, TUTORIAL, CONTROL_ROOM say "the agent cannot approve", "you are asked before anything costs money": make them true by A1, then re-check the wording.
 
 ---
-
-## Findings to workstream map (all 32)
-F1 D1 · F2 D2 · F3 D4 · F4 W6 · F5 D1 · F6 D3/S6 · F7 L3 · F8 keep (model for D3, S6) · F9 A2 · F10 R0/R1 · F11 A2/A3 · F12 A6 · F13 A2 · F14 L6 · F15 A1 · F16 R0/R2 · F17 A1 (+A4) · F18 A4 · F19 L1/L2 · F20 L1 · F21 L5 · F22 A3 · F23 A5 · F24-F26 W1 (Q3-Q6) · F27 moot after Q1 (bulk Fix/Ignore/Leave replaces it) · F28 L4 · F29 W1 · F30 A3 · F31 W1 · F32 QS adapters (W1).
 
 ## Risks
 - Timing hints change the voice-over script language: they touch the parser, validation, the diff, the sync edit and the Voice inspector (Q5 is the riskiest slice).

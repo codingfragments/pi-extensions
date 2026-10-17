@@ -1,7 +1,7 @@
 # Plan: changing the QA to follow the decisions (phase P1, the next one; see the phase list in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left))
 
 Status: **planned, nothing implemented.** Source: the real-app test run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md), F24 to F32) and the QA grill
-(D-QA-1 to D-QA-11 below). The order of all remaining work is in [ROADMAP.md](ROADMAP.md); this phase is its first.
+(D-QA-1 to D-QA-11 below). The order of all remaining work is in [ROADMAP.md](ROADMAP.md); this phase is its first. P1 includes **QA after every phase** (the stage adapters, step P1d): it was a separate phase until the user asked to combine them.
 
 **What the run showed.** QA found the same three or four drift items and one wrong number in every render from v2 to v8, whatever was
 fixed; the "fixes" were shifts on a copy of the timeline that only the next "Apply fixes" render inherited; QA and the sync edit
@@ -129,7 +129,7 @@ slice that builds it, with a before/after screenshot where the panel changes.
 5. A real-app run after M2 and again after M4 is the real test; budget a day for each.
 
 ## Run 2 acceptance (the repeated S5 run)
-After P1 the real-app run is repeated on the same app with the same brief, so the old and the new can be compared. It passes when:
+After P1 (all four steps, P1a to P1d) the real-app run is repeated on the same app with the same brief, so the old and the new can be compared. It passes when:
 1. **The reports are a report.** The QA of the new final lists its findings with levels, one summary line instead of the "picture stands
    still" list, and the final can be approved with findings in it. Nothing stops approving except an integrity defect or a missed redaction
    (and a test render with the audio removed proves that it does stop).
@@ -144,5 +144,5 @@ After P1 the real-app run is repeated on the same app with the same brief, so th
 6. **No unasked spending and no agent approvals.** The history of the project shows every approval as a user click and every
    synthesis behind a confirmation.
 7. **Every Director step is visible** in the band, the strip and the Activity entries.
-Findings of run 2 are collected the same way and become the input of phase B.
+Findings of run 2 are collected the same way and become the input of the later phases (P2 onwards).
 

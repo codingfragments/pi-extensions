@@ -1231,29 +1231,27 @@ real GPU rendering, behind a flag, reusing everything else.
 
 ## 6a. Phases left
 
-Where the project stands: S0 to S5 are done (S5 including parts 1 to 14, the UX pass UX0 to UX19, and the user documentation). What
-remains the quality changes that the first real-app run called for (P1), a second real-app run to prove them, the backlog of the other
-findings (rolled in after that run), and the slices that were always planned (S6, S7, S8). Everything below is **planned, nothing is implemented**.
+Where the project stands: S0 to S5 are done (S5 including parts 1 to 14, the UX pass UX0 to UX19, the user documentation) and the first
+real-app run is done. It produced 32 findings ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)), grouped with the user into the phases
+below. Everything here is **planned, nothing is implemented**. Details, sizes and the slices of each phase are in
+[ROADMAP.md](ROADMAP.md); the QA redesign is [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md).
 
-| # | Phase | What it is | Needed for v1? | Status |
+| # | Phase | What it is | Days | Status |
 |---|---|---|---|---|
-| **R1** | **Real-app run 1** (S5 acceptance, first time) | the whole process on a real app, by the user in a second pi, with the findings collected and not acted on: [REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md). Previews, the Render player and a real render were only ever tested on seeded files before it | yes | in progress; ends with the summary |
-| **P1** | **QA change** (the quality changes, done first) | the QA becomes a report (hard stops only for integrity defects and a missed redaction), after every phase; findings and decisions are remembered; fixes are proposed, refined by the user with free text and applied as visible drafts at the earliest stage, with pending fixes for later stages; timing hints `[@mark +300ms]` replace the render overrides; the agent can no longer approve or spend without a confirmation. About 35 days in three steps (P1a safety and truth, P1b QA becomes a report, P1c the fix loop). Plan: [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md) | no (it fixes what run 1 showed to be wrong) | **next** |
-| **R2** | **Real-app run 2** (S5 acceptance, repeated) | the same process on the same app after P1, to prove the quality changes on the real thing: the QA reports of run 1 (renders v2 to v8) against the new ones, the fix loop on real findings, no unasked spending. Acceptance criteria in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md#run-2-acceptance-the-repeated-s5-run) | yes | planned, after P1 |
-| **B** | **Findings backlog rolled in after S5** | the other findings of run 1, packaged: QA everywhere and layout, discovery on the Project page and a discovery report, the recording review workspace, the Director's visible state in more places, role labels, compare versions, the Activity panel docked and the small UI fixes. Described slice by slice in [ROADMAP.md](ROADMAP.md); the order is decided after R2 | no | planned, after R2 |
-| **S6** | **Parallel discovery lanes** | after a short serial identification phase, several explorer lanes in parallel (own browser context, budget slice and folder), merged by the Director; opt-in (`discovery.lanes`); one progress bar per lane; builds on the backlog's measured progress | no (opt-in) | planned |
-| **S7** | **Auth, safety hardening, real-app acceptance** | `/demo login <app>` with a saved session and a login probe, re-login on expiry (plus the checks of F4: before discovery, before recording and during a take); hardening for real single-page apps; a safety review; secrets hygiene and a leak test; one real demo end to end | **yes** | planned |
-| **S8** | **Native OS-capture backend** | `--cursor=native` on macOS: the real cursor and real GPU rendering, behind a flag | no (optional) | planned |
+| **P1** | **QA change** | the QA becomes a report (hard stops only for integrity defects and a missed redaction) that runs after every phase; findings and decisions are remembered; fixes are proposed, refined with free text and applied as visible drafts at the earliest stage, with pending fixes for later stages; timing hints `[@mark +300ms]` replace the render overrides; the agent can no longer approve or spend without a confirmation; the Director's work is visible. Four steps: P1a safety and truth, P1b QA becomes a report, P1c the fix loop, P1d QA after every phase | about 46 | **next** |
+| **Run 2** | **Real-app run 2** (S5 acceptance repeated) | the same app and brief after P1, to prove the quality changes on the real thing; criteria in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md#run-2-acceptance-the-repeated-s5-run) | about 2 | after P1 |
+| **P2** | **Review workspaces** | a chapter-and-frame component; the recording review with timestamped notes; the voice-over filmstrip; the list and inspector layout fixes (sticky detail, wider list, no overflow, step-through) | about 16 | planned |
+| **P3** | **Discovery you can steer and read** | start or enhance from the Project page with a budget; a discovery report with storyboard guidance; measured progress; an enlarged live preview; discovery checks | about 15 | planned |
+| **P4** | **The Director in the open** | a pending question answered in chat or panel; role labels; the Activity panel docked | about 11 | planned |
+| **P5** | **Compare and small options** | ask the Director to compare versions; the logo bug option explained | about 7 | planned |
+| **S7** | **Auth, safety hardening, real-app acceptance** | `/demo login <app>` with a saved session and a login probe, re-login on expiry, session checks before discovery, before recording and during a take; hardening for real single-page apps; a safety review; secrets hygiene and a leak test (required for v1) | about 8 | planned |
+| **S6** | **Parallel discovery lanes** | several explorer lanes in parallel (opt-in), one progress bar per lane; builds on P3 | about 6 | planned |
+| **S8** | **Native OS-capture backend** | `--cursor=native` on macOS (optional) | later | planned |
+| **Run 3** | **A full run after everything** | the v1 acceptance on a different app (with a login if S7 is done) | about 2 | at the end |
 
-**Backlog from the real run (phase B, rolled in after run 2; the order is decided then):** discovery on the Project page and a discovery
-report; a recording review workspace with timestamped notes; the Director's visible state and a pending question in chat or panel;
-role labels; compare versions; layout fixes for the list and inspector; the Activity panel docked; the logo bug option; zoom limits as
-settings. They are described slice by slice in [ROADMAP.md](ROADMAP.md) with the finding each answers. The parts of them that P1
-needs (the Director's working state, run-and-tell notifications) are inside P1.
-
-**Wanted, not scheduled:** the map minimap, a full annotation editor, flexible stage lineage, cursor frame-locking, background music,
-other languages ([VISION.md](VISION.md#later-wanted-not-scheduled), [FUTURE_IDEAS.md](FUTURE_IDEAS.md)). **Known issues:**
-[KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+The order of P2 to P5 is a default and can change after run 2. **Wanted, not scheduled:** the map minimap, a full annotation editor,
+flexible stage lineage, cursor frame-locking, background music, other languages ([VISION.md](VISION.md#later-wanted-not-scheduled),
+[FUTURE_IDEAS.md](FUTURE_IDEAS.md)). **Known issues:** [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
 Notes on earlier parts: S5 part 10 (deterministic QA and mechanical auto-fix) is **superseded in part by P1** (the checks stay, the
 gate and the render overrides go).

@@ -36,6 +36,9 @@ const MAIN = [
   "GUIDE.md",
   "CONTROL_ROOM.md",
   "TUTORIAL-101.md",
+  "ROADMAP.md",
+  "PLAN_QA_CHANGE.md",
+  "REAL_RUN_FINDINGS.md",
 ].map((f) => path.join(DOCS, f));
 const diagrams = fs
   .readdirSync(path.join(DOCS, "diagrams"))

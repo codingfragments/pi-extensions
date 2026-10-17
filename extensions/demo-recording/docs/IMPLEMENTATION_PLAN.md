@@ -1229,6 +1229,29 @@ real GPU rendering, behind a flag, reusing everything else.
 
 ---
 
+## 6a. Phases after the real-app run (P1-P5)
+
+The first run of the whole process on a real app produced 32 findings and a grilled redesign of the QA
+([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)). Everything below is **planned, nothing is implemented**. The order, the sizes and the
+other workstreams are in [ROADMAP.md](ROADMAP.md); the QA redesign in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md).
+
+| Phase | What | Days | Status |
+|---|---|---|---|
+| **P1 QA change** | QA becomes a report (hard stops only for integrity defects and a missed redaction); findings and decisions are remembered; fixes are proposed, refined with free text and applied as visible drafts at the earliest stage, pending fixes for later stages; timing hints `[@mark +300ms]` replace the render overrides | about 35 | **next** |
+| P1a Safety and truth | the agent cannot approve or spend without a confirmation; QA diagnostics and a drift calibration test; doctor warns about environment overrides | about 7 | next |
+| P1b QA becomes a report | severity model, integrity checks, noise collapsed, stage-agnostic findings, identity and ignore scopes, run-and-tell notifications | about 9 | |
+| P1c The fix loop | the Director's working state from pi events, the flag and propose loop, earliest-stage draft with a working focus, pending fixes, timing hints, overrides retired | about 19 | |
+| **P2 QA everywhere and layout** | stage adapters with the confidence signals folded in and one popup per stage; list and inspector layout; step-through for annotations; logo bug option; zoom limits as settings | about 14 | |
+| **P3 Discovery** | start or enhance from the Project page with a budget choice; a discovery report with storyboard guidance; measured progress; enlarged live preview; discovery checks | about 15 | |
+| **P4 Recording review and frames** | chapter and frame component; the recording review workspace with timestamped notes; voice-over filmstrip | about 12 | |
+| **P5 The rest** | docked Activity panel; a pending question answered in chat or panel; role labels; compare versions; coherence review; extra checks; S6 parallel discovery; S7 login and sessions; docs made true; optional S8 | about 30 | |
+
+Notes on earlier parts: S5 part 10 (deterministic QA and mechanical auto-fix) is **superseded in part by P1** (the checks stay, the gate
+and the render overrides go); S6 builds on P3's measured progress; S7 gains the session checks of F4 (before discovery, before recording
+and during a take).
+
+---
+
 ## 7. Cross-cutting
 
 - **Costs & budgets.** Config caps discovery (screens/actions/minutes), improvise calls per take, and TTS characters per project. The panel shows the running spend estimate. TTS is cached by hash, so re-renders after edit-only changes cost nothing.

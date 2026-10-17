@@ -334,6 +334,9 @@ export class Runtime {
     });
     const brand = brandRoutes(this);
     const stages = stageRoutes({
+      grant: (kind, project, target) => {
+        this.grants.issue(kind, project, target, "panel");
+      },
       activeProject: () => this.activeProject(),
       notifyAgent: (text) => this.notifyAgent(text),
       tellAgent: (text) => this.tellAgent(text),

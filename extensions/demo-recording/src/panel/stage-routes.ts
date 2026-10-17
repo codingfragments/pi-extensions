@@ -38,6 +38,8 @@ export interface StageRouteDeps {
   /** Note for the agent's next turn without starting one. */
   tellAgent: (text: string) => void;
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
+  /** The user just confirmed a spend in the panel (P1a): allow exactly that. Absent in tests that don't need it. */
+  grant?: (kind: "tts" | "take", project: string, target: string) => void;
 }
 
 /** Project-relative path for media URLs (`/media/project/<rel>`). */
@@ -313,8 +315,10 @@ export function stageRoutes(deps: StageRouteDeps): {
           kind: "direction",
           text: `re-record requested for storyboard v${sb}${note ? `: ${note}` : ""}`,
         });
+        // the click, after the cost dialog, is the permission for exactly this take (P1a)
+        deps.grant?.("take", p.slug, `storyboard:${sb}`);
         deps.notifyAgent(
-          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}. Record it with demo_rec_record storyboard=${sb} (then analyze it; the user accepts takes in the Recording tab).`,
+          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}, and ALLOWED the recording. Record it with demo_rec_record storyboard=${sb} (then analyze it and suggest it with demo_rec_take propose; the user approves takes in the Recording tab).`,
         );
         deps.publish(
           "recording.requested",

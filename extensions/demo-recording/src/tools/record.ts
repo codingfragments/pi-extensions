@@ -21,6 +21,7 @@ import { briefFieldValue } from "../workdir/brief.ts";
 import { appDir } from "../workdir/layout.ts";
 import { readState, requireSelected, setPhase } from "../workdir/state.ts";
 import { result } from "./common.ts";
+import { askFirst, notAllowed, spendTarget } from "./spend.ts";
 
 /** One line of audience/goal context from brief.md for the improviser. */
 export function briefContext(brief: string): string | undefined {
@@ -107,6 +108,20 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
       const sb = readStoryboard(p.dir, version);
       if (!sb) throw new Error(`approved storyboard v${version} is missing on disk`);
       const cfg = rt.getConfig();
+      if (rt.jobs.running("record")) throw new Error("a recording is already running");
+      const target = spendTarget("take", version);
+      if (!rt.grants.has("take", p.slug, target)) {
+        const improvise = sb.storyboard.scenes.reduce(
+          (n, s) => n + s.steps.filter((st) => st.do === "improvise").length,
+          0,
+        );
+        return askFirst(
+          rt,
+          "take",
+          target,
+          `record a new take of storyboard v${version} (${sb.storyboard.scenes.length} scene(s)${improvise ? `, ${improvise} live input(s) from ${cfg.improvise.models.join(" → ")}` : ""})`,
+        );
+      }
       await rt.closeDiscovery(); // discovery and recording never share a browser
       const statePath = path.join(appDir(cfg.root, p.app.slug), "auth", "state.json");
       const registry = (
@@ -130,6 +145,7 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
       if (["brief", "discovery", "storyboard-review"].includes(state.phase))
         setPhase(p.dir, "recording");
 
+      if (!rt.grants.consume("take", p.slug, target)) throw notAllowed("take", target);
       const job = rt.jobs.start<TakeResult>(
         "record",
         p.slug,

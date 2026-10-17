@@ -149,8 +149,9 @@ revision is a new storyboard version with a diff. **Costs:** model turns.
 
 ### B3. Record
 
-**Do:** after you approve the storyboard the Director is told recording is unlocked. Ask it to record if it has not started
-("record the approved storyboard"). A cost dialog may appear for improvised inputs.
+**Do:** after you approve the storyboard the Director is told recording is unlocked. It asks to record: a bar says **The Director asks
+to record a new take of storyboard v1 …** with **Allow** and **Not now** (or type `/demo allow` in chat). Allow it. A cost dialog may
+appear for improvised inputs when you press **Request a new take** yourself, and that click is the permission.
 **See:** the strip shows a percentage and the current scene; the **Recording** step gets a take with a keyframe per scene.
 **Do:** watch the take, then **Approve & use** it (or **Request a new take** with a note).
 **Behind the scenes:** one continuous take with a virtual cursor, human typing and live inputs; a failed scene is resumed by replaying the
@@ -167,7 +168,8 @@ an event. **Costs:** model turns.
 
 ### B5. Voice and edit
 
-**Do:** press **Generate voice & render…**, read the dialog (cached versus billed characters, credits and money), confirm.
+**Do:** press **Generate voice & render…**, read the dialog (cached versus billed characters, credits and money), confirm. If the
+Director asks first (**The Director asks to synthesize voice-over v1 (…)**), that bar shows the same numbers: **Allow** is your confirmation.
 **See:** progress in the strip; a draft render appears in **Render**.
 **Behind the scenes:** the voice (ElevenLabs first, then OpenAI, then the local Kokoro), then the take is edited to the voice. **Costs:
 the only step that spends voice credits.**

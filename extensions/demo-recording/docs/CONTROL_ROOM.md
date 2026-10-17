@@ -90,6 +90,10 @@ A list of sections (an intro, one per scene, an outro) and one in detail.
 | **compare with v1** | the words that changed, per section |
 | **Generate voice & render…** | the cost dialog, then the voice and the edit (no agent). Only for an approved version in the production line |
 
+**The Director asks.** When the Director wants to spend (a voice synthesis, a new take) and you have not allowed it, nothing starts: a bar
+appears on every screen, above the content: *The Director asks to … / Allow / Not now*. Allow lets that one thing go (for 15 minutes,
+once); Not now tells the Director not to try again unless you ask. In chat the same is `/demo allow [id | all]` and `/demo deny [id | all]`.
+
 If a newer version exists than the one a draft was started on, the draft is flagged ("v2 exists") and **Compare with v2** shows both;
 a draft is never rebased or dropped for you.
 

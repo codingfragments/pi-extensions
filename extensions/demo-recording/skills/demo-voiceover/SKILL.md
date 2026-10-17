@@ -153,7 +153,8 @@ with a stance, tone, length, focus and notes:
    a word diff in the Voice tab and approves it. In 2 lines, say what you
    changed.
 
-`[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked.
+`[demo-panel] Voice-over vN … APPROVED` means voice synthesis is unlocked, **not started**: `demo_rec_tts start` asks the
+user to allow it (the estimate is in the request) and is refused until they do. Say what you wait for in one line and stop.
 
 ## Voice and edit (after approval)
 
@@ -165,7 +166,7 @@ with a stance, tone, length, focus and notes:
    The panel's **"Generate voice & render"** runs TTS, the edit and a draft
    render itself, after showing the user the cost. When you get a note that
    it started, **don't start them yourself**; wait for the edit report.
-2. `demo_rec_tts start` synthesizes every section in the background. One
+2. `demo_rec_tts start` (after the user's **Allow**; without it the tool answers NOT STARTED and files the request) synthesizes every section in the background. One
    engine is used for the whole video, and unchanged sections come from the
    cache. Wait for the `[demo-recording]` message; don't poll.
 3. `demo_rec_edit start` runs the audio-led edit and renders per-scene videos

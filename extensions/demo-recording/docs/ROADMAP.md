@@ -79,6 +79,31 @@ S8      Native capture ................. optional, later
 ```
 The milestones M1 to M7 and their acceptance tests are in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md#milestones-and-acceptance-what-you-can-do-after-each).
 
+## P1a in detail: Safety and truth
+
+Goal (milestone M1): the Director cannot approve anything or spend money on its own, and we know whether the drift numbers can be trusted.
+
+**Decisions (grilled with the user):**
+- **Grant path:** the Director's requests to spend reach the user through the **panel dialog and a typed `/demo allow`** (both work from day one; live sync between them is P4).
+- **Grants, not tokens:** an engine-held, in-memory **grant** (kind `tts` or `take`, project, target, TTL about 15 minutes, used once). The model never handles a token. A grant is issued only by the panel's Allow button or by the user typing `/demo allow`; panel starts the user already confirmed write the grant as part of the click.
+- **Auto designer:** the annotation designer that starts after the voice step stays automatic but is **run-and-tell** (it announces start and estimated cost in the panel, Activity and log); it needs no grant. A test keeps the list of such announced automatic starts short and checks each announces itself.
+- **Order:** the gates first, then the doctor, then the calibration.
+
+| # | PR title | Size | Depends on |
+|---|---|---|---|
+| 0 | `docs: P1a decisions (grant path, auto designer, order)` | XS | none |
+| 1 | `fix: only the user can approve a take` (`demo_rec_take accept` becomes a proposal; the skill stops after approval) | S | none |
+| 2 | `feat: spending grants, issued by the panel dialog or /demo allow` | M | none |
+| 3 | `feat: the Director asks before spending (voice, recording)` | M | 2 |
+| 4 | `feat: automatic starts announce themselves; ratchet test` (no tool approves or starts tts/take/design without a grant or an announcement) | S-M | 3 |
+| 5 | `docs: the guide tells the truth about approvals and costs` | S | 3 |
+| 6 | `feat: doctor and Config show environment overrides` | S | none |
+| 7 | `feat(qa): anchor diagnostics, measured beside planned drift` (no change in what blocks) | M | none |
+| 8 | `test(qa): drift calibration and the verdict` (a known planned delay reproduced within about 100 ms; the verdict in QA.md) | M | 7 |
+
+Checkpoints: after PR 4 ask the Director in pi to continue after "Approve & use" (the voice synthesis must wait for the user's Allow);
+after PR 8 the calibration passes and the verdict says whether the measurement or the fixes were the problem (it can reshape P1b and P1c).
+
 ## The other workstreams in detail
 Each slice has an ID used in the tables above and in [REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md). The QA workstream (W1) is in
 [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md).

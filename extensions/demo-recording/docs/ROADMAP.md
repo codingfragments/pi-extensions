@@ -11,10 +11,10 @@ they give the order of magnitude, not dates.
 
 ## The phases left
 
-The project's phases are in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left): the real-app run (in progress), **P1 the
-QA change (next)**, then S6, S7 and S8 as they were always planned. This roadmap adds the detail of P1's steps and the plans for the
-**backlog from the real run**, which is planned but **not scheduled**: its packages are listed below with indicative sizes so the order
-can be decided after P1.
+The project's phases are in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left): real-app run 1 (in progress), **P1 the
+quality changes (next)**, **run 2** (the S5 acceptance repeated, to prove P1), then the **findings backlog** (phase B), and S6, S7 and
+S8 as they were always planned. This roadmap adds the detail of P1's steps and the plans for the backlog, whose packages are listed
+below with indicative sizes so the order can be decided after run 2.
 
 ### P1 QA change (next), about 35 days
 
@@ -24,13 +24,13 @@ can be decided after P1.
 | P1b | QA becomes a report | severity model with hard stops only, integrity checks, noise collapsed, stage-agnostic findings model, popup shell (Q1); identity and ignore scopes with memory (Q2); run-and-tell notifications and the "Draft (no annotations)" label (A3) | F22 F27 F30 F31 | about 9 |
 | P1c | The fix loop | the Director's working state from pi events (A2); flag and propose loop with free text (Q3); earliest-stage draft, working focus and pending fixes (Q4); later stages read the pending fixes (Q5); timing hints `[@mark +300ms]` (Q6); retire the overrides (Q7) | F9 F11 F13 F24 F26 F29 | about 19 |
 
-After P1 the QA is stage-wide (the stage adapters, QS) as the first item of the backlog below, because it needs the fix loop to be useful.
+After P1 comes run 2. The QA becomes stage-wide (the stage adapters, QS) as the first item of the backlog below, because it needs the fix loop to be useful.
 
 ### Planned phases from the project plan
 S6, S7 and S8: see the table in the implementation plan. S7's session checks (F4) and S6's per-lane progress (F6) are described under
 W6 and W3 below.
 
-### Backlog from the real run (planned, not scheduled; indicative sizes)
+### Findings backlog (phase B: rolled in after run 2; indicative sizes)
 
 | Package | Contents | Findings | Days |
 |---|---|---|---|
@@ -39,7 +39,7 @@ W6 and W3 below.
 | **BK-REC** Recording review and frames | one chapter-and-frame component; the recording review workspace (three columns, a smaller player, notes at a timestamp); the voice-over filmstrip with "not mentioned" frames | F10 F16 | about 12 |
 | **BK-REST** The rest | the Activity panel docked; a pending question answered in chat or in the panel (A4); role labels (A5); compare versions; the coherence review (Q8); extra checks (Q9); docs made true | F7 F14 F18 F23 | about 17 |
 
-The order I would suggest after P1 (to be decided then): BK-QA, BK-DISC (before S6), BK-REC, BK-REST; S7 as soon as a real app is chosen
+The order I would suggest after run 2 (to be decided then): BK-QA, BK-DISC (before S6), BK-REC, BK-REST; S7 as soon as a real app is chosen
 for the acceptance run.
 
 ## Order and why
@@ -47,18 +47,19 @@ for the acceptance run.
    measurement or the fixes were the real problem (if the measurement, P1c shrinks).
 2. **P1b** before any new UI for fixes: the report and the memory of decisions are what the fix loop stands on.
 3. **P1c** is the largest and riskiest (timing hints change the script language and the sync edit); start it with a spike on the sync edit.
-4. After P1, **BK-QA** (the stage adapters before the fix loop would only show findings), then **BK-DISC** (before S6: measured progress
+4. **Run 2** right after P1: the same app and brief, to compare the QA reports of run 1 (renders v2 to v8) with the new ones and to try the fix loop on real findings. Then **BK-QA** (the stage adapters before the fix loop would only show findings), then **BK-DISC** (before S6: measured progress
    and the discovery report are what parallel lanes need), **BK-REC** (one shared component), **BK-REST**.
 5. **W7 (docs made true) must follow A1 immediately**, not wait.
 6. A real-app run after M2 and again after M4 is the real test of the plan (budget a day each).
 
 ## Timeline
 ```
-NOW     the real-app run finishes: the summary and the decisions (this record)
+RUN 1   the real-app run finishes: the summary and the decisions (this record)
 P1a     Safety and truth ............... about 7 days    M1
 P1b     QA becomes a report ............ about 9          M2, M3      (first user-visible result at about day 16)
 P1c     The fix loop ................... about 19         M4, M5
- ...    after P1, in the order above (indicative):
+ RUN 2   the S5 acceptance repeated on the same app ..... about 2 days (the user's time and credits)
+ ...    then the findings backlog (phase B), in the order above (indicative):
 BK-QA   QA everywhere and layout ....... about 14         M6
 BK-DISC Discovery ...................... about 15
 S6      Parallel discovery lanes ....... about 6          (needs BK-DISC's measured progress)

@@ -128,3 +128,21 @@ slice that builds it, with a before/after screenshot where the panel changes.
 4. **Folding confidence into findings** touches screens from the UX pass (storyboard, voice-over); needs its own decision before M6.
 5. A real-app run after M2 and again after M4 is the real test; budget a day for each.
 
+## Run 2 acceptance (the repeated S5 run)
+After P1 the real-app run is repeated on the same app with the same brief, so the old and the new can be compared. It passes when:
+1. **The reports are a report.** The QA of the new final lists its findings with levels, one summary line instead of the "picture stands
+   still" list, and the final can be approved with findings in it. Nothing stops approving except an integrity defect or a missed redaction
+   (and a test render with the audio removed proves that it does stop).
+2. **The numbers can be trusted.** For every timing finding the measured drift and the plan's are both shown; the gaps seen in run 1
+   (scene 06-faq-qa: -1.4 s, +0.6 s, +0.6 s) are explained or gone, and the calibration test passes.
+3. **Fixing is not hidden.** Flagging findings, proposing, refining with free text and accepting creates one visible draft at the earliest
+   stage, the working focus moves there, the later fixes are pending fixes the next stage's writer reads; no render and no voice
+   synthesis starts by itself.
+4. **Decisions are remembered.** An ignored finding (and a rule like "redactions are test data") is shown as ignored in the next
+   run and not asked about again.
+5. **Timing is tunable.** A `[@mark +300ms]` hint changes the next render without new audio (no credits).
+6. **No unasked spending and no agent approvals.** The history of the project shows every approval as a user click and every
+   synthesis behind a confirmation.
+7. **Every Director step is visible** in the band, the strip and the Activity entries.
+Findings of run 2 are collected the same way and become the input of phase B.
+

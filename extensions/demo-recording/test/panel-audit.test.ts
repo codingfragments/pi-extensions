@@ -64,8 +64,8 @@ test("the baseline covers every screen, theme and width, and starts with no miss
   const keys = Object.keys(base.pages);
   assert.equal(
     keys.length,
-    15 * 2 * 2,
-    "15 screens (with Brands, the map and the Project groups) × 2 themes × 2 widths",
+    17 * 2 * 2,
+    "17 screens (with Brands, the map, the Project groups, the checks popup and the Director's request) × 2 themes × 2 widths",
   );
   for (const k of keys)
     assert.equal(base.pages[k]?.focusMissing, 0, `${k}: every tab stop shows a focus indicator`);
@@ -102,7 +102,7 @@ test(
         `panel audit improved (lower the baseline: node extensions/demo-recording/scripts/panel-audit.ts --update):\n${better.join("\n")}`,
       );
     // every screen of the seeded project really has content to audit
-    assert.equal(Object.keys(now.pages).length, 60);
+    assert.equal(Object.keys(now.pages).length, 68);
   },
 );
 

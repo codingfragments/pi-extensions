@@ -11,6 +11,7 @@ import path from "node:path";
 import { annotationVersions, readAnnotations, writeAnnotations } from "../annotations/file.ts";
 import { listBrands } from "../brand/brand.ts";
 import { listAnnotationDrafts, preferredAnnotationDraft } from "../drafts/annotations.ts";
+import { findingsFor } from "../qa/findings.ts";
 import { confirmItem, qaBlocker, readQa } from "../qa/run.ts";
 import { type RenderRequest, finalBlocker, latestTimelineFor } from "../render/run.ts";
 import {
@@ -26,6 +27,7 @@ import type { Runtime } from "../runtime.ts";
 import { startFixes, startQa, startRender } from "../tools/render.ts";
 import { openInBrowser } from "../util/open.ts";
 import { recordInput } from "../workdir/inputs.ts";
+import { STAGES, type Stage } from "../workdir/stages.ts";
 import { isUsable } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
@@ -109,6 +111,16 @@ export function renderRoutes(rt: Runtime): {
     get: {
       renders: () => rendersView(rt),
       /** ?version=N → the full QA report. */
+      /** The checks of any stage version, one shape for every screen (Q1b). ("findings" is the Researcher's list.) */
+      checks: (q) => {
+        const p = requireProject();
+        const stage = String(q.get("stage") ?? "");
+        if (!(STAGES as readonly string[]).includes(stage))
+          throw new Error(`unknown stage "${stage}" — one of ${STAGES.join(", ")}`);
+        const version = Number(q.get("version"));
+        if (!Number.isInteger(version) || version < 1) throw new Error('"version" is required');
+        return findingsFor(p.dir, stage as Stage, version);
+      },
       "render-qa": (q) => {
         const p = requireProject();
         const v = Number(q.get("version"));

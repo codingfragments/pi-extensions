@@ -357,6 +357,7 @@ export async function checkDrift(
       best = around ?? snapToOnset(rawBest / 1000, env) * 1000;
       const drift = Math.round(best - expect);
       diag.measuredMs = Math.round(best);
+      diag.supported = around !== undefined || diag.transcriptOnOnset === true;
       diag.measuredDriftMs = drift;
       diag.gapMs = Math.round(best - diag.plannedAudioMs);
       const abs = Math.abs(drift);
@@ -381,17 +382,33 @@ export async function checkDrift(
         ...(abs > DRIFT_HIGH_MS ? { high: true as const } : {}),
         scene: sc.id,
         atMs: expect,
-        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}`,
-        fix: {
-          kind: "shift-narration",
-          scene: sc.id,
-          anchor: a.mark,
-          deltaMs: -drift,
-          label: `move it ${(abs / 1000).toFixed(2)} s ${drift > 0 ? "earlier" : "later"}`,
-        },
+        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}${diag.supported ? "" : " — not offered as a fix: the measurement is not on a speech onset"}`,
+        // A fix acts on a measurement only when it sits on a speech onset (Q1b): else it is reported, never acted on.
+        ...(diag.supported
+          ? {
+              fix: {
+                kind: "shift-narration" as const,
+                scene: sc.id,
+                anchor: a.mark,
+                deltaMs: -drift,
+                label: `move it ${(abs / 1000).toFixed(2)} s ${drift > 0 ? "earlier" : "later"}`,
+              },
+            }
+          : {}),
       });
     }
   }
+  // How much was measured: the anchors the transcript did not contain are said, not skipped silently.
+  const unmeasured = anchors.filter((a) => a.measuredDriftMs === undefined);
+  if (unmeasured.length)
+    items.push({
+      id: "",
+      check: "drift",
+      level: "info",
+      atMs: unmeasured[0]?.eventMs as number,
+      moments: unmeasured.map((a) => a.eventMs),
+      message: `the narration was measured at ${anchors.length - unmeasured.length} of ${anchors.length} anchors; at ${unmeasured.map((a) => `@${a.mark}`).join(", ")} the transcript did not contain the words, so sync is not checked there`,
+    });
   return {
     items,
     whisper: true,
@@ -670,7 +687,24 @@ export async function runQa(o: {
     whisper: drift.whisper,
     items,
     ...(drift.diagnostics ? { diagnostics: drift.diagnostics } : {}),
+    stage: "render",
+    version: o.rec.version,
+    ...(drift.diagnostics
+      ? {
+          coverage: {
+            anchors: {
+              measured: drift.diagnostics.anchors.filter((a) => a.measuredDriftMs !== undefined)
+                .length,
+              total: drift.diagnostics.anchors.length,
+            },
+          },
+        }
+      : {}),
   };
+  for (const it of report.items) {
+    it.stage = "render";
+    it.version = o.rec.version;
+  }
   fs.writeFileSync(qaFile(o.projectDir, o.rec.version), `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(
     path.join(o.projectDir, "render", `v${o.rec.version}`, "qa-report.md"),

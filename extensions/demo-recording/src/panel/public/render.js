@@ -1,10 +1,11 @@
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 // demo-recording panel — Render tab (S5 part 9, D59–D68): a form for a new
 // render (draft or final, annotation version and types, brands, subtitles,
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
+import { openChecks } from "./checks.js";
+import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { confirmAsk, errorToast } from "./dialog.js";
 import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
@@ -467,10 +468,11 @@ function QaSection({ r, onSeek, reload }) {
   return html`<div class=${`qa-section ${status ?? "none"}`}>
     <div class="row">
       <b>${status ? QA_LABEL[status] : "QA not run"}</b>
-      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} hard stop${r.qa.blocking === 1 ? "" : "s"}${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.high ?? 0} need${(r.qa.high ?? 0) === 1 ? "s" : ""} your eyes · ${r.qa.warnings - (r.qa.high ?? 0)} other warning${r.qa.warnings - (r.qa.high ?? 0) === 1 ? "" : "s"} · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}</span>` : null}
+      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} hard stop${r.qa.blocking === 1 ? "" : "s"}${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.high ?? 0} need${(r.qa.high ?? 0) === 1 ? "s" : ""} your eyes · ${r.qa.warnings - (r.qa.high ?? 0)} other warning${r.qa.warnings - (r.qa.high ?? 0) === 1 ? "" : "s"} · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}${rep?.report?.coverage ? ` · sync measured at ${rep.report.coverage.anchors.measured} of ${rep.report.coverage.anchors.total} anchors` : ""}</span>` : null}
       ${status === "error" ? html`<span class="small-text error">${r.qa.error}</span>` : null}
       <span class="grow"></span>
       ${fixable.length ? html`<button class="ds-btn ds-btn--primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
+      ${r.qa ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => openChecks({ stage: "render", version: r.version })}>All checks…</button>` : null}
       <button class="ds-btn ds-btn--ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
     </div>
     ${by("blocking").length ? html`<h4 class="qa-head">Hard stops</h4><ul class="qa-list">${by("blocking").map(row)}</ul>` : null}

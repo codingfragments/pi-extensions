@@ -37,7 +37,7 @@ Intro words here. [@m1] Then the chart shows it.
  * One scene, "01-a", starts at 2000 ms in the full video; its anchor m1 sits at output 3000 ms (event at
  * 5000 ms in the full video) and the edit planned the narration at `audioAt` (output ms).
  */
-function fixture(audioAt: number, editAudioAt = audioAt, toneAtMs = 5400) {
+function fixture(audioAt: number, editAudioAt = audioAt, toneAtMs = 5400, toneLenMs = 2000) {
   const dir = path.join(root, "projects", "p");
   fs.mkdirSync(path.join(dir, "vo", "audio"), { recursive: true });
   fs.mkdirSync(path.join(dir, "edit"), { recursive: true });
@@ -118,7 +118,7 @@ function fixture(audioAt: number, editAudioAt = audioAt, toneAtMs = 5400) {
       "-f",
       "lavfi",
       "-i",
-      `aevalsrc=if(between(t\\,${t}\\,${t + 2})\\,0.5*sin(2*PI*440*t)\\,0):s=16000:d=12`,
+      `aevalsrc=if(between(t\\,${t}\\,${t + toneLenMs / 1000})\\,0.5*sin(2*PI*440*t)\\,0):s=16000:d=12`,
       "-shortest",
       "-pix_fmt",
       "yuv420p",
@@ -216,7 +216,16 @@ test("no match is recorded, not invented", { skip }, async () => {
   const c = f.ctx(5000);
   c.transcribe = (async () => [{ w: "nothing", s: 1, e: 1.2 }]) as never;
   const r = await checkDrift(c);
-  assert.deepEqual(r.items, []);
+  // not measured is said, never skipped silently: one info line with the anchors and where they are
+  assert.deepEqual(
+    r.items.map((i) => [i.level, i.check]),
+    [["info", "drift"]],
+  );
+  assert.match(
+    r.items[0]?.message ?? "",
+    /measured at 0 of 1 anchors; at @m1 the transcript did not contain the words, so sync is not checked there/,
+  );
+  assert.deepEqual(r.items[0]?.moments, [5000]);
   const a = r.diagnostics?.anchors[0];
   assert.deepEqual([a?.matches, a?.measuredMs, a?.gapMs], [0, undefined, undefined]);
 });
@@ -274,4 +283,24 @@ test("sidesWith: who the audio supports when the transcript and the plan disagre
     /the measurement is probably off/,
   );
   assert.match(sidesWith({ transcriptOnOnset: false }), /the measurement or the render is off/);
+});
+
+test("a fix is offered only for a measurement on a speech onset", { skip }, async () => {
+  // on an onset (the tone starts after silence): a fix
+  const on = await checkDrift(fixture(3400).ctx(5400));
+  assert.equal(on.diagnostics?.anchors[0]?.supported, true);
+  assert.equal(on.items[0]?.fix?.kind, "shift-narration");
+  assert.doesNotMatch(on.items[0]?.message ?? "", /not offered as a fix/);
+
+  // continuous speech: the word start is mid-flow, not on an onset, and there is none around: reported, never acted on
+  const f = fixture(3400, 3400, 0, 12000);
+  const off = await checkDrift(f.ctx(5400));
+  const d = off.diagnostics?.anchors[0];
+  assert.deepEqual([d?.measuredDriftMs, d?.supported], [400, false]);
+  assert.equal(off.items[0]?.fix, undefined);
+  assert.match(
+    off.items[0]?.message ?? "",
+    /starts 400 ms after its moment .* — not offered as a fix: the measurement is not on a speech onset$/,
+  );
+  assert.equal(off.items[0]?.level, "warning", "still a finding");
 });

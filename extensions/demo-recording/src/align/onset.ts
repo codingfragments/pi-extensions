@@ -166,3 +166,75 @@ export function snapToOnset(
   }
   return t;
 }
+
+/** A speech onset needs this much quiet before it (ms). */
+export const ONSET_QUIET_MS = 150;
+
+/** Speech onsets in an envelope (10 ms frames): the first loud frame after at least `ONSET_QUIET_MS` of quiet, in ms. */
+export function speechOnsets(env: number[]): number[] {
+  const peak = Math.max(...env);
+  const on = peak - 32;
+  const quiet = peak - 42;
+  const need = ONSET_QUIET_MS / 10;
+  const out: number[] = [];
+  let q = 0;
+  for (let f = 0; f < env.length; f++) {
+    const v = env[f] as number;
+    if (v < quiet) q++;
+    else if (v >= on) {
+      if (q >= need) out.push(f * 10);
+      q = 0;
+    }
+  }
+  return out;
+}
+
+/** The onset within `withinMs` of `t` (the nearest one), if any. */
+export function onsetNear(onsets: number[], t: number, withinMs: number): number | undefined {
+  let best: number | undefined;
+  for (const o of onsets)
+    if (Math.abs(o - t) <= withinMs && (best === undefined || Math.abs(o - t) < Math.abs(best - t)))
+      best = o;
+  return best;
+}
+
+/**
+ * The anchors of a provider alignment (P1a Q0c): a provider's word timestamps can be ahead of the audible words
+ * (the first real run: ElevenLabs `eleven_v4` was about 0.6 s early after a pause) or a little behind. The
+ * anchored narration is placed where it is HEARD, so each anchor moves to the nearest speech onset: at most
+ * 250 ms earlier, or later as long as the onset still lies inside the first word's own span (the provider says
+ * that word occupies that time, so a rise out of a pause inside it is that word starting). No onset there: the
+ * provider's time stays. Returns the marks that moved.
+ */
+export function snapAnchorsToOnsets(
+  alignment: {
+    words: { w: string; seg: number; s: number; e: number }[];
+    anchors: Record<string, number>;
+  },
+  segments: { anchor?: string | undefined }[],
+  env: number[],
+): { mark: string; from: number; to: number }[] {
+  const onsets = speechOnsets(env);
+  const moved: { mark: string; from: number; to: number }[] = [];
+  segments.forEach((seg, i) => {
+    if (!seg.anchor) return;
+    const t = alignment.anchors[seg.anchor];
+    const first = alignment.words.find((w) => w.seg === i);
+    if (t === undefined || !first) return;
+    const lo = t * 1000 - 250;
+    const hi = Math.max(first.e, t) * 1000;
+    let best: number | undefined;
+    for (const o of onsets)
+      if (
+        o >= lo &&
+        o <= hi &&
+        (best === undefined || Math.abs(o - t * 1000) < Math.abs(best - t * 1000))
+      )
+        best = o;
+    if (best === undefined || Math.abs(best - t * 1000) < 1) return;
+    const to = +(best / 1000).toFixed(3);
+    alignment.anchors[seg.anchor] = to;
+    moved.push({ mark: seg.anchor, from: t, to });
+  });
+  return moved;
+}

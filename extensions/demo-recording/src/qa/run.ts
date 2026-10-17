@@ -14,7 +14,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { norm } from "../align/align.ts";
-import { dropSilentWords, envelope, refineOnsets, snapToOnset } from "../align/onset.ts";
+import {
+  dropSilentWords,
+  envelope,
+  onsetNear,
+  refineOnsets,
+  snapToOnset,
+  speechOnsets,
+} from "../align/onset.ts";
 import { readAnalysis } from "../analysis/take.ts";
 import { resolveContext } from "../annotations/apply.ts";
 import { readVoText } from "../annotations/design.ts";
@@ -40,36 +47,6 @@ export const DRIFT_BLOCK_MS = 300;
 export const DRIFT_WARN_MS = 150;
 /** Measured vs the edit's plan: a bigger gap than this means the measurement or the render is off (D-QA-6). */
 export const DRIFT_DISAGREE_MS = 300;
-/** A speech onset needs this much quiet before it (ms). */
-export const ONSET_QUIET_MS = 150;
-
-/** Speech onsets in an envelope (10 ms frames): the first loud frame after at least `ONSET_QUIET_MS` of quiet, in ms. */
-export function speechOnsets(env: number[]): number[] {
-  const peak = Math.max(...env);
-  const on = peak - 32;
-  const quiet = peak - 42;
-  const need = ONSET_QUIET_MS / 10;
-  const out: number[] = [];
-  let q = 0;
-  for (let f = 0; f < env.length; f++) {
-    const v = env[f] as number;
-    if (v < quiet) q++;
-    else if (v >= on) {
-      if (q >= need) out.push(f * 10);
-      q = 0;
-    }
-  }
-  return out;
-}
-
-/** The onset within `withinMs` of `t` (the nearest one), if any. */
-export function onsetNear(onsets: number[], t: number, withinMs: number): number | undefined {
-  let best: number | undefined;
-  for (const o of onsets)
-    if (Math.abs(o - t) <= withinMs && (best === undefined || Math.abs(o - t) < Math.abs(best - t)))
-      best = o;
-  return best;
-}
 
 export const qaFile = (projectDir: string, v: number) =>
   path.join(projectDir, "render", `v${v}.qa.json`);

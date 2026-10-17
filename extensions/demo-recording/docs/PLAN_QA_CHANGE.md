@@ -103,7 +103,7 @@ The calibration on the first real run ([QA.md](QA.md#calibration-verdict-p1a-q0-
 1. **Both numbers can be wrong**, for different reasons: the transcript stretches a word over a pause (2 of 16 anchors), and the voice's
    own timestamps can be 0.6 s ahead of the audible words (2 of 16). Q0 fixed the first in the check (onset-first measurement) and records
    which side the audio supports.
-2. **New slice Q0c (before Q1):** the voice pipeline snaps anchor times that come from the provider to the audible speech onset, as it
+2. **New slice Q0c (before Q1), done in P1a PR 9:** the voice pipeline snaps anchor times that come from the provider to the audible speech onset, as it
    already does for Whisper alignments, so the sync edit places the anchored narration where it is heard. This is the root cause of the
    repeated blocking items in the first run. Size M.
 3. **Fixes act on a measurement only when it was found and its word start is on a speech onset** (`transcriptOnOnset`); otherwise the

@@ -231,6 +231,15 @@ test("job: events, the version, a quiet note (no turn); a second run waits for t
     );
     await s.job?.done;
     assert.deepEqual(annotationVersions(p.dir), [1]);
+    // P1a: an automatic start is run-and-tell: it says so, with the models and the size of the input
+    assert.ok(
+      events.some((e) =>
+        /^design\.announced:🎨 started by itself after the voice step: the annotation designer \(a\/one, about [\d,]+ tokens in, one call\)/.test(
+          e,
+        ),
+      ),
+      events.join("\n"),
+    );
     assert.ok(
       events.some((e) => /^design\.progress:🎨 designer · calling a\/one/.test(e)),
       events.join("\n"),

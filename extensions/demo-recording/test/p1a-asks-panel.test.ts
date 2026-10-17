@@ -64,6 +64,23 @@ test("Allow and Not now answer the Director's request", { skip, timeout: 90_000 
     await page.waitForSelector(".asks", { state: "detached" });
     assert.equal(rt.grants.has("take", seed.slug, "storyboard:1"), false);
     assert.match(told.at(-1) ?? "", /did NOT allow/);
+
+    // an automatic start announces itself: the Activity drawer shows it before its first step (run-and-tell)
+    rt.bus.publish(
+      "design.announced",
+      {
+        trigger: "auto",
+        message:
+          "🎨 started by itself after the voice step: the annotation designer (a/one, about 900 tokens in, one call).",
+      },
+      seed.slug,
+    );
+    await page.getByRole("button", { name: /Activity/ }).click();
+    await page
+      .getByText(/started by itself after the voice step/)
+      .first()
+      .waitFor();
+    assert.match(await page.locator(".prow.running").innerText(), /Annotation designer/);
     await page.close();
   } finally {
     await browser.close();

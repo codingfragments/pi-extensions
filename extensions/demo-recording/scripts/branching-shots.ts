@@ -15,10 +15,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { readAnnotations, writeAnnotations } from "../src/annotations/file.ts";
 import { resolveConfig } from "../src/config.ts";
 import { Runtime } from "../src/runtime.ts";
-import { approveVersion } from "../src/workdir/state.ts";
+import { branchSeededProject } from "../test/helpers/branching-project.ts";
 import { seedPanelProject } from "../test/helpers/panel-seed.ts";
 
 const arg = (name: string, fallback: string) => {
@@ -35,28 +34,8 @@ const cfg = path.join(seed.root, "demo-global-config.json");
 fs.writeFileSync(cfg, "{}\n");
 process.env.DEMO_REC_CONFIG = cfg;
 
-// --- branch the seeded project --------------------------------------------------------------------------
+branchSeededProject(seed.dir);
 const dir = seed.dir;
-// branch 1: a second narration on the same take, kept as an alternative, with annotations drafted on it
-approveVersion(dir, "vo", 2, "only");
-const a1 = readAnnotations(dir, 1) as NonNullable<ReturnType<typeof readAnnotations>>;
-const { version: _v, ...rest } = a1;
-writeAnnotations(dir, { ...rest, basedOn: { vo: 2 }, by: "demo" });
-// branch 2: a second story, kept as an alternative, and a take of it that has just been recorded
-approveVersion(dir, "storyboard", 2, "only");
-const t1 = path.join(dir, "takes", "take-001");
-const t2 = path.join(dir, "takes", "take-002");
-fs.cpSync(t1, t2, { recursive: true });
-const tj = JSON.parse(fs.readFileSync(path.join(t2, "take.json"), "utf8"));
-fs.writeFileSync(
-  path.join(t2, "take.json"),
-  JSON.stringify({ ...tj, take: "take-002", storyboardVersion: 2 }),
-);
-const aj = path.join(t2, "analysis", "analysis.json");
-if (fs.existsSync(aj)) {
-  const a = JSON.parse(fs.readFileSync(aj, "utf8"));
-  fs.writeFileSync(aj, JSON.stringify({ ...a, take: "take-002", storyboardVersion: 2 }));
-}
 
 const rt = new Runtime(() => ({
   ...resolveConfig({ env: { DEMO_REC_CONFIG: cfg } }),

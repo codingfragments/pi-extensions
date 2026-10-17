@@ -396,6 +396,7 @@ The reasons, grouped. The full table with rationale is in
 
 | You want to … | Read |
 |---|---|
+| **use it**: the path from an idea to a delivered video, the panel screen by screen, a first run | [GUIDE.md](GUIDE.md), [CONTROL_ROOM.md](CONTROL_ROOM.md), [TUTORIAL-101.md](TUTORIAL-101.md) |
 | know **who plays which role**, on which model, and what each may decide | [ACTORS.md](ACTORS.md) |
 | run it and use the commands | [README](../README.md) |
 | **try a second path** without losing the first (narration, story, look) | [BRANCHING.md](BRANCHING.md) |

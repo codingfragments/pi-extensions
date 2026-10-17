@@ -4,9 +4,11 @@
  * (the same runtime the Director uses, so every route exists) and waits for Ctrl-C. Your real recordings
  * and config are not touched.
  *
- *   node extensions/demo-recording/scripts/panel-seed.ts [folder] [--port N] [--new]
+ *   node extensions/demo-recording/scripts/panel-seed.ts [folder] [--port N] [--new | --branching]
  *
- *   --new   an empty project ("demo", nothing in the brief) instead of the seeded one, to see a first run.
+ *   --new         an empty project ("demo", nothing in the brief) instead of the seeded one, to see a first run.
+ *   --branching   the seeded project with two branches (a second narration, a second story and a new take), the one
+ *                 the docs show (GUIDE.md, TUTORIAL-101.md, BRANCHING.md).
  *
  * Note: `cli.ts panel` is the old standalone panel without stage routes; it cannot show the map.
  */
@@ -16,12 +18,14 @@ import path from "node:path";
 import { resolveConfig } from "../src/config.ts";
 import { Runtime } from "../src/runtime.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
+import { branchSeededProject } from "../test/helpers/branching-project.ts";
 import { seedPanelProject } from "../test/helpers/panel-seed.ts";
 
 const args = process.argv.slice(2);
 const portAt = args.indexOf("--port");
 const port = portAt >= 0 ? Number(args[portAt + 1]) : 0;
 const fresh = args.includes("--new");
+const branching = args.includes("--branching");
 const folder = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--port");
 const root = path.resolve(folder ?? (fresh ? "/tmp/demo-new" : "/tmp/demo-try"));
 fs.rmSync(root, { recursive: true, force: true });
@@ -37,6 +41,8 @@ const seed = fresh
     })()
   : seedPanelProject(root);
 
+if (branching && !fresh)
+  branchSeededProject((seed as { dir?: string }).dir ?? path.join(root, "projects", seed.slug));
 process.env.DEMO_REC_NO_OPEN = "1";
 // by hand, the voice pickers list the voices of your own account (read-only, free), like the real panel
 Reflect.deleteProperty(process.env, "DEMO_REC_NO_VOICE_LIST");

@@ -31,7 +31,7 @@ import { ensureProject, listProjects, openProject } from "../workdir/layout.ts";
 import { formatLine } from "../workdir/stages.ts";
 
 export const ACTIVE_ENTRY = "demo-recording.active";
-const SUBCOMMANDS = [
+export const SUBCOMMANDS = [
   "new",
   "open",
   "status",
@@ -39,6 +39,7 @@ const SUBCOMMANDS = [
   "voiceover",
   "render",
   "voices",
+  "brand",
   "config",
   "panel",
   "doctor",

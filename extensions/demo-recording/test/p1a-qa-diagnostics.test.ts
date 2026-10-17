@@ -154,7 +154,11 @@ test("planned and measured agree: the item shows both, no disagreement", { skip 
   const r = await checkDrift(f.ctx(5400));
   assert.equal(r.items.length, 1);
   const it = r.items[0];
-  assert.equal(it?.level, "blocking", "400 ms late is over the limit: what blocks is unchanged");
+  assert.deepEqual(
+    [it?.level, it?.high],
+    ["warning", true],
+    "400 ms late needs your eyes; it stops nothing",
+  );
   assert.match(
     it?.message ?? "",
     /starts 400 ms after its moment \(measured; the edit planned \+400 ms\)$/,

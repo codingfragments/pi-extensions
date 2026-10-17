@@ -578,7 +578,7 @@ export function ProjectMap({ route, go, slug, events, onClose }) {
                   ${sel.blocked ? html`<p class="ds-small">Blocked by dependency: ${sel.blocked}.</p>` : null}
                   ${details.direct ? html`<p class="ds-small ds-muted">Made before annotations existed: linked straight to the voice-over it recorded.</p>` : null}
                   ${sel.stage === "render" && sel.kind === "version" ? html`<${RenderFiles} version=${sel.version} events=${events} />` : null}
-                  ${sel.kind === "qa" ? html`<p class="ds-small">${sel.qa.blocking} blocking, ${sel.qa.warnings} warning(s), ${sel.qa.confirmed} confirmed.</p>` : null}`
+                  ${sel.kind === "qa" ? html`<p class="ds-small">${sel.qa.blocking} hard stop(s), ${sel.qa.warnings} warning(s), ${sel.qa.confirmed} confirmed.</p>` : null}`
                 : html`<p class="ds-small ds-muted">Select a version to see what it is built on. Looking never changes what the next steps use.</p>`
             }
           </div>

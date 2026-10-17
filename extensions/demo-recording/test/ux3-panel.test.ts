@@ -248,7 +248,7 @@ test(
       const card = page.locator(".ds-inspector[data-version='1']");
       const btn = card.getByRole("button", { name: "Approve final v1" });
       assert.equal(await btn.getAttribute("aria-disabled"), "true");
-      assert.match(await card.locator(".ds-why").first().innerText(), /blocking item/i);
+      assert.match(await card.locator(".ds-why").first().innerText(), /hard stop/i);
       await btn.click({ force: true }); // a user pressing it anyway
       assert.equal(state().accepted.render?.["1"], undefined, "a disabled action does nothing");
       assert.equal(dlg.seen.length, 0);

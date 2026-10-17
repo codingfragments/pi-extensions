@@ -87,7 +87,7 @@ test(
         await page.locator(".ds-item[data-key='2']").innerText(),
         /Final v2[\s\S]*Approved[\s\S]*annotations v1[\s\S]*Passed/,
       );
-      assert.match(await page.locator(".ds-item[data-key='1']").innerText(), /\d+ blocking/);
+      assert.match(await page.locator(".ds-item[data-key='1']").innerText(), /\d+ hard stop/);
       assert.match(await page.locator(".ds-item[data-key='3']").innerText(), /Files deleted/);
       // the finals are the list; the drafts wait under one line you can open
       assert.deepEqual(all.sort(), ["1", "2", "3"], "drafts are folded away");
@@ -147,16 +147,13 @@ test(
         "player, then the evidence",
       );
       const qaSection = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
-      assert.match(await qaSection.innerText(), /QA blocked/);
+      assert.match(await qaSection.innerText(), /QA stopped it/);
       assert.equal(await qaSection.getAttribute("open"), "");
       // the decision is pinned at the bottom with its consequence
       assert.match(await page.locator("[data-consequence]").innerText(), /delivered version/);
       const approve = page.getByRole("button", { name: "Approve final v1" });
       assert.equal(await approve.getAttribute("aria-disabled"), "true");
-      assert.match(
-        await page.locator(".ds-inspector .ds-why").first().innerText(),
-        /blocking item/i,
-      );
+      assert.match(await page.locator(".ds-inspector .ds-why").first().innerText(), /hard stop/i);
       await page.click(".ds-item[data-key='2']");
       await page.waitForSelector(".ds-inspector[data-version='2']");
       assert.match(await page.locator(".ds-inspector").innerText(), /Approved · deliverable/);

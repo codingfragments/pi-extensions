@@ -448,7 +448,7 @@ export function formatRender(r: RenderRecord): string {
   ].filter(Boolean);
   const lines = [
     head,
-    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? ` · QA: ${r.qa ? `${r.qa.status}${r.qa.blocking ? ` (${r.qa.blocking} blocking${r.qa.confirmed ? `, ${r.qa.confirmed} confirmed` : ""})` : ""}` : "not run"}` : ""}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}`,
+    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? ` · QA: ${r.qa ? `${r.qa.status}${r.qa.blocking ? ` (${r.qa.blocking} hard stop(s)${r.qa.confirmed ? `, ${r.qa.confirmed} confirmed` : ""})` : ""}` : "not run"}` : ""}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}`,
   ];
   for (const v of r.variants)
     lines.push(

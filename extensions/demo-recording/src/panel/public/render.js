@@ -368,9 +368,10 @@ function FlavorTable({ r, seek, rows, sel, setSel, cur }) {
 
 const fmt = (ms) =>
   `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
+const LEAK_PHRASE = "accept the leak";
 const QA_LABEL = {
   pass: "QA passed",
-  blocked: "QA blocked",
+  blocked: "QA stopped it",
   confirmed: "QA passed (confirmed)",
   error: "QA failed to run",
 };
@@ -378,10 +379,16 @@ const QA_LABEL = {
 function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
+  const [phrase, setPhrase] = useState("");
   const [err, setErr] = useState(null);
   const confirmIt = async () => {
     try {
-      await post("/api/render-qa-confirm", { version: r.version, id: it.id, reason });
+      await post("/api/render-qa-confirm", {
+        version: r.version,
+        id: it.id,
+        reason,
+        acknowledge: phrase,
+      });
       setConfirming(false);
       reload();
     } catch (e) {
@@ -395,11 +402,12 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
     </div>
     ${it.fix ? html`<label class="ds-check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
     ${it.confirmed ? html`<p class="small-text muted">✔ confirmed: “${it.confirmed.reason}”</p>` : null}
+    ${it.hard === "integrity" ? html`<p class="small-text muted">A broken file cannot be confirmed: render again.</p>` : null}
     ${
-      it.level === "blocking" && !it.confirmed
+      it.hard === "redaction" && !it.confirmed
         ? confirming
-          ? html`<div class="row qa-confirm"><input class="note" placeholder="why is it fine to export anyway? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><button class="ds-btn ds-btn--primary" disabled=${reason.trim().length < 3} onClick=${confirmIt}>Confirm</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div>`
-          : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setConfirming(true)}>Confirm & export anyway…</button>`
+          ? html`<div class="qa-confirm"><p class="small-text">A redaction that leaks should be fixed (move or add it in Annotations, then render again). Only as a last resort:</p><div class="row"><input class="note" placeholder="why is it fine? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><input class="note" placeholder=${`type “${LEAK_PHRASE}”`} aria-label="type the acknowledgement" value=${phrase} onInput=${(e) => setPhrase(e.target.value)} /><button class="ds-btn ds-btn--danger" disabled=${reason.trim().length < 3 || phrase.trim().toLowerCase() !== LEAK_PHRASE} onClick=${confirmIt}>Export anyway</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div></div>`
+          : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setConfirming(true)}>Export anyway…</button>`
         : null
     }
   </li>`;
@@ -459,14 +467,27 @@ function QaSection({ r, onSeek, reload }) {
   return html`<div class=${`qa-section ${status ?? "none"}`}>
     <div class="row">
       <b>${status ? QA_LABEL[status] : "QA not run"}</b>
-      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} blocking${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.warnings} warning(s) · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}</span>` : null}
+      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} hard stop${r.qa.blocking === 1 ? "" : "s"}${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.high ?? 0} need${(r.qa.high ?? 0) === 1 ? "s" : ""} your eyes · ${r.qa.warnings - (r.qa.high ?? 0)} other warning${r.qa.warnings - (r.qa.high ?? 0) === 1 ? "" : "s"} · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}</span>` : null}
       ${status === "error" ? html`<span class="small-text error">${r.qa.error}</span>` : null}
       <span class="grow"></span>
       ${fixable.length ? html`<button class="ds-btn ds-btn--primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
       <button class="ds-btn ds-btn--ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
     </div>
-    ${by("blocking").length ? html`<ul class="qa-list">${by("blocking").map(row)}</ul>` : null}
-    ${by("warning").length ? html`<ul class="qa-list">${by("warning").map(row)}</ul>` : null}
+    ${by("blocking").length ? html`<h4 class="qa-head">Hard stops</h4><ul class="qa-list">${by("blocking").map(row)}</ul>` : null}
+    ${
+      by("warning").filter((i) => i.high).length
+        ? html`<h4 class="qa-head">Needs your eyes</h4><ul class="qa-list">${by("warning")
+            .filter((i) => i.high)
+            .map(row)}</ul>`
+        : null
+    }
+    ${
+      by("warning").filter((i) => !i.high).length
+        ? html`<h4 class="qa-head">Worth a look</h4><ul class="qa-list">${by("warning")
+            .filter((i) => !i.high)
+            .map(row)}</ul>`
+        : null
+    }
     ${rep?.report ? html`<ul class="qa-passes">${passed.map((c) => html`<li key=${c.check}><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span> ${c.text}</li>`)}</ul>` : null}
     ${by("info").length ? html`<details><summary class="small-text muted">${by("info").length} info</summary><ul class="qa-list">${by("info").map(row)}</ul></details>` : null}
   </div>`;
@@ -477,7 +498,7 @@ const qaWord = (r) =>
     ? null
     : r.qa
       ? r.qa.status === "blocked"
-        ? `QA blocked: ${r.qa.blocking - r.qa.confirmed} blocking`
+        ? `QA stopped it: ${r.qa.blocking - r.qa.confirmed} hard stop(s)`
         : r.qa.status === "pass"
           ? "QA passed"
           : r.qa.status === "confirmed"
@@ -658,9 +679,9 @@ function qaCell(r) {
   const [tone, ico, word] = !q
     ? ["warn", "", "Not checked"]
     : q.status === "blocked"
-      ? ["err", "!", `${q.blocking - q.confirmed} blocking`]
+      ? ["err", "!", `${q.blocking - q.confirmed} hard stop(s)`]
       : q.status === "pass"
-        ? ["ok", "✓", "Passed"]
+        ? ["ok", "✓", q.high ? `Passed · ${q.high} to look at` : "Passed"]
         : q.status === "confirmed"
           ? ["ok", "✓", "Passed (confirmed)"]
           : ["err", "!", "QA error"];

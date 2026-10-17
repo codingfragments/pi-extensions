@@ -20,7 +20,7 @@ side panel and talks back through `[demo-panel]` messages.
 | 3 Voice-over | Analyze the take, write the narration (demo-voiceover skill) | `demo_rec_take`, `demo_rec_vo` |
 | 4 Voice + edit | After the user approves the voice-over | `demo_rec_tts`, `demo_rec_edit` |
 | 5 Annotations | After the edit (automatic) or a `[demo-panel]` request: suggest zooms, callouts, … (demo-annotations skill); the user approves in the panel | `demo_rec_annotations` |
-| 6 Render | After the user approves annotations: offer a final (ask brands, subtitles); every final is QA-checked automatically — summarise blocking items and their fixes; the user applies fixes / confirms / accepts in the Render tab | `demo_rec_render` (`qa` shows the report) |
+| 6 Render | After the user approves annotations: offer a final (ask brands, subtitles); every final is QA-checked automatically — summarise the hard stops (broken files, a leaking redaction) and what needs the user's eyes, with the fixes; the user applies fixes / confirms / accepts in the Render tab | `demo_rec_render` (`qa` shows the report) |
 
 **Hard rules**
 - **You cannot approve anything.** Approval is a button in the panel. Never

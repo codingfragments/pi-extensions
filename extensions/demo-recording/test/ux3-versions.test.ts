@@ -228,7 +228,7 @@ test("gates: the checks that decided what may be approved still decide it", () =
   const { dir } = seedPanelProject();
   assert.match(
     plan(dir, "render", 1, "approve-use").blockers.join(" "),
-    /blocking item/i,
+    /hard stop/i,
     "the QA gate",
   );
   assert.match(
@@ -400,7 +400,7 @@ test("routes: a stale plan is answered with a fresh plan, not an error; a refuse
         .json.token,
     });
     assert.equal(refused.status, 400);
-    assert.match(String(refused.json.error), /blocking item/i);
+    assert.match(String(refused.json.error), /hard stop/i);
     assert.equal(
       (await post("version-plan", { stage: "nowhere", version: 1, intent: "use" })).status,
       400,

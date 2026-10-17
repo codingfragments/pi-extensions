@@ -1229,6 +1229,35 @@ real GPU rendering, behind a flag, reusing everything else.
 
 ---
 
+## 6a. Phases left
+
+Where the project stands: S0 to S5 are done (S5 including parts 1 to 14, the UX pass UX0 to UX19, the user documentation) and the first
+real-app run is done. It produced 32 findings ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)), grouped with the user into the phases
+below. Everything here is **planned, nothing is implemented**. Details, sizes and the slices of each phase are in
+[ROADMAP.md](ROADMAP.md); the QA redesign is [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md).
+
+| # | Phase | What it is | Days | Status |
+|---|---|---|---|---|
+| **P1** | **QA change** | the QA becomes a report (hard stops only for integrity defects and a missed redaction) that runs after every phase; findings and decisions are remembered; fixes are proposed, refined with free text and applied as visible drafts at the earliest stage, with pending fixes for later stages; timing hints `[@mark +300ms]` replace the render overrides; the agent can no longer approve or spend without a confirmation; the Director's work is visible. Four steps: P1a safety and truth, P1b QA becomes a report, P1c the fix loop, P1d QA after every phase | about 46 | **next** |
+| **Run 2** | **Real-app run 2** (S5 acceptance repeated) | the same app and brief after P1, to prove the quality changes on the real thing; criteria in [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md#run-2-acceptance-the-repeated-s5-run) | about 2 | after P1 |
+| **P2** | **Review workspaces** | a chapter-and-frame component; the recording review with timestamped notes; the voice-over filmstrip; the list and inspector layout fixes (sticky detail, wider list, no overflow, step-through) | about 16 | planned |
+| **P3** | **Discovery you can steer and read** | start or enhance from the Project page with a budget; a discovery report with storyboard guidance; measured progress; an enlarged live preview; discovery checks | about 15 | planned |
+| **P4** | **The Director in the open** | a pending question answered in chat or panel; role labels; the Activity panel docked | about 11 | planned |
+| **P5** | **Compare and small options** | ask the Director to compare versions; the logo bug option explained | about 7 | planned |
+| **Run 3** | **A full run after the P phases** | everything built so far on a different app, without login: it finds what P2 to P5 and the first runs did not, and its findings go into S7, S6 and S8 | about 2 | after P5, before S7 |
+| **S7** | **Auth, safety hardening, real-app acceptance** | `/demo login <app>` with a saved session and a login probe, re-login on expiry, session checks before discovery, before recording and during a take; hardening for real single-page apps; a safety review; secrets hygiene and a leak test (required for v1) | about 8 | planned |
+| **S6** | **Parallel discovery lanes** | several explorer lanes in parallel (opt-in), one progress bar per lane; builds on P3 | about 6 | planned |
+| **S8** | **Native OS-capture backend** | `--cursor=native` on macOS (optional) | later | planned |
+
+The order of P2 to P5 is a default and can change after run 2. **Wanted, not scheduled:** the map minimap, a full annotation editor,
+flexible stage lineage, cursor frame-locking, background music, other languages ([VISION.md](VISION.md#later-wanted-not-scheduled),
+[FUTURE_IDEAS.md](FUTURE_IDEAS.md)). **Known issues:** [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+
+Notes on earlier parts: S5 part 10 (deterministic QA and mechanical auto-fix) is **superseded in part by P1** (the checks stay, the
+gate and the render overrides go).
+
+---
+
 ## 7. Cross-cutting
 
 - **Costs & budgets.** Config caps discovery (screens/actions/minutes), improvise calls per take, and TTS characters per project. The panel shows the running spend estimate. TTS is cached by hash, so re-renders after edit-only changes cost nothing.

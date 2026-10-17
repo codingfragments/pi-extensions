@@ -23,6 +23,8 @@ export interface SectionAlignment {
   /** Start (s) of each anchored segment, keyed by mark. */
   anchors: Record<string, number>;
   source: "provider" | "transcript";
+  /** A provider alignment whose anchors were moved to the audible onsets (P1a Q0c). */
+  snapped?: true;
 }
 
 const NUMBER_WORDS: Record<string, string> = {

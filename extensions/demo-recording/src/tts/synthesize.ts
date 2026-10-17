@@ -22,6 +22,7 @@ import {
   dropSilentWords,
   envelope,
   refineOnsets,
+  snapAnchorsToOnsets,
   snapToOnset,
 } from "../align/onset.ts";
 import { run } from "../media/ffmpeg.ts";
@@ -185,6 +186,15 @@ async function renderWith(
       // Anchors are re-derived from the current segments (cache key is text-only).
       if (Object.keys(alignment.anchors).length !== section.segments.filter((s) => s.anchor).length)
         cached = false;
+      // An older cache entry from a provider (made before Q0c): move its anchors to the audible onsets once.
+      else if (alignment.source === "provider" && !alignment.snapped) {
+        alignment.snapped = true;
+        snapAnchorsToOnsets(alignment, section.segments, await envelope(wav));
+        fs.writeFileSync(
+          meta,
+          JSON.stringify({ ...JSON.parse(fs.readFileSync(meta, "utf8")), alignment }),
+        );
+      }
     }
     if (!cached) {
       const tmp = `${wav}.${process.pid}.tmp.wav`;
@@ -208,6 +218,9 @@ async function renderWith(
           res.chars.ends,
           durationSec,
         );
+        // the provider's timestamps can be ahead of what is audible: anchors go where it is heard (Q0c)
+        alignment.snapped = true;
+        snapAnchorsToOnsets(alignment, section.segments, await envelope(tmp));
       } else {
         const words = await (o.transcribe ?? ((w, t) => whisperWords(w, t, o.alignModel)))(
           tmp,

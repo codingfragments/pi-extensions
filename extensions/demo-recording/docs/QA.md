@@ -111,8 +111,19 @@ times, one phrase planned 400 ms late, and runs the real check on it:
   words, or the start of the audio, when the prompt is shaped a certain way). QA must say "not measured" for those and never guess.
 
 What this means for the plan (see PLAN_QA_CHANGE.md): fixes may act on a measurement only when it was found *and* its word start is on an
-onset; the plan side needs its own fix (anchored narration placed at the audible onset, not at the provider's timestamp); and coverage
+onset; the plan side got its own fix (below); and coverage
 is a known limit to design around, not to hide.
+
+### The plan side: anchors go where the narration is heard (Q0c)
+
+A provider's word timestamps are not always where the words are audible (ElevenLabs `eleven_v4` was about 0.6 s early after a pause, and
+sometimes 100 to 130 ms late). The voice step now moves each anchor of a provider alignment to the nearest **speech onset** (a rise out
+of at least 150 ms of quiet): up to 250 ms earlier, or later as long as the onset is still inside the first word's own span (the provider
+says that word occupies that time; an onset after the word is another word, so the anchor stays). No onset nearby: the provider's time
+stays. The alignment is marked `snapped`; **older cache entries are upgraded once** when they are next read (no new synthesis, nothing
+billed), but a voice-over that was already synthesized needs "Generate voice & render" (cached: free) to write the new anchors into its
+manifest and a new edit. On the first run's voice-over 12 of the 16 anchors moved (most by 10 to 130 ms) to the onsets the QA had measured
+(`faq-expanded` 2.11 → 2.74 s, `recommended-products` 4.12 → 4.69 s).
 
 ## Files
 

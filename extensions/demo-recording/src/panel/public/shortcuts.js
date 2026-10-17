@@ -8,4 +8,12 @@ export const SHORTCUTS = [
   ["/ · Ctrl/Cmd+K", "Search the settings (in Config)"],
   ["Arrow keys in the Map", "Walk the graph from node to node; Enter selects"],
   ["+ · − · 0 in the Map", "Zoom in, zoom out, fit the whole graph in the window"],
+  [
+    "Mouse in the Map",
+    "Wheel zooms at the pointer (Shift + wheel scrolls); drag the background to pan",
+  ],
+  [
+    "Trackpad in the Map",
+    "Pinch zooms at the pointer; two fingers pan (Wheel: Auto / Zooms / Scrolls at the bottom)",
+  ],
 ];

@@ -1,6 +1,6 @@
 /**
  * UX19a: the map can zoom. Fit shows the whole graph in the window, + and − (buttons and keys) go closer or further,
- * Ctrl + wheel does too, Reset view goes back to 100 %. Zoom is a view setting: it never changes what the map shows
+ * the wheel does too, Reset view goes back to 100 %. Zoom is a view setting: it never changes what the map shows
  * or the address.
  */
 
@@ -24,7 +24,7 @@ const browserType = await chromium();
 const skip = !browserType && "needs Playwright Chromium";
 
 test(
-  "map zoom: Fit shows the whole graph, buttons and keys zoom, Ctrl+wheel zooms, Reset goes back, the address is untouched",
+  "map zoom: Fit shows the whole graph, buttons and keys zoom, the wheel zooms, Reset goes back, the address is untouched",
   { skip, timeout: 90_000 },
   async () => {
     process.env.DEMO_REC_NO_OPEN = "1";
@@ -99,7 +99,7 @@ test(
       for (let i = 0; i < 30; i++) await page.keyboard.press("+");
       assert.equal(await level(), "160%");
       assert.equal(await page.locator("[data-act=zoom-in]").isDisabled(), true);
-      // Ctrl + wheel zooms; a plain wheel does not
+      // the wheel zooms (the details of that are in map-pointer.test.ts): up in, down out
       await page.click("[data-act=fit]");
       const box = (await page.locator(".ds-map-canvas").boundingBox()) as {
         x: number;
@@ -109,15 +109,10 @@ test(
       };
       await page.mouse.move(box.x + 200, box.y + 200);
       const before = await level();
-      await page.mouse.wheel(0, 120);
-      assert.equal(await level(), before, "a plain wheel only scrolls");
-      await page.keyboard.down("Control");
       await page.mouse.wheel(0, -120);
-      await page.keyboard.up("Control");
-      assert.ok(
-        Number.parseInt(await level()) > Number.parseInt(before),
-        "Ctrl + wheel up zooms in",
-      );
+      assert.ok(Number.parseInt(await level()) > Number.parseInt(before), "wheel up zooms in");
+      await page.mouse.wheel(0, 120);
+      assert.equal(await level(), before, "wheel down zooms back out");
       // Reset view goes back to 100 %, and through all of it the address never changed
       await page.click("[data-act=reset]");
       assert.equal(await level(), "100%");

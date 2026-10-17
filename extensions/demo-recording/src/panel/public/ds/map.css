@@ -50,6 +50,19 @@
   overflow: auto;
   scrollbar-gutter: stable;
   background: var(--surface-sunken);
+  /* the background is for dragging; what you can press keeps its own pointer */
+  cursor: grab;
+  overscroll-behavior: contain;
+}
+.ds-map-canvas .ds-node {
+  cursor: pointer;
+}
+.ds-map-canvas[data-panning] {
+  cursor: grabbing;
+  user-select: none;
+}
+.ds-map-canvas[data-panning] .ds-node {
+  pointer-events: none;
 }
 /* Zoom: the browser lays the scaled content out at its new size, so scrolling and the sticky headers keep working */
 .ds-map-zoom {

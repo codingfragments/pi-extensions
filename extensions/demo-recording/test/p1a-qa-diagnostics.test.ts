@@ -14,7 +14,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { resolveConfig } from "../src/config.ts";
 import type { SceneTimeline, Timeline } from "../src/edit/timeline.ts";
 import { hasBinary } from "../src/media/ffmpeg.ts";
-import { type Ctx, checkDrift, formatQaMarkdown } from "../src/qa/run.ts";
+import { type Ctx, checkDrift, formatQaMarkdown, sidesWith } from "../src/qa/run.ts";
 import type { QaReport } from "../src/qa/types.ts";
 import type { RenderRecord } from "../src/render/store.ts";
 
@@ -230,5 +230,44 @@ test("the markdown report has the diagnostics table", { skip }, async () => {
   };
   const md = formatQaMarkdown(report);
   assert.match(md, /## Sync diagnostics/);
-  assert.match(md, /\| 01-a \| @m1 \| 5000 \| \+400 \| \+400 \| \+400 \| 0 \| 1 \|/);
+  assert.match(md, /\| 01-a \| @m1 \| 5000 \| \+400 \| \+400 \| \+400 \| 0 \| 1 \| yes \| yes \|/);
+});
+
+test("the audio onset says which of the two is wrong", { skip }, async () => {
+  // the plan is off: the speech starts 400 ms after where the edit put it, and the transcript agrees with the audio
+  const a = fixture(3000, 3000, 5400);
+  const planWrong = await checkDrift(a.ctx(5400));
+  assert.match(
+    planWrong.items[0]?.message ?? "",
+    /the transcript's word start is on a speech onset, so the measurement is probably right and the plan is off$/,
+  );
+  const d = planWrong.diagnostics?.anchors[0];
+  assert.deepEqual([d?.transcriptOnOnset, d?.onsetAtPlanMs], [true, undefined]);
+
+  // a word that Whisper stretched over the pause before it (word start 4.3 s, the speech starts at 5.4 s) is measured
+  // at the speech onset, not at the stretched start: the measurement is right, the transcript was not
+  const b = fixture(3400, 3400, 5400);
+  const c = b.ctx(5400);
+  c.transcribe = (async () => [
+    { w: "then", s: 4.3, e: 5.9 },
+    { w: "the", s: 5.9, e: 6.2 },
+    { w: "chart", s: 6.2, e: 6.5 },
+  ]) as never;
+  const stretched = await checkDrift(c);
+  const e = stretched.diagnostics?.anchors[0];
+  assert.deepEqual([e?.rawMeasuredMs, e?.measuredMs, e?.gapMs], [4300, 5400, 0]);
+  assert.equal(e?.transcriptOnOnset, false, "the stretched word start is not on an onset");
+  assert.doesNotMatch(stretched.items[0]?.message ?? "", /disagree/);
+});
+
+test("sidesWith: who the audio supports when the transcript and the plan disagree", () => {
+  assert.match(
+    sidesWith({ transcriptOnOnset: true }),
+    /measurement is probably right and the plan is off/,
+  );
+  assert.match(
+    sidesWith({ transcriptOnOnset: false, onsetAtPlanMs: 5400 }),
+    /the measurement is probably off/,
+  );
+  assert.match(sidesWith({ transcriptOnOnset: false }), /the measurement or the render is off/);
 });

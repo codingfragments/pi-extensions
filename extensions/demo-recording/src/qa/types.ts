@@ -57,6 +57,14 @@ export interface AnchorDiag {
   measuredDriftMs?: number;
   /** measured − planned audio: how far the rendered audio is from where the plan put it. Should be near zero. */
   gapMs?: number;
+  /**
+   * A second, independent look at the rendered audio (a speech onset is a rise out of at least 150 ms of quiet).
+   * Is the transcript's word start on an onset (within 100 ms)? A word start in the middle of a pause is a
+   * transcript that stretched the word over the pause: it cannot be trusted.
+   */
+  transcriptOnOnset?: boolean;
+  /** An onset within 150 ms of where the plan put the narration: the audio has speech starting there. */
+  onsetAtPlanMs?: number;
 }
 
 export interface QaDiagnostics {

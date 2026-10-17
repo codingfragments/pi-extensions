@@ -85,6 +85,35 @@ measurement or the render is off"), and when the narration lands on its moment b
 blocks does not change** (P1a Q0 only adds information); nothing acts on the measured number until the calibration shows it can be trusted
 (PLAN_QA_CHANGE.md, D-QA-6).
 
+## Calibration verdict (P1a Q0, from the first real run)
+
+The drift numbers of the first real run contradicted the edit's plan by up to 1.4 s (scene `06-faq-qa`: measured −1419 / +1004 / +946 ms,
+planned 0 / +375 / +375 ms), and the same three or four items came back after every "Apply fixes". Re-running the check on that final
+(render v8, 16 anchors) with the diagnostics above, and comparing with the speech onsets in the audio itself, gives:
+
+| What | Anchors | Verdict |
+|---|---:|---|
+| measured within ±130 ms of the plan | 11 | the measurement and the edit agree: both fine |
+| the **transcript** was wrong | 2 (`mirror-reply`, `faq-loaded`) | Whisper stretched the first word back over the pause before it, and the onset refinement then handed the onset to the *next* word. Reported −280 ms and −1419 ms; the audible narration is +45 ms and +41 ms from the plan. The old "move it later by 1.4 s" fix would have broken a correct anchor |
+| the **plan** was wrong | 2 (`faq-expanded`, `recommended-products`) | the voice's own timestamps (ElevenLabs, model `eleven_v4`) put the segment starts about 0.6 s before the audible words (section audio: speech onsets at 2.74 s and 4.69 s, the provider said 2.11 s and 4.12 s). The edit trusted them, so the viewer hears +1004 / +946 ms where the edit planned +375. The QA was right here |
+| not found in the transcript | 1 (`order-summary`) | coverage: the words of the anchor were not recognised |
+
+So **neither side was simply right**, and a fix that acts on one number was the reason QA never converged: it moved correct anchors the
+wrong way. What changed in the check (the same PR): a word start that is not on a speech onset is not believed; the anchor's start is the
+first speech onset around its first two words (falls back to the old snap); both the transcript's and the plan's relation to the audio
+onsets is recorded and said in the item ("the transcript's word start is on a speech onset, so the measurement is probably right and the
+plan is off", or the reverse). On this final the two transcript errors are now measured at +45 and +41 ms.
+
+The calibration harness (`test/p1a-qa-calibration.test.ts`, needs ffmpeg, uv and macOS `say`) builds a mix of real speech at known
+times, one phrase planned 400 ms late, and runs the real check on it:
+- **Accuracy:** every anchor that was found was measured within 100 ms of the planned drift, in every run.
+- **Coverage:** Whisper is not deterministic on this audio; the same mix finds 0 to 3 of the 3 anchors from run to run (it can drop
+  words, or the start of the audio, when the prompt is shaped a certain way). QA must say "not measured" for those and never guess.
+
+What this means for the plan (see PLAN_QA_CHANGE.md): fixes may act on a measurement only when it was found *and* its word start is on an
+onset; the plan side needs its own fix (anchored narration placed at the audible onset, not at the provider's timestamp); and coverage
+is a known limit to design around, not to hide.
+
 ## Files
 
 ```

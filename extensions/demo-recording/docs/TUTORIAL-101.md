@@ -95,7 +95,7 @@ restores the approvals, the line and the phase, once, and only while nothing els
 
 ### A7. Annotations and the render
 
-**Do:** open **Annotations**, switch one item off and on again; open **Render**, click **Final v1** (it has a blocking QA item).
+**Do:** open **Annotations**, switch one item off and on again; open **Render**, click **Final v1** (it was stopped by QA: a hard stop).
 **See:** annotation items by scene (the previews are rendered when you ask, which needs Chromium and ffmpeg and takes a moment; the
 picture below was made without them), and a final with a quality check that says why **Approve final** is disabled.
 
@@ -103,8 +103,8 @@ picture below was made without them), and a final with a quality check that says
 
 ![Render](images/guide/08-render.jpg)
 
-**Behind the scenes:** a final cannot be approved while it has a blocking item: fix it (a mechanical fix is one click and makes a new
-render) or confirm it with a written reason.
+**Behind the scenes:** a final cannot be approved while it has a hard stop: a broken file (render again) or a redaction that leaks (fix it).
+Everything else QA finds is a report: look at what **needs your eyes**, then decide.
 
 ### A8. Settings and the keyboard
 
@@ -184,11 +184,11 @@ next one is tried and the message says so.
 
 ### B7. Final render and the check
 
-**Do:** open **Render**, **New render…**, choose **Final**, **Render now**. When it is done read the **Quality check**. Fix or confirm every
-blocking item, then **Approve final**.
+**Do:** open **Render**, **New render…**, choose **Final**, **Render now**. When it is done read the **Quality check**: any hard stop must go
+(render again or fix the redaction), then look at what **needs your eyes**, then **Approve final**.
 **See:** the final with its variants, a player with **Full video / Scenes**, the check, and the decision bar.
 **Behind the scenes:** the render and the check are one background job with no model; the check compares what is said with what is shown.
-**If it does not work:** a blocking item says what and where (**▶ time** plays from just before it); **Re-run QA** after you install what it
+**If it does not work:** a finding says what and where (**▶ time** plays from just before it); **Re-run QA** after you install what it
 needs.
 
 ### B8. Hand it over

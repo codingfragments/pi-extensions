@@ -102,8 +102,8 @@ needs you or the Director · model profile · failure modes**.
   recording time wait for your Allow (panel or `/demo allow`).
 - **Decide in the panel:** approve per scene (storyboard), accept the take,
   approve the script, toggle and accept annotations, confirm a voice
-  generation after its estimate, fix or confirm blocking QA items **with a
-  reason**, accept the final.
+  generation after its estimate, fix a leaking redaction (or, as a last resort, confirm it **with a
+  reason** and typed words), accept the final.
 - **Steer:** notes per scene or section, an overall note, a **voice direction**
   (stance, tone, length, focus), annotation **instructions**, findings marked
   *use* or *ignore*, outdated inputs.
@@ -284,9 +284,10 @@ needs you or the Director · model profile · failure modes**.
   that no longer cover their element.
 - **Outputs:** `render/vN.qa.json`, with blocking items, warnings, fix
   proposals; runs **automatically after every final**.
-- **Decides alone:** nothing beyond reporting. **Blocking** items gate
-  *Accept*; you **apply the proposed fixes** (a new final with overrides next
-  to the timeline) or **confirm each item with a reason**.
+- **Decides alone:** nothing beyond reporting. Only **hard stops** (a broken
+  file, a leaking redaction) gate *Accept*; everything else is a report with
+  what needs your eyes first. You can **apply the proposed fixes** (a new
+  final with overrides next to the timeline).
 - **Why no model:** deterministic checks are more reliable than sparse
   keyframes, cheaper, and identical on every run (D13, D69).
 - **Failure modes:** Whisper not installed → one warning, drift not checked.

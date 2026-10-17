@@ -497,7 +497,7 @@ test(
   async () => {
     const { page, go, dlg, seed, errors, close } = await setup();
     try {
-      // the seeded final v1 has a QA summary but no report file: give it one blocking item
+      // the seeded final v1 has a QA summary but no report file: give it one hard stop (a leaking redaction)
       const { qaFile } = await import("../src/qa/run.ts");
       fs.mkdirSync(path.dirname(qaFile(seed.dir, 1)), { recursive: true });
       fs.writeFileSync(
@@ -510,11 +510,12 @@ test(
           items: [
             {
               id: "q1",
-              check: "values",
+              check: "annotations",
               level: "blocking",
+              hard: "redaction",
               scene: "01-dash",
               atMs: 2500,
-              message: "the number 14.2 is said but not on the page",
+              message: "redaction r1 doesn't cover its element here — it moved",
             },
           ],
         }),
@@ -574,17 +575,27 @@ test(
       );
       assert.ok((await page.locator(".ds-inspector video").count()) >= 1, "the player");
       const qa = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
-      assert.match(await qa.innerText(), /QA blocked/);
-      await qa.getByText("the number 14.2 is said but not on the page").waitFor();
+      assert.match(await qa.innerText(), /QA stopped it/);
+      await qa.getByText("redaction r1 doesn't cover its element here").waitFor();
       assert.ok(
-        (await qa.getByRole("button", { name: /Confirm & export anyway/ }).count()) >= 1,
-        "the QA override",
+        (await qa.getByRole("button", { name: /Export anyway/ }).count()) >= 1,
+        "the last-resort QA override of a leaking redaction",
       );
-      await qa.getByRole("button", { name: /Confirm & export anyway/ }).click();
+      await qa.getByRole("button", { name: /Export anyway/ }).click();
       assert.equal(
         await qa.locator("input[placeholder^='why is it fine']").count(),
         1,
         "and it asks for a reason",
+      );
+      assert.equal(
+        await qa.locator("input[aria-label='type the acknowledgement']").count(),
+        1,
+        "and for the typed acknowledgement",
+      );
+      assert.equal(
+        await qa.getByRole("button", { name: "Export anyway" }).isDisabled(),
+        true,
+        "which stays off until both are given",
       );
       void dlg;
       assert.deepEqual(errors, []);

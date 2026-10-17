@@ -112,7 +112,7 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
           version,
           ...(j.result?.qa ? { qa: renderEvent(p.dir, j.result).qa } : {}),
           message: j.result?.qa
-            ? `QA of render v${version}: ${j.result.qa.status} · ${j.result.qa.blocking} blocking${j.result.qa.confirmed ? ` (${j.result.qa.confirmed} confirmed)` : ""} · ${j.result.qa.warnings} warning(s)`
+            ? `QA of render v${version}: ${j.result.qa.status} · ${j.result.qa.blocking} hard stop(s)${j.result.qa.confirmed ? ` (${j.result.qa.confirmed} confirmed)` : ""} · ${j.result.qa.warnings} warning(s)`
             : `QA of render v${version} ${j.status}: ${firstLine(j.error ?? "")}`,
         },
         p.slug,

@@ -296,7 +296,7 @@ export function buildGraph(projectDir: string, slug: string, state: ProjectState
         n.qa.status === "pass"
           ? "QA passed"
           : n.qa.status === "blocked"
-            ? `QA: ${n.qa.blocking - n.qa.confirmed} blocking`
+            ? `QA: ${n.qa.blocking - n.qa.confirmed} hard stop(s)`
             : n.qa.status === "confirmed"
               ? "QA confirmed"
               : "QA error",

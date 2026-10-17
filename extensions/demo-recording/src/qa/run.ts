@@ -39,12 +39,17 @@ import type { RenderRequest } from "../render/run.ts";
 import type { RenderRecord, RenderVariantRec } from "../render/store.ts";
 import { readManifest, whisperWords } from "../tts/synthesize.ts";
 import { parseVo } from "../vo/script.ts";
+import { checkIntegrity } from "./integrity.ts";
 import { pageHas, spokenValues } from "./numbers.ts";
 import { type RenderOverrides, applyShifts } from "./overrides.ts";
+import { legacyLevels, summarize } from "./summary.ts";
 import type { AnchorDiag, QaDiagnostics, QaFix, QaItem, QaReport, QaSummary } from "./types.ts";
 
-export const DRIFT_BLOCK_MS = 300;
+/** A narration this far off its moment needs your eyes first (it is a warning, never a stop). */
+export const DRIFT_HIGH_MS = 300;
 export const DRIFT_WARN_MS = 150;
+/** The deliberately heavy last-resort confirmation of a redaction that leaks (D-QA-4). */
+export const LEAK_PHRASE = "accept the leak";
 /** Measured vs the edit's plan: a bigger gap than this means the measurement or the render is off (D-QA-6). */
 export const DRIFT_DISAGREE_MS = 300;
 
@@ -53,21 +58,9 @@ export const qaFile = (projectDir: string, v: number) =>
 
 export function readQa(projectDir: string, v: number): QaReport | undefined {
   const f = qaFile(projectDir, v);
-  return fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as QaReport) : undefined;
-}
-
-export function summarize(items: QaItem[], ranAt = new Date().toISOString()): QaSummary {
-  const blocking = items.filter((i) => i.level === "blocking");
-  const confirmed = blocking.filter((i) => i.confirmed).length;
-  return {
-    status:
-      blocking.length === 0 ? "pass" : confirmed === blocking.length ? "confirmed" : "blocked",
-    blocking: blocking.length,
-    confirmed,
-    warnings: items.filter((i) => i.level === "warning").length,
-    info: items.filter((i) => i.level === "info").length,
-    ranAt,
-  };
+  return fs.existsSync(f)
+    ? legacyLevels(JSON.parse(fs.readFileSync(f, "utf8")) as QaReport)
+    : undefined;
 }
 
 /** The timeline a render used: the edit's, with that render's overrides applied. */
@@ -198,12 +191,13 @@ export function checkValues(c: Ctx): QaItem[] {
           items.push({
             id: "",
             check: "values",
-            level: v.kind === "number" ? "blocking" : "warning",
+            level: "warning",
+            ...(v.kind === "number" ? { high: true as const } : {}),
             scene: sc.id,
             atMs: start + said,
             message:
               v.kind === "number"
-                ? `the narration says ${label} — it isn't on screen anywhere in ${sc.id}. Fix the number in the voice-over (or confirm it's meant, e.g. a forecast)`
+                ? `the narration says ${label} — it isn't on screen anywhere in ${sc.id}. Fix the number in the voice-over, or leave it if it is meant (e.g. a forecast)`
                 : `${label} isn't on screen in ${sc.id} (names are checked loosely — a warning only)`,
           });
       }
@@ -235,10 +229,11 @@ export function checkFootage(c: Ctx): QaItem[] {
       items.push({
         id: "",
         check: "footage",
-        level: err ? "blocking" : "warning",
+        level: "warning",
+        ...(err ? { high: true as const } : {}),
         scene: sc.id,
         atMs: start + takeToSceneMs(sc, a.t),
-        message: `${err ? "an error" : `a ${a.level}`} message is on screen: “${a.text.slice(0, 120)}”${err ? " — re-record the scene, or confirm it's part of the story" : ""}`,
+        message: `${err ? "an error" : `a ${a.level}`} message is on screen: “${a.text.slice(0, 120)}”${err ? " — re-record the scene, or leave it if it is part of the story" : ""}`,
       });
     }
     for (const e of c.events.filter(
@@ -248,7 +243,8 @@ export function checkFootage(c: Ctx): QaItem[] {
       items.push({
         id: "",
         check: "footage",
-        level: "blocking",
+        level: "warning",
+        high: true,
         scene: sc.id,
         atMs: start + takeToSceneMs(sc, e.t),
         message: `the app logged ${e.type === "page-error" ? "an uncaught error" : "a console error"} during this part of the video: “${String((e.data as { text?: string } | undefined)?.text ?? "").slice(0, 120)}” — not visible, but the app may be in a broken state`,
@@ -381,7 +377,8 @@ export async function checkDrift(
       items.push({
         id: "",
         check: "drift",
-        level: abs > DRIFT_BLOCK_MS ? "blocking" : "warning",
+        level: "warning",
+        ...(abs > DRIFT_HIGH_MS ? { high: true as const } : {}),
         scene: sc.id,
         atMs: expect,
         message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}`,
@@ -472,30 +469,56 @@ export async function checkMedia(c: Ctx): Promise<QaItem[]> {
   const overlapShare = (a: number, b: number) =>
     held.reduce((n, [x, y]) => n + Math.max(0, Math.min(b, y) - Math.max(a, x)), 0) /
     Math.max(1, b - a);
+  const heldFrames: { at: number; ms: number }[] = [];
   fs0.forEach((s, i) => {
     const e = fe[i] ?? (c.rec.variants[0]?.durationSec ?? 0) * 1000;
     const expected = overlapShare(s, e) >= 0.6;
+    if (expected || e - s < 6000) {
+      heldFrames.push({ at: s, ms: e - s });
+      return;
+    }
     items.push({
       id: "",
       check: "media",
-      level: expected || e - s < 6000 ? "info" : "warning",
+      level: "warning",
       atMs: s,
-      message: `the picture stands still for ${((e - s) / 1000).toFixed(1)} s${expected ? " (a held frame of the edit — expected)" : " — a loading screen or a frozen page?"}`,
+      message: `the picture stands still for ${((e - s) / 1000).toFixed(1)} s — a loading screen or a frozen page?`,
     });
   });
+  // Held frames the edit made on purpose are noise one by one: one line, with where each is.
+  if (heldFrames.length)
+    items.push({
+      id: "",
+      check: "media",
+      level: "info",
+      atMs: heldFrames[0]?.at as number,
+      moments: heldFrames.map((h) => h.at),
+      message: `${heldFrames.length} held frame${heldFrames.length === 1 ? "" : "s"} where the picture stands still (${(heldFrames.reduce((n, h) => n + h.ms, 0) / 1000).toFixed(1)} s in all, the longest ${(Math.max(...heldFrames.map((h) => h.ms)) / 1000).toFixed(1)} s): the edit holds a frame on purpose, or the picture is short`,
+    });
   const ss = num(/silence_start: ([\d.]+)/g);
   const se = num(/silence_end: ([\d.]+)/g);
+  const pauses: { at: number; ms: number }[] = [];
   ss.forEach((s, i) => {
     const e = se[i] ?? s;
-    const long = e - s >= 4000;
+    if (e - s >= 4000) {
+      items.push({
+        id: "",
+        check: "media",
+        level: "warning",
+        atMs: s,
+        message: `no narration for ${((e - s) / 1000).toFixed(1)} s — a long pause`,
+      });
+    } else pauses.push({ at: s, ms: e - s });
+  });
+  if (pauses.length)
     items.push({
       id: "",
       check: "media",
-      level: long ? "warning" : "info",
-      atMs: s,
-      message: `no narration for ${((e - s) / 1000).toFixed(1)} s${long ? " — a long pause" : ""}`,
+      level: "info",
+      atMs: pauses[0]?.at as number,
+      moments: pauses.map((p) => p.at),
+      message: `${pauses.length} short pause${pauses.length === 1 ? "" : "s"} in the narration (the longest ${(Math.max(...pauses.map((p) => p.ms)) / 1000).toFixed(1)} s)`,
     });
-  });
   for (const m of log.matchAll(/black_start:([\d.]+) black_end:([\d.]+)/g)) {
     const s = Number(m[1]) * 1000;
     const e = Number(m[2]) * 1000;
@@ -555,6 +578,7 @@ export function checkAnnotations(c: Ctx): QaItem[] {
               id: "",
               check: "annotations",
               level: "blocking",
+              hard: "redaction",
               scene: res.scene,
               atMs: (c.timing.sceneStart[res.scene] ?? 0) + takeToSceneMs(sc, s.t),
               message: `redaction ${res.id} doesn't cover its element here — it moved; add a redaction for its new position`,
@@ -619,6 +643,14 @@ export async function runQa(o: {
     ...checkFootage(c),
     ...drift.items,
     ...(await checkMedia(c)),
+    ...(await checkIntegrity({
+      projectDir: o.projectDir,
+      rec: o.rec,
+      full,
+      expectedMs: t.totals.fullMs,
+      expectsAudio:
+        t.scenes.some((s) => s.audio.length > 0) || t.full.some((i) => i.type === "card"),
+    })),
     ...checkAnnotations(c),
   ];
   const order = { blocking: 0, warning: 1, info: 2 } as const;
@@ -676,13 +708,22 @@ export function confirmItem(
   id: string,
   reason: string,
   now = new Date(),
+  acknowledge = "",
 ): { report: QaReport; summary: QaSummary } {
   const report = readQa(projectDir, version);
   if (!report) throw new Error(`render v${version} has no QA report — run QA first`);
   const it = report.items.find((x) => x.id === id);
   if (!it) throw new Error(`QA item ${id} is not in the report of render v${version}`);
   if (it.level !== "blocking")
-    throw new Error(`${id} is a ${it.level} — only blocking items need a confirmation`);
+    throw new Error(`${id} is a ${it.level}, not a hard stop — it does not need a confirmation`);
+  if (it.hard === "integrity")
+    throw new Error(
+      `${id} is a broken file, not a judgement call — it cannot be confirmed: render again`,
+    );
+  if (acknowledge.trim().toLowerCase() !== LEAK_PHRASE)
+    throw new Error(
+      `${id} is a redaction that leaks; fix it. As a last resort type “${LEAK_PHRASE}” to confirm it anyway`,
+    );
   if (reason.trim().length < 3)
     throw new Error("a reason is required — why is it fine to export anyway?");
   it.confirmed = { at: now.toISOString(), reason: reason.trim().slice(0, 500) };
@@ -696,16 +737,16 @@ export function qaBlocker(rec: RenderRecord): string | undefined {
   if (!rec.qa) return "QA has not run on this final — Re-run QA first";
   if (rec.qa.status === "error") return `QA failed to run (${rec.qa.error}) — Re-run QA`;
   if (rec.qa.status === "blocked")
-    return `QA found ${rec.qa.blocking - rec.qa.confirmed} blocking item(s) — fix them (Apply fixes / a new render) or confirm each with a reason`;
+    return `QA found ${rec.qa.blocking - rec.qa.confirmed} hard stop(s): a broken file needs a new render, a redaction that leaks needs a fix`;
   return undefined;
 }
 
 export function formatQa(report: QaReport, summary: QaSummary): string {
-  const head = `QA of render v${report.render} (${report.variant}): ${summary.status} — ${summary.blocking} blocking${summary.confirmed ? ` (${summary.confirmed} confirmed)` : ""}, ${summary.warnings} warning(s), ${summary.info} info${report.whisper ? "" : " · sync not checked (no Whisper)"}`;
+  const head = `QA of render v${report.render} (${report.variant}): ${summary.status} — ${summary.blocking} hard stop(s)${summary.confirmed ? ` (${summary.confirmed} confirmed)` : ""}, ${summary.high ?? 0} need your eyes, ${summary.warnings} warning(s) in all, ${summary.info} info${report.whisper ? "" : " · sync not checked (no Whisper)"}`;
   const lines = [head];
   for (const it of report.items.filter((i) => i.level !== "info"))
     lines.push(
-      `- [${it.level}${it.confirmed ? ", confirmed" : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}${it.fix ? ` → fix: ${it.fix.label}` : ""}`,
+      `- [${it.level === "blocking" ? "HARD STOP" : it.high ? "needs your eyes" : it.level}${it.confirmed ? ", confirmed" : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}${it.fix ? ` → fix: ${it.fix.label}` : ""}`,
     );
   return lines.join("\n");
 }
@@ -847,3 +888,5 @@ export function renderEvent(projectDir: string, rec: RenderRecord): Record<strin
     ...(rec.error ? { error: rec.error } : {}),
   };
 }
+
+export { summarize };

@@ -149,7 +149,7 @@ test("graph: statuses are separate fields, never one merged label", () => {
     warnings: 1,
     confirmed: 0,
   });
-  assert.equal(node(g, "qa:render:1").label, "QA: 1 blocking");
+  assert.equal(node(g, "qa:render:1").label, "QA: 1 hard stop(s)");
   assert.equal(node(g, "qa:render:2").label, "QA passed");
   assert.equal(
     g.nodes.some((n) => n.id === "qa:render:3"),

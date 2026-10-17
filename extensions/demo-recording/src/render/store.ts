@@ -10,7 +10,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { AnnotationType } from "../annotations/types.ts";
-import type { QaSummary } from "../qa/types.ts";
+import { hasLegacyLevels, legacyLevels, summarize } from "../qa/summary.ts";
+import type { QaReport, QaSummary } from "../qa/types.ts";
 import { writeZip } from "../util/zip.ts";
 import { listVersions, writeNextVersion } from "../workdir/versioning.ts";
 
@@ -93,7 +94,18 @@ export const versionDir = (projectDir: string, v: number) =>
 
 export function readRender(projectDir: string, v: number): RenderRecord | undefined {
   const f = recordFile(projectDir, v);
-  return fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as RenderRecord) : undefined;
+  if (!fs.existsSync(f)) return undefined;
+  const rec = JSON.parse(fs.readFileSync(f, "utf8")) as RenderRecord;
+  // A QA made before Q1a called a wrong number or a toast "blocking": only real defects stop a final now, so the
+  // summary is read from the report with the new levels (the files on disk stay as they were).
+  if (rec.qa && rec.qa.status !== "error") {
+    const qf = path.join(projectDir, "render", `v${v}.qa.json`);
+    if (fs.existsSync(qf)) {
+      const report = JSON.parse(fs.readFileSync(qf, "utf8")) as QaReport;
+      if (hasLegacyLevels(report)) rec.qa = summarize(legacyLevels(report).items, report.createdAt);
+    }
+  }
+  return rec;
 }
 
 export function listRenders(projectDir: string): RenderRecord[] {

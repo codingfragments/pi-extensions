@@ -2,6 +2,11 @@
  * QA report types (S5 part 10, D69–D75).
  */
 
+/**
+ * `blocking` is a HARD STOP and nothing else (P1a Q1a, D-QA-1): an integrity defect of the files (no or silent
+ * audio, a truncated video, a listed file missing) or a redaction that does not cover its element. Everything
+ * else is a report: `warning` (with `high` for what needs your eyes first) and `info`.
+ */
 export type QaLevel = "blocking" | "warning" | "info";
 export type QaCheck = "values" | "footage" | "drift" | "media" | "annotations";
 
@@ -23,6 +28,12 @@ export interface QaItem {
   /** Full-video time (ms) — the panel seeks the player there. */
   atMs?: number;
   message: string;
+  /** Why a `blocking` item is a hard stop: the files are broken (re-render), or a redaction leaks. */
+  hard?: "integrity" | "redaction";
+  /** A warning that needs your eyes first (a wrong number, a toast in the footage, a narration far off its moment). */
+  high?: true;
+  /** One item standing for several moments (collapsed noise): where each is, for the player. */
+  moments?: number[];
   fix?: QaFix;
   /** "Confirm & export anyway" (D73). */
   confirmed?: { at: string; reason: string };
@@ -91,8 +102,11 @@ export type QaStatus = "pass" | "blocked" | "confirmed" | "error";
 
 export interface QaSummary {
   status: QaStatus;
+  /** Hard stops (the name stays for older records). */
   blocking: number;
   confirmed: number;
+  /** Warnings that need your eyes first (a subset of `warnings`). */
+  high?: number;
   warnings: number;
   info: number;
   ranAt: string;

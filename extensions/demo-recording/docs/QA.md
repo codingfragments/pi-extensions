@@ -14,39 +14,41 @@ Drafts get no QA.
 
 | Check | What | Level |
 |---|---|---|
-| **Values** | every number and name the narration says, against the page text at the moment it is said (the DOM snapshot at the segment's mark and the layout snapshot at that time). Spoken numbers are normalised: "fourteen point two percent" = 14.2 %, "three hundred forty one" = 341, "four point eight two million" = 4.82. Small prose numbers ("two questions") are not values. | a **number** nowhere in the scene → **blocking**; on screen at another moment of the scene → warning, with a re-time fix; a **name** not on screen → warning (names are guessed from capitals, so they never block) |
-| **Footage** | error toasts (role=alert, `[class*=toast]`, … with an error level) and console / uncaught page errors — only inside the footage the edit **uses** (cut-away moments don't count) | error toast or console error → **blocking**; other toasts → warning |
-| **Sync drift** | Whisper (config `align.model`) on the rendered audio; word starts refined on the audio envelope like the voice pipeline does; each anchor's narration start vs. its event in the full video | > 300 ms → **blocking**, 150–300 ms → warning, each with a re-time fix; Whisper not installed → one warning, sync not checked |
-| **Picture & sound** | ffmpeg `freezedetect`, `blackdetect`, `silencedetect` on the full video | a still picture inside a hold of the edit → info; unexplained still ≥ 6 s → warning; black frames → warning; pauses ≥ 4 s → warning, shorter → info |
-| **Annotations** | items of this render that can't be placed (warnings); a **redaction that doesn't cover its element** in later snapshots of its window (the element moved) → **blocking**; privacy-scan hits this render shows unredacted → warning | |
+| **Values** | every number and name the narration says, against the page text at the moment it is said (the DOM snapshot at the segment's mark and the layout snapshot at that time). Spoken numbers are normalised: "fourteen point two percent" = 14.2 %, "three hundred forty one" = 341, "four point eight two million" = 4.82. Small prose numbers ("two questions") are not values. | a **number** nowhere in the scene → warning that **needs your eyes**; on screen at another moment of the scene → warning, with a re-time fix; a **name** not on screen → warning (names are guessed from capitals) |
+| **Footage** | error toasts (role=alert, `[class*=toast]`, … with an error level) and console / uncaught page errors — only inside the footage the edit **uses** (cut-away moments don't count) | error toast or console error → warning that **needs your eyes**; other toasts → warning |
+| **Sync drift** | Whisper (config `align.model`) on the rendered audio; word starts refined on the audio envelope like the voice pipeline does; each anchor's narration start vs. its event in the full video | > 300 ms → warning that **needs your eyes**, 150–300 ms → warning, each with a re-time fix; Whisper not installed → one warning, sync not checked |
+| **Picture & sound** | ffmpeg `freezedetect`, `blackdetect`, `silencedetect` on the full video | the still pictures the edit holds on purpose (and short ones) → **one info line** with where each is; an unexplained still ≥ 6 s → warning; black frames → warning; a pause ≥ 4 s → warning; the shorter pauses → **one info line** |
+| **Integrity** | the files themselves: every file the render lists exists and is not empty; the video has a picture and is not more than 3 s shorter than the edit; when the edit has narration, the video has an audio track that is not silent (mean level above −55 dB) | any of these → **hard stop** |
+| **Annotations** | items of this render that can't be placed (warnings); a **redaction that doesn't cover its element** in later snapshots of its window (the element moved) → **hard stop**; privacy-scan hits this render shows unredacted → warning | |
 
-Only **blocking** items block accepting the final (D70). Warnings and info
-are listed, never block.
+**Only two things stop a final** (P1a Q1a, D-QA-1): an **integrity defect** (the files are broken: render again) and a **redaction that
+leaks** (a privacy matter). Everything else is a report: warnings that **need your eyes** first (a wrong number, a toast or console error
+in the footage, a narration far off its moment), the other warnings, and info. You can approve a final that has findings; QA tells you
+what to look at, it does not decide for you. Reports and records made before this change read with the new levels (a wrong number
+that was "blocking" is now "needs your eyes"; "Re-run QA" refreshes the rest).
 
 ---
 
 ## In the Render tab
 
 Each final card shows its QA status next to the kind: **QA ✓**, **QA ✓
-(confirmed)**, **QA: N blocking**, **QA not run** or **QA error**, and a QA
+(confirmed)**, **QA stopped it: N hard stop(s)**, **QA not run** or **QA error**, and a QA
 section with:
 
-- the items, blocking first, then warnings and info (collapsed), each with a
+- the items: **Hard stops**, **Needs your eyes**, **Worth a look**, then info (collapsed), each with a
   **▶ time link** that plays the video from just before that moment;
 - for fixable items a **fix** checkbox (on by default) and **Apply N fixes**;
-- for blocking items **Confirm & export anyway…** with a required reason;
+- for a leaking redaction **Export anyway…**, which asks for a reason and the typed words “accept the leak”; a broken file has no such button;
 - **Re-run QA** (after installing Whisper, for older finals, …).
 
-**Accept** stays disabled while a blocking item is open; the reason is shown
-next to it.
+**Accept** stays disabled only while a hard stop is open; the reason is shown next to it.
 
-## Confirm & export anyway
+## Export anyway (a leaking redaction only)
 
-A blocking item can be confirmed when it is intended ("the 14.3 % is the
-forecast, not on screen"). The reason is required, stored with the item in
-the QA report, and logged in the project's inputs (D73). When every blocking
-item is fixed or confirmed, the final can be accepted. Re-running QA keeps
-confirmations of issues that are found again.
+A **broken file cannot be confirmed**: render again. A **redaction that leaks** should be fixed (move or add it in Annotations, render
+again). Only as a last resort can you export anyway: it needs a reason **and** the typed words **accept the leak** (on the command line
+`--acknowledge "accept the leak"`). The reason is stored with the item in the QA report and logged in the project's inputs (D73, D-QA-4).
+When every hard stop is fixed or confirmed, the final can be accepted. Re-running QA keeps confirmations of issues that are found again.
 
 ## Fixes
 

@@ -189,8 +189,9 @@ same job, with no model:
 | **Picture and sound** | frozen or black picture, long silence | no (warnings and info) |
 | **Annotations** | items that cannot be placed; a redaction that does not cover its element; private-looking data left showing | a redaction that misses |
 
-Blocking items must be **fixed** (the mechanical fixes, like re-timing a sentence, are one click and make a new render) or **confirmed
-with a reason**. Then **Approve final**: the approved final is the **delivered version**. Details: [QA.md](QA.md), [RENDER.md](RENDER.md).
+Only two things **stop** a final: a broken file (render again) and a redaction that leaks (fix it; as a last resort type the acknowledgement). A
+wrong number, a toast in the footage or a narration far off its moment is a finding under **Needs your eyes**: look, fix it (the mechanical
+fixes, like re-timing a sentence, are one click and make a new render) or leave it. Then **Approve final**: the approved final is the **delivered version**. Details: [QA.md](QA.md), [RENDER.md](RENDER.md).
 
 ![Render: the runs, the player, the quality check and the decision bar](images/guide/08-render.jpg)
 
@@ -226,7 +227,7 @@ The estimate is a free dry run: `demo_rec_tts check` prints the voice cost for t
 
 | You see | What it means | What to do |
 |---|---|---|
-| **Approve is disabled** with a reason | its parent version is not approved, or a final has a blocking QA item | do what the reason says: approve the parent, or fix or confirm the item |
+| **Approve is disabled** with a reason | its parent version is not approved, or a final has a hard stop (a broken file, a leaking redaction) | do what the reason says: approve the parent, or render again / fix the redaction |
 | **The line stops early** (a stage says nothing is in the production line) | you moved the line to a version that has nothing built on it yet | build the next stage for it (the band names the step) or **Use for next steps** on the older version |
 | **A version is "blocked by dependency"** | something it is built on was un-approved | approve that again; nothing was lost |
 | **I edited and no new version appeared** | an edit is a private working draft | **Save new version** |

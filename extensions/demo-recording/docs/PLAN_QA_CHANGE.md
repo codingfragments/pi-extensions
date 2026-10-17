@@ -1,4 +1,4 @@
-# Plan: changing the QA to follow the decisions (phase P1, the next one)
+# Plan: changing the QA to follow the decisions (phase P1, the next one; see the phase list in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left))
 
 Status: **planned, nothing implemented.** Source: the real-app test run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md), F24 to F32) and the QA grill
 (D-QA-1 to D-QA-11 below). The order of all remaining work is in [ROADMAP.md](ROADMAP.md); this phase is its first.

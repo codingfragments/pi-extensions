@@ -6,7 +6,7 @@ grill (D-QA-1 to D-QA-11). The plans that came out of it are [PLAN_QA_CHANGE.md]
 and [ROADMAP.md](ROADMAP.md) (all remaining phases, their order and the other workstreams).
 
 Kinds: bug, ux, idea, design, policy, cost, praise, question. Evidence names files of the test project (`projects/keycraft/...`).
-"Not acted on" means exactly that: none of this is implemented yet; see the phase list in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-after-the-real-app-run-p1-p5).
+"Not acted on" means exactly that: none of this is implemented yet; see the phase list in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left).
 
 F1 [ux] Project page · there is no way to start a new discovery, or to enhance (re-run / extend) an existing one, from the Project page. Expected: a button there (start discovery; if one exists, "enhance" it, e.g. with extra notes, areas or sources).
    Context when noted: discovery starts only from pi (`/demo discover`); the Project page has Brief, Sources & context, Findings and Project history groups but no action for it.

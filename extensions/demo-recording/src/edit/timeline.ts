@@ -49,6 +49,8 @@ export function buildTimeline(
   analysis: TakeAnalysis,
   voice: VoiceManifest,
   out: { fps: number; size: { width: number; height: number } },
+  /** Timing hints by scene then mark (ms the narration starts after the event; Q6). */
+  hints: Record<string, Record<string, number>> = {},
 ): Timeline {
   const scenes: SceneTimeline[] = analysis.scenes.map((sc) => {
     const audio = voice.sections[sc.id];
@@ -70,6 +72,7 @@ export function buildTimeline(
         ? Math.round(audio.durationSec * 1000)
         : Math.max(1000, usable - LIMITS.tailMs),
       anchors: anchorsMs,
+      ...(hints[sc.id] ? { hints: hints[sc.id] } : {}),
     });
     if (!audio) edit.audio = [];
     return { ...edit, title: sc.title, audioFile: audio?.file ?? null };

@@ -33,6 +33,11 @@ export interface VoSegment {
   anchor?: string;
   /** Text as written (bindings unresolved). */
   text: string;
+  /**
+   * Timing hint (Q6, D-QA-5): `[@mark +300ms]` = the narration after the mark starts 300 ms AFTER its event (negative: before).
+   * It is never spoken and never part of what is synthesised or cached, so changing it costs no audio.
+   */
+  hintMs?: number;
 }
 
 export interface VoSection {
@@ -82,7 +87,38 @@ export const BANNED = [
 
 /** `<!-- confidence: 2 — the number may have changed -->` (score 1–5, optional reason after —, -, or :). */
 const CONFIDENCE_RE = /<!--\s*confidence:\s*([1-5])\s*(?:[—–:-]\s*([\s\S]*?))?\s*-->/g;
-const ANCHOR_RE = /\[@([a-z0-9][a-z0-9-]*)\]/g;
+/** `[@mark]` or `[@mark +300ms]` / `[@mark -0.3s]` (a sign is required on a hint; − is accepted). */
+const ANCHOR_RE =
+  /\[@([a-z0-9][a-z0-9-]*)(?:[ \t]+([+\-\u2212])(\d+(?:\.\d+)?)[ \t]*(ms|s))?[ \t]*\]/g;
+/** Anything that looks like an anchor, to say so when it is not one (it would be spoken as words). */
+const ANYTHING_ANCHOR_RE = /\[@[^\]\n]*\]/g;
+/** The most a hint may move the narration (ms), and the size above which it is only a warning. */
+export const HINT_MAX_MS = 3000;
+export const HINT_BIG_MS = 1500;
+
+/** The hint of one anchor match, in ms (undefined without one). */
+function hintOf(m: RegExpMatchArray): number | undefined {
+  if (!m[2]) return undefined;
+  const n = Number(m[3]) * (m[4] === "s" ? 1000 : 1);
+  return Math.round(m[2] === "+" ? n : -n);
+}
+
+/** `[@mark]` with its hint written back in the canonical form: `[@mark +300ms]`. */
+export const anchorToken = (mark: string, hintMs?: number): string =>
+  hintMs === undefined ? `[@${mark}]` : `[@${mark} ${hintMs < 0 ? "-" : "+"}${Math.abs(hintMs)}ms]`;
+
+/** The timing hints of a script, by scene then mark. */
+export function hintsOf(script: VoScript): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const s of script.sections)
+    for (const seg of s.segments)
+      if (s.scene && seg.anchor && seg.hintMs !== undefined && seg.hintMs !== 0) {
+        const scene = out[s.scene] ?? {};
+        scene[seg.anchor] = seg.hintMs;
+        out[s.scene] = scene;
+      }
+  return out;
+}
 const BINDING_RE = /\{\{dom:([a-z0-9][a-z0-9-]*)\|(.+?)\}\}/g;
 
 export function parseVo(text: string): VoScript {
@@ -147,14 +183,22 @@ export function splitSegments(body: string): VoSegment[] {
   const segs: VoSegment[] = [];
   let last = 0;
   let anchor: string | undefined;
+  let hint: number | undefined;
+  const push = (text: string) => {
+    if (text || anchor)
+      segs.push({
+        ...(anchor ? { anchor } : {}),
+        ...(anchor && hint !== undefined ? { hintMs: hint } : {}),
+        text,
+      });
+  };
   for (const m of body.matchAll(ANCHOR_RE)) {
-    const text = clean(body.slice(last, m.index));
-    if (text || anchor) segs.push({ ...(anchor ? { anchor } : {}), text });
+    push(clean(body.slice(last, m.index)));
     anchor = m[1];
+    hint = hintOf(m);
     last = (m.index as number) + m[0].length;
   }
-  const tail = clean(body.slice(last));
-  if (tail || anchor) segs.push({ ...(anchor ? { anchor } : {}), text: tail });
+  push(clean(body.slice(last)));
   return segs.filter((s) => s.text || s.anchor);
 }
 
@@ -246,6 +290,27 @@ export function validateVo(script: VoScript, analysis: TakeAnalysis, domDir: str
       );
     }
     const scene = section.scene ? sceneById.get(section.scene) : undefined;
+    // a token that looks like an anchor but is not one would be SPOKEN as words: say so
+    for (const t of section.body.matchAll(ANYTHING_ANCHOR_RE)) {
+      if (!new RegExp(`^${ANCHOR_RE.source}$`).test(t[0]))
+        err(
+          section.key,
+          `"${t[0]}" is not an anchor: write [@mark], or a timing hint like [@mark +300ms] or [@mark -0.5s] (a sign, a number, ms or s)`,
+        );
+    }
+    for (const seg of section.segments) {
+      if (seg.hintMs === undefined || !seg.anchor) continue;
+      if (Math.abs(seg.hintMs) > HINT_MAX_MS)
+        err(
+          section.key,
+          `[@${seg.anchor} ${seg.hintMs > 0 ? "+" : "-"}${Math.abs(seg.hintMs)}ms]: a timing hint is at most ±${HINT_MAX_MS} ms (move the anchor instead)`,
+        );
+      else if (Math.abs(seg.hintMs) > HINT_BIG_MS)
+        warn(
+          section.key,
+          `[@${seg.anchor}] ${seg.hintMs > 0 ? "+" : "-"}${Math.abs(seg.hintMs)} ms is a big shift: the scene gets longer, or the video waits`,
+        );
+    }
     if (section.kind !== "scene" && section.segments.some((s) => s.anchor)) {
       err(section.key, "anchors are only allowed in scene sections");
     }

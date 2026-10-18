@@ -17,6 +17,7 @@ import type { DemoRecConfig } from "../config.ts";
 import { draftStamp } from "../render/stamp.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { readManifest } from "../tts/synthesize.ts";
+import { hintsOf } from "../vo/script.ts";
 import { readVo } from "../vo/store.ts";
 import { readApp } from "../workdir/layout.ts";
 import { readState, requireSelected } from "../workdir/state.ts";
@@ -402,7 +403,12 @@ export function buildEdit(o: {
   if (!analysis) throw new Error(`${vo.validated.script.take} has not been analyzed`);
   if (!fs.existsSync(path.join(takeDir, "raw.mp4")))
     throw new Error(`${vo.validated.script.take}/raw.mp4 is missing`);
-  const timeline = buildTimeline(analysis, manifest, { fps: o.config.fps, size: o.config.output });
+  const timeline = buildTimeline(
+    analysis,
+    manifest,
+    { fps: o.config.fps, size: o.config.output },
+    hintsOf(vo.validated.script),
+  );
   const stored = writeNextVersion(
     path.join(o.projectDir, "edit"),
     "timeline.v",
@@ -450,7 +456,12 @@ export function voiceFit(
   if (!manifest) return undefined;
   const analysis = readAnalysis(path.join(projectDir, "takes", manifest.take));
   if (!analysis) return undefined;
-  const timeline = buildTimeline(analysis, manifest, { fps: config.fps, size: config.output });
+  const timeline = buildTimeline(
+    analysis,
+    manifest,
+    { fps: config.fps, size: config.output },
+    hintsOf(readVo(projectDir, voVersion)?.validated.script ?? { take: "", sections: [] }),
+  );
   const voiceSec = Object.fromEntries(
     Object.values(manifest.sections).map((s) => [s.key, s.durationSec]),
   );

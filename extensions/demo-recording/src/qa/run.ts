@@ -335,7 +335,8 @@ export async function checkDrift(
         mark: a.mark,
         eventMs: Math.round(expect),
         plannedAudioMs: Math.round(start + a.audioAt),
-        plannedDriftMs: Math.round(a.audioAt - a.out),
+        plannedDriftMs: Math.round(a.audioAt - a.out - (a.hint ?? 0)),
+        hintMs: a.hint ?? 0,
         editDriftMs: Math.round(
           original?.scenes.find((x) => x.id === sc.id)?.anchors.find((x) => x.mark === a.mark)
             ?.drift ?? a.audioAt - a.out,
@@ -374,7 +375,8 @@ export async function checkDrift(
       const hi = Math.max(secondAt ?? rawBest, rawBest) + 150;
       const around = onsets.find((o) => o >= rawBest - 120 && o <= hi);
       best = around ?? snapToOnset(rawBest / 1000, env) * 1000;
-      const drift = Math.round(best - expect);
+      // measured against where the narration was MEANT to start: the event plus the timing hint (Q6)
+      const drift = Math.round(best - expect - (a.hint ?? 0));
       diag.measuredMs = Math.round(best);
       diag.supported = around !== undefined || diag.transcriptOnOnset === true;
       diag.measuredDriftMs = drift;
@@ -389,6 +391,9 @@ export async function checkDrift(
           .map((w) => norm(w.w)),
       };
       const planned = `the edit planned ${diag.plannedDriftMs >= 0 ? "+" : "−"}${Math.abs(diag.plannedDriftMs)} ms`;
+      const moment = a.hint
+        ? `where you set it (its moment ${a.hint > 0 ? "+" : "−"}${Math.abs(a.hint)} ms)`
+        : "its moment";
       if (abs <= DRIFT_WARN_MS) {
         if (disagree)
           items.push({
@@ -410,7 +415,7 @@ export async function checkDrift(
         ...(abs > DRIFT_HIGH_MS ? { high: true as const } : {}),
         scene: sc.id,
         atMs: expect,
-        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}${diag.supported ? "" : " — not offered as a fix: the measurement is not on a speech onset"}`,
+        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} ${moment} (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}${diag.supported ? "" : " — not offered as a fix: the measurement is not on a speech onset"}`,
         // A fix acts on a measurement only when it sits on a speech onset (Q1b): else it is reported, never acted on.
         ...(diag.supported
           ? {

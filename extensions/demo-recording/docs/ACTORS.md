@@ -103,7 +103,7 @@ needs you or the Director · model profile · failure modes**.
 - **Decide in the panel:** approve per scene (storyboard), accept the take,
   approve the script, toggle and accept annotations, confirm a voice
   generation after its estimate, fix a leaking redaction (or, as a last resort, confirm it **with a
-  reason** and typed words), accept the final.
+  reason**), accept the final.
 - **Steer:** notes per scene or section, an overall note, a **voice direction**
   (stance, tone, length, focus), annotation **instructions**, findings marked
   *use* or *ignore*, outdated inputs.

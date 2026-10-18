@@ -589,13 +589,13 @@ test(
       );
       assert.equal(
         await qa.locator("input[aria-label='type the acknowledgement']").count(),
-        1,
-        "and for the typed acknowledgement",
+        0,
+        "and nothing else: no typed phrase",
       );
       assert.equal(
         await qa.getByRole("button", { name: "Export anyway" }).isDisabled(),
         true,
-        "which stays off until both are given",
+        "which stays off until a reason is given",
       );
       void dlg;
       assert.deepEqual(errors, []);

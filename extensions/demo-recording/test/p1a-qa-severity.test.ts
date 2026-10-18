@@ -1,7 +1,7 @@
 /**
  * P1a PR 10 (Q1a): only real defects stop a final (D-QA-1). The integrity checks (a listed file missing, no picture,
  * a truncated video, no or silent audio), reports from before the change read with the new levels, and the
- * confirm route's typed acknowledgement for a redaction that leaks.
+ * confirm route for a redaction that leaks (a reason, nothing else).
  */
 
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { resolveConfig } from "../src/config.ts";
 import { hasBinary } from "../src/media/ffmpeg.ts";
 import { checkIntegrity, listedFiles } from "../src/qa/integrity.ts";
-import { LEAK_PHRASE, qaBlocker, qaFile, readQa } from "../src/qa/run.ts";
+import { qaBlocker, qaFile, readQa } from "../src/qa/run.ts";
 import type { QaReport } from "../src/qa/types.ts";
 import { type RenderRecord, readRender, saveRecord } from "../src/render/store.ts";
 import { Runtime } from "../src/runtime.ts";
@@ -213,7 +213,7 @@ test("an older report whose only blockers were judgement calls reads as passed",
 
 // --- the confirm route --------------------------------------------------------------------
 
-test("render-qa-confirm: a leaking redaction needs the reason and the typed acknowledgement; a broken file cannot be confirmed", async () => {
+test("render-qa-confirm: a leaking redaction needs a reason; a broken file cannot be confirmed", async () => {
   const seed = seedPanelProject();
   const cfg = path.join(seed.root, "c.json");
   fs.writeFileSync(cfg, "{}");
@@ -257,18 +257,17 @@ test("render-qa-confirm: a leaking redaction needs the reason and the typed ackn
       b: Record<string, unknown>,
     ) => unknown;
     assert.throws(
-      () => post({ version: 1, id: "annotations-1", reason: "test data" }),
-      /type “accept the leak”/,
+      () => post({ version: 1, id: "annotations-1", reason: " " }),
+      /reason is required/,
     );
     assert.throws(
-      () => post({ version: 1, id: "media-2", reason: "x", acknowledge: LEAK_PHRASE }),
+      () => post({ version: 1, id: "media-2", reason: "x" }),
       /cannot be confirmed: render again/,
     );
     const r = post({
       version: 1,
       id: "annotations-1",
       reason: "all test data",
-      acknowledge: LEAK_PHRASE,
     }) as {
       summary: { status: string; confirmed: number };
       blocker: string | null;

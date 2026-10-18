@@ -38,7 +38,7 @@ section with:
 - the items: **Hard stops**, **Needs your eyes**, **Worth a look**, then info (collapsed), each with a
   **▶ time link** that plays the video from just before that moment;
 - for fixable items a **fix** checkbox (on by default) and **Apply N fixes**;
-- for a leaking redaction **Export anyway…**, which asks for a reason and the typed words “accept the leak”; a broken file has no such button;
+- for a leaking redaction **Export anyway…**, which asks for a reason; a broken file has no such button;
 - **Re-run QA** (after installing Whisper, for older finals, …).
 
 **Accept** stays disabled only while a hard stop is open; the reason is shown next to it.
@@ -46,8 +46,7 @@ section with:
 ## Export anyway (a leaking redaction only)
 
 A **broken file cannot be confirmed**: render again. A **redaction that leaks** should be fixed (move or add it in Annotations, render
-again). Only as a last resort can you export anyway: it needs a reason **and** the typed words **accept the leak** (on the command line
-`--acknowledge "accept the leak"`). The reason is stored with the item in the QA report and logged in the project's inputs (D73, D-QA-4).
+again). Only as a last resort can you export anyway: it needs a **reason** (on the command line `--confirm ID --reason R`). The reason is stored with the item in the QA report and logged in the project's inputs (D73, D-QA-4).
 When every hard stop is fixed or confirmed, the final can be accepted. Re-running QA keeps confirmations of issues that are found again.
 
 ## Fixes

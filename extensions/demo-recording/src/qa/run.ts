@@ -48,8 +48,6 @@ import type { AnchorDiag, QaDiagnostics, QaFix, QaItem, QaReport, QaSummary } fr
 /** A narration this far off its moment needs your eyes first (it is a warning, never a stop). */
 export const DRIFT_HIGH_MS = 300;
 export const DRIFT_WARN_MS = 150;
-/** The deliberately heavy last-resort confirmation of a redaction that leaks (D-QA-4). */
-export const LEAK_PHRASE = "accept the leak";
 /** Measured vs the edit's plan: a bigger gap than this means the measurement or the render is off (D-QA-6). */
 export const DRIFT_DISAGREE_MS = 300;
 
@@ -742,7 +740,6 @@ export function confirmItem(
   id: string,
   reason: string,
   now = new Date(),
-  acknowledge = "",
 ): { report: QaReport; summary: QaSummary } {
   const report = readQa(projectDir, version);
   if (!report) throw new Error(`render v${version} has no QA report — run QA first`);
@@ -753,10 +750,6 @@ export function confirmItem(
   if (it.hard === "integrity")
     throw new Error(
       `${id} is a broken file, not a judgement call — it cannot be confirmed: render again`,
-    );
-  if (acknowledge.trim().toLowerCase() !== LEAK_PHRASE)
-    throw new Error(
-      `${id} is a redaction that leaks; fix it. As a last resort type “${LEAK_PHRASE}” to confirm it anyway`,
     );
   if (reason.trim().length < 3)
     throw new Error("a reason is required — why is it fine to export anyway?");

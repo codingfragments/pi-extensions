@@ -23,7 +23,7 @@ they give the order of magnitude, not dates.
 | **P3** | **Discovery you can steer and read** (start or enhance from the Project page with a budget choice; a discovery report with guidance for the storyboard; measured progress and coverage; an enlarged live preview; discovery checks) | F1 F2 F3 F5 F6 (F8 is the model for the bar) | about 15 |
 | **P4** | **The Director in the open** (a pending question answered in chat or in the panel, both in sync; role labels in the chat; Activity as a docked panel) | F7 F18 F23 | about 11 |
 | **P5** | **Compare and small options** (ask the Director to compare versions; the logo bug option explained) | F14 F28 | about 7 |
-| **Run 3** | **A full run after P5, before S7**, ideally on a different app (no login yet), to find what P2 to P5 did not; its findings go into S7, S6 and S8 | | about 2 |
+| **Run 3** | **A full run after P5, before S7**, ideally on a different app (no login yet), to find what P2 to P5 did not (including layout on real data: every screen at 1400 and 900 px); its findings go into S7, S6 and S8 | | about 2 |
 | **S7** | **Login and sessions, real-app acceptance** (required for v1; with the session checks of F4) | F4 | about 8 |
 | **S6** | Parallel discovery lanes (opt-in; builds on P3's measured progress) | F6 | about 6 |
 | **S8** | Native capture (optional) | | later |

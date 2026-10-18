@@ -186,7 +186,7 @@ export function renderRoutes(rt: Runtime): {
         const job = startQa(rt, Number(body.version), "panel");
         return { job: job.id };
       },
-      /** Confirm a hard stop that is a leaking redaction: a reason and the typed acknowledgement (D73, D-QA-4). */
+      /** Confirm a hard stop that is a leaking redaction: a reason (D73, D-QA-4). */
       "render-qa-confirm": (body) => {
         const p = requireProject();
         const v = Number(body.version);
@@ -197,8 +197,6 @@ export function renderRoutes(rt: Runtime): {
           v,
           String(body.id ?? ""),
           String(body.reason ?? ""),
-          new Date(),
-          String(body.acknowledge ?? ""),
         );
         rec.qa = summary;
         saveRecord(p.dir, rec);

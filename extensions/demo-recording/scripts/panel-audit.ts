@@ -153,6 +153,14 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
       panelPort: 0,
     }));
     rt.setActiveProject(seed.slug);
+    // Real briefs are long: the audit runs on a persona and a goal of several sentences, so a layout that only works
+    // with short seed values (the Project summary did) shows up here, not in the first real run.
+    const long =
+      "Technical evaluators: engineers and product managers who know e-commerce and modern web UIs, have never seen the product, and will judge build quality and whether the AI chat actually works, not just whether it looks good in a demo.";
+    await (rt.routeTables().post["project-facts"] as (b: Record<string, unknown>) => unknown)({
+      patch: { persona: long, goal: `${long} ${long}` },
+      confirm: true,
+    });
     // the checks popup and the Director's request need something to show
     const { qaFile } = await import("../src/qa/run.ts");
     fs.mkdirSync(path.dirname(qaFile(seed.dir, 1)), { recursive: true });

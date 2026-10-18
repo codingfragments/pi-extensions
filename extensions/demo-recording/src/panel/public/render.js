@@ -369,7 +369,6 @@ function FlavorTable({ r, seek, rows, sel, setSel, cur }) {
 
 const fmt = (ms) =>
   `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
-const LEAK_PHRASE = "accept the leak";
 const QA_LABEL = {
   pass: "QA passed",
   blocked: "QA stopped it",
@@ -380,7 +379,6 @@ const QA_LABEL = {
 function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
-  const [phrase, setPhrase] = useState("");
   const [err, setErr] = useState(null);
   const confirmIt = async () => {
     try {
@@ -388,7 +386,6 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
         version: r.version,
         id: it.id,
         reason,
-        acknowledge: phrase,
       });
       setConfirming(false);
       reload();
@@ -407,7 +404,7 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
     ${
       it.hard === "redaction" && !it.confirmed
         ? confirming
-          ? html`<div class="qa-confirm"><p class="small-text">A redaction that leaks should be fixed (move or add it in Annotations, then render again). Only as a last resort:</p><div class="row"><input class="note" placeholder="why is it fine? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><input class="note" placeholder=${`type “${LEAK_PHRASE}”`} aria-label="type the acknowledgement" value=${phrase} onInput=${(e) => setPhrase(e.target.value)} /><button class="ds-btn ds-btn--danger" disabled=${reason.trim().length < 3 || phrase.trim().toLowerCase() !== LEAK_PHRASE} onClick=${confirmIt}>Export anyway</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div></div>`
+          ? html`<div class="qa-confirm"><p class="small-text">A redaction that leaks should be fixed (move or add it in Annotations, then render again). Only as a last resort, with a reason:</p><div class="row"><input class="note" placeholder="why is it fine? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><button class="ds-btn ds-btn--danger" disabled=${reason.trim().length < 3} onClick=${confirmIt}>Export anyway</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div></div>`
           : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setConfirming(true)}>Export anyway…</button>`
         : null
     }

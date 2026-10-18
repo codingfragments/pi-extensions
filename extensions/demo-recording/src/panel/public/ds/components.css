@@ -1454,6 +1454,9 @@ dialog.ds-dialog::backdrop {
 /* ---------- Project summary (UX8): the brief in human terms ---------- */
 .ds-factlist {
   display: grid;
+  /* A <dl> would otherwise inherit the legacy `dl { grid-template-columns: max-content 1fr }`, and one long value
+     (a persona, a goal) made the first column as wide as the text. Two columns when there is room, else one. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
   gap: 1px;
   margin: var(--space-3) 0;
   border: 1px solid var(--border-subtle);

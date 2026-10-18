@@ -143,8 +143,8 @@ test(
         .allInnerTexts();
       assert.deepEqual(
         titles.slice(0, 2),
-        ["Variants and player", "Quality check"],
-        "player, then the evidence",
+        ["Quality check", "Variants"],
+        "the evidence first, then the variants (the player sits beside the evidence)",
       );
       const qaSection = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
       assert.match(await qaSection.innerText(), /QA stopped it/);

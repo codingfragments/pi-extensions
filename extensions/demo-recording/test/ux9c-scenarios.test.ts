@@ -569,10 +569,7 @@ test(
       );
       // Render: variants and the player, and the QA override on a blocked final
       await go("#/render/v1", ".ds-inspector[data-version='1']");
-      assert.match(
-        await page.locator(".ds-inspector").innerText(),
-        /Variants and player[\s\S]*neutral/,
-      );
+      assert.match(await page.locator(".ds-inspector").innerText(), /Variants[\s\S]*neutral/);
       assert.ok((await page.locator(".ds-inspector video").count()) >= 1, "the player");
       const qa = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
       assert.match(await qa.innerText(), /QA stopped it/);

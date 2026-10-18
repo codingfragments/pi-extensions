@@ -163,6 +163,8 @@
   /* Layout */
   --measure: 68ch; /* prose and narration stay in a readable column */
   --header-h: 3.5rem;
+  /* the sticky header and next-action band together: the frame measures it and sets the real value; what sticks below it uses this */
+  --hwrap-h: 7.5rem;
   --strip-h: 2.5rem;
   --list-w: 20rem;
   --inspector-min: 28rem;

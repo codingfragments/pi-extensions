@@ -37,6 +37,7 @@ const MAIN = [
   "CONTROL_ROOM.md",
   "TUTORIAL-101.md",
   "ROADMAP.md",
+  "DIRECTOR_STATE.md",
   "PLAN_QA_CHANGE.md",
   "REAL_RUN_FINDINGS.md",
 ].map((f) => path.join(DOCS, f));

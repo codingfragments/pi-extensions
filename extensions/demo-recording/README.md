@@ -15,7 +15,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 - **How it works, end to end** (the flow, the principles and their reasons, the stage chain, the files, the panel and the agent bridge, with diagrams): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Who does what**: the cast (you, models, engine, scripts), each role's inputs, outputs, decisions and model, and how work is handed over: [docs/ACTORS.md](docs/ACTORS.md)
 - **Branching**: how to try a second narration, story or look without losing the first, with the map as it looks in the panel: [docs/BRANCHING.md](docs/BRANCHING.md)
-- **Where it is going:** the findings of the first real-app run ([docs/REAL_RUN_FINDINGS.md](docs/REAL_RUN_FINDINGS.md)), the roadmap with the phases left ([docs/ROADMAP.md](docs/ROADMAP.md)) and the plan for the next one, the QA change ([docs/PLAN_QA_CHANGE.md](docs/PLAN_QA_CHANGE.md))
+- **Where it is going:** the findings of the first real-app run ([docs/REAL_RUN_FINDINGS.md](docs/REAL_RUN_FINDINGS.md)), the roadmap with the phases left ([docs/ROADMAP.md](docs/ROADMAP.md)) and the plan for the next one, the QA change ([docs/PLAN_QA_CHANGE.md](docs/PLAN_QA_CHANGE.md)); what pi tells an extension about the Director's work ([docs/DIRECTOR_STATE.md](docs/DIRECTOR_STATE.md))
 - **Known issues and things to fix later**, and what is unverified: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)
 - Decisions and the alternatives we turned down: [docs/VISION.md](docs/VISION.md)
 - Implementation plan (vertical slices S0–S8): [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)

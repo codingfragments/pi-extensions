@@ -67,6 +67,7 @@ if (withQa && !fresh) {
           check: "annotations",
           level: "blocking",
           hard: "redaction",
+          identity: { ref: "r1" },
           scene: "01-dash",
           atMs: 2500,
           message:
@@ -77,6 +78,7 @@ if (withQa && !fresh) {
           check: "values",
           level: "warning",
           high: true,
+          identity: { anchor: "m2", phrase: ["but", "emea", "is"], value: "14.3" },
           scene: "01-dash",
           atMs: 2100,
           message:
@@ -87,6 +89,7 @@ if (withQa && !fresh) {
           check: "drift",
           level: "warning",
           high: true,
+          identity: { anchor: "emea-bar" },
           scene: "01-dash",
           atMs: 9000,
           message:
@@ -103,6 +106,8 @@ if (withQa && !fresh) {
           id: "media-4",
           check: "media",
           level: "warning",
+          identity: { kind: "pause", relMs: 1000 },
+          scene: "01-dash",
           atMs: 20000,
           message: "no narration for 4.6 s: a long pause",
         },

@@ -111,6 +111,14 @@ Two questions, and the regional churn problem is on the table.
   that may vary. 1–2 marks it low in the panel, 3 at most medium. Use it only
   where you doubt; it never raises a level.
 
+## Timing hints
+
+`[@mark +300ms]` / `[@mark -300ms]` (a sign, a number, `ms` or `s`; at most ±3000 ms) says the narration after the mark starts that long **after
+(+) or before (−)** the mark's event. It is never spoken and changes no audio, so it costs no credits: only the edit and the render run again.
+Use it to fix sync instead of rewording: the QA says "starts 400 ms after its moment" → write `[@mark -400ms]`. A bare `[@mark]` means on the
+moment. Anything else that looks like an anchor (`[@mark 300ms]`, `[@Mark]`) is an error: it would be spoken as words. The user also nudges
+hints in the panel (the Voice over screen, under each anchor's picture).
+
 ## Timing
 
 - The template shows each scene's **usable footage** (dead time removed) and a

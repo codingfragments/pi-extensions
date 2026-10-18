@@ -4,9 +4,14 @@
  */
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { test } from "node:test";
 import type { TakeAnalysis } from "../src/analysis/take.ts";
+import { resolveConfig } from "../src/config.ts";
 import { type SceneInput, solveScene } from "../src/edit/sync.ts";
+import { hintIn, hintWords, withHint } from "../src/panel/public/hints.js";
+import { Runtime } from "../src/runtime.ts";
 import { cacheKey } from "../src/tts/synthesize.ts";
 import { wordDiff } from "../src/util/worddiff.ts";
 import {
@@ -17,6 +22,8 @@ import {
   splitSegments,
   validateVo,
 } from "../src/vo/script.ts";
+import { readVo, voVersions } from "../src/vo/store.ts";
+import { seedPanelProject } from "./helpers/panel-seed.ts";
 
 const take = (): TakeAnalysis =>
   ({
@@ -227,3 +234,114 @@ test("drift is the deviation from the intended offset, so everything that reads 
     "hints met: no off-sync warning in the edit report",
   );
 });
+
+// --- the nudge controls ------------------------------------------------------------------------
+
+test("hints.js: read and write a hint in the narration text", async () => {
+  const t = "Hello. [@m1] EMEA. [@m2 -200ms] Done.";
+  assert.deepEqual([hintIn(t, "m1"), hintIn(t, "m2"), hintIn(t, "zz")], [0, -200, null]);
+  assert.equal(withHint(t, "m1", 300), "Hello. [@m1 +300ms] EMEA. [@m2 -200ms] Done.");
+  assert.equal(withHint(t, "m2", 0), "Hello. [@m1] EMEA. [@m2] Done.");
+  assert.equal(
+    withHint(withHint(t, "m1", 300), "m1", 400),
+    "Hello. [@m1 +400ms] EMEA. [@m2 -200ms] Done.",
+  );
+  assert.equal(
+    withHint(t, "m1", 99999),
+    "Hello. [@m1 +3000ms] EMEA. [@m2 -200ms] Done.",
+    "clamped",
+  );
+  assert.equal(withHint(t, "zz", 100), t, "a mark that is not there changes nothing");
+  assert.equal(hintIn("a [@m1 +0.5s] b", "m1"), 500);
+  assert.deepEqual(
+    [hintWords(0), hintWords(300), hintWords(-150)],
+    ["starts on the moment", "starts 300 ms after the moment", "starts 150 ms before the moment"],
+  );
+  // what the panel writes, the engine reads back
+  assert.deepEqual(
+    splitSegments(withHint(t, "m1", 300)).map((s) => s.hintMs),
+    [undefined, 300, -200],
+  );
+});
+
+async function chromium() {
+  try {
+    const pw = await import("playwright");
+    return fs.existsSync(pw.chromium.executablePath()) ? pw.chromium : undefined;
+  } catch {
+    return undefined;
+  }
+}
+const browserType = await chromium();
+
+test(
+  "in the browser: nudge the narration at an anchor, save a version, the engine reads the hint; the voice is the same",
+  { skip: !browserType && "needs Playwright Chromium", timeout: 90_000 },
+  async () => {
+    process.env.DEMO_REC_NO_OPEN = "1";
+    const seed = seedPanelProject();
+    const cfg = path.join(seed.root, "c.json");
+    fs.writeFileSync(cfg, "{}");
+    const rt = new Runtime(
+      () => ({
+        ...resolveConfig({ env: { DEMO_REC_CONFIG: cfg } }),
+        root: seed.root,
+        panelPort: 0,
+      }),
+      { sendUserMessage: () => {}, sendMessage: () => {} },
+    );
+    rt.setActiveProject(seed.slug);
+    const panel = await rt.ensurePanel();
+    const browser = await (browserType as NonNullable<typeof browserType>).launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1400, height: 1100 } });
+      await page.goto(`${panel.url}#/voice/v1`);
+      await page.click(".ds-item[data-key='01-dash']");
+      const m1 = page.locator(".ds-anchor[data-mark=m1] .ds-nudge");
+      await m1.waitFor();
+      assert.match(await m1.innerText(), /Narration starts on the moment/);
+      assert.equal(await m1.locator("[data-act=nudge-reset]").count(), 0, "nothing to reset yet");
+      for (let i = 0; i < 3; i++) await m1.locator("[data-act=nudge-later]").click();
+      assert.match(await m1.innerText(), /Narration starts 300 ms after the moment/);
+      assert.match(await page.locator("textarea[id^=narration-]").inputValue(), /\[@m1 \+300ms\]/);
+      await page.getByText("Edited in draft").first().waitFor();
+      for (let i = 0; i < 5; i++) await m1.locator("[data-act=nudge-earlier]").click();
+      assert.match(await m1.innerText(), /Narration starts 200 ms before the moment/);
+      assert.match(await page.locator("textarea[id^=narration-]").inputValue(), /\[@m1 -200ms\]/);
+      await m1.locator("[data-act=nudge-reset]").click();
+      assert.doesNotMatch(
+        await page.locator("textarea[id^=narration-]").inputValue(),
+        /\[@m1 [+-]/,
+      );
+      // a nudge on the second anchor, then save as a version
+      await page.locator(".ds-anchor[data-mark=m2] [data-act=nudge-later]").click();
+      await page.locator(".ds-anchor[data-mark=m2] [data-act=nudge-later]").click();
+      if (process.env.P1A_SHOTS)
+        await page
+          .locator(".ds-anchors")
+          .screenshot({ path: `${process.env.P1A_SHOTS}-nudge.png` });
+      const before = voVersions(seed.dir);
+      await page.getByRole("button", { name: /Save new version/ }).click();
+      await page.waitForFunction(
+        `document.body.innerText.includes("v${(before.at(-1) ?? 1) + 1}")`,
+      );
+      const after = voVersions(seed.dir);
+      assert.equal(after.length, before.length + 1);
+      const saved = readVo(seed.dir, after.at(-1) as number);
+      assert.deepEqual(
+        saved?.validated.issues.filter((i) => i.level === "error"),
+        [],
+      );
+      assert.deepEqual(hintsOf(saved?.validated.script as never), { "01-dash": { m2: 200 } });
+      // the words are the same as the version it was made from, so the same audio
+      const spoken = (v: ReturnType<typeof readVo>) =>
+        v?.validated.script.sections.map((s) => s.segments.map((g) => g.text).join(" ")).join("|");
+      assert.equal(spoken(saved), spoken(readVo(seed.dir, 1)));
+      await page.close();
+    } finally {
+      await browser.close();
+      await rt.shutdown();
+      fs.rmSync(seed.root, { recursive: true, force: true });
+    }
+  },
+);

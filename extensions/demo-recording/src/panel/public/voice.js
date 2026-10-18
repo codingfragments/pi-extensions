@@ -8,6 +8,7 @@ import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost } from "./cost.js";
 import { errorToast } from "./dialog.js";
 import { CompareTable, saveStateText, useDraft } from "./drafts.js";
+import { HINT_MAX_MS, HINT_STEP_MS, hintIn, hintWords, withHint } from "./hints.js";
 import { ConfPill, ListRow, NarrowSelect, STATUS_LABEL } from "./inspector.js";
 import { formatRoute } from "./route.js";
 import { stageOf } from "./stages.js";
@@ -193,8 +194,25 @@ function DraftNotices({ draft, bodies, base, latest, go }) {
     : null;
 }
 
+/**
+ * Timing hint of one anchor (Q6): move when the narration after it starts, relative to the moment shown. It writes `[@mark +300ms]` into the
+ * narration (a working draft until you save it as a version). The words and the voice stay the same, so a hint costs no audio.
+ */
+function Nudge({ mark, text, onText }) {
+  const ms = hintIn(text, mark) ?? 0;
+  const set = (v) => onText(withHint(text, mark, v));
+  return html`<div class="ds-nudge" role="group" aria-label=${`Timing of the narration at ${mark}`} data-hint=${ms}>
+    <div class="ds-nudge-buttons">
+      <button class="ds-btn ds-btn--sm" type="button" data-act="nudge-earlier" aria-label=${`Start the narration at ${mark} ${HINT_STEP_MS} ms earlier`} disabled=${ms <= -HINT_MAX_MS} onClick=${() => set(ms - HINT_STEP_MS)}>−${HINT_STEP_MS}</button>
+      <button class="ds-btn ds-btn--sm" type="button" data-act="nudge-later" aria-label=${`Start the narration at ${mark} ${HINT_STEP_MS} ms later`} disabled=${ms >= HINT_MAX_MS} onClick=${() => set(ms + HINT_STEP_MS)}>+${HINT_STEP_MS}</button>
+      ${ms ? html`<button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" data-act="nudge-reset" onClick=${() => set(0)}>Reset</button>` : null}
+    </div>
+    <span class="ds-small ds-nudge-value" data-testid="nudge-value">Narration ${hintWords(ms)}</span>
+  </div>`;
+}
+
 /** The picture at each anchor of the narration, so the words can be checked against what is on screen (D132). */
-function Anchors({ anchors }) {
+function Anchors({ anchors, text, onText }) {
   if (!anchors?.length) return null;
   const at = (ms) =>
     `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
@@ -206,6 +224,7 @@ function Anchors({ anchors }) {
           ${a.image ? html`<img loading="lazy" src=${media("project", a.image)} alt=${`The take at [@${a.mark}], ${at(a.atMs)}${a.dom ? `: ${a.dom}` : ""}`} />` : html`<div class="ds-anchor-none ds-small">no picture for this moment</div>`}
           <div class="ds-small"><code>[@${a.mark}]</code> <span class="ds-muted">${at(a.atMs)} into the take</span></div>
           ${a.dom ? html`<div class="ds-small ds-muted ds-anchor-dom">${a.dom}</div>` : null}
+          ${onText ? html`<${Nudge} mark=${a.mark} text=${text} onText=${onText} />` : null}
         </li>`,
       )}
     </ul>
@@ -259,7 +278,8 @@ function SectionInspector({
       <span class="ds-hint-text">Anchors in [@brackets] are kept. ${wordCount(text)} words · about ${Math.round(wordCount(text) / 2.58)} s at 155 words per minute.</span>
       ${edited ? html`<span class="ds-row-flex"><button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" data-act="revert" onClick=${() => draft.setText(section.key, section.written)}>Revert this section</button></span>` : null}
     </div>
-    <${Anchors} anchors=${section.anchors} />
+    <${Anchors} anchors=${section.anchors} text=${text} onText=${(t) => draft.setText(section.key, t)} />
+    ${section.anchors?.length ? html`<p class="ds-hint-text">Timing moves only when the narration after an anchor starts. The words and the voice stay the same, so it costs no audio: save a version, approve it, and the voice comes from the cache (the cost dialog says 0).</p>` : null}
     ${issues.map((i) => html`<p class=${`issue ${i.level}`}>${i.level === "error" ? "✖" : "⚠"} ${i.message}</p>`)}
     ${audio ? html`<audio controls preload="none" src=${audio}></audio>` : null}
     ${

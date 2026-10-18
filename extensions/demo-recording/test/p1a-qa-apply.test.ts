@@ -20,6 +20,9 @@ import {
   listPending,
   openPending,
   pathToRender,
+  pendingBlock,
+  pendingReminder,
+  resolvePending,
 } from "../src/qa/apply.ts";
 import {
   askRound,
@@ -658,3 +661,310 @@ test("applying: the plan carries the steps, the Director is told the reply shape
     cleanup(seed.root);
   }
 });
+
+// --- Q5: the stage writers read the pending fixes and settle them -------------------------------
+
+/** Accept a recording fix + a voice-over fix + an annotations fix: the recording is kept, so all three are pending. */
+function pendingThree(dir: string) {
+  askRound(dir, 1, {
+    flags: ["values-1", "drift-2", "annotations-3"].map((id) => ({ id, choice: "fix" as const })),
+    guidance: "",
+  });
+  const { round } = recordProposals(dir, "fs-1", {
+    nextSteps: ["a", "b"],
+    summary: "s",
+    proposals: [P.recording, P.vo, P.annotations] as never,
+  });
+  for (const x of round.proposals ?? [])
+    decideProposal(dir, "fs-1", x.id, { decision: "accepted" });
+  return applyFixSet(dir, "fs-1");
+}
+
+test("settling a pending fix: applied names the draft that carries it, dropped says why, once, and the user may drop any", () => {
+  const seed = setup();
+  try {
+    const plan = pendingThree(seed.dir);
+    assert.deepEqual(
+      plan.pending.map((p) => [p.id, p.stage]),
+      [
+        ["pf-1", "recording"],
+        ["pf-2", "vo"],
+        ["pf-3", "annotations"],
+      ],
+    );
+    const vo = (voVersions(seed.dir).at(-1) ?? 1) as number;
+    assert.throws(
+      () => resolvePending(seed.dir, "pf-9", { status: "dropped", by: "agent", why: "x y z w" }),
+      /there is no pending fix pf-9 \(open: pf-1, pf-2, pf-3\)/,
+    );
+    assert.throws(
+      () => resolvePending(seed.dir, "pf-2", { status: "applied", by: "agent", version: vo }),
+      /say in a sentence how pf-2 was applied/,
+    );
+    assert.throws(
+      () => resolvePending(seed.dir, "pf-2", { status: "applied", by: "agent", why: "said 14.2" }),
+      /applied needs the voice-over version that carries it \(version: /,
+    );
+    assert.throws(
+      () =>
+        resolvePending(seed.dir, "pf-2", {
+          status: "applied",
+          by: "agent",
+          why: "said 14.2",
+          version: 99,
+        }),
+      /applied needs the voice-over version/,
+    );
+    const done = resolvePending(seed.dir, "pf-2", {
+      status: "applied",
+      by: "agent",
+      why: "now says 14.2",
+      version: vo,
+    });
+    assert.deepEqual(
+      [done.status, done.version, done.resolvedBy, done.resolvedWhy],
+      ["applied", vo, "agent", "now says 14.2"],
+    );
+    assert.throws(
+      () =>
+        resolvePending(seed.dir, "pf-2", {
+          status: "dropped",
+          by: "agent",
+          why: "changed my mind",
+        }),
+      /pf-2 is already applied: now says 14.2/,
+    );
+    // dropping needs a reason from the Director, not from you
+    assert.throws(
+      () => resolvePending(seed.dir, "pf-3", { status: "dropped", by: "agent" }),
+      /left out/,
+    );
+    const mine = resolvePending(seed.dir, "pf-3", { status: "dropped", by: "user" });
+    assert.deepEqual(
+      [mine.status, mine.resolvedBy, mine.resolvedWhy],
+      ["dropped", "user", "dropped by you"],
+    );
+    // a recording has no draft the Director writes: applied needs no version there
+    assert.equal(
+      resolvePending(seed.dir, "pf-1", {
+        status: "applied",
+        by: "agent",
+        why: "new take 2 is clean",
+      }).status,
+      "applied",
+    );
+    assert.equal(openPending(seed.dir).length, 0);
+    assert.match(
+      formatPending(seed.dir).join("\n"),
+      /Resolved:[\s\S]*pf-2[\s\S]*APPLIED: now says 14.2/,
+    );
+    assert.equal(pendingBlock(seed.dir, "vo").length, 0, "nothing open: nothing to read");
+    assert.equal(pendingReminder(seed.dir, "vo", vo), "");
+  } finally {
+    cleanup(seed.root);
+  }
+});
+
+test("what a stage's writer reads: its own open pending fixes, with the findings they answer and how to settle them", () => {
+  const seed = setup();
+  try {
+    pendingThree(seed.dir);
+    const block = pendingBlock(seed.dir, "vo").join("\n");
+    assert.match(
+      block,
+      /^## Pending fixes for the voice-over \(1\): the user accepted these from a QA\n- pf-2 \(render v1, answers values-1: the narration says 14.3: it isn't on screen; drift-2: [^)]*\): Rewrite the sentence around @m2: Say 14.2/,
+    );
+    assert.match(
+      block,
+      /demo_rec_qa resolve with the id, status applied \(and the version that carries it\) or dropped \(and why/,
+    );
+    assert.doesNotMatch(block, /pf-1|pf-3/, "only this stage's");
+    assert.match(
+      pendingReminder(seed.dir, "vo", 4),
+      /1 pending fix for the voice-over still open \(pf-2\): for each, call demo_rec_qa resolve with status applied \(version 4 if this draft carries it\) or dropped/,
+    );
+  } finally {
+    cleanup(seed.root);
+  }
+});
+
+test(
+  "in a real session: the voice-over writer reads the pending fix, writes, settles it; a wrong version is refused",
+  { timeout: 40_000 },
+  async () => {
+    const seed = setup();
+    const cfg = path.join(seed.root, "c.json");
+    fs.writeFileSync(cfg, "{}");
+    const rt = new Runtime(() => ({
+      ...resolveConfig({ env: { DEMO_REC_CONFIG: cfg } }),
+      root: seed.root,
+      panelPort: 0,
+    }));
+    rt.setActiveProject(seed.slug);
+    // biome-ignore lint/suspicious/noExplicitAny: pi's extension API
+    const factory = (pi: any) => {
+      (rt as unknown as { agent: unknown }).agent = pi;
+      registerDirectorWatch(pi, rt);
+      registerQaTool(pi, rt);
+      registerVoTool(pi, rt);
+    };
+    const s = await fauxSession({ extensions: [factory] });
+    try {
+      pendingThree(seed.dir);
+      const events: string[] = [];
+      rt.bus.subscribe((e) => events.push(`${e.type}`));
+      const base = voVersions(seed.dir).at(-1) as number;
+      const script = fs
+        .readFileSync(path.join(seed.dir, "vo", `script.v${base}.md`), "utf8")
+        .replace("14.2 percent", "14.2 percent, the highest of all");
+      s.faux.setResponses([
+        fauxAssistantMessage([fauxToolCall("demo_rec_vo", { action: "get" })]),
+        fauxAssistantMessage([
+          fauxToolCall("demo_rec_vo", { action: "write", markdown: script, base }),
+        ]),
+        fauxAssistantMessage([
+          fauxToolCall("demo_rec_qa", {
+            action: "resolve",
+            pendingId: "pf-2",
+            status: "applied",
+            why: "the sentence says 14.2 now",
+            version: 99,
+          }),
+        ]),
+        fauxAssistantMessage([
+          fauxToolCall("demo_rec_qa", {
+            action: "resolve",
+            pendingId: "pf-2",
+            status: "applied",
+            why: "the sentence says 14.2 now",
+            version: base + 1,
+          }),
+        ]),
+        fauxAssistantMessage([fauxToolCall("demo_rec_qa", { action: "pending" })]),
+        fauxAssistantMessage(
+          "Applied pf-2 in the new voice-over draft; pf-1 and pf-3 are for other stages.",
+        ),
+      ]);
+      await s.session.prompt("write the next voice-over draft");
+      await s.settled(1, 25_000);
+      const log = JSON.stringify(s.session.messages);
+      assert.match(
+        log,
+        /## Pending fixes for the voice-over \(1\)/,
+        "`get` shows what is open for this stage",
+      );
+      assert.match(
+        log,
+        /1 pending fix for the voice-over still open \(pf-2\)/,
+        "the write result reminds the writer",
+      );
+      assert.match(
+        log,
+        /applied needs the voice-over version that carries it/,
+        "a version that does not exist is refused",
+      );
+      const pf2 = listPending(seed.dir).find((x) => x.id === "pf-2");
+      assert.deepEqual(
+        [pf2?.status, pf2?.version, pf2?.resolvedBy],
+        ["applied", base + 1, "agent"],
+      );
+      assert.deepEqual(
+        openPending(seed.dir).map((x) => x.id),
+        ["pf-1", "pf-3"],
+        "the other stages' fixes wait for their writers",
+      );
+      assert.ok(events.includes("qa.pending"), "the panel is told");
+      assert.match(log, /pf-2 is applied \(v\d+\): the sentence says 14.2 now/);
+    } finally {
+      s.dispose();
+      await rt.shutdown();
+      cleanup(seed.root);
+    }
+  },
+);
+
+test(
+  "in the browser: the stage screen says how many fixes are pending, you can drop one, what was settled stays readable",
+  { skip: !browserType && "needs Playwright Chromium", timeout: 90_000 },
+  async () => {
+    process.env.DEMO_REC_NO_OPEN = "1";
+    const seed = setup();
+    const cfg = path.join(seed.root, "c.json");
+    fs.writeFileSync(cfg, "{}");
+    const rt = new Runtime(
+      () => ({
+        ...resolveConfig({ env: { DEMO_REC_CONFIG: cfg } }),
+        root: seed.root,
+        panelPort: 0,
+      }),
+      { sendUserMessage: () => {}, sendMessage: () => {} },
+    );
+    rt.setActiveProject(seed.slug);
+    pendingThree(seed.dir);
+    const panel = await rt.ensurePanel();
+    const browser = await (browserType as NonNullable<typeof browserType>).launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+      await page.goto(`${panel.url}#/voice`);
+      const box = page.locator(".pending-fixes[data-stage=vo]");
+      await box.waitFor();
+      assert.match(
+        await box.innerText(),
+        /1 pending fix for this stage\. You accepted it from a QA; the Director takes it into account when it writes the next draft/,
+      );
+      assert.match(
+        await box.locator("li[data-pending=pf-2]").innerText(),
+        /from render v1\s+Rewrite the sentence around @m2: Say 14.2/,
+      );
+      assert.equal(
+        await page.locator(".pending-fixes[data-stage=annotations]").count(),
+        0,
+        "only this stage's",
+      );
+      if (process.env.P1A_SHOTS)
+        await page.screenshot({ path: `${process.env.P1A_SHOTS}-pending.png` });
+      // the Director settles one: the panel follows by itself
+      resolvePending(seed.dir, "pf-2", {
+        status: "applied",
+        by: "agent",
+        why: "now says 14.2",
+        version: 1,
+      });
+      rt.bus.publish(
+        "qa.pending",
+        { id: "pf-2", stage: "vo", status: "applied", by: "agent", message: "settled" },
+        seed.slug,
+      );
+      await box.getByText("Settled (1)").waitFor();
+      assert.equal(await box.locator("li[data-pending]").count(), 0);
+      await box.getByText("Settled (1)").click();
+      assert.match(
+        await box.locator("li[data-settled=applied]").innerText(),
+        /applied in v1[\s\S]*The Director: now says 14.2/,
+      );
+      // annotations: drop one yourself, with a reason
+      await page.goto(`${panel.url}#/annotations`);
+      const ann = page.locator(".pending-fixes[data-stage=annotations]");
+      await ann.waitFor();
+      await ann.locator("[data-act=drop-pending]").click();
+      await page
+        .getByRole("textbox", { name: /Why\? \(optional\)/ })
+        .fill("I moved the box myself");
+      await page.getByRole("button", { name: "Drop it" }).click();
+      await ann.getByText("Settled (1)").waitFor();
+      assert.deepEqual(
+        openPending(seed.dir).map((x) => x.id),
+        ["pf-1"],
+      );
+      assert.equal(
+        listPending(seed.dir).find((x) => x.id === "pf-3")?.resolvedWhy,
+        "I moved the box myself",
+      );
+      await page.close();
+    } finally {
+      await browser.close();
+      await rt.shutdown();
+      cleanup(seed.root);
+    }
+  },
+);

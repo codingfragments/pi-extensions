@@ -56,6 +56,7 @@ export const STEPS = {
   "recording.requested": { class: "quiet" },
   "qa.applying": { class: "quiet" },
   "qa.applied": { class: "quiet" },
+  "qa.pending": { class: "quiet" },
   "qa.asked": { class: "quiet" },
   "qa.decided": { class: "quiet" },
   "qa.proposed": { class: "run-and-tell", tab: "render" },

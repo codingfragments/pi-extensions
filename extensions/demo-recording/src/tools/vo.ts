@@ -11,6 +11,7 @@ import { Type } from "typebox";
 import { type TakeAnalysis, readAnalysis } from "../analysis/take.ts";
 import { formatConfidence } from "../confidence/level.ts";
 import { voConfidence } from "../confidence/vo.ts";
+import { pendingBlock, pendingReminder } from "../qa/apply.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatIssues } from "../vo/script.ts";
 import { readPendingDirection, readVo, readVoMeta, voVersions, writeVo } from "../vo/store.ts";
@@ -84,7 +85,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         const analysis = readAnalysis(path.join(p.dir, "takes", take));
         if (!analysis)
           throw new Error(`${take} has not been analyzed — run demo_rec_take analyze first`);
-        return result(voTemplate(analysis));
+        return result([voTemplate(analysis), ...pendingBlock(p.dir, "vo")].join("\n"));
       }
       if (params.action === "get") {
         const vo = readVo(p.dir, params.version);
@@ -97,7 +98,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         const pending = readPendingDirection(p.dir);
         return result(
           `${pending ? `PENDING DIRECTION from the panel (rewrite v${pending.base} as a new version): ${JSON.stringify(pending.direction)}\n` : ""}${conf ? `${formatConfidence(conf, "section")}\n` : ""}voice-over v${vo.version} (versions: ${voVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "vo").join(", ") || "none"}; working line: ${state.line.vo ?? "none"})\n` +
-            `${formatIssues(vo.validated)}\n${marks.length ? `review:\n${marks.join("\n")}\n` : ""}---\n${vo.text}`,
+            `${formatIssues(vo.validated)}\n${marks.length ? `review:\n${marks.join("\n")}\n` : ""}${pendingBlock(p.dir, "vo").join("\n")}---\n${vo.text}`,
         );
       }
       if (!params.markdown?.trim()) throw new Error("write needs markdown (the complete script)");
@@ -137,7 +138,7 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
               ]
             : []),
           `The user reviews it in the panel (Voice tab): ${panel.url}. Wait for their [demo-panel] feedback; voice synthesis needs their approval.`,
-        ].join("\n"),
+        ].join("\n") + pendingReminder(p.dir, "vo", stored.version),
         { version: stored.version },
       );
     },

@@ -100,7 +100,7 @@ export function Review({ events }) {
   if (!data) return html`<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
   if (!data.storyboard && version !== null)
-    return html`<${StageSummary} stage="storyboard" rows=${hist.data?.rows} viewed=${version} />`;
+    return html`<${StageSummary} events=${events} stage="storyboard" rows=${hist.data?.rows} viewed=${version} />`;
   if (!data.storyboard) {
     return html`<section class="card muted">No storyboard yet. Run <code>/demo discover</code> in pi; it appears here as soon as the agent writes one.</section>`;
   }
@@ -140,7 +140,7 @@ export function Review({ events }) {
   const row = hist.data?.rows?.find((r) => r.version === data.version);
 
   return html`
-    <${StageSummary} stage="storyboard" row=${row} rows=${hist.data?.rows}
+    <${StageSummary} events=${events} stage="storyboard" row=${row} rows=${hist.data?.rows}
       viewed=${data.version} onUse=${(v) => runVersionAction({ stage: "storyboard", version: v, intent: "use" }).then(reload)}
       meta=${readOnly ? html`<span>older version: read-only</span>` : null} />
     <section class="card review-head">

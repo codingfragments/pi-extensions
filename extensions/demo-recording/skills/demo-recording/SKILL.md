@@ -302,6 +302,11 @@ accepted proposals with their own wording and notes), then write **ONE new draft
 accepted. **Do not render, do not synthesize, do not touch later stages** (their fixes are kept as pending fixes: read them in the project context
 when you write those stages). Stop after the draft; the user reads and approves it.
 
+**Pending fixes.** What the user accepted for later stages waits in the project (`demo_rec_qa pending`, and the project context). When you write
+that stage, `get`/`template`/`context` show them first and the `write` result reminds you; take each into account, then settle it with
+`demo_rec_qa resolve` (`applied` with the version that carries it, or `dropped` with why) and say which in your reply. The user sees "N pending
+fixes for this stage" on that stage's screen and can drop one.
+
 A fix that belongs to the storyboard or to discovery is only a *proposal*: it never starts a discovery or a recording by itself.
 
 ## After the take

@@ -6,6 +6,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { formatPending, resolvePending } from "../qa/apply.ts";
 import {
   FIX_STAGES,
   FIX_STAGE_WORD,
@@ -30,9 +31,26 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
       "concretely what would change, why, which findings it answers and what applying it costs; every finding to fix is answered or " +
       "named under unresolved with a reason. Be STRUCTURED, never a wall of text: a short summary, bullets for the changes, and nextSteps (2-7 " +
       "short steps from the fix to a NEW RENDER, with the cost of each). Say which stage you address. You cannot apply or accept anything: the " +
-      "user reviews, may give more context and ask you to rethink, and decides. Stop after propose.",
+      "user reviews, may give more context and ask you to rethink, and decides. Stop after propose. pending: the fixes the user accepted for later " +
+      "stages and that are still open. resolve: settle one pending fix when you wrote the draft of its stage: applied (with the version that " +
+      "carries it and how) or dropped (with why it no longer applies); the user sees what you did and can drop any of them.",
     parameters: Type.Object({
-      action: StringEnum(["context", "propose"] as const),
+      action: StringEnum(["context", "propose", "pending", "resolve"] as const),
+      pendingId: Type.Optional(Type.String({ description: "resolve: the pending fix, e.g. pf-1" })),
+      status: Type.Optional(
+        StringEnum(["applied", "dropped"] as const, {
+          description:
+            "resolve: applied (this draft carries it) or dropped (it does not apply any more)",
+        }),
+      ),
+      why: Type.Optional(
+        Type.String({
+          description: "resolve: one sentence: how it was applied, or why it is dropped",
+        }),
+      ),
+      version: Type.Optional(
+        Type.Number({ description: "resolve applied: the version of its stage that carries it" }),
+      ),
       fixset: Type.Optional(
         Type.String({
           description: "the fix set, e.g. fs-1 (default: the one the user just asked about)",
@@ -82,6 +100,34 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
       const p = rt.requireProject();
+      if (params.action === "pending") {
+        const lines = formatPending(p.dir);
+        return result(lines.length ? lines.join("\n") : "No pending fixes.");
+      }
+      if (params.action === "resolve") {
+        if (!params.pendingId || !params.status)
+          throw new Error("resolve needs pendingId and status (applied or dropped), and why");
+        const pf = resolvePending(p.dir, params.pendingId, {
+          status: params.status,
+          by: "agent",
+          ...(params.why ? { why: params.why } : {}),
+          ...(params.version !== undefined ? { version: params.version } : {}),
+        });
+        rt.bus.publish(
+          "qa.pending",
+          {
+            id: pf.id,
+            stage: pf.stage,
+            status: pf.status,
+            by: "agent",
+            message: `pending fix ${pf.id} (${FIX_STAGE_WORD[pf.stage]}) ${pf.status}${pf.version ? ` in v${pf.version}` : ""}: ${pf.resolvedWhy}`,
+          },
+          p.slug,
+        );
+        return result(
+          `${pf.id} is ${pf.status}${pf.version ? ` (v${pf.version})` : ""}: ${pf.resolvedWhy}`,
+        );
+      }
       const waiting = listFixSets(p.dir).find(
         (s) =>
           s.status === "open" &&

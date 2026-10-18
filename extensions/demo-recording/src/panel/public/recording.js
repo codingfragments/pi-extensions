@@ -81,7 +81,7 @@ export function Recording({ events, stages }) {
   };
   const sb = data.storyboard !== null ? `v${data.storyboard}` : "—";
   return html`
-    <${StageSummary} stage="recording" row=${routeRow} rows=${rows} viewed=${routeVersion}
+    <${StageSummary} events=${events} stage="recording" row=${routeRow} rows=${rows} viewed=${routeVersion}
       onUse=${(v) => runVersionAction({ stage: "recording", version: v, intent: "use" }).then(reload)}
       meta=${html`<span>Takes of storyboard <strong style="color:var(--text-strong)">${sb}</strong></span><span>${data.takes.length} take(s)</span>`} />
     <section class="card review-head">

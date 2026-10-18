@@ -149,10 +149,16 @@ const TOOL: Record<string, (a: Record<string, unknown>) => { label: string; stag
           ? "Noting it in the project"
           : "Reading the project",
   }),
-  demo_rec_qa: (a) => ({
-    label: a.action === "propose" ? "Proposing fixes" : "Reading the QA findings you flagged",
-    stage: "render",
-  }),
+  demo_rec_qa: (a) =>
+    a.action === "resolve"
+      ? { label: "Settling a pending fix" }
+      : a.action === "pending"
+        ? { label: "Reading the pending fixes" }
+        : {
+            label:
+              a.action === "propose" ? "Proposing fixes" : "Reading the QA findings you flagged",
+            stage: "render",
+          },
   demo_rec_config: () => ({ label: "Checking the settings" }),
   demo_rec_brand: () => ({ label: "Working on the brand" }),
 };

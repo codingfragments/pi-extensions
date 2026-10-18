@@ -205,7 +205,7 @@ The last stage: drafts to watch, and finals to hand over. Every render is a vers
   - several brands at once;
   - optional burned-in subtitles, as extra files;
   - the logo bug on or off.
-- **QA** checks every final automatically: values said vs. shown, error toasts, sync drift (Whisper), frozen, black or silent stretches, and redaction gaps. Only integrity defects (broken files) and a redaction that leaks stop **Approve final**; everything else is a report, with what needs your eyes first. You can still **Apply fixes** (a new final with mechanical fixes). See [docs/QA.md](docs/QA.md).
+- **QA** checks every final automatically: values said vs. shown, error toasts, sync drift (Whisper), frozen, black or silent stretches, and redaction gaps. Only integrity defects (broken files) and a redaction that leaks stop **Approve final**; everything else is a report, with what needs your eyes first. A finding is fixed where its cause is: flag it Fix, ask the Director, and approve the draft it writes; there is no hidden render override. See [docs/QA.md](docs/QA.md).
 - **Approve final**: it becomes the deliverable.
 - **Disk space:** old drafts are pruned (`render.keepDrafts`), and **Delete files** keeps the record.
 

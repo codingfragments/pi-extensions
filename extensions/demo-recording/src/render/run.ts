@@ -22,7 +22,6 @@ import type { DemoRecConfig } from "../config.ts";
 import { preferredAnnotationDraft, readAnnotationDraft } from "../drafts/annotations.ts";
 import { type CutResult, renderCut } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
-import { type RenderOverrides, applyShifts } from "../qa/overrides.ts";
 import { runQaSafe } from "../qa/run.ts";
 import { isUsable } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
@@ -62,8 +61,6 @@ export interface RenderRequest {
   options?: Partial<RenderOptionsRec>;
   /** Required when enabled redactions would be left out (D66). */
   confirmUnredacted?: boolean;
-  /** Mechanical fixes on a copy of the timeline (D74). */
-  overrides?: RenderOverrides;
   /** Skip the automatic QA of a final (tests). */
   skipQa?: boolean;
   by: RenderRecord["by"];
@@ -81,9 +78,6 @@ export interface RenderPlan {
   brands: string[];
   options: RenderOptionsRec;
   size: { width: number; height: number };
-  overrides?: RenderOverrides;
-  /** True when `timeline` is a modified copy (overrides). */
-  modified: boolean;
 }
 
 const readTimeline = (projectDir: string, v: number) =>
@@ -181,9 +175,7 @@ export function planRender(
         ? `no edit for VO v${file.basedOn.vo} yet — run the sync edit first`
         : "no edit yet — run the sync edit first",
     );
-  let timeline = readTimeline(projectDir, timelineVersion);
-  if (req.overrides?.shifts.length)
-    timeline = applyShifts(projectDir, timeline, req.overrides.shifts).timeline;
+  const timeline = readTimeline(projectDir, timelineVersion);
   if (file && file.take !== timeline.take)
     throw new Error(
       `annotations v${annotationVersion} are for ${file.take}, the edit uses ${timeline.take}`,
@@ -216,8 +208,6 @@ export function planRender(
     brands,
     options,
     size: req.kind === "draft" ? DRAFT_SIZE : config.output,
-    ...(req.overrides?.shifts.length ? { overrides: req.overrides } : {}),
-    modified: !!req.overrides?.shifts.length,
   };
 }
 
@@ -234,7 +224,7 @@ export function reuseKey(plan: RenderPlan, brand: string, fps: number): string {
         brand,
         plan.options,
         plan.size,
-        plan.overrides?.shifts ?? [],
+        [], // was the render overrides (retired, Q7); kept so the keys of variants made before stay the same
         fps,
         RENDER_REVISION,
       ]),
@@ -278,20 +268,7 @@ export async function runRender(o: {
     options: plan.options,
     brands: plan.brands,
     size: plan.size,
-    ...(plan.overrides
-      ? {
-          overrides: {
-            fromRender: plan.overrides.fromRender,
-            shifts: plan.overrides.shifts.length,
-          },
-        }
-      : {}),
   });
-  if (plan.overrides)
-    fs.writeFileSync(
-      path.join(o.projectDir, "render", `v${rec.version}.overrides.json`),
-      `${JSON.stringify(plan.overrides, null, 2)}\n`,
-    );
   const earlier = listRenders(o.projectDir).filter(
     (r) => r.version !== rec.version && r.status === "done" && !r.deleted && !r.pruned,
   );
@@ -355,7 +332,6 @@ export async function runRender(o: {
           projectDir: o.projectDir,
           config: o.config,
           timelineVersion: plan.timelineVersion,
-          ...(plan.modified ? { timeline: plan.timeline } : {}),
           cut: {
             brand,
             ...(plan.file ? { annotations: plan.file } : {}),
@@ -448,7 +424,7 @@ export function formatRender(r: RenderRecord): string {
   ].filter(Boolean);
   const lines = [
     head,
-    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? ` · QA: ${r.qa ? `${r.qa.status}${r.qa.blocking ? ` (${r.qa.blocking} hard stop(s)${r.qa.confirmed ? `, ${r.qa.confirmed} confirmed` : ""})` : ""}` : "not run"}` : ""}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}`,
+    `options: ${opts.join(", ") || "defaults"}${r.kind === "final" ? ` · QA: ${r.qa ? `${r.qa.status}${r.qa.blocking ? ` (${r.qa.blocking} hard stop(s)${r.qa.confirmed ? `, ${r.qa.confirmed} confirmed` : ""})` : ""}` : "not run"}` : ""}${r.overrides ? ` · legacy timing fixes: ${r.overrides.shifts} shift(s) from render v${r.overrides.fromRender}` : ""}`,
   ];
   for (const v of r.variants)
     lines.push(

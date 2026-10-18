@@ -32,7 +32,7 @@ import { startPanel } from "./src/panel/server.ts";
 import { runFixtureDemo } from "./src/pipeline/fixture-demo.ts";
 import { runS1 } from "./src/pipeline/s1.ts";
 import { addIgnore, removeIgnore } from "./src/qa/ignores.ts";
-import { confirmItem, fixRequest, formatQa, qaBlocker, readQa, runQaSafe } from "./src/qa/run.ts";
+import { confirmItem, formatQa, qaBlocker, readQa, runQaSafe } from "./src/qa/run.ts";
 import type { IgnoreScope } from "./src/qa/types.ts";
 import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
@@ -71,7 +71,7 @@ Commands:
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
   accept --project P --stage S --version N   accept a version (the panel's Accept, from the shell)
-  qa --project P [--version N] [--run | --confirm ID --reason R | --ignore ID --scope finding|scene|project --reason R | --unignore IGNORE-ID | --fix all|ID,ID]
+  qa --project P [--version N] [--run | --confirm ID --reason R | --ignore ID --scope finding|scene|project --reason R | --unignore IGNORE-ID]
                                            QA of a final render: show / re-run / confirm a leaking-redaction hard stop
                                            / apply the proposed fixes (a new final render)
   annotate context --project P [--base N] [--instructions T]
@@ -327,7 +327,6 @@ async function main(argv: string[]): Promise<number> {
         run: { type: "boolean", default: false },
         confirm: { type: "string" },
         reason: { type: "string" },
-        fix: { type: "string" },
         ignore: { type: "string" },
         scope: { type: "string" },
         unignore: { type: "string" },
@@ -335,7 +334,7 @@ async function main(argv: string[]): Promise<number> {
     });
     if (!values.project)
       throw new Error(
-        "usage: qa --project P [--version N] [--run | --confirm ID --reason R | --ignore ID --scope finding|scene|project --reason R | --unignore IGNORE-ID | --fix all|ID,ID]",
+        "usage: qa --project P [--version N] [--run | --confirm ID --reason R | --ignore ID --scope finding|scene|project --reason R | --unignore IGNORE-ID]",
       );
     const project = openProject(cfg.root, values.project);
     const v = values.version
@@ -362,22 +361,6 @@ async function main(argv: string[]): Promise<number> {
       const { summary } = confirmItem(project.dir, v, values.confirm, values.reason ?? "");
       rec.qa = summary;
       saveRecord(project.dir, rec);
-    } else if (values.fix) {
-      const fixed = await runRender({
-        projectDir: project.dir,
-        config: cfg,
-        request: fixRequest(
-          project.dir,
-          v,
-          values.fix === "all" ? "all" : values.fix.split(","),
-          "cli",
-        ),
-        onProgress: (p) => console.log(`[${p.done.toFixed(1)}/${p.total}] ${p.label}`),
-      });
-      console.log(formatRender(fixed));
-      const fq = readQa(project.dir, fixed.version);
-      if (fq && fixed.qa) console.log(formatQa(fq, fixed.qa));
-      return 0;
     } else if (values.run || !rec.qa) {
       rec.qa = await runQaSafe({ projectDir: project.dir, config: cfg, rec });
       saveRecord(project.dir, rec);

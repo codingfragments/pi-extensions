@@ -26,7 +26,7 @@ import {
   variantZip,
 } from "../render/store.ts";
 import type { Runtime } from "../runtime.ts";
-import { startFixes, startQa, startRender } from "../tools/render.ts";
+import { startQa, startRender } from "../tools/render.ts";
 import { openInBrowser } from "../util/open.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import { STAGES, type Stage } from "../workdir/stages.ts";
@@ -288,25 +288,6 @@ export function renderRoutes(rt: Runtime): {
           p.slug,
         );
         return { removed, ...(summary ? { summary } : {}) };
-      },
-      /** Apply proposed fixes (D74) → a new final render with overrides. */
-      "render-qa-fix": (body) => {
-        const p = requireProject();
-        const ids = Array.isArray(body.ids) && body.ids.length ? body.ids.map(String) : "all";
-        const job = startFixes(rt, Number(body.version), ids, "panel");
-        rt.bus.publish(
-          "render.started",
-          {
-            job: job.id,
-            kind: "final",
-            by: "panel",
-            fixesOf: Number(body.version),
-            items: ids,
-            message: `${ids === "all" ? "all fixes" : `${ids.length} fix(es)`} of render v${String(body.version)} → a new final render`,
-          },
-          p.slug,
-        );
-        return { job: job.id };
       },
       /** Delete a render's files (D64); the record stays as "deleted". Accepted finals need confirmAccepted. */
       "render-delete": (body) => {

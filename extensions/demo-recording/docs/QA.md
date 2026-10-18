@@ -37,7 +37,7 @@ section with:
 
 - the items: **Hard stops**, **Needs your eyes**, **Worth a look**, then info (collapsed), each with a
   **▶ time link** that plays the video from just before that moment;
-- for fixable items a **fix** checkbox (on by default) and **Apply N fixes**;
+- on every judgement call **Fix / Leave** and **Ignore…**, and **Suggested fixes…** to ask the Director (see below);
 - for a leaking redaction **Export anyway…**, which asks for a reason; a broken file has no such button;
 - **Re-run QA** (after installing Whisper, for older finals, …).
 
@@ -49,23 +49,23 @@ A **broken file cannot be confirmed**: render again. A **redaction that leaks** 
 again). Only as a last resort can you export anyway: it needs a **reason** (on the command line `--confirm ID --reason R`). The reason is stored with the item in the QA report and logged in the project's inputs (D73, D-QA-4).
 When every hard stop is fixed or confirmed, the final can be accepted. Re-running QA keeps confirmations of issues that are found again.
 
-## Fixes
+## Fixes: in the script and through the fix loop, never a hidden override (Q7)
 
-Fixes are **mechanical** (D74): today, moving one narration segment so it
-lands on its moment (from a drift or a value shown later than said).
+There is **no "Apply N fixes" button** and a render is never changed behind the script's back. Earlier versions could move a narration segment on a
+copy of one render's timeline (`render/vN.overrides.json`, D74); that made a render that no script, version or fix set explained, and the same
+findings came back. It is retired:
 
-**Apply fixes** makes a **new final render** — a new version on the same
-annotations, brands and options — with the fixes as **overrides** on a copy of
-the timeline (`render/vN.overrides.json`):
-
-- the segment's audio moves by Δ; later segments are pushed when they'd
-  overlap; the scene holds its last frame when the narration would run past it;
-- the new render carries its source's overrides plus the new ones (shifts of
-  the same segment are added up), and gets its own QA;
-- the approved voice-over script, the audio and the annotations stay untouched.
-
-Content problems — a wrong number, an error toast in the footage — are never
-fixed automatically: change the voice-over, re-record the scene, or confirm.
+- **A finding is fixed where its cause is**: flag it **Fix**, ask the Director in the window, and the accepted proposal becomes a new draft at the
+  earliest stage that needs it (a voice-over with other words, a moved anchor, a **timing hint**, new annotations). Nothing is rendered or synthesised
+  by deciding; you approve the draft and render again.
+- **Timing hints say what you want, not what was measured.** `[@mark +300ms]` states where the narration should be relative to the moment. The QA
+  compares what it hears with the moment **plus the hint**, so a hint is for an intended offset (a beat before the picture, or "this 375 ms
+  offset is fine": write `+375ms` and the plan says so). A narration that simply starts too late is not fixed by a negative hint: shorten the words
+  before it, move the anchor, or ask the Director; the finding keeps coming back until the render meets the plan.
+- **Old renders keep what they were made with.** A render that was made with an override (keycraft v3 to v5) keeps its file, its QA still reads
+  the timeline it used, and it is named "legacy timing fixes: N shift(s) from render vM" in the header. Nothing writes a new one.
+- A **content** problem (a wrong number, an error toast in the footage) was never fixed automatically: change the voice-over, record the scene
+  again, or leave it.
 
 ## Sync diagnostics (measured beside planned)
 
@@ -89,7 +89,7 @@ blocks does not change** (P1a Q0 only adds information); nothing acts on the mea
 ## Calibration verdict (P1a Q0, from the first real run)
 
 The drift numbers of the first real run contradicted the edit's plan by up to 1.4 s (scene `06-faq-qa`: measured −1419 / +1004 / +946 ms,
-planned 0 / +375 / +375 ms), and the same three or four items came back after every "Apply fixes". Re-running the check on that final
+planned 0 / +375 / +375 ms), and the same three or four items came back after every "Apply fixes" (the button this verdict led to retiring, Q7). Re-running the check on that final
 (render v8, 16 anchors) with the diagnostics above, and comparing with the speech onsets in the audio itself, gives:
 
 | What | Anchors | Verdict |
@@ -133,8 +133,8 @@ manifest and a new edit. On the first run's voice-over 12 of the 16 anchors move
   nothing. Only the render has checks today; the other stages answer "no automatic checks yet" (their adapters come with "QA after every phase").
 - **Coverage is said.** The report records how many anchors were measured: "sync measured at 11 of 16 anchors". The ones the transcript did
   not contain become one info line naming them and where they are; sync is not checked there, and nothing guesses.
-- **A fix acts on a measurement only when it sits on a speech onset** (`supported`). A narration that is off by a lot but measured mid-flow
-  is still reported, with "not offered as a fix", never as a number to act on.
+- **A measurement is trusted only when it sits on a speech onset** (`supported`). A narration that is off by a lot but measured mid-flow
+  is still reported, with "the measurement is not on a speech onset: it may be wrong", never as a number to act on.
 - **All checks…** on a final's Quality check opens **Checks of render vN**, the one popup every stage will use: the findings in the same
   groups with the coverage line. It is read-only for now; Fix / Ignore / Leave, the ignored list and the pending fixes arrive with the
   flag-and-propose loop.
@@ -243,7 +243,7 @@ audio cache key, so changing it is a 100 % cache hit and **costs no credits**; o
   that is not an anchor (it would be spoken as words).
 - In the **Voice over screen**, each anchor's picture has −100 / +100 nudges and Reset; they edit the narration (a working draft). Save a
   version, approve it, and **Generate voice & render**: the cost dialog says 0.
-- A QA finding about timing is fixed by a hint on that anchor (the Director proposes one in the voice-over proposal), not by a render override.
+- A hint says where you **want** the narration. It does not correct a measured deviation (the QA compares what it hears with the moment plus the hint): see "Fixes" above for what does.
 
 ## Pending fixes: the stage writers read them and settle them (Q5)
 
@@ -265,9 +265,9 @@ A pending fix is what you accepted for a stage that is not being written now. Wh
 ```
 render/
   v7.json             the record; "qa": { status, blocking, confirmed, warnings, info, ranAt }
-  v7.qa.json          the report: every item (check, level, scene, time, message, fix, confirmed)
+  v7.qa.json          the report: every item (check, level, scene, time, message, confirmed)
   v7/qa-report.md     the same as Markdown, for sharing
-  v8.overrides.json   fixes applied by render v8 (on top of render v7)
+  v5.overrides.json   LEGACY: a render made before Q7 with an override; still read, never written
 ```
 
 ## CLI and tool
@@ -276,7 +276,7 @@ render/
 node extensions/demo-recording/cli.ts qa --project P [--version N]           # show (runs QA if it hasn't)
 node extensions/demo-recording/cli.ts qa --project P --version N --run       # re-run
 node extensions/demo-recording/cli.ts qa --project P --version N --confirm drift-3 --reason "intended"
-node extensions/demo-recording/cli.ts qa --project P --version N --fix all   # a new final with the fixes
+node extensions/demo-recording/cli.ts qa --project P --version N --ignore drift-3 --scope finding --reason "intended"
 ```
 
 `accept --stage render` respects the QA gate like the panel. The agent sees the

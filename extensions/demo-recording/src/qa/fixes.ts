@@ -389,7 +389,7 @@ export function directorBrief(projectDir: string, id: string): string {
   const byId = new Map((report?.items ?? []).map((i) => [i.id, i]));
   const line = (i: QaItem | undefined, id: string) =>
     i
-      ? `- ${i.id} [${i.level === "blocking" ? "HARD STOP" : i.high ? "needs the user's eyes" : i.level}] ${i.check}${i.scene ? ` in ${i.scene}` : ""}${i.atMs !== undefined ? ` at ${Math.round(i.atMs / 100) / 10} s` : ""}: ${i.message}${i.fix ? ` (the check's own suggestion: ${i.fix.label})` : ""}`
+      ? `- ${i.id} [${i.level === "blocking" ? "HARD STOP" : i.high ? "needs the user's eyes" : i.level}] ${i.check}${i.scene ? ` in ${i.scene}` : ""}${i.atMs !== undefined ? ` at ${Math.round(i.atMs / 100) / 10} s` : ""}: ${i.message}`
       : `- ${id} (no longer in the report)`;
   const flaggedFix = round.flags.filter((f) => f.choice === "fix").map((f) => f.id);
   const left = round.flags.filter((f) => f.choice === "leave").map((f) => f.id);

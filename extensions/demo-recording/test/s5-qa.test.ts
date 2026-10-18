@@ -21,14 +21,14 @@ import {
   checkMedia,
   checkValues,
   confirmItem,
-  fixRequest,
+  effectiveTimeline,
   qaBlocker,
   qaFile,
   summarize,
 } from "../src/qa/run.ts";
 import type { QaItem, QaReport } from "../src/qa/types.ts";
 import { normalizeOptions } from "../src/render/run.ts";
-import { type RenderRecord, saveRecord, startRecord } from "../src/render/store.ts";
+import { type RenderRecord, readRender, saveRecord, startRecord } from "../src/render/store.ts";
 
 let root: string;
 beforeEach(() => {
@@ -283,9 +283,7 @@ test("values: on screen when said → nothing; only later in the scene → warni
     /“three point one” \(3\.1\) is said at 0:03\.1 but shown at 0:05\.0 in 01-a/,
   );
   assert.equal(w[0]?.atMs, 1000 + 2100, "full-video time: scene start + said");
-  assert.equal(w[0]?.fix?.kind, "shift-narration");
-  assert.equal(w[0]?.fix?.anchor, "m1");
-  assert.equal(w[0]?.fix?.deltaMs, 4000 - 2100 + 300, "shown at scene 4000, said at 2100, + 0.3 s");
+  assert.equal("fix" in (w[0] ?? {}), false, "reported, never fixed by a hidden override (Q7)");
   fs.rmSync(path.join(root, "projects"), { recursive: true, force: true });
 
   const wrong = project("fourteen point three", [{ t: 3000, text: "EMEA 14.2%" }]);
@@ -295,7 +293,7 @@ test("values: on screen when said → nothing; only later in the scene → warni
     b[0]?.message ?? "",
     /says “fourteen point three” \(14\.3\) — it isn't on screen anywhere in 01-a/,
   );
-  assert.equal(b[0]?.fix, undefined, "content is never auto-fixed");
+  assert.equal("fix" in (b[0] ?? {}), false, "content is never auto-fixed");
 });
 
 test("footage: error toasts and console errors in the used footage need your eyes; cut-away ones don't count; info toasts are plain warnings", () => {
@@ -320,7 +318,7 @@ test("footage: error toasts and console errors in the used footage need your eye
 
 // --- summary, confirm, gate, fixes ---------------------------------------------------------
 
-test("summary, confirm rules, gate; fixes merge with the render's own overrides", () => {
+test("summary, confirm rules, gate; an old render's overrides are still read, nothing writes new ones", () => {
   const dir = project("three point one", [{ t: 3000, text: "3.1%" }]);
   const items: QaItem[] = [
     {
@@ -331,13 +329,6 @@ test("summary, confirm rules, gate; fixes merge with the render's own overrides"
       scene: "01-a",
       atMs: 2000,
       message: "late",
-      fix: {
-        kind: "shift-narration",
-        scene: "01-a",
-        anchor: "m1",
-        deltaMs: -400,
-        label: "earlier",
-      },
     },
     { id: "media-2", check: "media", level: "warning", message: "pause" },
     {
@@ -408,30 +399,26 @@ test("summary, confirm rules, gate; fixes merge with the render's own overrides"
   const ok = summarize(c.report.items.filter((i) => i.id !== "media-4"));
   assert.equal(ok.status, "confirmed");
   assert.equal(qaBlocker({ ...rec, qa: ok }), undefined);
-  // fixes: the render already carried a +600 ms shift of the same segment → merged to +200
+  // LEGACY: a render made with an override (before Q7) keeps its file, and its QA still reads the timeline it was made with
   fs.writeFileSync(
     path.join(dir, "render", `v${rec.version}.overrides.json`),
     JSON.stringify({
       fromRender: 0,
       shifts: [
-        {
-          kind: "shift-narration",
-          scene: "01-a",
-          anchor: "m1",
-          deltaMs: 600,
-          label: "earlier fix",
-        },
+        { kind: "shift-narration", scene: "01-a", anchor: "m1", deltaMs: 600, label: "an old fix" },
       ],
     }),
   );
-  const req = fixRequest(dir, rec.version, "all", "panel");
-  assert.equal(req.kind, "final");
-  assert.equal(req.annotations, 1);
-  assert.deepEqual(
-    req.overrides?.shifts.map((s) => [s.anchor, s.deltaMs]),
-    [["m1", 200]],
+  const used = effectiveTimeline(dir, rec);
+  const plain = JSON.parse(
+    fs.readFileSync(path.join(dir, "edit", `timeline.v${rec.timeline}.json`), "utf8"),
   );
-  assert.throws(() => fixRequest(dir, rec.version, ["media-2"], "panel"), /no fixable items/);
+  assert.equal(
+    (used.scenes[0]?.audio[1]?.at ?? 0) - (plain.scenes[0]?.audio[1]?.at ?? 0),
+    600,
+    "the old shift is applied to a copy: the narration comes 600 ms later",
+  );
+  assert.equal(readRender(dir, rec.version)?.overrides, undefined, "and nothing new records one");
 });
 
 test("narration shifts: the segment moves, later ones are pushed, anchors follow, the scene holds its end when needed", () => {

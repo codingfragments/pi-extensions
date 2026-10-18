@@ -285,22 +285,30 @@ test("sidesWith: who the audio supports when the transcript and the plan disagre
   assert.match(sidesWith({ transcriptOnOnset: false }), /the measurement or the render is off/);
 });
 
-test("a fix is offered only for a measurement on a speech onset", { skip }, async () => {
-  // on an onset (the tone starts after silence): a fix
-  const on = await checkDrift(fixture(3400).ctx(5400));
-  assert.equal(on.diagnostics?.anchors[0]?.supported, true);
-  assert.equal(on.items[0]?.fix?.kind, "shift-narration");
-  assert.doesNotMatch(on.items[0]?.message ?? "", /not offered as a fix/);
+test(
+  "a measurement that is not on a speech onset says so; nothing is ever offered as a fix",
+  { skip },
+  async () => {
+    // on an onset (the tone starts after silence): reported plainly
+    const on = await checkDrift(fixture(3400).ctx(5400));
+    assert.equal(on.diagnostics?.anchors[0]?.supported, true);
+    assert.equal(
+      "fix" in (on.items[0] ?? {}),
+      false,
+      "no fix is offered: timing is a hint in the script",
+    );
+    assert.doesNotMatch(on.items[0]?.message ?? "", /not on a speech onset/);
 
-  // continuous speech: the word start is mid-flow, not on an onset, and there is none around: reported, never acted on
-  const f = fixture(3400, 3400, 0, 12000);
-  const off = await checkDrift(f.ctx(5400));
-  const d = off.diagnostics?.anchors[0];
-  assert.deepEqual([d?.measuredDriftMs, d?.supported], [400, false]);
-  assert.equal(off.items[0]?.fix, undefined);
-  assert.match(
-    off.items[0]?.message ?? "",
-    /starts 400 ms after its moment .* — not offered as a fix: the measurement is not on a speech onset$/,
-  );
-  assert.equal(off.items[0]?.level, "warning", "still a finding");
-});
+    // continuous speech: the word start is mid-flow, not on an onset, and there is none around: reported, never acted on
+    const f = fixture(3400, 3400, 0, 12000);
+    const off = await checkDrift(f.ctx(5400));
+    const d = off.diagnostics?.anchors[0];
+    assert.deepEqual([d?.measuredDriftMs, d?.supported], [400, false]);
+    assert.equal("fix" in (off.items[0] ?? {}), false);
+    assert.match(
+      off.items[0]?.message ?? "",
+      /starts 400 ms after its moment .* — the measurement is not on a speech onset: it may be wrong$/,
+    );
+    assert.equal(off.items[0]?.level, "warning", "still a finding");
+  },
+);

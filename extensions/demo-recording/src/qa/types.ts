@@ -10,7 +10,10 @@
 export type QaLevel = "blocking" | "warning" | "info";
 export type QaCheck = "values" | "footage" | "drift" | "media" | "annotations";
 
-/** A mechanical fix (D74): move one narration segment so it lands on its moment. */
+/**
+ * LEGACY (S5 part 10, D74): a render override moved one narration segment on a copy of the timeline. Nothing creates one any more (Q7: timing is a
+ * hint in the script, `[@mark +300ms]`); renders that were made with one keep their `render/vN.overrides.json`, which is still read.
+ */
 export interface QaFix {
   kind: "shift-narration";
   scene: string;
@@ -122,7 +125,6 @@ export interface QaItem {
   identity?: FindingIdentity;
   /** Set when an ignore of yours covers it: it stays in the report, out of the counts. */
   ignored?: { id: string; scope: IgnoreScope; reason: string; since: number };
-  fix?: QaFix;
   /** "Confirm & export anyway" (D73). */
   confirmed?: { at: string; reason: string };
 }
@@ -146,7 +148,7 @@ export interface AnchorDiag {
   editDriftMs: number;
   /**
    * Was the measurement on a speech onset (the word start itself, or the onset the check found around it)?
-   * Only then is a fix offered: a number that is not on an onset is a "not measured", never something to act on.
+   * Only then is the number trusted: one that is not on an onset is said to be possibly wrong, never something to act on.
    */
   supported?: boolean;
   /** The first words of the anchored segment, as searched in the transcript. */

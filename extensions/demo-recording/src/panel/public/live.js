@@ -125,6 +125,34 @@ function jobRow(events, key, title, progressType, finishedType) {
   };
 }
 
+/**
+ * The render row, and the quality check that shares its slot. A QA run reports as `render.progress` with the label "QA" and ends with
+ * `render.qa` (never `render.finished`): it must not read as a render, and it must not stay "running" once it is done.
+ */
+function renderRow(events) {
+  const ev = last(events, ["render.progress", "render.finished", "render.qa"]);
+  if (!ev) return null;
+  if (ev.type === "render.qa")
+    return {
+      key: "render",
+      title: "Quality check",
+      state: ev.data.status === "error" ? "failed" : "done",
+      fraction: 1,
+      detail: ev.data.message,
+      at: ev.seq,
+    };
+  if (ev.type === "render.progress" && ev.data.label === "QA")
+    return {
+      key: "render",
+      title: "Quality check",
+      state: "running",
+      fraction: null, // how long it takes is not known, and it is not a render
+      detail: ev.data.message,
+      at: ev.seq,
+    };
+  return jobRow(events, "render", "Render", "render.progress", "render.finished");
+}
+
 /** The Director's own task (P1a A2): running while it works, then how it ended. */
 function directorRow(events) {
   const ev = last(events, ["director.started", "director.step", "director.settled"]);
@@ -180,7 +208,7 @@ export function activityRows(events) {
       ["design.announced", "design.progress"],
       "design.finished",
     ),
-    jobRow(events, "render", "Render", "render.progress", "render.finished"),
+    renderRow(events),
   ].filter(Boolean);
   const running = rows.filter((r) => r.state === "running").sort((a, b) => a.at - b.at);
   const finished = rows.filter((r) => r.state !== "running").sort((a, b) => b.at - a.at);

@@ -13,6 +13,8 @@ export interface Job<T = unknown> {
   startedAt: number;
   finishedAt?: number;
   status: JobStatus;
+  /** What the panel calls this job when its kind is not the whole story (a QA check runs in the render slot). */
+  label?: string;
   error?: string;
   result?: T;
   progress?: unknown;

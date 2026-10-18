@@ -35,6 +35,8 @@ export const JOB_TITLE = {
   render: "Render",
 };
 
+/** What a job is called: its own label when it has one (a quality check runs in the render slot), else its kind's title. */
+export const jobTitle = (j) => j?.label ?? JOB_TITLE[j?.kind] ?? j?.kind;
 export const stepOfStage = (stage) => STEPS.find((s) => s.stage === stage);
 export const vLabel = (stage, n) =>
   stage === "recording" ? `take-${String(n).padStart(3, "0")}` : `v${n}`;
@@ -87,10 +89,10 @@ export function stepStates({ stages, jobs, discovery = false, director }) {
       node = `${step.stage}:${s.selected}`;
     } else if (fail) {
       state = "blocked";
-      why = `${JOB_TITLE[fail.kind]} failed${fail.error ? `: ${String(fail.error).split("\n")[0]}` : ""}`;
+      why = `${jobTitle(fail)} failed${fail.error ? `: ${String(fail.error).split("\n")[0]}` : ""}`;
     } else if (running || (step.stage === "storyboard" && discovery)) {
       state = "running";
-      why = `${running ? JOB_TITLE[running.kind] : "Discovery"} is running`;
+      why = `${running ? jobTitle(running) : "Discovery"} is running`;
     } else if ((next?.who === "user" && next.stage === step.stage) || pending.length) {
       state = "needs";
       const latest = pending.at(-1);
@@ -176,7 +178,7 @@ export function nextBand({ stages, states, jobs, director, now = Date.now() }) {
     return {
       tone: "idle",
       label: "Running",
-      text: `${JOB_TITLE[running.kind]} is running`,
+      text: `${jobTitle(running)} is running`,
       action: null,
       more: [],
     };
@@ -221,14 +223,14 @@ export function stripState({ jobs, rows, status, dismissed = new Set(), director
       r && r.fraction !== null && r.fraction !== undefined
         ? ` ${Math.round(r.fraction * 100)}%`
         : "";
-    return `${JOB_TITLE[j.kind] ?? j.kind}${pct}`;
+    return `${jobTitle(j)}${pct}`;
   };
   const discovery = (rows ?? []).find((r) => r.state === "running" && r.key === "discovery");
   const failure = failedJobs(jobs).find((j) => !dismissed.has(j.id)) ?? null;
   if (failure && !run.length)
     return {
       tone: "err",
-      text: `${JOB_TITLE[failure.kind] ?? failure.kind} failed${failure.error ? `: ${String(failure.error).split("\n")[0]}` : ""}`,
+      text: `${jobTitle(failure)} failed${failure.error ? `: ${String(failure.error).split("\n")[0]}` : ""}`,
       progress: null,
       running: [],
       failure,

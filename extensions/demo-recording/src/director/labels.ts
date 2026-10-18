@@ -64,6 +64,10 @@ export function taskLabel(o: { input?: string; prompt?: string; custom?: string 
       const what = APPROVED_WORD.find(([re]) => re.test(body))?.[1] ?? "your approval";
       return { label: `Continuing after you approved ${what}`, by: "panel" };
     }
+    if (/ACCEPTED \d+ fix proposals? for the .* and asks you to APPLY/.test(body)) {
+      const stage = /for the ([a-z -]+) \(fix set/.exec(body)?.[1] ?? "draft";
+      return { label: `Writing the ${stage} draft from the fixes you accepted`, by: "panel" };
+    }
     if (/asks for suggested fixes/.test(body))
       return {
         label: /ask you to rethink/.test(body)

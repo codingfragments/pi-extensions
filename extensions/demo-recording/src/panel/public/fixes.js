@@ -5,6 +5,13 @@ import { api, post, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
 import { errorToast } from "./dialog.js";
 
+const STAGE_TAB = {
+  storyboard: "storyboard",
+  recording: "recording",
+  vo: "voice",
+  annotations: "annotations",
+  render: "render",
+};
 const STAGE_WORD = {
   discovery: "Discovery",
   storyboard: "Storyboard",
@@ -98,6 +105,23 @@ export function FlagToolbar({ items, fixes }) {
   </div>`;
 }
 
+/** A change as bullets: its own bullet lines, else its sentences (so an old wall of text still reads as a list). */
+export function bulletsOf(text) {
+  const own = String(text)
+    .split("\n")
+    .map((l) => l.replace(/^\s*[-*•]\s+/, "").trim())
+    .filter(Boolean);
+  if (own.length > 1) return own;
+  return String(text)
+    .split(/(?<=[.!?])\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+function Bullets({ text }) {
+  const items = bulletsOf(text);
+  return html`<ul class="fix-change">${items.map((b, i) => html`<li key=${i}>${b}</li>`)}</ul>`;
+}
+
 function Proposal({ p, set, items, reload }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(p.edited ?? p.change);
@@ -113,7 +137,7 @@ function Proposal({ p, set, items, reload }) {
   const gist = (id) => (items.find((i) => i.id === id)?.message ?? id).slice(0, 90);
   return html`<li class="fix-proposal" data-stage=${p.stage} data-decision=${p.decision}>
     <div class="row"><span class="ds-badge" data-tone="accent">${STAGE_WORD[p.stage]}</span><b class="qa-msg">${p.title}</b></div>
-    ${editing ? html`<textarea class="ds-textarea" aria-label="Your wording of the change" value=${text} onInput=${(e) => setText(e.target.value)}></textarea>` : html`<p class="fix-change">${p.edited ?? p.change}${p.edited ? html` <span class="ds-badge" data-tone="info">your wording</span>` : null}</p>`}
+    ${editing ? html`<textarea class="ds-textarea" aria-label="Your wording of the change" value=${text} onInput=${(e) => setText(e.target.value)}></textarea>` : html`<${Bullets} text=${p.edited ?? p.change} />${p.edited ? html`<span class="ds-badge" data-tone="info">your wording</span>` : null}`}
     <p class="small-text muted"><b>Why:</b> ${p.why}</p>
     <p class="small-text muted"><b>Answers:</b> ${p.findings.map((f) => html`<span class="fix-finding" key=${f} title=${gist(f)}>${f}</span> `)}</p>
     ${p.cost ? html`<p class="small-text muted"><b>Applying it costs:</b> ${p.cost}</p>` : null}
@@ -174,6 +198,23 @@ export function FixesPanel({ r, items, fixes }) {
   };
   if (!fixes.can.size && !set?.rounds?.length) return null;
   const proposed = round?.status === "proposed";
+  const applying = set?.applying;
+  const writing = applying && !applying.version && !applying.kept;
+  const applied = applying?.version !== undefined;
+  const earliestAccepted = accepted[0]?.stage;
+  const startsItself = earliestAccepted === "recording" || earliestAccepted === "discovery";
+  const apply = async () => {
+    setBusy(true);
+    try {
+      await post("/api/qa-fix-apply", { fixset: set.id });
+      fixes.reload();
+    } catch (e) {
+      errorToast(e, "applying");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const pending = fixes.data?.pending ?? [];
   return html`<section class="fixes ds-stack" aria-label="Fixes">
     <h4 class="qa-head">Fixes</h4>
     ${waiting ? html`<div class="ds-notice" data-tone="info" role="status"><span class="ds-status" data-tone="info" aria-hidden="true">◔</span><div class="ds-grow">Waiting for the Director: it is working on round ${round.n} (the band above says what it is doing).</div><button class="ds-btn ds-btn--sm" type="button" data-act="cancel-ask" onClick=${cancel}>Cancel this ask</button></div>` : null}
@@ -184,16 +225,31 @@ export function FixesPanel({ r, items, fixes }) {
       <p class="small-text"><b>The Director's answer</b> (round ${round.n}): ${round.summary}</p>
       ${round.earliest ? html`<p class="small-text" data-earliest=${round.earliest}>The earliest stage that needs a fix: <b>${STAGE_WORD[round.earliest]}</b>. One run there fixes ${round.proposals[0].findings.length} finding${round.proposals[0].findings.length === 1 ? "" : "s"}; later stages follow from it.</p>` : null}
       <ol class="fix-list">${round.proposals.map((p) => html`<${Proposal} key=${`${round.n}-${p.id}-${p.decision}-${p.edited ?? ""}`} p=${p} set=${set} items=${items} reload=${fixes.reload} />`)}</ol>
+      ${round.nextSteps?.length ? html`<div class="fix-next" data-next-steps><p class="small-text"><b>Next steps to a new render</b></p><ol class="small-text">${round.nextSteps.map((x, i) => html`<li key=${i}>${x}</li>`)}</ol></div>` : null}
       ${round.unresolved?.length ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div><b>The Director could not fix:</b><ul>${round.unresolved.map((u) => html`<li key=${u.finding}><span class="fix-finding">${u.finding}</span> ${u.why}</li>`)}</ul></div></div>` : null}
-      <p class="small-text muted">${accepted.length ? `${accepted.length} accepted, from ${STAGE_WORD[accepted[0].stage]} on.` : "Nothing accepted yet."} Nothing changes until you apply the accepted proposals; that comes in the next step.</p>
+      <p class="small-text muted">${accepted.length ? `${accepted.length} accepted, from ${STAGE_WORD[accepted[0].stage]} on.` : "Nothing accepted yet."} ${applying ? "" : "Nothing changes until you apply the accepted proposals."}</p>
+      ${
+        !applying && accepted.length
+          ? html`<div class="row fix-apply"><button class="ds-btn ds-btn--primary" type="button" data-act="apply-fixes" disabled=${busy} onClick=${apply}>${startsItself ? `Keep the ${accepted.length} accepted fix${accepted.length === 1 ? "" : "es"} for when I start the ${STAGE_WORD[earliestAccepted].toLowerCase()}` : `Apply ${accepted.length} accepted proposal${accepted.length === 1 ? "" : "s"}`}</button>${startsItself ? null : html`<${CostHint} />`}</div>
+        <p class="small-text muted">${startsItself ? `A ${STAGE_WORD[earliestAccepted].toLowerCase()} is something you start yourself: the fixes are remembered and the Director takes them into account then.` : `The Director writes ONE new ${STAGE_WORD[earliestAccepted].toLowerCase()} draft from them. Nothing is rendered and nothing is synthesized: you read the draft, verify it and approve it, and only then does the voice cost anything.`}</p>`
+          : null
+      }
     </div>`
         : null
     }
-    <label class="ds-field"><span class="ds-label">${proposed ? "More context: ask the Director to rethink" : "Context for the Director (optional)"}</span>
+    ${writing ? html`<div class="ds-notice" data-tone="info" role="status"><span class="ds-status" data-tone="info" aria-hidden="true">◔</span><div class="ds-grow">The Director is writing the ${STAGE_WORD[applying.stage].toLowerCase()} draft from the fixes you accepted (the band above says what it is doing).${applying.path?.length ? html`<p class="small-text"><b>Next steps to a new render</b></p><ol class="small-text" data-next-steps>${applying.path.map((x, i) => html`<li key=${i}>${x}</li>`)}</ol>` : null}</div></div>` : null}
+    ${applied ? html`<div class="ds-notice" data-tone="ok" role="status" data-applied=${applying.stage}><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span><div class="ds-grow"><b>Applied.</b> ${STAGE_WORD[applying.stage]} v${applying.version} is a new draft written from your accepted fixes. Read it and approve it in the <a href=${`#/${STAGE_TAB[applying.stage]}`}>${STAGE_WORD[applying.stage]}</a> tab; nothing was rendered or synthesized.${applying.path?.length ? html`<p class="small-text"><b>Next steps to a new render</b></p><ol class="small-text" data-next-steps>${applying.path.map((x, i) => html`<li key=${i}>${x}</li>`)}</ol>` : null}</div></div>` : null}
+    ${applying?.kept ? html`<div class="ds-notice" data-tone="info" role="note"><span class="ds-status" data-tone="info" aria-hidden="true">i</span><div class="ds-grow">The earliest accepted fix is for the ${STAGE_WORD[applying.stage].toLowerCase()}, which you start yourself. The fixes are kept as pending fixes.${applying.path?.length ? html`<p class="small-text"><b>Next steps to a new render</b></p><ol class="small-text" data-next-steps>${applying.path.map((x, i) => html`<li key=${i}>${x}</li>`)}</ol>` : null}</div></div>` : null}
+    ${pending.length ? html`<div class="fix-pending"><p class="small-text"><b>Pending fixes</b> (kept for their stage; its writer takes them into account):</p><ul class="small-text">${pending.map((x) => html`<li key=${x.id} data-stage=${x.stage}><span class="ds-badge" data-tone="neutral">${STAGE_WORD[x.stage]}</span> ${x.text}</li>`)}</ul></div>` : null}
+    ${
+      applying
+        ? null
+        : html`<label class="ds-field"><span class="ds-label">${proposed ? "More context: ask the Director to rethink" : "Context for the Director (optional)"}</span>
       <textarea class="ds-textarea" data-field="guidance" placeholder=${proposed ? "what it missed, what you want different, what to keep…" : "what matters here, what to keep, what you would rather not change…"} value=${fixes.guidance} onInput=${(e) => fixes.writeGuidance(e.target.value)} onBlur=${fixes.saveGuidance}></textarea></label>
     <div class="row">
       <button class="ds-btn ds-btn--primary" type="button" data-act="ask-fixes" disabled=${busy || waiting || !flagged} title=${flagged ? "" : "flag at least one finding as Fix"} onClick=${ask}>${proposed ? "Ask the Director to rethink" : "Ask the Director for suggested fixes"} (${flagged} flagged)</button>
       <${CostHint} />
-    </div>
+    </div>`
+    }
   </section>`;
 }

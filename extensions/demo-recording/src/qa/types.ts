@@ -41,6 +41,36 @@ export interface FindingIdentity {
 export type IgnoreScope = "finding" | "scene" | "project";
 
 /**
+ * A fix you accepted that belongs to a LATER stage than the one being changed now (P1c Q4, D-QA-9): the project remembers it so the
+ * stage's writer reads it when its turn comes (Q5). Plain text first, structure second: it is memory the Director reads, not a to-do list
+ * the engine runs. `stale` means the problem no longer exists after an earlier change.
+ */
+export interface PendingFix {
+  id: string;
+  /** The stage it is for. */
+  stage: "discovery" | "storyboard" | "recording" | "vo" | "annotations" | "render";
+  /** What to do, in a sentence or two (the proposal's title and the change, or your wording of it). */
+  text: string;
+  /** Your note on the proposal, when you wrote one. */
+  guidance?: string;
+  /** Where it came from. */
+  fixset: string;
+  render: number;
+  /** The findings it answers: id, the message as it was, and what the finding is (so it can be recognised again). */
+  findings: {
+    id: string;
+    message: string;
+    check: QaCheck;
+    scene?: string;
+    identity?: FindingIdentity;
+  }[];
+  status: "open" | "applied" | "dropped" | "superseded" | "stale";
+  createdAt: string;
+  /** Why it was applied, dropped or went stale. */
+  resolvedWhy?: string;
+}
+
+/**
  * Something you decided to leave alone, remembered in the project (P1a Q2, D-QA-3). It covers a finding by what it
  * is, not by its numbers, survives re-renders of the same content, and ends when that content changes.
  */

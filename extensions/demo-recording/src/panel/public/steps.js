@@ -54,6 +54,8 @@ export const STEPS = {
   "project.created": { class: "quiet" },
   "project.opened": { class: "quiet" },
   "recording.requested": { class: "quiet" },
+  "qa.applying": { class: "quiet" },
+  "qa.applied": { class: "quiet" },
   "qa.asked": { class: "quiet" },
   "qa.decided": { class: "quiet" },
   "qa.proposed": { class: "run-and-tell", tab: "render" },

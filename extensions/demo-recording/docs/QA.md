@@ -177,10 +177,50 @@ You do not have to hunt for the cause of every finding. In the Quality check of 
 6. **Rethink.** Write more context ("only fix the numbers, keep the intro") and **Ask the Director to rethink**: it sees the earlier
    rounds with your decisions, edits and notes, and proposes again. As many rounds as you like; a note on a stage carries over.
 
-**Nothing is applied in this step**: no voice-over, annotations or render version is made, nothing is synthesized, the script is untouched.
-Applying the accepted proposals as one new draft at the earliest stage is the next step. The rounds are kept in the project
+**Nothing is applied by deciding**: no voice-over, annotations or render version is made, nothing is synthesized, the script is untouched.
+The rounds are kept in the project
 (`fixes/fs-N.json`), the Director sees fix sets in progress in the project context ("QA fixes in progress"), and the Director has no tool to
 accept or apply anything (a test enforces it).
+
+## How the Director answers: structured, stage first, the way to a new render
+
+A fix answer is never a paragraph. `demo_rec_qa propose` **refuses** a wall of text and says what to cut: a summary of at most 400 characters,
+a title of at most 90, a "why" of at most 320, the change as bullets (≤ 1400), and **`nextSteps`**: 2 to 7 short steps (≤ 170 characters each)
+from the fix to **a new render**. It returns the chat reply already built from what was stored, so the chat and the panel say the same:
+
+```
+**Stage:** Voice-over, the earliest that needs a fix (then Annotations)
+**Fixes:** 3 of 3 findings
+**Voice-over: Rewrite the sentence around @m2**
+- Say 14.2 instead of 14.3
+  Cost: re-synthesises 1 section
+**Next steps to a new render:**
+1. Read the new voice-over draft and approve it
+2. Generate voice & render (asks for your Allow)
+3. Render a final and read its QA
+```
+
+The panel shows each change as bullets and the numbered steps under the proposals. After you apply, the engine computes the steps for that
+stage itself (`pathToRender`: what you do, what asks for your Allow, what a render does not do) and gives the Director the exact reply shape;
+the panel shows the same list under "Applied".
+
+## Apply: one new draft at the earliest stage (Q4)
+
+When you have accepted what you want, **Apply N accepted proposals** does this, and only this:
+
+- The earliest stage that has an accepted proposal gets **ONE new draft**: the Director (a visible turn, "Writing the voice-over draft from the
+  fixes you accepted") reads the accepted proposals with `demo_rec_qa context`, in **your own wording** where you edited, and writes the new
+  version with the stage's tool (a voice-over based on the current one, a storyboard, annotations). It is an ordinary draft: you read it, verify
+  it and approve it. **Nothing is rendered and nothing is synthesized**; voice costs credits only after you approved the script, and then only behind
+  your Allow. The Director adds nothing beyond what was accepted.
+- The accepted proposals for **later stages** become **pending fixes** in the project (a sentence, your note, the findings it answers and what
+  they are, so they can be recognised again). The stage's writer takes them into account when its turn comes, and the Director reads them in the
+  project context. A pending fix is memory, not a to-do list the engine runs.
+- A **recording or discovery** fix is never done inside this flow (a new take is something you start, with its own Allow): the button says "Keep
+  the accepted fixes for when I start the recording", and they are kept as pending fixes.
+- The draft is **linked to the fix set**: the band says "Needs you: review voice-over v3 (fixes from render v8)", the panel says "Applied.
+  Voice over v3 is a new draft written from your accepted fixes", and the production line still means approved and usable.
+- You can apply a fix set once. Rejected proposals are neither applied nor kept.
 
 ## Files
 

@@ -9,9 +9,11 @@ import { Type } from "typebox";
 import {
   FIX_STAGES,
   FIX_STAGE_WORD,
+  LIMITS,
   askedRound,
   directorBrief,
   listFixSets,
+  proposeReply,
   recordProposals,
 } from "../qa/fixes.ts";
 import type { Runtime } from "../runtime.ts";
@@ -26,8 +28,9 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
       "as Fix (in full), their context for this round, the earlier rounds with their decisions and notes, and what they already " +
       "decided to leave alone. propose: answer with ONE proposal per stage (the earliest stage that needs a fix first), each saying " +
       "concretely what would change, why, which findings it answers and what applying it costs; every finding to fix is answered or " +
-      "named under unresolved with a reason. You cannot apply or accept anything: the user reviews, may give more context and ask you " +
-      "to rethink, and decides. Stop after propose.",
+      "named under unresolved with a reason. Be STRUCTURED, never a wall of text: a short summary, bullets for the changes, and nextSteps (2-7 " +
+      "short steps from the fix to a NEW RENDER, with the cost of each). Say which stage you address. You cannot apply or accept anything: the " +
+      "user reviews, may give more context and ask you to rethink, and decides. Stop after propose.",
     parameters: Type.Object({
       action: StringEnum(["context", "propose"] as const),
       fixset: Type.Optional(
@@ -37,20 +40,26 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
       ),
       summary: Type.Optional(
         Type.String({
-          description:
-            "propose: your reasoning in a few sentences: the cause, the stage, the one run",
+          description: `propose: the cause and the one run, one or two sentences (at most ${LIMITS.summary} characters)`,
+        }),
+      ),
+      nextSteps: Type.Optional(
+        Type.Array(Type.String(), {
+          description: `propose: ${LIMITS.steps[0]}-${LIMITS.steps[1]} short steps (at most ${LIMITS.step} characters each) from the fix to a new render, in order: what the user does, what asks for their Allow and what it costs, what happens by itself`,
         }),
       ),
       proposals: Type.Optional(
         Type.Array(
           Type.Object({
             stage: StringEnum(FIX_STAGES, { description: "the stage whose version would change" }),
-            title: Type.String({ description: "one line" }),
+            title: Type.String({ description: `one line, at most ${LIMITS.title} characters` }),
             change: Type.String({
               description:
-                "what would change, concretely, in plain text (the sentences, marks, steps): all the changes for this stage",
+                "all the changes for this stage as bullet lines, one per edit, each concrete (old text → new text; the marks, the steps)",
             }),
-            why: Type.String({ description: "why this fixes the findings it names" }),
+            why: Type.String({
+              description: `why this fixes the findings it names, one or two sentences (at most ${LIMITS.why} characters)`,
+            }),
             findings: Type.Array(Type.String(), {
               description: "the ids of the findings it answers",
             }),
@@ -73,19 +82,24 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
       const p = rt.requireProject();
-      const waiting = listFixSets(p.dir).find((s) => s.status === "open" && askedRound(s));
+      const waiting = listFixSets(p.dir).find(
+        (s) =>
+          s.status === "open" &&
+          (askedRound(s) || (s.applying && !s.applying.version && !s.applying.kept)),
+      );
       const id = params.fixset ?? waiting?.id;
       if (!id)
         throw new Error(
-          "no fix set is waiting for you: the user has not asked for suggested fixes",
+          "no fix set is waiting for you: the user has not asked for suggested fixes or for them to be applied",
         );
       if (params.action === "context") return result(directorBrief(p.dir, id));
       if (!params.summary?.trim() || !params.proposals)
         throw new Error(
-          "propose needs a summary and proposals (and unresolved, when something cannot be fixed)",
+          "propose needs a summary, proposals and nextSteps (and unresolved, when something cannot be fixed)",
         );
       const { set, round } = recordProposals(p.dir, id, {
         summary: params.summary,
+        nextSteps: params.nextSteps ?? [],
         proposals: params.proposals,
         ...(params.unresolved ? { unresolved: params.unresolved } : {}),
       });
@@ -103,7 +117,7 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
         p.slug,
       );
       return result(
-        `Stored ${n} proposal${n === 1 ? "" : "s"} for ${set.id}, round ${round.n}; the earliest stage is ${round.earliest ? FIX_STAGE_WORD[round.earliest] : "none"}. The user reviews them in the panel (Render, Fixes), may add context and ask you to rethink, and decides. Nothing is applied. Tell them in one line what you propose, then STOP and wait for their [demo-panel] message.`,
+        `Stored ${n} proposal${n === 1 ? "" : "s"} for ${set.id}, round ${round.n}; the earliest stage is ${round.earliest ? FIX_STAGE_WORD[round.earliest] : "none"}. The user reviews them in the panel (Render, Fixes), may add context and ask you to rethink, and decides. Nothing is applied.\n\nYour reply to the user is this structured text (tighten it if you like, keep the shape, at most 12 lines), then STOP and wait for their [demo-panel] message:\n\n${proposeReply(set, round)}`,
         { fixset: set.id, round: round.n },
       );
     },

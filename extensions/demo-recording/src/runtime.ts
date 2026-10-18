@@ -37,6 +37,7 @@ import { stageRoutes } from "./panel/stage-routes.ts";
 import { versionRoutes } from "./panel/version-routes.ts";
 import { voiceListRoutes } from "./panel/voice-list-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
+import { linkFixDraft } from "./qa/apply.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
 import { startDesigner } from "./tools/designer.ts";
 import { readManifest } from "./tts/synthesize.ts";
@@ -86,6 +87,13 @@ function failedEvent(err: unknown, text: string): Record<string, unknown> {
   };
 }
 
+/** The events that mean "the Director wrote a draft of this stage" (P1c Q4). */
+const FIX_DRAFT_EVENTS: Record<string, string> = {
+  "vo.written": "vo",
+  "storyboard.written": "storyboard",
+  "annotations.updated": "annotations",
+};
+
 export class Runtime {
   readonly bus = new EventBus();
   private config: DemoRecConfig | undefined;
@@ -113,6 +121,36 @@ export class Runtime {
   ) {
     this.resolve = resolve;
     this.agent = agent;
+    // The Director wrote a draft while a fix set waited for one: link them (P1c Q4), so the panel says "fixes from render vN"
+    this.bus.subscribe((e) => {
+      const stage = FIX_DRAFT_EVENTS[e.type];
+      const d = e.data as { version?: number; by?: string } | undefined;
+      const p = this.activeProject();
+      if (
+        !stage ||
+        !p ||
+        typeof d?.version !== "number" ||
+        ["user", "panel", "cli"].includes(d.by ?? "")
+      )
+        return;
+      try {
+        const set = linkFixDraft(p.dir, stage, d.version);
+        if (set)
+          this.bus.publish(
+            "qa.applied",
+            {
+              fixset: set.id,
+              stage,
+              version: d.version,
+              by: "agent",
+              message: `the Director wrote ${stage === "vo" ? "voice-over" : stage} v${d.version} from the fixes you accepted (QA of render v${set.render}): read it, then approve it`,
+            },
+            p.slug,
+          );
+      } catch {
+        // linking is a convenience: it must never break the event that triggered it
+      }
+    });
     // Mirror progress into pi's footer status line.
     this.bus.subscribe((e) => {
       const message = typeof e.data?.message === "string" ? e.data.message : undefined;

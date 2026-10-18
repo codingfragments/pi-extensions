@@ -73,8 +73,10 @@ export interface Round {
   guidance: string;
   status: "asked" | "proposed" | "failed";
   proposedAt?: string;
-  /** The Director's reasoning in a few sentences. */
+  /** The Director's reasoning in a sentence or two (kept short on purpose). */
   summary?: string;
+  /** What comes after the fix, step by step, until a new render exists (the Director's, with the specifics and the costs). */
+  nextSteps?: string[];
   proposals?: Proposal[];
   /** Findings it could not fix, with why (an honest "I can't"). */
   unresolved?: { finding: string; why: string }[];
@@ -88,6 +90,21 @@ export interface FixSet {
   render: number;
   createdAt: string;
   status: "open" | "applied" | "withdrawn";
+  /**
+   * Set when you applied it (P1c Q4): the stage that gets the one new draft, the round and proposals it carries out, and, once the Director
+   * has written it, the version. `kept`: the earliest accepted stage is a recording or a discovery, which you start yourself.
+   */
+  applying?: {
+    stage: FixStage;
+    round: number;
+    proposals: string[];
+    at: string;
+    /** The steps from this fix to a new render. */
+    path?: string[];
+    version?: number;
+    kept?: boolean;
+  };
+  appliedAt?: string;
   /** What you have flagged and written but not yet asked about. */
   draft: { flags: Flag[]; guidance: string };
   rounds: Round[];
@@ -192,6 +209,16 @@ export function askRound(
 
 const stageIndex = (s: FixStage) => FIX_STAGES.indexOf(s);
 
+/** Limits that keep an answer readable: a wall of text is refused with what to shorten. */
+export const LIMITS = {
+  summary: 400,
+  title: 90,
+  why: 320,
+  change: 1400,
+  step: 170,
+  steps: [2, 7] as const,
+};
+
 export interface ProposalInput {
   stage: string;
   title: string;
@@ -210,6 +237,8 @@ export function recordProposals(
   id: string,
   answer: {
     summary: string;
+    /** What comes after the fix until a new render exists, one short step each. */
+    nextSteps: string[];
     proposals: ProposalInput[];
     unresolved?: { finding: string; why: string }[];
   },
@@ -222,8 +251,29 @@ export function recordProposals(
   const flagged = new Set(round.flags.filter((f) => f.choice === "fix").map((f) => f.id));
   const seen = new Map<string, number>();
   const problems: string[] = [];
+  // readable: short summary, short steps, bullets for the changes (a wall of text is refused with what to cut)
+  if (answer.summary.trim().length > LIMITS.summary)
+    problems.push(
+      `summary is ${answer.summary.trim().length} characters: at most ${LIMITS.summary}, one or two sentences`,
+    );
+  const steps = (answer.nextSteps ?? []).map((x) => String(x).trim()).filter(Boolean);
+  if (steps.length < LIMITS.steps[0] || steps.length > LIMITS.steps[1])
+    problems.push(
+      `nextSteps: ${LIMITS.steps[0]} to ${LIMITS.steps[1]} short steps from the fix to a new render (what the user does, what costs what), got ${steps.length}`,
+    );
+  for (const [i, x] of steps.entries())
+    if (x.length > LIMITS.step)
+      problems.push(`nextSteps ${i + 1} is ${x.length} characters: at most ${LIMITS.step}`);
   answer.proposals.forEach((p, i) => {
     const where = `proposal ${i + 1}`;
+    if (p.title.trim().length > LIMITS.title)
+      problems.push(`${where}: the title is over ${LIMITS.title} characters`);
+    if (p.why.trim().length > LIMITS.why)
+      problems.push(`${where}: why is over ${LIMITS.why} characters: one or two sentences`);
+    if (p.change.trim().length > LIMITS.change)
+      problems.push(
+        `${where}: change is over ${LIMITS.change} characters: bullets, one per edit (old text → new text)`,
+      );
     if (!FIX_STAGES.includes(p.stage as FixStage))
       problems.push(`${where}: stage "${p.stage}" is not one of ${FIX_STAGES.join(", ")}`);
     if (p.title.trim().length < 3) problems.push(`${where}: a title is needed`);
@@ -273,7 +323,8 @@ export function recordProposals(
     });
   round.status = "proposed";
   round.proposedAt = now.toISOString();
-  round.summary = answer.summary.trim().slice(0, 2000);
+  round.summary = answer.summary.trim();
+  round.nextSteps = steps;
   round.proposals = proposals;
   round.unresolved = unresolved;
   round.earliest = proposals[0]?.stage;
@@ -371,6 +422,25 @@ export function directorBrief(projectDir: string, id: string): string {
         );
     }
   }
+  if (set.applying && !set.applying.version && !set.applying.kept) {
+    const r = set.rounds.find((x) => x.n === set.applying?.round);
+    lines.push(
+      "",
+      `## APPLY: carry out these accepted proposals as ONE new ${FIX_STAGE_WORD[set.applying.stage]} draft`,
+      ...(r?.proposals ?? [])
+        .filter((p) => set.applying?.proposals.includes(p.id))
+        .flatMap((p) => [
+          `### ${p.id}: ${p.title}`,
+          p.edited ? `The user's own wording (follow it): ${p.edited}` : `Change: ${p.change}`,
+          p.edited ? `(the Director's original: ${p.change})` : "",
+          `Why: ${p.why}`,
+          `Answers: ${p.findings.join(", ")}`,
+          p.note ? `The user's note: ${p.note}` : "",
+        ])
+        .filter(Boolean),
+      "Change only what these say. Do not render and do not synthesize. Stop after writing the draft; the user reads and approves it.",
+    );
+  }
   const ig = activeIgnores(projectDir);
   if (ig.length)
     lines.push(
@@ -386,8 +456,10 @@ export function directorBrief(projectDir: string, id: string): string {
     "## How to answer (demo_rec_qa propose)",
     "- The goal is ONE run at the EARLIEST stage that needs a fix, fixing as many of the problems as possible. Group the findings by the stage where their cause is, not where they show.",
     `- At most ONE proposal per stage (${FIX_STAGES.join(", ")}); the tool refuses two for the same stage. Put every change for that stage in that one proposal.`,
-    "- A proposal says concretely what would change (the sentences, the marks, the steps), why that fixes the findings it names, and what applying it would cost.",
+    "- A proposal says concretely what would change, as **bullets, one per edit** (old text → new text), why that fixes the findings it names (one or two sentences), and what applying it would cost. No walls of text: summary at most 400 characters, title at most 90, why at most 320.",
+    "- Always say **which stage** you are addressing, and give `nextSteps`: 2 to 7 short steps from the fix to a **new render** (what the user does next, what is synthesised and what it costs, what follows), in the order they happen.",
     "- Every finding to fix is answered by a proposal or named under `unresolved` with an honest reason.",
+    "- Your reply to the user is STRUCTURED, not a paragraph: the propose tool returns a template with the stage, the findings, the changes and the next steps already filled in. Use it (tighten the wording if you like), at most 12 lines.",
     "- Nothing is applied by you: the user reads your proposals, decides, may give you more context and ask you to rethink. Stop after propose.",
   );
   return lines.join("\n");
@@ -400,4 +472,51 @@ export function formatFixSets(projectDir: string): string[] {
     const r = s.rounds.at(-1) as Round;
     return `- ${s.id} (QA of render v${s.render}): round ${r.n} ${r.status}${r.proposals ? `, ${r.proposals.length} proposal(s), earliest stage ${r.earliest ? FIX_STAGE_WORD[r.earliest] : "none"}, ${r.proposals.filter((p) => p.decision === "accepted").length} accepted` : ""}`;
   });
+}
+
+/**
+ * The reply the Director gives in the chat after `propose`: structured, never a paragraph. Stage first, then what is fixed, the changes and
+ * the steps to a new render. Built from what was stored, so the chat and the panel say the same.
+ */
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+
+export function proposeReply(set: FixSet, round: Round): string {
+  const ps = round.proposals ?? [];
+  const fixed = new Set(ps.flatMap((p) => p.findings));
+  const lines = [
+    `**Stage:** ${ps[0] ? cap(FIX_STAGE_WORD[ps[0].stage]) : "none"}, the earliest that needs a fix${
+      ps.length > 1
+        ? ` (then ${ps
+            .slice(1)
+            .map((p) => cap(FIX_STAGE_WORD[p.stage]))
+            .join(", ")})`
+        : ""
+    }`,
+    `**Fixes:** ${fixed.size} of ${round.flags.filter((f) => f.choice === "fix").length} findings`,
+    ...ps.flatMap((p) => [
+      `**${cap(FIX_STAGE_WORD[p.stage])}: ${p.title}**`,
+      ...bullets(p.change).map((b) => `- ${b}`),
+      ...(p.cost ? [`  Cost: ${p.cost}`] : []),
+    ]),
+    ...(round.unresolved?.length
+      ? ["**Cannot fix:**", ...round.unresolved.map((u) => `- ${u.finding}: ${u.why}`)]
+      : []),
+    "**Next steps to a new render:**",
+    ...(round.nextSteps ?? []).map((s, i) => `${i + 1}. ${s}`),
+    `You decide in the panel (Render, Fixes); nothing is applied. Fix set ${set.id}, round ${round.n}.`,
+  ];
+  return lines.join("\n");
+}
+
+/** A change text as bullets: its own bullet lines, else its sentences. */
+export function bullets(text: string): string[] {
+  const own = text
+    .split("\n")
+    .map((l) => l.replace(/^\s*[-*•]\s+/, "").trim())
+    .filter(Boolean);
+  if (own.length > 1) return own;
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }

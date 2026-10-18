@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { formatPending } from "../qa/apply.ts";
 import { formatFixSets } from "../qa/fixes.ts";
 import { formatIgnores } from "../qa/ignores.ts";
 import { DEPTH_DEFAULTS, effectiveFacts, formatLength } from "./brief.ts";
@@ -34,6 +35,14 @@ export function factsSummary(brief: string): string {
     `URL: ${f.url ?? "—"}${e.extraUrls.length ? ` + ${e.extraUrls.join(", ")}` : ""}`,
   ];
   return parts.join(" · ");
+}
+
+/** Accepted fixes that wait for their stage: the stage's writer reads them when its turn comes (P1c Q4/Q5, D-QA-9). */
+function pendingFixes(projectDir: string): string[] {
+  const lines = formatPending(projectDir);
+  return lines.length
+    ? ["", "## Pending fixes (accepted by the user, for a later stage)", ...lines]
+    : [];
 }
 
 /** The QA fix sets in progress: what the user flagged and what the Director proposed (P1c Q3). */
@@ -89,6 +98,7 @@ export function projectContext(projectDir: string, slug: string): string {
     formatFindings(findings),
     ...qaDecisions(projectDir),
     ...qaFixes(projectDir),
+    ...pendingFixes(projectDir),
     "",
     "Follow the active inputs unless the user now says otherwise. Outdated inputs were withdrawn by the user — ignore them.",
   ].join("\n");

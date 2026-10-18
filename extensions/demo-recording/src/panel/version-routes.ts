@@ -90,6 +90,25 @@ const DID: Record<Intent, string> = {
   withdraw: "withdrawing the approval of",
 };
 
+/**
+ * What happens after "Approve & use", in one line (F11): who does what next and what it costs. The panel adds it to the
+ * toast, so approving never ends in silence. (The Director is told too, in approvalMessage.)
+ */
+export function nextAfterApproval(stage: Stage): string {
+  switch (stage) {
+    case "storyboard":
+      return "Next: the Director asks to record it. A recording uses model calls, so it waits for your Allow.";
+    case "recording":
+      return "Next: the Director writes the voice-over from this take, and waits for your review.";
+    case "vo":
+      return "Next: the Director asks to synthesize the voice. The estimate comes with the request and it waits for your Allow (or press Generate voice & render yourself).";
+    case "annotations":
+      return "Next: render a final (Render, New render…). Nothing starts by itself.";
+    case "render":
+      return "Done: this is the delivered version.";
+  }
+}
+
 export function versionRoutes(deps: VersionRouteDeps): {
   get: Record<string, GetRoute>;
   post: Record<string, PostRoute>;
@@ -233,7 +252,16 @@ export function versionRoutes(deps: VersionRouteDeps): {
           afterToken: stateToken(settled),
           at: Date.now(),
         });
-        return { done: true, intent, plan, line: state.line, lineText: line, orphaned, undo };
+        return {
+          done: true,
+          intent,
+          plan,
+          line: state.line,
+          lineText: line,
+          orphaned,
+          undo,
+          ...(intent === "approve-use" && inLine ? { next: nextAfterApproval(stage) } : {}),
+        };
       },
       "version-undo": (body) => {
         const p = requireProject();

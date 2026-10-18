@@ -10,6 +10,7 @@ import { JOB_TITLE, STEPS } from "./frame-state.js";
 import { showShortcuts } from "./keys.js";
 import { FramePreview, FullLogModal, Log, LogLineModal, ProgressRows, Safety } from "./live.js";
 import { formatRoute } from "./route.js";
+import { stepOf } from "./steps.js";
 
 const GLYPH = { complete: "✓", needs: "●", running: "▶", blocked: "!", upcoming: "○" };
 const WORDS = {
@@ -163,6 +164,26 @@ function JobList({ jobs, dismissed, onDismiss }) {
  * when it opens, gives it back to the strip's button when it closes, and Escape closes it (unless a
  * dialog or popup is on top, which then closes first).
  */
+/** What happened by itself (run-and-tell, steps.js): the last few results that arrived without you asking. */
+function ByItself({ events }) {
+  const items = events
+    .filter((e) => stepOf(e)?.class === "run-and-tell" && typeof e.data?.message === "string")
+    .slice(-6)
+    .reverse();
+  if (!items.length) return null;
+  return html`<section class="ds-stack" aria-label="Happened by itself"><h3>Happened by itself</h3>
+    <ul class="by-itself">${items.map((e) => html`<li key=${e.seq}><span class="small-text">${e.data.message}</span> <a class="ds-link small-text" href=${`#/${stepOf(e).tab}`}>${TAB_NAME[stepOf(e).tab] ?? stepOf(e).tab}</a></li>`)}</ul></section>`;
+}
+
+const TAB_NAME = {
+  storyboard: "Storyboard",
+  recording: "Recording",
+  voice: "Voice over",
+  annotations: "Annotations",
+  render: "Render",
+  project: "Project",
+};
+
 export function ActivityDrawer({
   open,
   onClose,
@@ -204,6 +225,7 @@ export function ActivityDrawer({
             <button class="ds-btn ds-btn--ghost ds-btn--icon" type="button" aria-label="Close activity" onClick=${onClose}>×</button></div>
           <div class="ds-drawer-body">
             <section class="ds-stack" aria-label="Running"><h3>Running</h3><${ProgressRows} rows=${rows} /></section>
+            <${ByItself} events=${events} />
             <${JobList} jobs=${jobs} dismissed=${dismissed} onDismiss=${onDismiss} />
             <section class="ds-stack" aria-label="Preview"><h3>Preview</h3><${FramePreview} events=${events} recording=${recording} /></section>
             <section class="ds-stack" aria-label="Safety"><h3>Safety</h3><${Safety} events=${events} /></section>

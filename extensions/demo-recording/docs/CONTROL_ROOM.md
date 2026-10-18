@@ -21,12 +21,20 @@ Every screen has the same frame around it, so you always know where you are, wha
 | **Next-step band** | under the bar | what needs you (a draft newer than the newest approved version, or the engine's next step) or what is blocked, with a link to go there and a menu of the other pending items. It only links: it never starts anything and never moves you |
 | **The screen** | middle | one of the stages, Project, Config, or the Map as an overlay |
 | **Status strip** | bottom | one short line: *Nothing running*, what runs (a percentage only when the job reports one), a failure in red with **Show error**, or the connection state |
-| **Activity drawer** | right, on demand | the running jobs with progress, what needs attention, recent jobs, the live frame, the safety feed and the log |
+| **Activity drawer** | right, on demand | the running jobs with progress, **what happened by itself**, what needs attention, recent jobs, the live frame, the safety feed and the log |
 
 ![The frame while a render runs, with the Activity drawer open](images/guide/12-frame-running.jpg)
 
 - **The address says where you are** (`#/voice`, `#/render/v2`, `#/config?q=voice`): back, forward and reload work; a bare address
   restores the last place in this project; an unknown one says so and shows Project. Moving around never changes project state.
+- **Nothing happens in silence** (run-and-tell). What the panel does with an event is written down once (`src/panel/public/steps.js`, a test
+  keeps it complete): an **ask** is the Director asking to spend; **progress** shows in the strip and the Activity rows; an **alert** (a model
+  warning, a failure to reach the Director) is always a toast; your own actions say nothing; and a **result that arrived by itself** (the
+  Director wrote something, the edit and its draft render finished, the QA of a final, the annotation designer) is a **new** badge on its step,
+  **a toast when you are looking at that screen**, and a line under **Happened by itself** in Activity.
+- **After Approve & use** the toast says what happens next ("Next: the Director asks to record it. A recording uses model calls, so it waits for
+  your Allow", "Done: this is the delivered version"). **A draft made before there are annotations** (the voice step's) carries a **no annotations**
+  badge so it is not mistaken for the annotated one.
 - **A result that arrives** (a storyboard, a take, a voice-over, annotations, a render) puts a **new** badge on its step. It never
   switches the screen, takes the focus or touches what you are typing.
 - **The Activity drawer never opens by itself**, not even on an error; it is closed again after a reload. A failure is also in the strip

@@ -9,6 +9,8 @@ import type { GetRoute } from "./server.ts";
 export interface JobView {
   id: string;
   kind: string;
+  /** Set when the kind is not what it is (a quality check takes the render slot). */
+  label: string | null;
   status: "running" | "done" | "failed" | "cancelled";
   startedAt: number;
   finishedAt: number | null;
@@ -31,6 +33,7 @@ export function jobRoutes(rt: Runtime): { get: Record<string, GetRoute> } {
               (j): JobView => ({
                 id: j.id,
                 kind: j.kind,
+                label: j.label ?? null,
                 status: j.status,
                 startedAt: j.startedAt,
                 finishedAt: j.finishedAt ?? null,

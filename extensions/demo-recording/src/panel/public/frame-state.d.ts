@@ -6,6 +6,7 @@ export interface Step {
 export const STEPS: Step[];
 export const JOB_STAGE: Record<string, string>;
 export const JOB_TITLE: Record<string, string>;
+export function jobTitle(j: { label?: string | null; kind?: string } | null | undefined): string;
 export interface StageView {
   stage: string;
   selected?: number;

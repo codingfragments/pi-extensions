@@ -91,13 +91,18 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
   const rec = readRender(p.dir, version);
   if (!rec) throw new Error(`render v${version} does not exist`);
   if (rec.kind !== "final") throw new Error("QA is for final renders");
-  return rt.jobs.start<RenderRecord>(
+  const job = rt.jobs.start<RenderRecord>(
     "render",
     p.slug,
     async (signal) => {
       rt.bus.publish(
         "render.progress",
-        { done: 0, total: 1, label: "QA", message: `🔎 QA of render v${version}` },
+        {
+          done: 0,
+          total: 1,
+          label: "QA",
+          message: `🔎 Checking render v${version}: nothing is rendered`,
+        },
         p.slug,
       );
       rec.qa = await runQaSafe({ projectDir: p.dir, config: cfg, rec, signal });
@@ -127,6 +132,8 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
       else rt.tellAgent(text);
     },
   );
+  job.label = "Quality check";
+  return job;
 }
 
 /** Apply proposed fixes (D74): a new final render with overrides on the same annotations, options and brands. */

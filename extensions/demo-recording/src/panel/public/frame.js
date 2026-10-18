@@ -1,5 +1,5 @@
 import { html, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { JOB_TITLE, STEPS } from "./frame-state.js";
+import { STEPS, jobTitle } from "./frame-state.js";
 // The control room's frame (UX2, D98–D101): the header with the stepper, the next-action band,
 // the status strip and the Activity drawer. What they say is decided in frame-state.js; this file
 // draws it with the design-system components (ds/components.css).
@@ -144,7 +144,7 @@ function JobList({ jobs, dismissed, onDismiss }) {
           ${failed.map(
             (j) => html`<div class="ds-notice" data-tone="err" key=${j.id}>
               <span class="ds-status" data-tone="err" aria-hidden="true">!</span>
-              <div class="ds-grow"><strong>${JOB_TITLE[j.kind] ?? j.kind} failed</strong> <span class="ds-muted ds-xs">${ago(j.finishedAt ?? j.startedAt)}</span>
+              <div class="ds-grow"><strong>${jobTitle(j)} failed</strong> <span class="ds-muted ds-xs">${ago(j.finishedAt ?? j.startedAt)}</span>
                 ${j.error ? html`<details><summary class="ds-small">Details</summary><pre class="ds-raw" style="white-space:pre-wrap">${j.error}</pre></details>` : null}
               </div>
               <button class="ds-btn ds-btn--sm" type="button" onClick=${() => onDismiss(j.id)}>Dismiss</button>
@@ -158,7 +158,7 @@ function JobList({ jobs, dismissed, onDismiss }) {
           <ul class="ds-checklist">${recent.map(
             (j) => html`<li class="ds-iconrow" key=${j.id}>
               <span class="ds-status" data-tone=${j.status === "done" ? "ok" : j.status === "failed" ? "err" : undefined} aria-hidden="true">${j.status === "done" ? "✓" : j.status === "failed" ? "!" : "–"}</span>
-              <span class="ds-grow">${JOB_TITLE[j.kind] ?? j.kind} · ${j.status}${j.status === "failed" ? " (dismissed)" : ""} <span class="ds-muted ds-xs">${ago(j.finishedAt ?? j.startedAt)}</span></span>
+              <span class="ds-grow">${jobTitle(j)} · ${j.status}${j.status === "failed" ? " (dismissed)" : ""} <span class="ds-muted ds-xs">${ago(j.finishedAt ?? j.startedAt)}</span></span>
             </li>`,
           )}</ul></section>`
       : null

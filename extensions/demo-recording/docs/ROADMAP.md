@@ -17,8 +17,8 @@ they give the order of magnitude, not dates.
 | P1a | Safety and truth: the agent can no longer approve or spend without a confirmation (A1); QA diagnostics and a calibration test of the drift measurement (Q0); doctor warns about environment overrides (A6) | F15 F17 F25 F12 | about 7 |
 | P1b | QA becomes a report: severity model with hard stops only, integrity checks, noise collapsed, stage-agnostic findings model, popup shell (Q1); identity and ignore scopes with memory (Q2); run-and-tell notifications (A3) | F22 F27 F30 F31 | about 9 |
 | P1c | The fix loop: the Director's working state from pi events (A2); flag and propose loop with free text (Q3); earliest-stage draft, working focus and pending fixes (Q4); later stages read the pending fixes (Q5); timing hints (Q6); retire the overrides (Q7) | F9 F11 F13 F24 F26 F29 | about 19 |
-| P1d | QA after every phase: the stage adapters (voice-over, recording, annotations, storyboard) with the confidence signals folded in, one popup on every stage; zoom limits as settings (feeds the annotation check) | F32 F21 | about 11 |
-| **Run 2** | the S5 real-app run repeated on the same app, to prove P1 ([acceptance criteria](PLAN_QA_CHANGE.md#run-2-acceptance-the-repeated-s5-run)) | | about 2 |
+| P1d | **Early checks (re-scoped, after Run 2):** thin, informational and config-gated, not "QA after every phase" (see [D-QA-12](PLAN_QA_CHANGE.md)): three checks that are free and deterministic (voice-over: numbers and names not on the page, before synthesis; recording: error toast, console error, resumed scenes; annotations: a redaction that does not cover its element), a quiet note on the stage head, one popup, "send to the Director as a direction"; per-phase switches in Config, all **off** by default; render is always on. **Built only if Run 2 shows they would have saved work** | F32 F21 | about 3 to 4 (was about 11) |
+| **Run 2** | the S5 real-app run repeated on the same app, to prove P1a to P1c ([guide: RUN2-101.md](RUN2-101.md); [acceptance criteria](PLAN_QA_CHANGE.md#run-2-acceptance-the-repeated-s5-run)) | | about 2 |
 | **P2** | **Review workspaces: review the recording, the script and the annotations without fighting the screen** (a chapter-and-frame component; the recording review with timestamped notes; the voice-over filmstrip with the frames the script does not mention; the list and inspector layout: sticky detail, wider list, no overflow, step-through) | F10 F16 F19 F20 | about 16 |
 | **P3** | **Discovery you can steer and read** (start or enhance from the Project page with a budget choice; a discovery report with guidance for the storyboard; measured progress and coverage; an enlarged live preview; discovery checks) | F1 F2 F3 F5 F6 (F8 is the model for the bar) | about 15 |
 | **P4** | **The Director in the open** (a pending question answered in chat or in the panel, both in sync; role labels in the chat; Activity as a docked panel) | F7 F18 F23 | about 11 |
@@ -51,8 +51,8 @@ P5 or later.
    measurement or the fixes were the real problem (if the measurement, P1c shrinks).
 2. **P1b** before any new UI for fixes: the report and the memory of decisions are what the fix loop stands on.
 3. **P1c** is the largest and riskiest (timing hints change the script language and the sync edit); start it with a spike on the sync edit.
-4. **P1d** completes the quality theme: the same findings and popup on every stage, after the fix loop exists to act on them.
-5. **Run 2** right after P1: the same app and brief, to compare the QA reports of run 1 (renders v2 to v8) with the new ones and to try the
+4. **Run 2 comes before P1d.** P1a to P1c have never run end to end with a real Director on a real app, and the honest value of early checks is unproven (in run 1 the findings that came back every render were timing, which cannot be checked before the voice exists; the early-checkable ones were the wrong numbers, which you ended up confirming as meant). P1d is re-scoped to a thin, config-gated version and decided from Run 2's evidence.
+5. **Run 2** right after P1c: the same app and brief, to compare the QA reports of run 1 (renders v2 to v8) with the new ones and to try the
    fix loop on real findings.
 6. After run 2 the order of **P2 to P5** is a default and can change: P2 first (where the time is spent while reviewing), P3 before S6
    (measured progress and the discovery report are what parallel lanes need), then P4, then P5. **W7 (docs made true) must follow A1
@@ -66,8 +66,8 @@ RUN 1   done: the findings and the grouping (this record)
 P1a     Safety and truth ............... about 7 days    M1
 P1b     QA becomes a report ............ about 9          M2, M3      (first user-visible result at about day 16)
 P1c     The fix loop ................... about 19         M4, M5
-P1d     QA after every phase ........... about 11         M6
-RUN 2   the S5 run repeated, same app .. about 2
+RUN 2   the S5 run repeated, same app .. about 2          (next: docs/RUN2-101.md)
+P1d     early checks (thin, config-gated) about 3-4       (was 11; built only if Run 2 asks for it)
 P2      Review workspaces .............. about 16
 P3      Discovery ...................... about 15
 P4      The Director in the open ....... about 11

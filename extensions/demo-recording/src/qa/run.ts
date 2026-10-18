@@ -48,8 +48,6 @@ import type { AnchorDiag, QaDiagnostics, QaFix, QaItem, QaReport, QaSummary } fr
 /** A narration this far off its moment needs your eyes first (it is a warning, never a stop). */
 export const DRIFT_HIGH_MS = 300;
 export const DRIFT_WARN_MS = 150;
-/** The deliberately heavy last-resort confirmation of a redaction that leaks (D-QA-4). */
-export const LEAK_PHRASE = "accept the leak";
 /** Measured vs the edit's plan: a bigger gap than this means the measurement or the render is off (D-QA-6). */
 export const DRIFT_DISAGREE_MS = 300;
 
@@ -357,6 +355,7 @@ export async function checkDrift(
       best = around ?? snapToOnset(rawBest / 1000, env) * 1000;
       const drift = Math.round(best - expect);
       diag.measuredMs = Math.round(best);
+      diag.supported = around !== undefined || diag.transcriptOnOnset === true;
       diag.measuredDriftMs = drift;
       diag.gapMs = Math.round(best - diag.plannedAudioMs);
       const abs = Math.abs(drift);
@@ -381,17 +380,33 @@ export async function checkDrift(
         ...(abs > DRIFT_HIGH_MS ? { high: true as const } : {}),
         scene: sc.id,
         atMs: expect,
-        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}`,
-        fix: {
-          kind: "shift-narration",
-          scene: sc.id,
-          anchor: a.mark,
-          deltaMs: -drift,
-          label: `move it ${(abs / 1000).toFixed(2)} s ${drift > 0 ? "earlier" : "later"}`,
-        },
+        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} its moment (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}${diag.supported ? "" : " — not offered as a fix: the measurement is not on a speech onset"}`,
+        // A fix acts on a measurement only when it sits on a speech onset (Q1b): else it is reported, never acted on.
+        ...(diag.supported
+          ? {
+              fix: {
+                kind: "shift-narration" as const,
+                scene: sc.id,
+                anchor: a.mark,
+                deltaMs: -drift,
+                label: `move it ${(abs / 1000).toFixed(2)} s ${drift > 0 ? "earlier" : "later"}`,
+              },
+            }
+          : {}),
       });
     }
   }
+  // How much was measured: the anchors the transcript did not contain are said, not skipped silently.
+  const unmeasured = anchors.filter((a) => a.measuredDriftMs === undefined);
+  if (unmeasured.length)
+    items.push({
+      id: "",
+      check: "drift",
+      level: "info",
+      atMs: unmeasured[0]?.eventMs as number,
+      moments: unmeasured.map((a) => a.eventMs),
+      message: `the narration was measured at ${anchors.length - unmeasured.length} of ${anchors.length} anchors; at ${unmeasured.map((a) => `@${a.mark}`).join(", ")} the transcript did not contain the words, so sync is not checked there`,
+    });
   return {
     items,
     whisper: true,
@@ -670,7 +685,24 @@ export async function runQa(o: {
     whisper: drift.whisper,
     items,
     ...(drift.diagnostics ? { diagnostics: drift.diagnostics } : {}),
+    stage: "render",
+    version: o.rec.version,
+    ...(drift.diagnostics
+      ? {
+          coverage: {
+            anchors: {
+              measured: drift.diagnostics.anchors.filter((a) => a.measuredDriftMs !== undefined)
+                .length,
+              total: drift.diagnostics.anchors.length,
+            },
+          },
+        }
+      : {}),
   };
+  for (const it of report.items) {
+    it.stage = "render";
+    it.version = o.rec.version;
+  }
   fs.writeFileSync(qaFile(o.projectDir, o.rec.version), `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(
     path.join(o.projectDir, "render", `v${o.rec.version}`, "qa-report.md"),
@@ -708,7 +740,6 @@ export function confirmItem(
   id: string,
   reason: string,
   now = new Date(),
-  acknowledge = "",
 ): { report: QaReport; summary: QaSummary } {
   const report = readQa(projectDir, version);
   if (!report) throw new Error(`render v${version} has no QA report — run QA first`);
@@ -719,10 +750,6 @@ export function confirmItem(
   if (it.hard === "integrity")
     throw new Error(
       `${id} is a broken file, not a judgement call — it cannot be confirmed: render again`,
-    );
-  if (acknowledge.trim().toLowerCase() !== LEAK_PHRASE)
-    throw new Error(
-      `${id} is a redaction that leaks; fix it. As a last resort type “${LEAK_PHRASE}” to confirm it anyway`,
     );
   if (reason.trim().length < 3)
     throw new Error("a reason is required — why is it fine to export anyway?");

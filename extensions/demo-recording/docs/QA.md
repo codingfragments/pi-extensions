@@ -38,7 +38,7 @@ section with:
 - the items: **Hard stops**, **Needs your eyes**, **Worth a look**, then info (collapsed), each with a
   **▶ time link** that plays the video from just before that moment;
 - for fixable items a **fix** checkbox (on by default) and **Apply N fixes**;
-- for a leaking redaction **Export anyway…**, which asks for a reason and the typed words “accept the leak”; a broken file has no such button;
+- for a leaking redaction **Export anyway…**, which asks for a reason; a broken file has no such button;
 - **Re-run QA** (after installing Whisper, for older finals, …).
 
 **Accept** stays disabled only while a hard stop is open; the reason is shown next to it.
@@ -46,8 +46,7 @@ section with:
 ## Export anyway (a leaking redaction only)
 
 A **broken file cannot be confirmed**: render again. A **redaction that leaks** should be fixed (move or add it in Annotations, render
-again). Only as a last resort can you export anyway: it needs a reason **and** the typed words **accept the leak** (on the command line
-`--acknowledge "accept the leak"`). The reason is stored with the item in the QA report and logged in the project's inputs (D73, D-QA-4).
+again). Only as a last resort can you export anyway: it needs a **reason** (on the command line `--confirm ID --reason R`). The reason is stored with the item in the QA report and logged in the project's inputs (D73, D-QA-4).
 When every hard stop is fixed or confirmed, the final can be accepted. Re-running QA keeps confirmations of issues that are found again.
 
 ## Fixes
@@ -126,6 +125,19 @@ stays. The alignment is marked `snapped`; **older cache entries are upgraded onc
 billed), but a voice-over that was already synthesized needs "Generate voice & render" (cached: free) to write the new anchors into its
 manifest and a new edit. On the first run's voice-over 12 of the 16 anchors moved (most by 10 to 130 ms) to the onsets the QA had measured
 (`faq-expanded` 2.11 → 2.74 s, `recommended-products` 4.12 → 4.69 s).
+
+## Findings of any stage, coverage, and the checks popup (Q1b)
+
+- **A finding names its stage and version** (`stage`, `version` on every item and on the report), so QA is not tied to a render. One view,
+  `GET /api/checks?stage=<stage>&version=<n>`, returns the findings, the summary, the coverage and why there is nothing when there is
+  nothing. Only the render has checks today; the other stages answer "no automatic checks yet" (their adapters come with "QA after every phase").
+- **Coverage is said.** The report records how many anchors were measured: "sync measured at 11 of 16 anchors". The ones the transcript did
+  not contain become one info line naming them and where they are; sync is not checked there, and nothing guesses.
+- **A fix acts on a measurement only when it sits on a speech onset** (`supported`). A narration that is off by a lot but measured mid-flow
+  is still reported, with "not offered as a fix", never as a number to act on.
+- **All checks…** on a final's Quality check opens **Checks of render vN**, the one popup every stage will use: the findings in the same
+  groups with the coverage line. It is read-only for now; Fix / Ignore / Leave, the ignored list and the pending fixes arrive with the
+  flag-and-propose loop.
 
 ## Files
 

@@ -21,6 +21,7 @@ import os from "node:os";
 import path from "node:path";
 import { resolveConfig } from "../src/config.ts";
 import { Runtime } from "../src/runtime.ts";
+import { askFirst } from "../src/tools/spend.ts";
 import { seedPanelProject } from "../test/helpers/panel-seed.ts";
 
 export const AXE_VERSION = "4.10.2";
@@ -82,6 +83,8 @@ export const SCREENS = [
   "map-focus",
   "dialog-cost",
   "dialog-danger",
+  "dialog-checks",
+  "director-asks",
   "toast",
 ] as const;
 const LABELS: Record<string, string> = {
@@ -150,6 +153,49 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
       panelPort: 0,
     }));
     rt.setActiveProject(seed.slug);
+    // Real briefs are long: the audit runs on a persona and a goal of several sentences, so a layout that only works
+    // with short seed values (the Project summary did) shows up here, not in the first real run.
+    const long =
+      "Technical evaluators: engineers and product managers who know e-commerce and modern web UIs, have never seen the product, and will judge build quality and whether the AI chat actually works, not just whether it looks good in a demo.";
+    await (rt.routeTables().post["project-facts"] as (b: Record<string, unknown>) => unknown)({
+      patch: { persona: long, goal: `${long} ${long}` },
+      confirm: true,
+    });
+    // the checks popup and the Director's request need something to show
+    const { qaFile } = await import("../src/qa/run.ts");
+    fs.mkdirSync(path.dirname(qaFile(seed.dir, 1)), { recursive: true });
+    fs.writeFileSync(
+      qaFile(seed.dir, 1),
+      JSON.stringify({
+        render: 1,
+        stage: "render",
+        version: 1,
+        variant: "neutral",
+        createdAt: "2026-10-18T10:00:00.000Z",
+        whisper: true,
+        coverage: { anchors: { measured: 11, total: 16 } },
+        items: [
+          {
+            id: "a-1",
+            check: "annotations",
+            level: "blocking",
+            hard: "redaction",
+            atMs: 2500,
+            message: "redaction r1 doesn't cover its element here",
+          },
+          {
+            id: "v-2",
+            check: "values",
+            level: "warning",
+            high: true,
+            atMs: 2100,
+            message: "the narration says 14.3: it isn't on screen",
+          },
+          { id: "m-3", check: "media", level: "warning", message: "no narration for 4.6 s" },
+          { id: "m-4", check: "media", level: "info", message: "2 held frames" },
+        ],
+      }),
+    );
     url = (await rt.ensurePanel()).url;
   }
   const pw = await import("playwright");
@@ -199,6 +245,20 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
                 `m.ask({ title: "Generate voice and render", facts: [["Sections", "4 to synthesize"], ["Cost", "≈ $0.28"]], confirmLabel: "Generate (≈ $0.28)" })`,
               );
               await page.waitForSelector(".modal.dialog");
+            } else if (screen === "dialog-checks") {
+              void open(
+                `import("/checks.js").then((c) => c.openChecks({ stage: "render", version: 1 }))`,
+              );
+              await page.waitForSelector(".checks");
+            } else if (screen === "director-asks") {
+              // a request only for this page (it would add tab stops to every other one)
+              askFirst(
+                rt as Runtime,
+                "tts",
+                "vo:1",
+                "synthesize voice-over v1 (about 1,231 characters)",
+              );
+              await page.waitForSelector(".asks .ds-notice");
             } else if (screen === "dialog-danger") {
               void open(
                 `m.ask({ title: "Delete the files of Final v7?", text: "This cannot be undone.", danger: true, confirmLabel: "Delete files" })`,
@@ -254,6 +314,7 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
           }
           pages[`${screen}|${theme}|${width}`] = audit;
           await page.close();
+          for (const r of rt?.grants.pending() ?? []) rt?.grants.deny(r.id);
         }
       }
     }

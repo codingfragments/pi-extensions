@@ -387,7 +387,7 @@ function Memory({ events, part }) {
     </section>
     <section class="card">
       <div class="row"><h2>Brief</h2>
-        ${b?.versions?.length ? html`<select value=${b.version ?? ""} onChange=${(e) => setVersion(Number(e.target.value))}>${b.versions.map((v) => html`<option value=${v}>v${v}</option>`).reverse()}</select>` : null}
+        ${b?.versions?.length ? html`<select class="ds-select" aria-label="Brief version" value=${b.version ?? ""} onChange=${(e) => setVersion(Number(e.target.value))}>${b.versions.map((v) => html`<option value=${v}>v${v}</option>`).reverse()}</select>` : null}
         ${b?.diff ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => setShowDiff(!showDiff)}>${showDiff ? "show text" : "diff to previous"}</button>` : null}
         <span class="grow"></span><span class="muted small-text">edit facts above, prose via the agent (demo-brief skill)</span></div>
       <pre class="brief-text">${showDiff && b?.diff ? b.diff : (b?.text ?? "")}</pre>

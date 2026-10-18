@@ -41,7 +41,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 30
+      "focusChecked": 31
     },
     "config|macchiato|1400": {
       "axe": {},
@@ -69,7 +69,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 25
+      "focusChecked": 28
     },
     "map|macchiato|1400": {
       "axe": {},
@@ -98,6 +98,20 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
+    },
+    "dialog-checks|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "director-asks|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 26
     },
     "toast|macchiato|1400": {
       "axe": {},
@@ -146,7 +160,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 30
+      "focusChecked": 31
     },
     "config|macchiato|900": {
       "axe": {},
@@ -174,7 +188,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 25
+      "focusChecked": 28
     },
     "map|macchiato|900": {
       "axe": {},
@@ -203,6 +217,20 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
+    },
+    "dialog-checks|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "director-asks|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 26
     },
     "toast|macchiato|900": {
       "axe": {},
@@ -251,7 +279,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 30
+      "focusChecked": 31
     },
     "config|latte|1400": {
       "axe": {},
@@ -279,7 +307,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 25
+      "focusChecked": 28
     },
     "map|latte|1400": {
       "axe": {},
@@ -308,6 +336,20 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
+    },
+    "dialog-checks|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "director-asks|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 26
     },
     "toast|latte|1400": {
       "axe": {},
@@ -356,7 +398,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 30
+      "focusChecked": 31
     },
     "config|latte|900": {
       "axe": {},
@@ -384,7 +426,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 25
+      "focusChecked": 28
     },
     "map|latte|900": {
       "axe": {},
@@ -413,6 +455,20 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 40
+    },
+    "dialog-checks|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
+    "director-asks|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 26
     },
     "toast|latte|900": {
       "axe": {},

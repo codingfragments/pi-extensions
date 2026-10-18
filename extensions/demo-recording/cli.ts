@@ -69,7 +69,7 @@ Commands:
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
   accept --project P --stage S --version N   accept a version (the panel's Accept, from the shell)
-  qa --project P [--version N] [--run | --confirm ID --reason R [--acknowledge "accept the leak"] | --fix all|ID,ID]
+  qa --project P [--version N] [--run | --confirm ID --reason R | --fix all|ID,ID]
                                            QA of a final render: show / re-run / confirm a leaking-redaction hard stop
                                            / apply the proposed fixes (a new final render)
   annotate context --project P [--base N] [--instructions T]
@@ -324,7 +324,6 @@ async function main(argv: string[]): Promise<number> {
         version: { type: "string" },
         run: { type: "boolean", default: false },
         confirm: { type: "string" },
-        acknowledge: { type: "string" },
         reason: { type: "string" },
         fix: { type: "string" },
       },
@@ -341,14 +340,7 @@ async function main(argv: string[]): Promise<number> {
     const rec = readRender(project.dir, v);
     if (!rec) throw new Error(`render v${v} does not exist`);
     if (values.confirm) {
-      const { summary } = confirmItem(
-        project.dir,
-        v,
-        values.confirm,
-        values.reason ?? "",
-        new Date(),
-        values.acknowledge ?? "",
-      );
+      const { summary } = confirmItem(project.dir, v, values.confirm, values.reason ?? "");
       rec.qa = summary;
       saveRecord(project.dir, rec);
     } else if (values.fix) {

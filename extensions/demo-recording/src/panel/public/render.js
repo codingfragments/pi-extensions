@@ -1,10 +1,11 @@
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 // demo-recording panel — Render tab (S5 part 9, D59–D68): a form for a new
 // render (draft or final, annotation version and types, brands, subtitles,
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
+import { openChecks } from "./checks.js";
+import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { confirmAsk, errorToast } from "./dialog.js";
 import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
@@ -368,7 +369,6 @@ function FlavorTable({ r, seek, rows, sel, setSel, cur }) {
 
 const fmt = (ms) =>
   `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
-const LEAK_PHRASE = "accept the leak";
 const QA_LABEL = {
   pass: "QA passed",
   blocked: "QA stopped it",
@@ -379,7 +379,6 @@ const QA_LABEL = {
 function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
-  const [phrase, setPhrase] = useState("");
   const [err, setErr] = useState(null);
   const confirmIt = async () => {
     try {
@@ -387,7 +386,6 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
         version: r.version,
         id: it.id,
         reason,
-        acknowledge: phrase,
       });
       setConfirming(false);
       reload();
@@ -406,7 +404,7 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
     ${
       it.hard === "redaction" && !it.confirmed
         ? confirming
-          ? html`<div class="qa-confirm"><p class="small-text">A redaction that leaks should be fixed (move or add it in Annotations, then render again). Only as a last resort:</p><div class="row"><input class="note" placeholder="why is it fine? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><input class="note" placeholder=${`type “${LEAK_PHRASE}”`} aria-label="type the acknowledgement" value=${phrase} onInput=${(e) => setPhrase(e.target.value)} /><button class="ds-btn ds-btn--danger" disabled=${reason.trim().length < 3 || phrase.trim().toLowerCase() !== LEAK_PHRASE} onClick=${confirmIt}>Export anyway</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div></div>`
+          ? html`<div class="qa-confirm"><p class="small-text">A redaction that leaks should be fixed (move or add it in Annotations, then render again). Only as a last resort, with a reason:</p><div class="row"><input class="note" placeholder="why is it fine? (required)" value=${reason} onInput=${(e) => setReason(e.target.value)} /><button class="ds-btn ds-btn--danger" disabled=${reason.trim().length < 3} onClick=${confirmIt}>Export anyway</button><button class="ds-btn ds-btn--ghost" onClick=${() => setConfirming(false)}>Cancel</button>${err ? html`<span class="error small-text">${err}</span>` : null}</div></div>`
           : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" onClick=${() => setConfirming(true)}>Export anyway…</button>`
         : null
     }
@@ -467,10 +465,11 @@ function QaSection({ r, onSeek, reload }) {
   return html`<div class=${`qa-section ${status ?? "none"}`}>
     <div class="row">
       <b>${status ? QA_LABEL[status] : "QA not run"}</b>
-      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} hard stop${r.qa.blocking === 1 ? "" : "s"}${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.high ?? 0} need${(r.qa.high ?? 0) === 1 ? "s" : ""} your eyes · ${r.qa.warnings - (r.qa.high ?? 0)} other warning${r.qa.warnings - (r.qa.high ?? 0) === 1 ? "" : "s"} · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}</span>` : null}
+      ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} hard stop${r.qa.blocking === 1 ? "" : "s"}${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.high ?? 0} need${(r.qa.high ?? 0) === 1 ? "s" : ""} your eyes · ${r.qa.warnings - (r.qa.high ?? 0)} other warning${r.qa.warnings - (r.qa.high ?? 0) === 1 ? "" : "s"} · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}${rep?.report?.coverage ? ` · sync measured at ${rep.report.coverage.anchors.measured} of ${rep.report.coverage.anchors.total} anchors` : ""}</span>` : null}
       ${status === "error" ? html`<span class="small-text error">${r.qa.error}</span>` : null}
       <span class="grow"></span>
       ${fixable.length ? html`<button class="ds-btn ds-btn--primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
+      ${r.qa ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => openChecks({ stage: "render", version: r.version })}>All checks…</button>` : null}
       <button class="ds-btn ds-btn--ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
     </div>
     ${by("blocking").length ? html`<h4 class="qa-head">Hard stops</h4><ul class="qa-list">${by("blocking").map(row)}</ul>` : null}

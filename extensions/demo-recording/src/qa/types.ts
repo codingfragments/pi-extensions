@@ -22,6 +22,9 @@ export interface QaFix {
 
 export interface QaItem {
   id: string;
+  /** Which stage version this finding is about (P1a Q1b: a finding names its stage, not only a render). Set when the report is written. */
+  stage?: "storyboard" | "recording" | "vo" | "annotations" | "render";
+  version?: number;
   check: QaCheck;
   level: QaLevel;
   scene?: string;
@@ -54,6 +57,11 @@ export interface AnchorDiag {
   plannedDriftMs: number;
   /** The same, from the edit's own timeline before any render override. Differs when overrides moved the narration. */
   editDriftMs: number;
+  /**
+   * Was the measurement on a speech onset (the word start itself, or the onset the check found around it)?
+   * Only then is a fix offered: a number that is not on an onset is a "not measured", never something to act on.
+   */
+  supported?: boolean;
   /** The first words of the anchored segment, as searched in the transcript. */
   words: string[];
   /** Transcript matches of those words within 3 s of the event. */
@@ -96,6 +104,11 @@ export interface QaReport {
   items: QaItem[];
   /** What the drift check measured (P1a Q0); absent in reports made before it. */
   diagnostics?: QaDiagnostics;
+  /** The stage version these findings belong to (P1a Q1b); `render` and `version` are the same for a render's QA. */
+  stage?: "render";
+  version?: number;
+  /** How much of the narration was actually measured: N of M anchors were found in the transcript. */
+  coverage?: { anchors: { measured: number; total: number } };
 }
 
 export type QaStatus = "pass" | "blocked" | "confirmed" | "error";

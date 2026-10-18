@@ -17,7 +17,6 @@ import { hasBinary } from "../src/media/ffmpeg.ts";
 import { canonNumber, pageHas, parseSpoken, spokenValues } from "../src/qa/numbers.ts";
 import { applyShifts } from "../src/qa/overrides.ts";
 import {
-  LEAK_PHRASE,
   checkFootage,
   checkMedia,
   checkValues,
@@ -392,27 +391,16 @@ test("summary, confirm rules, gate; fixes merge with the render's own overrides"
     /not a hard stop — it does not need a confirmation/,
   );
   assert.throws(
-    () => confirmItem(dir, rec.version, "media-4", "fine", new Date(), LEAK_PHRASE),
+    () => confirmItem(dir, rec.version, "media-4", "fine"),
     /a broken file, not a judgement call.*render again/,
     "an integrity defect cannot be confirmed, whatever is typed",
   );
   assert.throws(
-    () => confirmItem(dir, rec.version, "annotations-3", "test data"),
-    /type “accept the leak”/,
-    "a leaking redaction needs the typed acknowledgement",
-  );
-  assert.throws(
-    () => confirmItem(dir, rec.version, "annotations-3", " ", new Date(), "Accept the leak"),
+    () => confirmItem(dir, rec.version, "annotations-3", " "),
     /reason is required/,
+    "a leaking redaction needs a reason",
   );
-  const c = confirmItem(
-    dir,
-    rec.version,
-    "annotations-3",
-    "all test data",
-    new Date(),
-    "Accept the leak",
-  );
+  const c = confirmItem(dir, rec.version, "annotations-3", "all test data");
   assert.equal(c.summary.status, "blocked", "the integrity stop is still there");
   assert.equal(c.summary.confirmed, 1);
   assert.match(qaBlocker({ ...rec, qa: c.summary }) ?? "", /1 hard stop\(s\)/);

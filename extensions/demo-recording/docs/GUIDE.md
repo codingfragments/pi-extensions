@@ -189,7 +189,7 @@ same job, with no model:
 | **Picture and sound** | frozen or black picture, long silence | no (warnings and info) |
 | **Annotations** | items that cannot be placed; a redaction that does not cover its element; private-looking data left showing | a redaction that misses |
 
-Only two things **stop** a final: a broken file (render again) and a redaction that leaks (fix it; as a last resort type the acknowledgement). A
+Only two things **stop** a final: a broken file (render again) and a redaction that leaks (fix it; as a last resort export anyway with a reason). A
 wrong number, a toast in the footage or a narration far off its moment is a finding under **Needs your eyes**: look, fix it (the mechanical
 fixes, like re-timing a sentence, are one click and make a new render) or leave it. Then **Approve final**: the approved final is the **delivered version**. Details: [QA.md](QA.md), [RENDER.md](RENDER.md).
 

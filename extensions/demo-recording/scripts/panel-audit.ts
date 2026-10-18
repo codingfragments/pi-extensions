@@ -84,6 +84,7 @@ export const SCREENS = [
   "dialog-cost",
   "dialog-danger",
   "dialog-checks",
+  "dialog-ignore",
   "director-asks",
   "toast",
 ] as const;
@@ -250,6 +251,11 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
                 `import("/checks.js").then((c) => c.openChecks({ stage: "render", version: 1 }))`,
               );
               await page.waitForSelector(".checks");
+            } else if (screen === "dialog-ignore") {
+              void open(
+                `import("/checks.js").then((c) => c.askIgnore({ id: "values-1", check: "values", level: "warning", scene: "01-dash", message: "the narration says 14.3: it isn't on screen", identity: { value: "14.3" } }))`,
+              );
+              await page.waitForSelector(".ignore-scope");
             } else if (screen === "director-asks") {
               // a request only for this page (it would add tab stops to every other one)
               askFirst(

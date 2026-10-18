@@ -5,7 +5,10 @@
 
 import type { QaItem, QaReport, QaSummary } from "./types.ts";
 
-export function summarize(items: QaItem[], ranAt = new Date().toISOString()): QaSummary {
+export function summarize(allItems: QaItem[], ranAt = new Date().toISOString()): QaSummary {
+  // What you ignored stays in the report and out of the counts. A hard stop that an ignore covers is still
+  // counted, as a confirmed one (the ignore's reason is its confirmation), so the lift is visible.
+  const items = allItems.filter((i) => !i.ignored || i.level === "blocking");
   const blocking = items.filter((i) => i.level === "blocking");
   const confirmed = blocking.filter((i) => i.confirmed).length;
   return {
@@ -13,6 +16,7 @@ export function summarize(items: QaItem[], ranAt = new Date().toISOString()): Qa
       blocking.length === 0 ? "pass" : confirmed === blocking.length ? "confirmed" : "blocked",
     blocking: blocking.length,
     confirmed,
+    ignored: allItems.filter((i) => i.ignored).length,
     high: items.filter((i) => i.level === "warning" && i.high).length,
     warnings: items.filter((i) => i.level === "warning").length,
     info: items.filter((i) => i.level === "info").length,

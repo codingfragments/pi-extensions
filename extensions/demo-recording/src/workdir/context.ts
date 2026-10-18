@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { formatIgnores } from "../qa/ignores.ts";
 import { DEPTH_DEFAULTS, effectiveFacts, formatLength } from "./brief.ts";
 import { formatFindings, listFindings } from "./findings.ts";
 import { formatInputs, readInputs } from "./inputs.ts";
@@ -32,6 +33,12 @@ export function factsSummary(brief: string): string {
     `URL: ${f.url ?? "—"}${e.extraUrls.length ? ` + ${e.extraUrls.join(", ")}` : ""}`,
   ];
   return parts.join(" · ");
+}
+
+/** What the user decided to leave alone in the QA, so the Director does not raise it again (P1a Q2). */
+function qaDecisions(projectDir: string): string[] {
+  const lines = formatIgnores(projectDir);
+  return lines.length ? ["", "## QA decisions (what the user left alone)", ...lines] : [];
 }
 
 /**
@@ -73,6 +80,7 @@ export function projectContext(projectDir: string, slug: string): string {
     "",
     `## Findings (${findings.length}; from discovery, recordings and the engine)`,
     formatFindings(findings),
+    ...qaDecisions(projectDir),
     "",
     "Follow the active inputs unless the user now says otherwise. Outdated inputs were withdrawn by the user — ignore them.",
   ].join("\n");

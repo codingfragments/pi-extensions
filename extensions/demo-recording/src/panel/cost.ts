@@ -61,6 +61,9 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "render-open": ["none"],
   "render-qa-confirm": ["none"],
   "render-qa-fix": ["local"],
+  // leaving a finding alone is a note in the project, never a job (P1a Q2)
+  "render-qa-ignore": ["none"],
+  "render-qa-unignore": ["none"],
   "render-qa-run": ["local"],
   "render-zip": ["local"],
   // the Director records it (an agent turn) and the improvise model types the live inputs

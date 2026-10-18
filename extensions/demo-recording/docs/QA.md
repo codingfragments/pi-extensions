@@ -139,6 +139,26 @@ manifest and a new edit. On the first run's voice-over 12 of the 16 anchors move
   groups with the coverage line. It is read-only for now; Fix / Ignore / Leave, the ignored list and the pending fixes arrive with the
   flag-and-propose loop.
 
+## Decisions are remembered: ignores (Q2)
+
+QA used to raise the same items after every render, however often you had looked at them. Now you can **leave a finding alone**, and the
+project remembers (the panel's **Ignore…** on a finding, `qa --ignore ID --scope … --reason …` on the command line):
+
+- **A finding is the same finding by what it is, not by its numbers**: its check, its scene and what it is about (the anchor mark, the
+  value said, the toast's text, the redaction's id), never its timings. A renamed mark is found again by the first three words of its
+  phrase; a value matches by its normalised form; a pause or a still picture matches by kind and by staying within 1.5 s of where it was
+  in its scene.
+- **A scope you choose, and a reason you write.** *Only this finding*; *this kind of finding in this scene* (for example the pause warnings
+  in `02-search`); or *this kind of finding in the whole project*, a rule ("leaking redactions: this is test data, no PII").
+- **It covers the finding in every later render of the same content** and shows as "ignored (scope, since render vN): reason". It stays in
+  the report and in the checks popup, out of every count.
+- **It ends when its content changes**: the scene's narration for findings about the story, the take for a toast in the footage. The ignore
+  is kept as "ended: the narration of 01-dash changed (render v9)" and the finding is raised again. A project rule never ends by itself.
+- **A broken file can never be ignored**: render again. A leaking redaction can be (with a reason); under an ignore it counts as a
+  *confirmed* hard stop, so the lift is visible in the summary, and a project rule makes that the same for every render.
+- **The Director reads the decisions** in the project context ("QA decisions"), is told when you ignore something, and does not raise it
+  again or ask about it. **Stop ignoring** removes the decision and brings the finding back.
+
 ## Files
 
 ```

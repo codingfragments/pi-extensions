@@ -31,7 +31,9 @@ import { serveFixture } from "./src/fixture/server.ts";
 import { startPanel } from "./src/panel/server.ts";
 import { runFixtureDemo } from "./src/pipeline/fixture-demo.ts";
 import { runS1 } from "./src/pipeline/s1.ts";
+import { addIgnore, removeIgnore } from "./src/qa/ignores.ts";
 import { confirmItem, fixRequest, formatQa, qaBlocker, readQa, runQaSafe } from "./src/qa/run.ts";
+import type { IgnoreScope } from "./src/qa/types.ts";
 import { createImproviser, modelAccessFrom } from "./src/recorder/improvise.ts";
 import { formatProgress } from "./src/recorder/progress.ts";
 import { recordTake } from "./src/recorder/runner.ts";
@@ -69,7 +71,7 @@ Commands:
                                            S3 take: human motion/typing, improvise via pi's
                                            configured models (~/.pi/agent auth), resume, progress
   accept --project P --stage S --version N   accept a version (the panel's Accept, from the shell)
-  qa --project P [--version N] [--run | --confirm ID --reason R | --fix all|ID,ID]
+  qa --project P [--version N] [--run | --confirm ID --reason R | --ignore ID --scope finding|scene|project --reason R | --unignore IGNORE-ID | --fix all|ID,ID]
                                            QA of a final render: show / re-run / confirm a leaking-redaction hard stop
                                            / apply the proposed fixes (a new final render)
   annotate context --project P [--base N] [--instructions T]
@@ -326,11 +328,14 @@ async function main(argv: string[]): Promise<number> {
         confirm: { type: "string" },
         reason: { type: "string" },
         fix: { type: "string" },
+        ignore: { type: "string" },
+        scope: { type: "string" },
+        unignore: { type: "string" },
       },
     });
     if (!values.project)
       throw new Error(
-        "usage: qa --project P [--version N] [--run | --confirm ID --reason R | --fix all|ID,ID]",
+        "usage: qa --project P [--version N] [--run | --confirm ID --reason R | --ignore ID --scope finding|scene|project --reason R | --unignore IGNORE-ID | --fix all|ID,ID]",
       );
     const project = openProject(cfg.root, values.project);
     const v = values.version
@@ -339,7 +344,21 @@ async function main(argv: string[]): Promise<number> {
     if (v === undefined) throw new Error("no final render yet");
     const rec = readRender(project.dir, v);
     if (!rec) throw new Error(`render v${v} does not exist`);
-    if (values.confirm) {
+    if (values.ignore) {
+      const { ignore, summary } = addIgnore(project.dir, {
+        version: v,
+        itemId: values.ignore,
+        scope: (values.scope ?? "finding") as IgnoreScope,
+        reason: values.reason ?? "",
+        by: "cli",
+      });
+      console.log(`ignoring ${ignore.id} (${ignore.scope}): ${ignore.reason}`);
+      rec.qa = summary;
+    } else if (values.unignore) {
+      const { removed, summary } = removeIgnore(project.dir, values.unignore, v);
+      console.log(`stopped ignoring ${removed.id}`);
+      if (summary) rec.qa = summary;
+    } else if (values.confirm) {
       const { summary } = confirmItem(project.dir, v, values.confirm, values.reason ?? "");
       rec.qa = summary;
       saveRecord(project.dir, rec);

@@ -200,7 +200,7 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
       }),
     );
     // a fix set with an answered round, so the flag chips and the proposals are audited (P1c Q3)
-    const { askRound, recordProposals } = await import("../src/qa/fixes.ts");
+    const { askRound, decideProposal, recordProposals } = await import("../src/qa/fixes.ts");
     askRound(seed.dir, 1, {
       flags: [
         { id: "v-2", choice: "fix" },
@@ -230,6 +230,8 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
         },
       ],
     });
+    // one accepted, so the Apply button is audited too
+    decideProposal(seed.dir, "fs-1", "p1", { decision: "accepted" });
     url = (await rt.ensurePanel()).url;
   }
   const pw = await import("playwright");

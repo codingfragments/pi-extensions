@@ -9,6 +9,7 @@
  *   POST /api/qa-fix-cancel          give up on an ask the Director has not answered
  */
 
+import { applyFixSet, applyMessage, openPending } from "../qa/apply.ts";
 import {
   FIX_STAGE_WORD,
   type Flag,
@@ -47,9 +48,14 @@ export function fixRoutes(rt: Runtime): {
         const p = project();
         const render = Number(q.get("version"));
         if (!Number.isInteger(render) || render < 1) throw new Error('"version" is required');
-        const set = listFixSets(p.dir).find((s) => s.render === render && s.status === "open");
+        // the open fix set of this render, else the one that was applied last (so what you did stays readable)
+        const sets = listFixSets(p.dir).filter((s) => s.render === render);
+        const set =
+          sets.find((s) => s.status === "open") ??
+          sets.filter((s) => s.status === "applied").at(-1);
         return {
           fixset: set ?? null,
+          pending: set ? openPending(p.dir).filter((x) => x.fixset === set.id) : [],
           flaggable: flaggable(p.dir, render).map((i) => i.id),
           stageWords: FIX_STAGE_WORD,
         };
@@ -108,6 +114,31 @@ export function fixRoutes(rt: Runtime): {
           p.slug,
         );
         return { fixset: set, proposal };
+      },
+      /**
+       * Apply the accepted proposals (Q4): the Director writes ONE new draft at the earliest accepted stage (a visible turn; no render,
+       * no synthesis); the accepted proposals of later stages become pending fixes. A recording or a discovery fix is only kept.
+       */
+      "qa-fix-apply": (body) => {
+        const p = project();
+        const plan = applyFixSet(p.dir, String(body.fixset ?? ""));
+        const word = FIX_STAGE_WORD[plan.stage];
+        rt.bus.publish(
+          "qa.applying",
+          {
+            fixset: plan.set.id,
+            stage: plan.stage,
+            accepted: plan.now.length,
+            pending: plan.pending.length,
+            by: "panel",
+            message: plan.writes
+              ? `applying ${plan.now.length} accepted proposal${plan.now.length === 1 ? "" : "s"}: the Director writes one new ${word} draft${plan.pending.length ? `; ${plan.pending.length} for later stages kept as pending fixes` : ""}`
+              : `the earliest accepted fix is for the ${word}, which you start yourself: ${plan.pending.length} kept as pending fixes`,
+          },
+          p.slug,
+        );
+        if (plan.writes) rt.notifyAgent(applyMessage(plan, PANEL_PREFIX));
+        return { fixset: plan.set, stage: plan.stage, writes: plan.writes, pending: plan.pending };
       },
       "qa-fix-cancel": (body) => {
         const p = project();

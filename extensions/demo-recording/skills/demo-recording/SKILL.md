@@ -291,6 +291,11 @@ a short one:
 4. Say in one line what you propose, then **stop**. You cannot accept or apply anything. The user may add context and ask you to rethink: then
    call `demo_rec_qa context` again, use their notes and decisions, and propose again.
 
+When a `[demo-panel]` message says the user **ACCEPTED fix proposals and asks you to APPLY them**: call `demo_rec_qa context` (it lists the
+accepted proposals with their own wording and notes), then write **ONE new draft** of that stage with the stage's tool, changing only what they
+accepted. **Do not render, do not synthesize, do not touch later stages** (their fixes are kept as pending fixes: read them in the project context
+when you write those stages). Stop after the draft; the user reads and approves it.
+
 A fix that belongs to the storyboard or to discovery is only a *proposal*: it never starts a discovery or a recording by itself.
 
 ## After the take

@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readAnalysis } from "../analysis/take.ts";
+import { listFixSets } from "../qa/fixes.ts";
 import { listTakes } from "../tools/take.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
@@ -159,6 +160,14 @@ export function stageRoutes(deps: StageRouteDeps): {
             const parent = PARENT[s.stage];
             return {
               ...s,
+              // drafts the Director wrote from accepted QA fixes: "fixes from render vN" (P1c Q4)
+              fixLinks: listFixSets(p.dir)
+                .filter((f) => f.applying?.stage === s.stage && f.applying.version !== undefined)
+                .map((f) => ({
+                  version: f.applying?.version as number,
+                  fixset: f.id,
+                  render: f.render,
+                })),
               label: STAGE_LABEL[s.stage],
               parent: parent ?? null,
               // Inputs for this stage's picker: accepted, usable versions of the parent stage.

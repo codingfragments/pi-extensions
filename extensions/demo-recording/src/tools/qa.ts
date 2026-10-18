@@ -73,11 +73,15 @@ export function registerQaTool(pi: ExtensionAPI, rt: Runtime): void {
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
       const p = rt.requireProject();
-      const waiting = listFixSets(p.dir).find((s) => s.status === "open" && askedRound(s));
+      const waiting = listFixSets(p.dir).find(
+        (s) =>
+          s.status === "open" &&
+          (askedRound(s) || (s.applying && !s.applying.version && !s.applying.kept)),
+      );
       const id = params.fixset ?? waiting?.id;
       if (!id)
         throw new Error(
-          "no fix set is waiting for you: the user has not asked for suggested fixes",
+          "no fix set is waiting for you: the user has not asked for suggested fixes or for them to be applied",
         );
       if (params.action === "context") return result(directorBrief(p.dir, id));
       if (!params.summary?.trim() || !params.proposals)

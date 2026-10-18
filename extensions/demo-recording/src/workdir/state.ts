@@ -16,7 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { QaIgnore } from "../qa/types.ts";
+import type { PendingFix, QaIgnore } from "../qa/types.ts";
 import { recordInput } from "./inputs.ts";
 import {
   type Accepted,
@@ -93,6 +93,8 @@ export interface ProjectState {
   reviews?: Record<string, StoryboardReview>;
   /** What you decided to leave alone in the QA (P1a Q2): ignores with scopes, kept after they end. */
   qaIgnores?: QaIgnore[];
+  /** Accepted fixes for later stages, waiting for their stage (P1c Q4, D-QA-9). */
+  pendingFixes?: PendingFix[];
   history: HistoryEntry[];
 }
 

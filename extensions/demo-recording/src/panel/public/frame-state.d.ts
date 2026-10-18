@@ -35,6 +35,8 @@ export interface StepState {
   pending: number;
   /** The graph node of a version that is blocked by dependency. */
   node?: string;
+  /** The render whose QA fixes the newest draft was written from. */
+  fixesFrom?: number;
 }
 export interface Band {
   tone: "needs" | "blocked" | "idle" | "done" | "working";

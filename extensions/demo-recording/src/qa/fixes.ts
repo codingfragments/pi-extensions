@@ -88,6 +88,19 @@ export interface FixSet {
   render: number;
   createdAt: string;
   status: "open" | "applied" | "withdrawn";
+  /**
+   * Set when you applied it (P1c Q4): the stage that gets the one new draft, the round and proposals it carries out, and, once the Director
+   * has written it, the version. `kept`: the earliest accepted stage is a recording or a discovery, which you start yourself.
+   */
+  applying?: {
+    stage: FixStage;
+    round: number;
+    proposals: string[];
+    at: string;
+    version?: number;
+    kept?: boolean;
+  };
+  appliedAt?: string;
   /** What you have flagged and written but not yet asked about. */
   draft: { flags: Flag[]; guidance: string };
   rounds: Round[];
@@ -370,6 +383,25 @@ export function directorBrief(projectDir: string, id: string): string {
           `- ${p.id} [${FIX_STAGE_WORD[p.stage]}] ${p.title}: ${p.decision.toUpperCase()}${p.note ? `, the user's note: "${p.note}"` : ""}${p.edited ? `, the user rewrote the change as: "${p.edited}"` : ""}`,
         );
     }
+  }
+  if (set.applying && !set.applying.version && !set.applying.kept) {
+    const r = set.rounds.find((x) => x.n === set.applying?.round);
+    lines.push(
+      "",
+      `## APPLY: carry out these accepted proposals as ONE new ${FIX_STAGE_WORD[set.applying.stage]} draft`,
+      ...(r?.proposals ?? [])
+        .filter((p) => set.applying?.proposals.includes(p.id))
+        .flatMap((p) => [
+          `### ${p.id}: ${p.title}`,
+          p.edited ? `The user's own wording (follow it): ${p.edited}` : `Change: ${p.change}`,
+          p.edited ? `(the Director's original: ${p.change})` : "",
+          `Why: ${p.why}`,
+          `Answers: ${p.findings.join(", ")}`,
+          p.note ? `The user's note: ${p.note}` : "",
+        ])
+        .filter(Boolean),
+      "Change only what these say. Do not render and do not synthesize. Stop after writing the draft; the user reads and approves it.",
+    );
   }
   const ig = activeIgnores(projectDir);
   if (ig.length)

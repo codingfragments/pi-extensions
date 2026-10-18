@@ -110,7 +110,16 @@ export function stepStates({ stages, jobs, discovery = false, director }) {
       state = "running";
       why = `The Director is ${director.step.label.charAt(0).toLowerCase()}${director.step.label.slice(1)}`;
     }
-    out[step.tab] = { state, why, pending: pending.length, ...(node ? { node } : {}) };
+    // the newest draft was written from accepted QA fixes: say where it comes from (P1c Q4, D-QA-8)
+    const link = s?.fixLinks?.find((l) => l.version === pending.at(-1));
+    if (link && state === "needs") why = `${why} (fixes from render v${link.render})`;
+    out[step.tab] = {
+      state,
+      why,
+      pending: pending.length,
+      ...(node ? { node } : {}),
+      ...(link ? { fixesFrom: link.render } : {}),
+    };
   }
   return out;
 }
@@ -155,7 +164,10 @@ export function nextBand({ stages, states, jobs, director, now = Date.now() }) {
     return {
       tone: "needs",
       label: "Needs you",
-      text: first === nextTab && next?.who === "user" ? capital(next.text) : states[first].why,
+      text:
+        first === nextTab && next?.who === "user"
+          ? `${capital(next.text)}${states[first].fixesFrom ? ` (fixes from render v${states[first].fixesFrom})` : ""}`
+          : states[first].why,
       action: { label: "Continue", tab: first },
       more: needing.filter((t) => t !== first).map((t) => ({ tab: t, text: states[t].why })),
     };

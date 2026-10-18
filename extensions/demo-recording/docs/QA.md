@@ -165,8 +165,15 @@ You do not have to hunt for the cause of every finding. In the Quality check of 
 
 1. **Flag.** Every finding that is a judgement call has **Fix** and **Leave** (Leave is not Ignore: it only keeps the Director away from it
    this time). The toolbar flags many at once ("all that need your eyes", "all", "none"). A broken file and info cannot be flagged.
-2. **Add context** (optional): what matters, what to keep. It is saved as you write.
-3. **Ask the Director for suggested fixes.** This starts a Director turn (the band says what it is doing). It reads what you flagged in
+2. **Open the window.** The Fixes line under the findings says where the loop stands (nothing asked yet, waiting for the Director, N proposals
+   and how many are accepted, applied) and has one button, **Suggested fixes…** (later **Open suggested fixes**). Everything after this step
+   happens **in that window**, so the findings stay where they are and you stay with the Director: it lists the findings you flagged (to change
+   which, close the window and flag them in the list; asking again then starts a new round), takes your **context** (optional: what matters,
+   what to keep), and has the actions pinned at the bottom: **Ask the Director**, **Ask the Director to rethink**, **Apply N accepted
+   proposals**, **Cancel this ask** and **Close**. **Esc, × and Close only close the window**: they never cancel the Director and lose
+   nothing (the fix set and your decisions are kept; reopen it from the list). A result that arrives while the window is open appears in it;
+   one that arrives while it is closed is a line in the list, not a toast.
+3. **Ask the Director.** This starts a Director turn (the band says what it is doing). It reads what you flagged in
    full, your context and what you already decided to leave alone (`demo_rec_qa context`), thinks about the **cause**, and answers with
    `demo_rec_qa propose`.
 4. **Read the proposals.** The goal is **one run at the earliest stage that needs a fix, fixing as many problems as possible**, so an

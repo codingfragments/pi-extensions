@@ -204,7 +204,7 @@ export function Modal(props) {
   return null;
 }
 
-function ModalBox({ title, onClose, size = "medium", actions, children }) {
+function ModalBox({ title, onClose, size = "medium", actions, footer, children }) {
   const box = useRef(null);
   // A layout effect: this root is rendered from inside another component's effect,
   // where Preact's deferred (after-paint) effects of the new root never run.
@@ -231,6 +231,7 @@ function ModalBox({ title, onClose, size = "medium", actions, children }) {
         <button class="ds-btn ds-btn--ghost ds-btn--icon modal-close" title="close (Esc)" aria-label="close" onClick=${onClose}>×</button>
       </header>
       <div class="modal-body ds-dialog-body">${children}</div>
+      ${footer ? html`<footer class="modal-foot ds-dialog-foot">${footer}</footer>` : null}
     </div>
   </div>`;
 }

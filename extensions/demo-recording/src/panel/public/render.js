@@ -7,6 +7,7 @@ import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js"
 import { IgnoredList, ignoreFinding, openChecks } from "./checks.js";
 import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { confirmAsk, errorToast } from "./dialog.js";
+import { FixesPanel, FlagChips, FlagToolbar, useFixes } from "./fixes.js";
 import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
@@ -376,7 +377,7 @@ const QA_LABEL = {
   error: "QA failed to run",
 };
 
-function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
+function QaItemRow({ r, it, picked, togglePick, onSeek, reload, fixes }) {
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState(null);
@@ -401,7 +402,9 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
     ${it.fix ? html`<label class="ds-check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
     ${it.confirmed ? html`<p class="small-text muted">✔ confirmed: “${it.confirmed.reason}”</p>` : null}
     ${it.hard === "integrity" ? html`<p class="small-text muted">A broken file cannot be confirmed: render again.</p>` : null}
+    <div class="row qa-item-actions">${fixes ? html`<${FlagChips} id=${it.id} fixes=${fixes} />` : null}
     ${it.hard !== "integrity" && it.level !== "info" ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm" data-act="ignore" onClick=${async () => (await ignoreFinding(r.version, it)) && reload()}>Ignore…</button>` : null}
+    </div>
     ${
       it.hard === "redaction" && !it.confirmed
         ? confirming
@@ -412,7 +415,8 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
   </li>`;
 }
 
-function QaSection({ r, onSeek, reload }) {
+function QaSection({ r, onSeek, reload, events }) {
+  const fixes = useFixes(r.version, events);
   const [rep, setRep] = useState(null);
   const [picked, setPicked] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -463,7 +467,7 @@ function QaSection({ r, onSeek, reload }) {
       const n = new Set(chosen);
       n.has(it.id) ? n.delete(it.id) : n.add(it.id);
       setPicked(n);
-    }} onSeek=${onSeek} reload=${reload} />`;
+    }} onSeek=${onSeek} reload=${reload} fixes=${fixes} />`;
   return html`<div class=${`qa-section ${status ?? "none"}`}>
     <div class="row">
       <b>${status ? QA_LABEL[status] : "QA not run"}</b>
@@ -474,6 +478,7 @@ function QaSection({ r, onSeek, reload }) {
       ${r.qa ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => openChecks({ stage: "render", version: r.version })}>All checks…</button>` : null}
       <button class="ds-btn ds-btn--ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
     </div>
+    <${FlagToolbar} items=${items.filter((i) => !i.ignored)} fixes=${fixes} />
     ${by("blocking").length ? html`<h4 class="qa-head">Hard stops</h4><ul class="qa-list">${by("blocking").map(row)}</ul>` : null}
     ${
       by("warning").filter((i) => i.high).length
@@ -490,6 +495,7 @@ function QaSection({ r, onSeek, reload }) {
         : null
     }
     ${leftAlone.length || (rep?.ignores ?? []).length ? html`<${IgnoredList} items=${leftAlone} ignores=${rep?.ignores ?? []} version=${r.version} reload=${reload} />` : null}
+    <${FixesPanel} r=${r} items=${items} fixes=${fixes} />
     ${rep?.report ? html`<ul class="qa-passes">${passed.map((c) => html`<li key=${c.check}><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span> ${c.text}</li>`)}</ul>` : null}
     ${by("info").length ? html`<details><summary class="small-text muted">${by("info").length} info</summary><ul class="qa-list">${by("info").map(row)}</ul></details>` : null}
   </div>`;
@@ -661,7 +667,7 @@ function RunInspector({ r, row, events, viewed, reload }) {
     ${r.error ? html`<p class="ds-small" style="color: var(--status-err)">${r.error}</p>` : null}
     <div class="render-detail-grid">
       ${r.variants.length ? html`<${RunSection} title="Variants and player" state=${`${r.variants.length} variant${r.variants.length === 1 ? "" : "s"} · ${mb(bytesOf(r))}`}><${FlavorTable} r=${r} seek=${seek} rows=${rows} sel=${sel} setSel=${setSel} cur=${cur} /></${RunSection}>` : null}
-      ${finalDone ? html`<${RunSection} title="Quality check" state=${qa} tone=${qaTone}><${QaSection} r=${r} onSeek=${(t) => setSeek({ t, n: Date.now() })} reload=${reload} /></${RunSection}>` : null}
+      ${finalDone ? html`<${RunSection} title="Quality check" state=${qa} tone=${qaTone}><${QaSection} r=${r} onSeek=${(t) => setSeek({ t, n: Date.now() })} reload=${reload} events=${events} /></${RunSection}>` : null}
     </div>
     ${warnings.length ? html`<${RunSection} title="Warnings" state=${String(warnings.length)} tone="warn" open=${false}><ul class="ds-small">${warnings.map((w) => html`<li>${w}</li>`)}</ul></${RunSection}>` : null}
     <div class="ds-actionbar render-actionbar">

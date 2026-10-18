@@ -40,6 +40,8 @@ const POLICY: Record<string, Record<string, Kind>> = {
   demo_rec_config: { show: "free", set: "free", unset: "free" },
   // start makes a draft render and then starts the annotation designer by itself: announced
   demo_rec_edit: { start: "announced", rerender: "free", status: "free", cancel: "free" },
+  // the Director proposes how to fix what the user flagged; it cannot accept or apply
+  demo_rec_qa: { context: "free", propose: "proposal" },
   demo_rec_project: {
     status: "free",
     create: "free",

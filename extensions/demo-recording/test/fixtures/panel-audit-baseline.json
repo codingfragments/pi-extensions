@@ -127,6 +127,13 @@
       "focusMissing": 0,
       "focusChecked": 24
     },
+    "render-fixes|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
     "toast|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
@@ -259,6 +266,13 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 24
+    },
+    "render-fixes|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
     },
     "toast|macchiato|900": {
       "axe": {},
@@ -393,6 +407,13 @@
       "focusMissing": 0,
       "focusChecked": 24
     },
+    "render-fixes|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
+    },
     "toast|latte|1400": {
       "axe": {},
       "axeSerious": 0,
@@ -525,6 +546,13 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 24
+    },
+    "render-fixes|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 40
     },
     "toast|latte|900": {
       "axe": {},

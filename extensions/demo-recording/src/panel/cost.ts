@@ -61,6 +61,11 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "render-open": ["none"],
   "render-qa-confirm": ["none"],
   "render-qa-fix": ["local"],
+  // the fix loop (P1c Q3): flagging and deciding are notes; asking starts a Director turn (it proposes, it never applies)
+  "qa-fix-ask": ["turn"],
+  "qa-fix-cancel": ["none"],
+  "qa-fix-decide": ["none"],
+  "qa-fix-flag": ["none"],
   // leaving a finding alone is a note in the project, never a job (P1a Q2)
   "render-qa-ignore": ["none"],
   "render-qa-unignore": ["none"],

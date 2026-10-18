@@ -64,6 +64,13 @@ export function taskLabel(o: { input?: string; prompt?: string; custom?: string 
       const what = APPROVED_WORD.find(([re]) => re.test(body))?.[1] ?? "your approval";
       return { label: `Continuing after you approved ${what}`, by: "panel" };
     }
+    if (/asks for suggested fixes/.test(body))
+      return {
+        label: /ask you to rethink/.test(body)
+          ? "Rethinking the QA fixes with your context"
+          : "Proposing fixes for the QA findings you flagged",
+        by: "panel",
+      };
     if (/asks for a new take/.test(body))
       return { label: "Recording a new take for you", by: "panel" };
     if (/^The user ALLOWED/.test(body))
@@ -137,6 +144,10 @@ const TOOL: Record<string, (a: Record<string, unknown>) => { label: string; stag
         : a.action === "note" || a.action === "finding" || a.action === "mark_finding"
           ? "Noting it in the project"
           : "Reading the project",
+  }),
+  demo_rec_qa: (a) => ({
+    label: a.action === "propose" ? "Proposing fixes" : "Reading the QA findings you flagged",
+    stage: "render",
   }),
   demo_rec_config: () => ({ label: "Checking the settings" }),
   demo_rec_brand: () => ({ label: "Working on the brand" }),

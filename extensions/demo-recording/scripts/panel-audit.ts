@@ -87,6 +87,7 @@ export const SCREENS = [
   "dialog-ignore",
   "director-asks",
   "director-working",
+  "render-fixes",
   "toast",
 ] as const;
 const LABELS: Record<string, string> = {
@@ -198,6 +199,37 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
         ],
       }),
     );
+    // a fix set with an answered round, so the flag chips and the proposals are audited (P1c Q3)
+    const { askRound, recordProposals } = await import("../src/qa/fixes.ts");
+    askRound(seed.dir, 1, {
+      flags: [
+        { id: "v-2", choice: "fix" },
+        { id: "a-1", choice: "fix" },
+        { id: "m-3", choice: "leave" },
+      ],
+      guidance: "keep the intro as it is",
+    });
+    recordProposals(seed.dir, "fs-1", {
+      summary: "One voice-over run fixes the number; the redaction is separate.",
+      proposals: [
+        {
+          stage: "vo",
+          title: "Rewrite the sentence around the number",
+          change: "Say 14.2 where it says 14.3.",
+          why: "The number is wrong.",
+          findings: ["v-2"],
+          cost: "re-synthesises 1 section",
+        },
+        {
+          stage: "annotations",
+          title: "Move redaction r1",
+          change: "Re-place the redaction over the element's later position.",
+          why: "The element moved.",
+          findings: ["a-1"],
+          cost: "nothing",
+        },
+      ],
+    });
     url = (await rt.ensurePanel()).url;
   }
   const pw = await import("playwright");
@@ -282,6 +314,10 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
                 slug,
               );
               await page.waitForSelector(".ds-next[data-tone=working]");
+            } else if (screen === "render-fixes") {
+              await page.goto(`${url}#/render/v1`);
+              await page.waitForSelector(".fix-proposal");
+              await page.waitForTimeout(300);
             } else if (screen === "director-asks") {
               // a request only for this page (it would add tab stops to every other one)
               askFirst(

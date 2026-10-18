@@ -2180,3 +2180,64 @@ video.ann-thumb {
   display: grid;
   gap: var(--space-2);
 }
+
+/* The fix loop (P1c Q3) */
+.qa-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-start: var(--space-1);
+}
+.flag-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-3);
+}
+.fixes {
+  margin-block-start: var(--space-4);
+}
+.fix-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.fix-proposal {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+  display: grid;
+  gap: var(--space-2);
+}
+.fix-proposal[data-decision="accepted"] {
+  border-left-color: var(--status-ok);
+}
+.fix-proposal[data-decision="rejected"] {
+  border-left-color: var(--status-err);
+  opacity: 0.8;
+}
+.fix-change {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.fix-finding {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+.fix-decide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.fix-note {
+  inline-size: 100%;
+}

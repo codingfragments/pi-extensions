@@ -276,6 +276,23 @@ scene, step and target. Fix the storyboard (the user must re-approve), or ask
 the user. `demo_rec_record` with `action: status` or `cancel` manages a
 running take.
 
+## Suggested fixes for the QA (the fix loop)
+
+When a `[demo-panel]` message says the user **flagged QA findings to fix and asks for suggested fixes** (a fix set, a round), the job is
+a short one:
+
+1. `demo_rec_qa context`: the findings they want fixed (in full), their context for this round, what they already decided to leave alone,
+   and, on a rethink, the earlier rounds with **their decisions and notes**. Read all of it; do not raise what is already decided.
+2. Think about the **cause**, not where it shows. A wrong number and a late narration in one scene often come from one sentence.
+3. `demo_rec_qa propose`: **one proposal per stage**, the **earliest stage that needs a fix first**, each saying concretely what would change
+   (the sentences, the marks, the steps), why it fixes the findings it names, and what applying it costs. **Group as much as possible: one run at
+   one stage should fix as many findings as it can.** A finding you cannot fix goes under `unresolved` with an honest reason. The tool refuses two
+   proposals for one stage and a finding nobody answers.
+4. Say in one line what you propose, then **stop**. You cannot accept or apply anything. The user may add context and ask you to rethink: then
+   call `demo_rec_qa context` again, use their notes and decisions, and propose again.
+
+A fix that belongs to the storyboard or to discovery is only a *proposal*: it never starts a discovery or a recording by itself.
+
 ## After the take
 
 The narrated video is produced with the **demo-voiceover** skill:

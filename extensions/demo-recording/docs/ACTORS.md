@@ -294,6 +294,11 @@ needs you or the Director · model profile · failure modes**.
 
 ---
 
+The QA report is read by the **Director** in the fix loop (P1c Q3): when you flag findings and ask for suggested fixes, the Director (the session
+model, a visible turn) reads them with `demo_rec_qa context` and answers with `demo_rec_qa propose`: **one proposal per stage, the earliest stage
+first, as many findings as possible per run**. It cannot accept or apply anything; you decide, add context and ask it to rethink
+([QA.md](QA.md#suggested-fixes-flag-propose-rethink-decide-q3)).
+
 ## 5. Handovers
 
 Who passes what to whom, and how.

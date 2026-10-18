@@ -210,6 +210,7 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
       guidance: "keep the intro as it is",
     });
     recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
       summary: "One voice-over run fixes the number; the redaction is separate.",
       proposals: [
         {

@@ -49,6 +49,8 @@ export interface ApplyPlan {
   pending: PendingFix[];
   /** True when the Director writes a draft; false for a recording or a discovery (kept as pending, you start it). */
   writes: boolean;
+  /** The steps from this fix to a new render (see pathToRender). */
+  path: string[];
 }
 
 function nextPendingId(all: PendingFix[]): string {
@@ -98,6 +100,10 @@ export function applyFixSet(projectDir: string, id: string, now = new Date()): A
     createdAt: now.toISOString(),
   });
   const created: PendingFix[] = [];
+  const steps = pathToRender(
+    stage,
+    later.map((p) => p.stage),
+  );
   updateState(
     projectDir,
     "qa-fixes-applying",
@@ -120,6 +126,7 @@ export function applyFixSet(projectDir: string, id: string, now = new Date()): A
     round: round.n,
     proposals: nowProposals.map((p) => p.id),
     at: now.toISOString(),
+    path: steps,
     ...(writes ? {} : { kept: true }),
   };
   if (!writes) set.status = "applied";
@@ -127,7 +134,7 @@ export function applyFixSet(projectDir: string, id: string, now = new Date()): A
     path.join(projectDir, "fixes", `${set.id}.json`),
     `${JSON.stringify(set, null, 2)}\n`,
   );
-  return { set, round, stage, now: nowProposals, pending: created, writes };
+  return { set, round, stage, now: nowProposals, pending: created, writes, path: steps };
 }
 
 /**
@@ -166,6 +173,59 @@ export function fixLinkFor(
   return set ? { fixset: set.id, render: set.render } : undefined;
 }
 
+/**
+ * The steps after a fix at `stage` until a new render exists, in the order they happen: what you do, what asks for your Allow, what the
+ * engine does by itself. `later` are the stages that have pending fixes (the Director takes them into account when it writes them).
+ */
+export function pathToRender(stage: FixStage, later: FixStage[] = []): string[] {
+  const has = (s: FixStage) => later.includes(s);
+  const steps: string[] = [];
+  switch (stage) {
+    case "discovery":
+    case "storyboard":
+      steps.push(
+        stage === "discovery"
+          ? "Run the discovery again (Project: it asks for a budget) and read what it finds"
+          : "Read the new storyboard draft and approve it (Storyboard tab)",
+        "Record a new take: you start it, and it asks for your Allow (model calls and recording time)",
+        "Approve the take (Recording tab); the voice-over is written from it, then read and approve it",
+        "Generate voice & render: it asks for your Allow and shows what is billed",
+      );
+      break;
+    case "recording":
+      steps.push(
+        "Start the new take yourself (Recording tab, Request a new take): it asks for your Allow",
+        "Approve the take; the voice-over is written from it, then read and approve it",
+        "Generate voice & render: it asks for your Allow and shows what is billed",
+      );
+      break;
+    case "vo":
+      steps.push(
+        "Read the new voice-over draft and approve it (Voice tab)",
+        "Generate voice & render: only changed sections are synthesised (the rest comes from the cache); it asks for your Allow and shows the cost",
+      );
+      break;
+    case "annotations":
+      steps.push("Read the new annotations draft and approve it (Annotations tab)");
+      break;
+    case "render":
+      break;
+  }
+  if (stage !== "annotations" && stage !== "render") {
+    steps.push(
+      has("annotations")
+        ? "The annotations are re-suggested for the new timing, taking your pending annotation fixes into account; review and approve them"
+        : "The annotations are re-suggested for the new timing (automatic unless you turned it off); review and approve them",
+    );
+  } else if (stage === "annotations" && later.includes("render")) {
+    steps.push("A render is the next step anyway");
+  }
+  steps.push(
+    "Render a final (Render, New render…) and read its QA: no synthesis or recording happens in a render",
+  );
+  return steps;
+}
+
 /** What the Director is told: carry out exactly this, as one draft, and stop. */
 export function applyMessage(plan: ApplyPlan, panelPrefix: string): string {
   const word = FIX_STAGE_WORD[plan.stage];
@@ -174,12 +234,7 @@ export function applyMessage(plan: ApplyPlan, panelPrefix: string): string {
     storyboard: "demo_rec_storyboard (get the current storyboard, then write a new version)",
     annotations: "demo_rec_annotations (context, then suggest or write a new version)",
   };
-  return (
-    `${panelPrefix} The user ACCEPTED ${plan.now.length} fix proposal${plan.now.length === 1 ? "" : "s"} for the ${word} (fix set ${plan.set.id}, round ${plan.round.n}, from the QA of render v${plan.set.render}) ` +
-    `and asks you to APPLY them: write ONE new ${word} draft that carries out exactly what they accepted. Call demo_rec_qa context first: it lists the accepted proposals, with the user's own wording and notes where they edited. ` +
-    `Use ${tool[plan.stage] ?? "the stage's tool"}. Change only what the proposals say. Do NOT render and do NOT synthesize anything: the user reads the draft, verifies it and approves it, and only then does the voice cost anything. ` +
-    `${plan.pending.length ? "The accepted proposals for later stages are kept as pending fixes: leave them. " : ""}Stop after writing the draft.`
-  );
+  return `${panelPrefix} The user ACCEPTED ${plan.now.length} fix proposal${plan.now.length === 1 ? "" : "s"} for the ${word} (fix set ${plan.set.id}, round ${plan.round.n}, from the QA of render v${plan.set.render}) and asks you to APPLY them: write ONE new ${word} draft that carries out exactly what they accepted. Call demo_rec_qa context first: it lists the accepted proposals, with the user's own wording and notes where they edited. Use ${tool[plan.stage] ?? "the stage's tool"}. Change only what the proposals say. Do NOT render and do NOT synthesize anything: the user reads the draft, verifies it and approves it, and only then does the voice cost anything. ${plan.pending.length ? "The accepted proposals for later stages are kept as pending fixes: leave them. " : ""}Stop after writing the draft.\n\nYour reply to the user is STRUCTURED, at most 12 lines, in exactly this shape (no paragraph):\n**Stage:** ${word.charAt(0).toUpperCase()}${word.slice(1)}: new draft vN (fixes from render v${plan.set.render})\n**Changed:** one bullet per edit you made (old → new)\n**Next steps to a new render:**\n${plan.path.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nSay that nothing was rendered or synthesised.`;
 }
 
 /** The pending fixes as text for the Director and the project context. Open ones first; resolved ones briefly. */

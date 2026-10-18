@@ -2223,7 +2223,24 @@ video.ann-thumb {
 }
 .fix-change {
   margin: 0;
-  white-space: pre-wrap;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+}
+.fix-next {
+  border-left: 3px solid var(--status-info);
+  padding-left: var(--space-3);
+}
+.fix-next ol,
+.fix-notice ol {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+}
+ol[data-next-steps] {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
 }
 .fix-finding {
   font-family: var(--font-mono);

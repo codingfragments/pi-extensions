@@ -182,6 +182,28 @@ The rounds are kept in the project
 (`fixes/fs-N.json`), the Director sees fix sets in progress in the project context ("QA fixes in progress"), and the Director has no tool to
 accept or apply anything (a test enforces it).
 
+## How the Director answers: structured, stage first, the way to a new render
+
+A fix answer is never a paragraph. `demo_rec_qa propose` **refuses** a wall of text and says what to cut: a summary of at most 400 characters,
+a title of at most 90, a "why" of at most 320, the change as bullets (≤ 1400), and **`nextSteps`**: 2 to 7 short steps (≤ 170 characters each)
+from the fix to **a new render**. It returns the chat reply already built from what was stored, so the chat and the panel say the same:
+
+```
+**Stage:** Voice-over, the earliest that needs a fix (then Annotations)
+**Fixes:** 3 of 3 findings
+**Voice-over: Rewrite the sentence around @m2**
+- Say 14.2 instead of 14.3
+  Cost: re-synthesises 1 section
+**Next steps to a new render:**
+1. Read the new voice-over draft and approve it
+2. Generate voice & render (asks for your Allow)
+3. Render a final and read its QA
+```
+
+The panel shows each change as bullets and the numbered steps under the proposals. After you apply, the engine computes the steps for that
+stage itself (`pathToRender`: what you do, what asks for your Allow, what a render does not do) and gives the Director the exact reply shape;
+the panel shows the same list under "Applied".
+
 ## Apply: one new draft at the earliest stage (Q4)
 
 When you have accepted what you want, **Apply N accepted proposals** does this, and only this:

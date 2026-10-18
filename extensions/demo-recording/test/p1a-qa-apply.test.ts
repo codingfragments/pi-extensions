@@ -19,11 +19,14 @@ import {
   linkFixDraft,
   listPending,
   openPending,
+  pathToRender,
 } from "../src/qa/apply.ts";
 import {
   askRound,
+  bullets,
   decideProposal,
   directorBrief,
+  proposeReply,
   readFixSet,
   recordProposals,
 } from "../src/qa/fixes.ts";
@@ -125,6 +128,7 @@ function decided(
   }));
   askRound(dir, 1, { flags, guidance: "" });
   const { round } = recordProposals(dir, "fs-1", {
+    nextSteps: ["Approve the new draft", "Render a final"],
     summary: "s",
     proposals: proposals.map((k) => P[k]) as never,
   });
@@ -208,6 +212,7 @@ test("a recording or discovery fix is never done inside this flow: it is kept, a
       guidance: "",
     });
     const { round } = recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
       summary: "s",
       proposals: [{ ...P.recording, findings: ["drift-2", "values-1"] }, P.annotations] as never,
     });
@@ -235,6 +240,7 @@ test("what cannot be applied is refused", () => {
     askRound(seed.dir, 1, { flags: [{ id: "values-1", choice: "fix" }], guidance: "" });
     assert.throws(() => applyFixSet(seed.dir, "fs-1"), /has no answered round to apply/);
     recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
       summary: "s",
       proposals: [{ ...P.vo, findings: ["values-1"] }] as never,
     });
@@ -437,6 +443,16 @@ test(
       await page.goto(`${panel.url}#/render/v1`);
       const qa = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
       await qa.locator(".fix-proposal").first().waitFor();
+      // readable: the changes are bullets, and the steps to a new render are a numbered list under the proposals
+      assert.ok(
+        (await qa.locator(".fix-proposal .fix-change li").count()) >= 2,
+        "bullets, not a paragraph",
+      );
+      assert.deepEqual(await qa.locator(".fix-next li").allInnerTexts(), [
+        "Approve the new draft",
+        "Render a final",
+      ]);
+      await qa.getByText("Next steps to a new render").first().waitFor();
       assert.equal(
         await qa.locator("[data-act=apply-fixes]").count(),
         0,
@@ -455,6 +471,12 @@ test(
       await qa
         .getByText(/The Director is writing the voice over draft from the fixes you accepted/)
         .waitFor();
+      const steps = await qa.locator(".fixes ol[data-next-steps] li").allInnerTexts();
+      assert.match(steps[0] ?? "", /Read the new voice-over draft and approve it/);
+      assert.match(
+        steps.at(-1) ?? "",
+        /Render a final[\s\S]*no synthesis or recording happens in a render/,
+      );
       assert.match(
         told.at(-1) ?? "",
         /ACCEPTED 1 fix proposal for the voice-over \(fix set fs-1, round 1/,
@@ -493,3 +515,146 @@ test(
     }
   },
 );
+
+// --- readable answers, the stage said, the path to a new render --------------------------------
+
+test("a wall of text is refused with what to cut; the steps to a new render are required", () => {
+  const seed = setup();
+  try {
+    askRound(seed.dir, 1, { flags: [{ id: "values-1", choice: "fix" }], guidance: "" });
+    const base = { ...P.vo, findings: ["values-1"] };
+    const wall = "x".repeat(500);
+    assert.throws(
+      () =>
+        recordProposals(seed.dir, "fs-1", {
+          summary: wall,
+          nextSteps: ["a", "b"],
+          proposals: [base] as never,
+        }),
+      /summary is 500 characters: at most 400/,
+    );
+    assert.throws(
+      () =>
+        recordProposals(seed.dir, "fs-1", {
+          summary: "ok",
+          nextSteps: [],
+          proposals: [base] as never,
+        }),
+      /nextSteps: 2 to 7 short steps from the fix to a new render/,
+    );
+    assert.throws(
+      () =>
+        recordProposals(seed.dir, "fs-1", {
+          summary: "ok",
+          nextSteps: ["a", "b".repeat(200)],
+          proposals: [base] as never,
+        }),
+      /nextSteps 2 is 200 characters: at most 170/,
+    );
+    assert.throws(
+      () =>
+        recordProposals(seed.dir, "fs-1", {
+          summary: "ok",
+          nextSteps: ["a", "b"],
+          proposals: [{ ...base, why: wall, change: "y".repeat(1500) }] as never,
+        }),
+      /why is over 320 characters[\s\S]*change is over 1400 characters: bullets, one per edit/,
+    );
+    // nothing was stored by the refusals
+    assert.equal(readFixSet(seed.dir, "fs-1")?.rounds[0]?.status, "asked");
+  } finally {
+    cleanup(seed.root);
+  }
+});
+
+test("the chat reply is structured: the stage, the fixes, bullets per change, the numbered steps to a new render", () => {
+  const seed = setup();
+  try {
+    askRound(seed.dir, 1, {
+      flags: ["values-1", "drift-2", "annotations-3"].map((id) => ({ id, choice: "fix" as const })),
+      guidance: "",
+    });
+    const steps = [
+      "Read the new voice-over draft and approve it",
+      "Generate voice & render (asks for your Allow)",
+      "Render a final and read its QA",
+    ];
+    const { set, round } = recordProposals(seed.dir, "fs-1", {
+      summary: "One sentence causes both.",
+      nextSteps: steps,
+      proposals: [
+        { ...P.vo, change: "- Say 14.2 instead of 14.3\n- Move 'steady' before @m2" },
+        P.annotations,
+      ] as never,
+    });
+    const reply = proposeReply(set, round);
+    assert.match(
+      reply,
+      /^\*\*Stage:\*\* Voice-over, the earliest that needs a fix \(then Annotations\)\n\*\*Fixes:\*\* 3 of 3 findings\n/,
+    );
+    assert.match(
+      reply,
+      /\*\*Voice-over: Rewrite the sentence around @m2\*\*\n- Say 14.2 instead of 14.3\n- Move 'steady' before @m2\n {2}Cost: re-synthesises 1 section/,
+    );
+    assert.match(
+      reply,
+      /\*\*Next steps to a new render:\*\*\n1\. Read the new voice-over draft and approve it\n2\. Generate voice & render \(asks for your Allow\)\n3\. Render a final/,
+    );
+    assert.ok(reply.split("\n").length <= 14, `short: ${reply.split("\n").length} lines`);
+    assert.deepEqual(bullets("One. Two! Three?"), ["One.", "Two!", "Three?"]);
+    assert.deepEqual(bullets("- a\n* b\n• c"), ["a", "b", "c"]);
+  } finally {
+    cleanup(seed.root);
+  }
+});
+
+test("the path from a fix to a new render says what asks for your Allow and what a render does not do", () => {
+  const vo = pathToRender("vo");
+  assert.match(vo[0] ?? "", /Read the new voice-over draft and approve it/);
+  assert.ok(
+    vo.some((s) => /only changed sections are synthesised[\s\S]*asks for your Allow/.test(s)),
+  );
+  assert.match(
+    vo.at(-1) ?? "",
+    /Render a final[\s\S]*no synthesis or recording happens in a render/,
+  );
+  const sb = pathToRender("storyboard", ["vo", "annotations"]);
+  assert.ok(sb.some((s) => /Record a new take: you start it, and it asks for your Allow/.test(s)));
+  assert.ok(sb.some((s) => /pending annotation fixes into account/.test(s)));
+  assert.deepEqual(pathToRender("annotations").length, 2, "approve the annotations, then render");
+  assert.match(pathToRender("recording")[0] ?? "", /Start the new take yourself/);
+  assert.match(pathToRender("discovery")[0] ?? "", /Run the discovery again/);
+  for (const stage of ["discovery", "storyboard", "recording", "vo", "annotations"] as const) {
+    const steps = pathToRender(stage);
+    assert.ok(steps.length >= 2 && steps.length <= 7, `${stage}: ${steps.length} steps`);
+    assert.ok(steps.every((s) => s.length <= 260));
+  }
+});
+
+test("applying: the plan carries the steps, the Director is told the reply shape, and the stage is named", () => {
+  const seed = setup();
+  try {
+    decided(seed.dir, ["vo", "annotations"], ["vo", "annotations"]);
+    const plan = applyFixSet(seed.dir, "fs-1");
+    assert.equal(plan.path[0], "Read the new voice-over draft and approve it (Voice tab)");
+    assert.ok(
+      plan.path.some((s) => /pending annotation fixes into account/.test(s)),
+      "the accepted annotation fix is pending, and the path says it is taken into account",
+    );
+    assert.deepEqual(
+      readFixSet(seed.dir, "fs-1")?.applying?.path,
+      plan.path,
+      "kept, so the panel shows it after a reload",
+    );
+    const msg = applyMessage(plan, "[demo-panel]");
+    assert.match(msg, /STRUCTURED, at most 12 lines, in exactly this shape/);
+    assert.match(msg, /\*\*Stage:\*\* Voice-over: new draft vN \(fixes from render v1\)/);
+    assert.match(
+      msg,
+      /\*\*Next steps to a new render:\*\*\n1\. Read the new voice-over draft and approve it/,
+    );
+    assert.match(msg, /nothing was rendered or synthesised/);
+  } finally {
+    cleanup(seed.root);
+  }
+});

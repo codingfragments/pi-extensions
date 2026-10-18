@@ -202,6 +202,7 @@ test("a proposal round: one run per stage, the earliest stage computed, every fi
     assert.throws(
       () =>
         recordProposals(seed.dir, "fs-1", {
+          nextSteps: ["Approve the new draft", "Render a final"],
           summary: "x",
           proposals: [
             { ...P0, findings: ["values-1"] },
@@ -217,13 +218,19 @@ test("a proposal round: one run per stage, the earliest stage computed, every fi
     );
     // a flagged finding nobody answers
     assert.throws(
-      () => recordProposals(seed.dir, "fs-1", { summary: "x", proposals: [P0 as never] }),
+      () =>
+        recordProposals(seed.dir, "fs-1", {
+          nextSteps: ["Approve the new draft", "Render a final"],
+          summary: "x",
+          proposals: [P0 as never],
+        }),
       /annotations-3 is flagged but neither answered by a proposal nor named under unresolved/,
     );
     // a proposal for a finding that was not flagged, a bad stage, thin text
     assert.throws(
       () =>
         recordProposals(seed.dir, "fs-1", {
+          nextSteps: ["Approve the new draft", "Render a final"],
           summary: "x",
           proposals: [
             {
@@ -244,6 +251,7 @@ test("a proposal round: one run per stage, the earliest stage computed, every fi
 
     // the answer, given in the wrong order: sorted earliest first, earliest computed
     const { round } = recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
       summary: "The sentence around @m2 is the cause of two findings; the redaction is separate.",
       proposals: [P1 as never, P0 as never],
     });
@@ -259,6 +267,7 @@ test("a proposal round: one run per stage, the earliest stage computed, every fi
     // an honest "I cannot": named under unresolved with a reason (a second ask)
     askRound(seed.dir, 1, { flags: fix("values-1", "annotations-3"), guidance: "again" });
     const second = recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
       summary: "only one",
       proposals: [{ ...P0, findings: ["values-1"] }],
       unresolved: [{ finding: "annotations-3", why: "needs a new annotation version first" }],
@@ -266,7 +275,12 @@ test("a proposal round: one run per stage, the earliest stage computed, every fi
     assert.equal(second.round.unresolved?.[0]?.finding, "annotations-3");
     // no ask waiting: the Director cannot propose
     assert.throws(
-      () => recordProposals(seed.dir, "fs-1", { summary: "x", proposals: [P0 as never] }),
+      () =>
+        recordProposals(seed.dir, "fs-1", {
+          nextSteps: ["Approve the new draft", "Render a final"],
+          summary: "x",
+          proposals: [P0 as never],
+        }),
       /no open ask/,
     );
     assert.deepEqual(FIX_STAGES, [
@@ -286,7 +300,11 @@ test("your decisions, edits and notes are kept, and the Director sees them when 
   const seed = setup();
   try {
     askRound(seed.dir, 1, { flags: fix("values-1", "drift-2", "annotations-3"), guidance: "" });
-    recordProposals(seed.dir, "fs-1", { summary: "first answer", proposals: PROPOSALS as never });
+    recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
+      summary: "first answer",
+      proposals: PROPOSALS as never,
+    });
     const { proposal } = decideProposal(seed.dir, "fs-1", "p1", {
       decision: "accepted",
       note: "yes but keep 'steady'",
@@ -337,6 +355,7 @@ test("your decisions, edits and notes are kept, and the Director sees them when 
     assert.match(brief, /ONE proposal per stage/);
     // a note on the same stage carries over to the new proposal
     const next = recordProposals(seed.dir, "fs-1", {
+      nextSteps: ["Approve the new draft", "Render a final"],
       summary: "second",
       proposals: [{ ...P0, findings: ["values-1", "drift-2"] }],
     });
@@ -417,6 +436,10 @@ test(
         fauxAssistantMessage([
           fauxToolCall("demo_rec_qa", {
             action: "propose",
+            nextSteps: [
+              "Read the new draft and approve it",
+              "Generate voice & render (asks for your Allow)",
+            ],
             summary: "two voice-over changes",
             proposals: [
               { ...P0, findings: ["values-1"] },
@@ -431,6 +454,10 @@ test(
           return fauxAssistantMessage([
             fauxToolCall("demo_rec_qa", {
               action: "propose",
+              nextSteps: [
+                "Read the new draft and approve it",
+                "Generate voice & render (asks for your Allow)",
+              ],
               summary: "One voice-over run fixes two findings; the redaction is separate.",
               proposals: PROPOSALS,
             }),
@@ -512,6 +539,10 @@ test(
         fauxAssistantMessage([
           fauxToolCall("demo_rec_qa", {
             action: "propose",
+            nextSteps: [
+              "Read the new draft and approve it",
+              "Generate voice & render (asks for your Allow)",
+            ],
             summary: "round one",
             proposals: PROPOSALS,
           }),
@@ -523,6 +554,10 @@ test(
           return fauxAssistantMessage([
             fauxToolCall("demo_rec_qa", {
               action: "propose",
+              nextSteps: [
+                "Read the new draft and approve it",
+                "Generate voice & render (asks for your Allow)",
+              ],
               summary: "round two: only the numbers",
               proposals: [
                 {
@@ -655,6 +690,7 @@ test(
 
       // the Director answers (here: the store, as the tool would)
       recordProposals(seed.dir, "fs-1", {
+        nextSteps: ["Approve the new draft", "Render a final"],
         summary: "One voice-over run fixes two findings; the redaction is separate.",
         proposals: PROPOSALS as never,
       });

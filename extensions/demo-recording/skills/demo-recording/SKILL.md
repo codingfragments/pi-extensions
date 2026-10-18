@@ -291,6 +291,12 @@ a short one:
 4. Say in one line what you propose, then **stop**. You cannot accept or apply anything. The user may add context and ask you to rethink: then
    call `demo_rec_qa context` again, use their notes and decisions, and propose again.
 
+**Answer structured, never as a paragraph.** Every answer in the fix loop says (1) **which stage** you are addressing, (2) what changes as
+**bullets, one per edit** (old → new), and (3) the **next steps from the fix to a new render**, numbered, each with what asks for the user's
+Allow and what it costs. `demo_rec_qa propose` enforces the shape (summary ≤ 400 characters, title ≤ 90, why ≤ 320, bullets for the change,
+`nextSteps` 2-7 items of ≤ 170) and returns the reply to give, already filled in: use it, at most 12 lines. The same goes for the reply after you
+wrote an applied draft (the apply message has the exact shape). The panel shows the same bullets and steps.
+
 When a `[demo-panel]` message says the user **ACCEPTED fix proposals and asks you to APPLY them**: call `demo_rec_qa context` (it lists the
 accepted proposals with their own wording and notes), then write **ONE new draft** of that stage with the stage's tool, changing only what they
 accepted. **Do not render, do not synthesize, do not touch later stages** (their fixes are kept as pending fixes: read them in the project context

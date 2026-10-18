@@ -9,7 +9,10 @@
  */
 
 import path from "node:path";
+import { annotationVersions } from "../annotations/file.ts";
 import type { Runtime } from "../runtime.ts";
+import { storyboardVersions } from "../storyboard/store.ts";
+import { voVersions } from "../vo/store.ts";
 import { readState, updateState } from "../workdir/state.ts";
 import { writeFileAtomic } from "../workdir/versioning.ts";
 import {
@@ -251,4 +254,99 @@ export function formatPending(projectDir: string): string[] {
       : []),
     ...(done.length ? ["Resolved:", ...done.map(line)] : []),
   ];
+}
+
+// --- Q5: the stage writers read the pending fixes and settle them --------------------------------------------------
+
+const versionsOf = (projectDir: string, stage: FixStage): number[] | undefined =>
+  stage === "vo"
+    ? voVersions(projectDir)
+    : stage === "storyboard"
+      ? storyboardVersions(projectDir)
+      : stage === "annotations"
+        ? annotationVersions(projectDir)
+        : undefined; // a recording or a discovery has no draft the Director writes
+
+/**
+ * Settle a pending fix: `applied` (the draft that carries it, and how) or `dropped` (and why). The Director settles the ones of the stage it
+ * has just written; you can drop any of them. Nothing else changes: a pending fix is memory, and what happened to it stays readable.
+ */
+export function resolvePending(
+  projectDir: string,
+  id: string,
+  o: { status: "applied" | "dropped"; why?: string; by: "agent" | "user"; version?: number },
+  now = new Date(),
+): PendingFix {
+  const all = listPending(projectDir);
+  const pf = all.find((x) => x.id === id);
+  if (!pf)
+    throw new Error(
+      `there is no pending fix ${id}${
+        all.some((x) => x.status === "open")
+          ? ` (open: ${all
+              .filter((x) => x.status === "open")
+              .map((x) => x.id)
+              .join(", ")})`
+          : " (none are open)"
+      }`,
+    );
+  if (pf.status !== "open")
+    throw new Error(`${id} is already ${pf.status}${pf.resolvedWhy ? `: ${pf.resolvedWhy}` : ""}`);
+  const why = (o.why ?? "").trim();
+  if (o.by === "agent" && why.length < 4)
+    throw new Error(
+      `say in a sentence how ${id} was ${o.status === "applied" ? "applied" : "left out"} (why)`,
+    );
+  if (o.status === "applied") {
+    const known = versionsOf(projectDir, pf.stage);
+    if (known) {
+      if (o.version === undefined || !known.includes(o.version))
+        throw new Error(
+          `applied needs the ${FIX_STAGE_WORD[pf.stage]} version that carries it (version: ${known.join(", ") || "none written yet"})`,
+        );
+    }
+  }
+  let out = pf;
+  updateState(
+    projectDir,
+    "qa-pending-resolved",
+    (s) => {
+      const target = (s.pendingFixes ?? []).find((x) => x.id === id);
+      if (!target) return;
+      target.status = o.status;
+      target.resolvedBy = o.by;
+      target.resolvedAt = now.toISOString();
+      target.resolvedWhy = why || (o.by === "user" ? "dropped by you" : "");
+      if (o.status === "applied" && o.version !== undefined) target.version = o.version;
+      out = target;
+    },
+    { id, status: o.status, by: o.by, stage: pf.stage },
+    now,
+  );
+  return out;
+}
+
+/**
+ * What a stage's writer reads about the user's accepted QA fixes for that stage: in the voice-over template, the annotations context and
+ * the storyboard read. Empty when nothing is open.
+ */
+export function pendingBlock(projectDir: string, stage: FixStage): string[] {
+  const open = openPending(projectDir, stage);
+  if (!open.length) return [];
+  return [
+    `## Pending fixes for the ${FIX_STAGE_WORD[stage]} (${open.length}): the user accepted these from a QA`,
+    ...open.map(
+      (p) =>
+        `- ${p.id} (render v${p.render}, answers ${p.findings.map((f) => `${f.id}: ${f.message}`).join("; ")}): ${p.text}${p.guidance ? ` — the user's note: ${p.guidance}` : ""}`,
+    ),
+    "Take each into account in this draft. Then settle each one: demo_rec_qa resolve with the id, status applied (and the version that carries it) or dropped (and why it does not apply any more). Say in your reply which you applied and which you dropped.",
+    "",
+  ];
+}
+
+/** The reminder appended to a stage tool's write result: which pending fixes of that stage are still open. */
+export function pendingReminder(projectDir: string, stage: FixStage, version: number): string {
+  const open = openPending(projectDir, stage);
+  if (!open.length) return "";
+  return `\n${open.length} pending fix${open.length === 1 ? "" : "es"} for the ${FIX_STAGE_WORD[stage]} still open (${open.map((p) => p.id).join(", ")}): for each, call demo_rec_qa resolve with status applied (version ${version} if this draft carries it) or dropped (with why), then say which in your reply.`;
 }

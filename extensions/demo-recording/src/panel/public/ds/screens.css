@@ -2269,3 +2269,10 @@ ol[data-next-steps] {
   margin: var(--space-1) 0 0;
   padding-inline-start: var(--space-4);
 }
+
+.pending-fixes .pending-list {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+}

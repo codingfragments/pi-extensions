@@ -570,10 +570,10 @@ export function Annotations({ events }) {
   if (!d) return html`<section class="card muted">loading…</section>`;
   if (!d.project) return html`<section class="card muted">No active project.</section>`;
   if (d.version === null && version !== null)
-    return html`<${StageSummary} stage="annotations" rows=${hist.data?.rows} viewed=${version} />`;
+    return html`<${StageSummary} events=${events} stage="annotations" rows=${hist.data?.rows} viewed=${version} />`;
   if (d.version === null)
     return html`
-      <${StageSummary} stage="annotations" rows=${hist.data?.rows} viewed=${null} />
+      <${StageSummary} events=${events} stage="annotations" rows=${hist.data?.rows} viewed=${null} />
       <section class="card">
         <p class="muted">${d.canSuggest ? "No annotations yet. The Annotation designer suggests zooms, highlights, callouts and more from the recording and the narration; you switch them on and off, edit them and approve a version." : "Approve a voice-over (and let the sync edit run) first: annotations follow the narration."}</p>
         <${Resuggest} data=${d} onDone=${(v) => (typeof v === "number" ? setVersion(v) : reload())} />
@@ -668,7 +668,7 @@ export function Annotations({ events }) {
   const canSave = !!d.draft && ed.save.status !== "conflict";
 
   return html`
-    <${StageSummary} stage="annotations" row=${row} rows=${hist.data?.rows}
+    <${StageSummary} events=${events} stage="annotations" row=${row} rows=${hist.data?.rows}
       viewed=${d.version} onUse=${(v) => runVersionAction({ stage: "annotations", version: v, intent: "use" }).then(reload)}
       meta=${html`${d.draft ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">✎</span>Working draft</span>` : null}<span>${f.by ? `by ${f.by}` : ""} · ${f.take}</span>`} />
     <section class="card review-head ann-head">

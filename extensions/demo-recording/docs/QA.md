@@ -222,6 +222,21 @@ When you have accepted what you want, **Apply N accepted proposals** does this, 
   Voice over v3 is a new draft written from your accepted fixes", and the production line still means approved and usable.
 - You can apply a fix set once. Rejected proposals are neither applied nor kept.
 
+## Pending fixes: the stage writers read them and settle them (Q5)
+
+A pending fix is what you accepted for a stage that is not being written now. When that stage's turn comes, **its writer reads it**:
+
+- The **voice-over template** and `get`, the **annotations context** and the **storyboard** `get` each start with "Pending fixes for the
+  <stage>": the open ones of that stage, with the findings they answer and your note. Other stages' fixes are not shown there.
+- When the Director **writes** a draft of that stage, the result reminds it which are still open.
+- The Director **settles** each with `demo_rec_qa resolve`: `applied` (with the version that carries it, which must exist, and one sentence
+  of how) or `dropped` (with why it no longer applies). A recording or discovery fix needs no version. Settling is memory: nothing is
+  rendered or synthesized, and what happened to a fix stays readable ("Settled" on the stage screen, `demo_rec_qa pending`, the project context).
+- The stage's screen says **"N pending fixes for this stage"** (Storyboard, Recording, Voice over, Annotations) with the fix, the render it came
+  from and your note. **You can drop** any of them (with an optional reason); the Director cannot reopen a dropped one.
+- The statuses `superseded` and `stale` are reserved: nothing sets them yet (a newer fix set for the same finding, and a take that changed
+  under a scene fix, are the cases they are for).
+
 ## Files
 
 ```

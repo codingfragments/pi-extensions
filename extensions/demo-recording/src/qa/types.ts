@@ -68,6 +68,10 @@ export interface PendingFix {
   createdAt: string;
   /** Why it was applied, dropped or went stale. */
   resolvedWhy?: string;
+  /** Who resolved it, when, and (applied) in which version of its stage. */
+  resolvedBy?: "agent" | "user";
+  resolvedAt?: string;
+  version?: number;
 }
 
 /**

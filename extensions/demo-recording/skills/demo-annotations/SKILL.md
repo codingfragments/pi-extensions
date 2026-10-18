@@ -32,6 +32,8 @@ panel's (Re-)suggest. You then see one of three things:
 
 ## Workflow
 
+0. **Pending QA fixes.** The context ends with "Pending fixes for the annotations" when the user accepted fixes from a QA for this stage. Take
+   each into account in your suggestions; afterwards settle each with `demo_rec_qa resolve` (`applied` + the version, or `dropped` + why).
 1. `demo_rec_annotations action=context` (for a re-suggest: pass `base` and the
    user's `instructions` verbatim). Read all of it:
    - each scene's **narration** at each anchor — what the voice says when;

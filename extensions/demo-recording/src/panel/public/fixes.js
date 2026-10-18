@@ -3,7 +3,7 @@
 import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
 import { api, post, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
-import { errorToast } from "./dialog.js";
+import { ask, errorToast } from "./dialog.js";
 
 const STAGE_TAB = {
   storyboard: "storyboard",
@@ -251,5 +251,43 @@ export function FixesPanel({ r, items, fixes }) {
       <${CostHint} />
     </div>`
     }
+  </section>`;
+}
+
+/**
+ * "N pending fixes for this stage" on a stage's screen (P1c Q5): what you accepted from a QA for this stage, that its writer (the Director) takes
+ * into account and settles. You can drop one; what was settled stays readable.
+ */
+export function PendingFixes({ stage, events }) {
+  const { data, reload } = useApi(`/api/qa-pending?stage=${stage}`, events ?? [], /^qa\./);
+  const open = data?.open ?? [];
+  const settled = data?.settled ?? [];
+  if (!open.length && !settled.length) return null;
+  const drop = async (x) => {
+    const r = await ask({
+      title: `Drop ${x.id}?`,
+      text: x.text,
+      input: { label: "Why? (optional)", placeholder: "e.g. I rewrote that part myself" },
+      confirmLabel: "Drop it",
+    });
+    if (!r) return;
+    try {
+      await post("/api/qa-pending-drop", { id: x.id, why: r.value });
+      reload();
+    } catch (e) {
+      errorToast(e, "dropping the fix");
+    }
+  };
+  return html`<section class="pending-fixes ds-notice" data-tone=${open.length ? "info" : "neutral"} aria-label="Pending fixes" data-stage=${stage}>
+    <span class="ds-status" data-tone=${open.length ? "info" : "ok"} aria-hidden="true">${open.length ? "◔" : "✓"}</span>
+    <div class="ds-grow ds-stack">
+      ${
+        open.length
+          ? html`<div><b>${open.length} pending fix${open.length === 1 ? "" : "es"} for this stage.</b> You accepted ${open.length === 1 ? "it" : "them"} from a QA; the Director takes ${open.length === 1 ? "it" : "them"} into account when it writes the next draft, and says what it applied or dropped.</div>
+        <ul class="small-text pending-list">${open.map((x) => html`<li key=${x.id} data-pending=${x.id}><span class="ds-badge" data-tone="neutral">from render v${x.render}</span> ${x.text}${x.guidance ? html` <span class="muted">Your note: ${x.guidance}</span>` : null} <button class="ds-btn ds-btn--quiet" type="button" data-act="drop-pending" onClick=${() => drop(x)}>Drop</button></li>`)}</ul>`
+          : null
+      }
+      ${settled.length ? html`<details class="small-text"><summary class="muted">Settled (${settled.length})</summary><ul class="pending-list">${settled.map((x) => html`<li key=${x.id} data-settled=${x.status}><span class="ds-badge" data-tone=${x.status === "applied" ? "ok" : "neutral"}>${x.status}${x.version ? ` in v${x.version}` : ""}</span> ${x.text} <span class="muted">${x.resolvedBy === "user" ? "You" : "The Director"}: ${x.resolvedWhy}</span></li>`)}</ul></details>` : null}
+    </div>
   </section>`;
 }

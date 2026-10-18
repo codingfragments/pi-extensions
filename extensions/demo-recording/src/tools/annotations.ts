@@ -39,6 +39,7 @@ import {
 import { budgetOf, formatBudget } from "../annotations/weights.ts";
 import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
+import { pendingBlock, pendingReminder } from "../qa/apply.ts";
 import type { Runtime } from "../runtime.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import { readState } from "../workdir/state.ts";
@@ -255,13 +256,16 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
         case "context": {
           const { version, timeline } = timelineFor(p.dir);
           return result(
-            annotationContext({
-              projectDir: p.dir,
-              timeline,
-              timelineVersion: version,
-              ...(params.base !== undefined ? { base: params.base } : {}),
-              ...(params.instructions ? { instructions: params.instructions } : {}),
-            }),
+            [
+              annotationContext({
+                projectDir: p.dir,
+                timeline,
+                timelineVersion: version,
+                ...(params.base !== undefined ? { base: params.base } : {}),
+                ...(params.instructions ? { instructions: params.instructions } : {}),
+              }),
+              ...pendingBlock(p.dir, "annotations"),
+            ].join("\n"),
           );
         }
         case "suggest": {
@@ -273,7 +277,7 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
             ...(params.instructions ? { instructions: params.instructions } : {}),
           });
           return result(
-            `${text}\nThe user reviews them in the panel's Annotations tab (toggles, text, nudges) and accepts there.`,
+            `${text}\nThe user reviews them in the panel's Annotations tab (toggles, text, nudges) and accepts there.${pendingReminder(p.dir, "annotations", Math.max(0, ...annotationVersions(p.dir)))}`,
           );
         }
         case "get": {
@@ -303,7 +307,9 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
             },
             p.slug,
           );
-          return result(formatAnnotations(stored));
+          return result(
+            `${formatAnnotations(stored)}${pendingReminder(p.dir, "annotations", stored.version)}`,
+          );
         }
         case "import": {
           if (params.from === undefined)

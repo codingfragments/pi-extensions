@@ -19,6 +19,7 @@ import {
 import { post, useApi } from "./core.js";
 import { CostHint, getModels } from "./cost.js";
 import { ask, errorToast, toast } from "./dialog.js";
+import { PendingFixes } from "./fixes.js";
 import { formatRoute } from "./route.js";
 
 export const HISTORY_EVENTS =
@@ -178,6 +179,7 @@ export function StageSummary({
   children,
   noVersions = false,
   compact = false,
+  events,
 }) {
   const notice = lineNotice(stage, row, rows);
   // a version in the address that does not exist is said, not silently replaced
@@ -197,6 +199,7 @@ export function StageSummary({
     </div>
     ${missing ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${NAME[stage]} ${stage === "recording" ? `take-${String(viewed).padStart(3, "0")}` : `v${viewed}`} does not exist. <a href=${formatRoute({ screen: SCREEN[stage] })}>Show the latest</a></div></div>` : null}
     ${notice ? html`<div class="ds-notice" role="note"><span class="ds-status" data-tone="info" aria-hidden="true">i</span><div>${notice}</div></div>` : null}
+    ${events && stage !== "render" ? html`<${PendingFixes} stage=${stage} events=${events} />` : null}
   </div>`;
 }
 

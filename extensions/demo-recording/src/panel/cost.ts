@@ -67,6 +67,7 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "qa-fix-cancel": ["none"],
   "qa-fix-decide": ["none"],
   "qa-fix-flag": ["none"],
+  "qa-pending-drop": ["none"],
   // leaving a finding alone is a note in the project, never a job (P1a Q2)
   "render-qa-ignore": ["none"],
   "render-qa-unignore": ["none"],

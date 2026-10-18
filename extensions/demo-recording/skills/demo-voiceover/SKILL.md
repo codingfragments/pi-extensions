@@ -13,6 +13,9 @@ clock.
 
 ## Workflow
 
+0. **Pending QA fixes.** The template (`demo_rec_vo template`) and `get` start with "Pending fixes for the voice-over" when the user accepted fixes
+   from a QA for this stage. Take each into account in the draft; after `write`, settle each with `demo_rec_qa resolve` (`applied` + the
+   version, or `dropped` + why) and say which in your reply.
 1. `demo_rec_take analyze` (default: the latest complete take of the approved
    storyboard). Read every scene: marks with timestamps, **page text at each
    mark** (quote values from here), typed/improvised inputs, error toasts,

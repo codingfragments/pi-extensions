@@ -316,7 +316,7 @@ export function Voice({ events, stages }) {
     },
   });
   // Keep the stage header visible whatever the content does.
-  const head = html`<${StageSummary} stage="vo" rows=${hist.data?.rows} viewed=${version} />`;
+  const head = html`<${StageSummary} events=${events} stage="vo" rows=${hist.data?.rows} viewed=${version} />`;
   if (error) return html`${head}<section class="card error">${error}</section>`;
   if (!data) return html`${head}<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
@@ -376,7 +376,7 @@ export function Voice({ events, stages }) {
   const st = STATE_ICON[draft.state.status] ?? STATE_ICON.clean;
   const canSave = draft.changes > 0 && draft.state.status !== "conflict";
   return html`
-    <${StageSummary} stage="vo" row=${row} rows=${hist.data?.rows}
+    <${StageSummary} events=${events} stage="vo" row=${row} rows=${hist.data?.rows}
       viewed=${data.version} onUse=${(v) => runVersionAction({ stage: "vo", version: v, intent: "use" }).then(reload)}
       meta=${readOnly ? html`<span>older version</span>` : null} />
     <section class="card review-head">

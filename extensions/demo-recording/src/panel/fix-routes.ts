@@ -7,9 +7,17 @@
  *   POST /api/qa-fix-ask             ask the Director (starts a Director turn): the first round, or a rethink with more context
  *   POST /api/qa-fix-decide          accept, reject or edit one proposal, with a note
  *   POST /api/qa-fix-cancel          give up on an ask the Director has not answered
+ *   GET  /api/qa-pending?stage=      the pending fixes (open first, then what was settled), for one stage or all
+ *   POST /api/qa-pending-drop        drop a pending fix, with an optional reason (the Director settles the others itself)
  */
 
-import { applyFixSet, applyMessage, openPending } from "../qa/apply.ts";
+import {
+  applyFixSet,
+  applyMessage,
+  listPending,
+  openPending,
+  resolvePending,
+} from "../qa/apply.ts";
 import {
   FIX_STAGE_WORD,
   type Flag,
@@ -44,6 +52,15 @@ export function fixRoutes(rt: Runtime): {
   const project = () => rt.requireProject();
   return {
     get: {
+      "qa-pending": (q) => {
+        const p = project();
+        const stage = q.get("stage");
+        const all = listPending(p.dir).filter((x) => !stage || x.stage === stage);
+        return {
+          open: all.filter((x) => x.status === "open"),
+          settled: all.filter((x) => x.status !== "open").slice(-5),
+        };
+      },
       "qa-fixes": (q) => {
         const p = project();
         const render = Number(q.get("version"));
@@ -62,6 +79,26 @@ export function fixRoutes(rt: Runtime): {
       },
     },
     post: {
+      "qa-pending-drop": (body) => {
+        const p = project();
+        const pf = resolvePending(p.dir, String(body.id), {
+          status: "dropped",
+          by: "user",
+          ...(body.why ? { why: String(body.why) } : {}),
+        });
+        rt.bus.publish(
+          "qa.pending",
+          {
+            id: pf.id,
+            stage: pf.stage,
+            status: pf.status,
+            by: "user",
+            message: `pending fix ${pf.id} (${FIX_STAGE_WORD[pf.stage]}) dropped: ${pf.resolvedWhy}`,
+          },
+          p.slug,
+        );
+        return { pending: pf };
+      },
       "qa-fix-flag": (body) => {
         const p = project();
         const set = saveDraft(p.dir, Number(body.version), {

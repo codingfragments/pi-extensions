@@ -9,6 +9,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence, writeStoryboardChecks } from "../confidence/storyboard.ts";
+import { pendingBlock, pendingReminder } from "../qa/apply.ts";
 import { unsafeResumeScenes } from "../recorder/replay-guard.ts";
 import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
@@ -51,7 +52,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         const conf = storyboardConfidence(p.dir, sb.version);
         return result(
           `${conf ? `${formatConfidence(conf, "scene")}\n` : ""}storyboard v${sb.version} (versions: ${storyboardVersions(p.dir).join(", ")}; accepted: ${acceptedVersions(state.accepted, "storyboard").join(", ") || "none"}; working line: ${state.line.storyboard ?? "none"})\n` +
-            `${marks.length ? `review:\n${marks.join("\n")}\n` : ""}---\n${sb.text}`,
+            `${marks.length ? `review:\n${marks.join("\n")}\n` : ""}${pendingBlock(p.dir, "storyboard").join("\n")}---\n${sb.text}`,
         );
       }
       if (!params.yaml?.trim()) throw new Error("write needs yaml (the complete storyboard)");
@@ -139,7 +140,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
           warnings.length ? `Warnings:\n- ${warnings.join("\n- ")}` : "No warnings.",
           ...(conf ? [formatConfidence(conf, "scene")] : []),
           `The user reviews it in the panel (Review tab): ${panel.url}. Wait for their [demo-panel] feedback; do not record before approval.`,
-        ].join("\n"),
+        ].join("\n") + pendingReminder(p.dir, "storyboard", written.version),
         { version: written.version, warnings },
       );
     },

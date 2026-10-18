@@ -9,7 +9,8 @@ export interface DiffPart {
   text: string;
 }
 
-const tokens = (s: string) => s.trim().split(/\s+/).filter(Boolean);
+/** Words; an anchor with its timing hint (`[@mark +300ms]`) is ONE token, so a changed hint shows as one change. */
+const tokens = (s: string) => s.match(/\[@[^\]\n]*\]|\S+/g) ?? [];
 
 export function wordDiff(before: string, after: string): DiffPart[] {
   const a = tokens(before);

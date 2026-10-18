@@ -74,7 +74,7 @@ export function applyShifts(
       const pc = sc.audio.find((x) => Math.abs(x.src[0] - startMs) < 40);
       if (pc) {
         an.audioAt = pc.at;
-        an.drift = an.audioAt - an.out;
+        an.drift = an.audioAt - an.out - (an.hint ?? 0);
       }
     }
     // Narration past the scene end → hold the last frame.

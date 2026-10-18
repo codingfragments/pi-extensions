@@ -2276,3 +2276,14 @@ ol[data-next-steps] {
   display: grid;
   gap: var(--space-1);
 }
+
+.ds-nudge {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.ds-nudge-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -63,6 +63,11 @@ export interface SceneInput {
   /** Narration: section duration (ms) and anchor offsets (ms) from section start. */
   audioMs: number;
   anchors: Record<string, number>;
+  /**
+   * Timing hints (Q6, D-QA-5): ms the narration after an anchor should start AFTER its event (negative: before). Default 0 = on the event.
+   * Only anchors that exist are used.
+   */
+  hints?: Record<string, number>;
 }
 
 export interface AnchorResult {
@@ -73,8 +78,10 @@ export interface AnchorResult {
   out: number;
   /** Output time the anchored narration starts. */
   audioAt: number;
-  /** audioAt − out: positive = narration late. */
+  /** audioAt − out − hint: how far the narration is from where it was meant to start. Positive = late. */
   drift: number;
+  /** The timing hint, ms (0 when none): where the narration was meant to start relative to the event. */
+  hint: number;
 }
 
 export interface AudioPiece {
@@ -315,12 +322,24 @@ export function solveScene(s: SceneInput): SceneEdit {
   // Sync points: start, anchors (in event order, only those present on both sides), end.
   const anchored = Object.keys(s.anchors)
     .filter((m) => s.events[m] !== undefined && s.events[m] >= s.start && s.events[m] <= s.end)
-    .map((m) => ({ mark: m, v: s.events[m] as number, a: s.anchors[m] as number }))
+    .map((m) => ({
+      mark: m,
+      v: s.events[m] as number,
+      a: s.anchors[m] as number,
+      h: s.hints?.[m] ?? 0,
+    }))
     .sort((x, y) => x.v - y.v);
+  // The narration after an anchor starts `h` after its event, so the video span before the event is paired with the audio
+  // coordinate `a − h`; the end follows the last hint.
   const points = [
-    { mark: "", v: s.start, a: 0 },
-    ...anchored,
-    { mark: "", v: s.end, a: s.audioMs + LIMITS.tailMs },
+    { mark: "", v: s.start, a: 0, h: 0 },
+    ...anchored.map((x) => ({ ...x, a: x.a - x.h })),
+    {
+      mark: "",
+      v: s.end,
+      a: s.audioMs + LIMITS.tailMs - (anchored.at(-1)?.h ?? 0),
+      h: 0,
+    },
   ];
   const ranges = { protected: s.protected, dead: s.dead, stream: s.stream, motion: s.motion };
 
@@ -363,6 +382,7 @@ export function solveScene(s: SceneInput): SceneEdit {
         out: Math.round(mapTime(solved.work, p1.v, out - spanOut)),
         audioAt: 0,
         drift: 0,
+        hint: p1.h,
       });
   }
 
@@ -377,11 +397,11 @@ export function solveScene(s: SceneInput): SceneEdit {
       Math.round(cutsA[i + 1] as number),
     ];
     const anchor = i > 0 ? anchors[i - 1] : undefined;
-    const at = Math.round(Math.max(prevEnd, anchor ? anchor.out : 0));
+    const at = Math.round(Math.max(prevEnd, anchor ? anchor.out + anchor.hint : 0, 0));
     if (at > prevEnd + 1) stats.silenceMs += at - prevEnd;
     if (anchor) {
       anchor.audioAt = at;
-      anchor.drift = at - anchor.out;
+      anchor.drift = at - anchor.out - anchor.hint;
     }
     audio.push({ src, at });
     prevEnd = at + (src[1] - src[0]);

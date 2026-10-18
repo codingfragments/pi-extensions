@@ -222,6 +222,22 @@ When you have accepted what you want, **Apply N accepted proposals** does this, 
   Voice over v3 is a new draft written from your accepted fixes", and the production line still means approved and usable.
 - You can apply a fix set once. Rejected proposals are neither applied nor kept.
 
+## Timing hints: fix sync without new audio (Q6)
+
+A narration that starts too early or too late is fixed in the script, not in the render: **`[@mark +300ms]`** (or `-300ms`; also `+0.3s`) makes the
+narration after the mark start 300 ms after (before) the mark's event. The hint is never spoken, never synthesised and not part of the
+audio cache key, so changing it is a 100 % cache hit and **costs no credits**; only the edit and the render run again.
+
+- The **sync edit** honours it exactly where the video can absorb it (it did in every scene on keycraft at ±1500 ms) by moving the picture's event
+  against the narration; typing and clicks are never sped up or cut. What cannot be met shows as a deviation, never silently.
+- The **QA** measures the narration against the event plus the hint ("starts 400 ms after where you set it (its moment +300 ms)"), so a hint
+  you set on purpose is not a finding.
+- The **diff** shows a changed hint as one change. The **validator** refuses more than ±3000 ms, warns above ±1500 ms, and reports any `[@…]`
+  that is not an anchor (it would be spoken as words).
+- In the **Voice over screen**, each anchor's picture has −100 / +100 nudges and Reset; they edit the narration (a working draft). Save a
+  version, approve it, and **Generate voice & render**: the cost dialog says 0.
+- A QA finding about timing is fixed by a hint on that anchor (the Director proposes one in the voice-over proposal), not by a render override.
+
 ## Pending fixes: the stage writers read them and settle them (Q5)
 
 A pending fix is what you accepted for a stage that is not being written now. When that stage's turn comes, **its writer reads it**:

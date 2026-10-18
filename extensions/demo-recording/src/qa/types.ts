@@ -136,6 +136,8 @@ export interface AnchorDiag {
   mark: string;
   /** Where the picture's event is: scene start + the anchor's output time. */
   eventMs: number;
+  /** The timing hint of this anchor, ms (0 when none): the narration was meant to start this long after the event. */
+  hintMs?: number;
   /** Where the edit put the anchored narration: scene start + the plan's audio time. */
   plannedAudioMs: number;
   /** What the edit planned: audio time − event time (positive = late). */

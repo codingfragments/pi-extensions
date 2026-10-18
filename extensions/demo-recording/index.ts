@@ -2,6 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
+import { registerDirectorWatch } from "./src/director/watch.ts";
 import { Runtime } from "./src/runtime.ts";
 import { registerAnnotationsTool } from "./src/tools/annotations.ts";
 import { registerBrandTool } from "./src/tools/brand.ts";
@@ -60,8 +61,12 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async () => {
+    rt.director.onShutdown();
     await rt.shutdown();
   });
+
+  // What the Director is doing, from pi's events (P1a A2, docs/DIRECTOR_STATE.md)
+  registerDirectorWatch(pi, rt);
 
   registerDemoCommand(pi, rt);
   registerProjectTool(pi, rt);

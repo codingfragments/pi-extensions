@@ -125,6 +125,31 @@ function jobRow(events, key, title, progressType, finishedType) {
   };
 }
 
+/** The Director's own task (P1a A2): running while it works, then how it ended. */
+function directorRow(events) {
+  const ev = last(events, ["director.started", "director.step", "director.settled"]);
+  if (!ev) return null;
+  if (ev.type === "director.settled")
+    return {
+      key: "director",
+      title: "Director",
+      state: ev.data.aborted ? "failed" : "done",
+      fraction: 1,
+      detail: ev.data.message,
+      at: ev.seq,
+    };
+  const started = last(events, ["director.started"]);
+  const step = ev.type === "director.step" && ev.data.tool ? ev.data.label : "thinking";
+  return {
+    key: "director",
+    title: "Director",
+    state: "running",
+    fraction: null, // a run has no percentage
+    detail: `${started?.data.task ?? ""} · ${step}`,
+    at: ev.seq,
+  };
+}
+
 function analysisRow(events) {
   const ev = last(events, ["take.analyzing", "take.analyzed"]);
   if (!ev) return null;
@@ -141,6 +166,7 @@ function analysisRow(events) {
 /** All activity rows; running ones first, then the most recent finished one. */
 export function activityRows(events) {
   const rows = [
+    directorRow(events),
     discoveryRow(events),
     recordingRow(events),
     analysisRow(events),

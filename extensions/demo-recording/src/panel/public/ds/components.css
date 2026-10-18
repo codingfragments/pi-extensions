@@ -668,6 +668,9 @@
 .ds-next[data-tone="needs"] {
   background: var(--accent-tint);
 }
+.ds-next[data-tone="working"] {
+  background: var(--status-info-tint);
+}
 .ds-next[data-tone="blocked"] {
   background: var(--status-err-tint);
 }

@@ -1,6 +1,6 @@
 # The Director's state: what pi tells an extension (the A2 spike)
 
-Status: **finding and design, nothing built yet.** Question (F9, F13): can the panel say "the Director is working on X", so that it never
+Status: **finding and design; built in P1a PR 15** (`src/director/`, the band, the strip, the stepper and Activity). Question (F9, F13): can the panel say "the Director is working on X", so that it never
 says "Needs you" while the Director is busy, and every Director task shows up? Answer: **yes, pi tells an extension everything needed, with
 one trap (the end of a run).** Everything below was observed in a **real pi agent session with a scripted model** (no network, no
 credits) and is pinned by `test/p1a-director-events.test.ts`, run through `test/helpers/pi-session.ts`: if a pi upgrade changes one fact, that
@@ -71,6 +71,11 @@ Acceptance for PR 15 (all through the real-session helper, so the whole path is 
 "working" in the engine state, on the bus and in the panel's band and strip, while a tool runs and during the retry gap, and "idle" only at
 `agent_settled`; an approval sent from the panel gets its task label; Escape ends it as stopped.
 
-## Not decided here
-Whether a `/demo` command typed in pi should also show as a Director task (it is not a run: it has no events; only what it starts does).
-Whether the step label should include the tool's arguments (the scene being written). Both are settled while building PR 15, with a screenshot.
+## Decided while building PR 15
+- A `/demo` command typed in pi is **not** a Director task: it is not a run and has no events; only what it starts is (the skill it kicks off
+  is labelled from the text that was sent, before pi expands the skill into a long prompt).
+- The step label is the tool and its action, **without** the arguments (nothing like a scene name is shown); a step names the stage it
+  concerns so the stepper can mark it.
+- "Thinking" is no event of its own: it is the time between two tools, and the band says "· thinking".
+- The Director's task shows in the band **instead of** "Needs you"; what waits for you is a small "N items wait for you" link beside it. A
+  blocked stage still wins over "working" (a failed job is something to see even while the Director works).

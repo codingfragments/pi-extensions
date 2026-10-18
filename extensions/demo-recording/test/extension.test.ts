@@ -93,10 +93,16 @@ test("registers /demo, skills discovery and lifecycle hooks; no side effects at 
   const { events, commands } = await load();
   assert.ok(commands.has("demo"));
   assert.deepEqual([...events.keys()].sort(), [
+    // what the Director is doing, from pi's events (P1a A2)
+    "agent_settled",
+    "before_agent_start",
+    "input",
     "model_select", // keeps the Director's model for the panel's cost hints (part 13)
     "resources_discover",
     "session_shutdown",
     "session_start",
+    "tool_execution_end",
+    "tool_execution_start",
   ]);
   const res = (await events.get("resources_discover")?.({}, {})) as { skillPaths: string[] };
   assert.ok(res.skillPaths[0]?.endsWith(path.join("demo-recording", "skills")));

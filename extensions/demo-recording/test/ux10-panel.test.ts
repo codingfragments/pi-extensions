@@ -232,18 +232,21 @@ test(
       assert.ok(!passes.join(" ").includes("narrated value"), "no pass line for the failed check");
       assert.match(passes.join(" "), /No frozen, black or silent stretches/);
       // beside the player, not under it, on a wide screen
-      const player = (await page
-        .locator(".ds-inspector .ds-section", { hasText: "Variants and player" })
-        .boundingBox()) as { x: number; y: number; width: number };
+      const player = (await page.locator(".render-player-col").boundingBox()) as {
+        x: number;
+        y: number;
+        width: number;
+      };
       const q = (await qa.boundingBox()) as { x: number; y: number };
       assert.ok(q.x > player.x + player.width - 4, "QA sits to the right of the player");
       assert.ok(Math.abs(q.y - player.y) < 8, "and starts at the same height");
       // stacked on a narrow screen
       await page.setViewportSize({ width: 800, height: 1000 });
       const q2 = (await qa.boundingBox()) as { y: number };
-      const p2 = (await page
-        .locator(".ds-inspector .ds-section", { hasText: "Variants and player" })
-        .boundingBox()) as { y: number; height: number };
+      const p2 = (await page.locator(".render-player-col").boundingBox()) as {
+        y: number;
+        height: number;
+      };
       assert.ok(q2.y >= p2.y + p2.height - 4, "stacked under the player when narrow");
       assert.deepEqual(errors, []);
     } finally {

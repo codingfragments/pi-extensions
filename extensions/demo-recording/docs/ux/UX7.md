@@ -16,8 +16,8 @@ needs (`GET /api/renders`, `render`, `render-delete`, the per-draft `annotations
   not using, D118); a reload keeps it.
 - **One inspector of sections in decision order.** The summary (kind, status, approval, where it came from,
   edit, size, time, who) and the actions (*Approve final…*, *Approve only*, *Delete files*), then **Quality
-  check first for a final** (it gates approval) with its state in the header, then **Variants and player**
-  (the existing variant table, player, subtitled versions, scenes, downloads), then **Warnings**. No tabs, so
+  check first for a final** (it gates approval) with its state in the header, then **Variants**
+  (the existing variant table, subtitled versions, scenes, downloads; the player sits beside the quality check and stays pinned while it scrolls), then **Warnings**. No tabs, so
   a blocker is never one click away; the reason a final cannot be approved stands beside the disabled button.
 - **New render is a summary line and one button.** *Draft · annotations v1 · neutral · all types* and a
   primary **Render draft** / **Render final** that uses those defaults. **Change…** opens the form (kind,

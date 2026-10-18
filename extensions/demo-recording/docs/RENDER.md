@@ -157,7 +157,9 @@ names (`…_final-v8_…`), never the old one's.
     the per-scene clips with their own ⬇ mp4 and transcript;
   - a **player** for the selected row (click a row or ▶; scenes too), with the
     poster and the transcript as a subtitle track (CC). It sits to the left
-    of the table when the window is wide enough, below it otherwise.
+    of the quality check (about two fifths of the width) and stays pinned
+    below the header while the findings scroll; the variants table is below,
+    full width. A draft, with no quality check, keeps one wide player.
 - **Legacy renders** — collapsed at the bottom ([below](#legacy-renders)).
 
 ---

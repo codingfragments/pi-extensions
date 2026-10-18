@@ -2078,10 +2078,63 @@ video.ann-thumb {
   align-items: start;
 }
 
+/* the player: about two fifths of the width, pinned just below the header while the findings scroll, and released when they end */
+.render-player-col {
+  min-inline-size: 0;
+  /* one column: the cell itself is pinned inside the grid, so the findings scroll under it */
+  position: sticky;
+  inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
+  z-index: var(--layer-sticky);
+  padding-block: var(--space-1);
+  background: var(--surface-page);
+}
+.render-player-pin {
+  max-block-size: calc(100vh - var(--hwrap-h, 7rem) - var(--strip-h, 3rem) - var(--space-4));
+}
+.render-player-pin .render-video {
+  width: 100%;
+  max-block-size: 30vh;
+  aspect-ratio: 16 / 9; /* the box is the right size before the video has loaded */
+  object-fit: contain;
+}
+
 @container (min-width: 72rem) {
   .render-detail-grid {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
+  /* two columns: the cell is as tall as the findings, and the player is pinned inside it */
+  .render-player-col {
+    position: static;
+    align-self: stretch;
+    padding-block: 0;
+    background: none;
+  }
+  .render-player-pin {
+    position: sticky;
+    inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
+    z-index: var(--layer-sticky);
+    padding-block: var(--space-1);
+    background: var(--surface-page);
+  }
+  .render-player-pin .render-video {
+    max-block-size: 60vh;
+  }
+}
+
+/* a draft has no quality check: the player alone, as wide as it was */
+.render-detail-grid.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.render-detail-grid.solo .render-player-col,
+.render-detail-grid.solo .render-player-pin {
+  position: static;
+  max-block-size: none;
+  padding-block: 0;
+  background: none;
+}
+.render-detail-grid.solo .render-video {
+  width: min(960px, 100%);
+  max-block-size: none;
 }
 
 .qa-passes {

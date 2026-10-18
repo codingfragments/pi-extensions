@@ -71,7 +71,22 @@ export function NextBand({ band }) {
 
 /** Header: the project, the five production stages with their state, Config and the theme. */
 export function Header({ slug, tab, states, news, band }) {
-  return html`<div class="ds-hwrap">
+  // the height of the sticky header block (header + next-action band), for things that stick just below it
+  const wrap = useRef(null);
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return undefined;
+    const set = () =>
+      document.documentElement.style.setProperty(
+        "--hwrap-h",
+        `${el.getBoundingClientRect().height}px`,
+      );
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return html`<div class="ds-hwrap" ref=${wrap}>
     <header class="top ds-header">
       <span class="ds-brand">demo-recording${slug ? html` <span class="ds-brand-sub ds-muted ds-small">${slug}</span>` : null}</span>
       <a class="ds-step ds-step--plain" href="#/project" aria-current=${tab === "project" ? "page" : undefined}><span class="ds-step-label">Project</span></a>

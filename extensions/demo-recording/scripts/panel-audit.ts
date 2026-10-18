@@ -86,6 +86,7 @@ export const SCREENS = [
   "dialog-checks",
   "dialog-ignore",
   "director-asks",
+  "director-working",
   "toast",
 ] as const;
 const LABELS: Record<string, string> = {
@@ -256,6 +257,31 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
                 `import("/checks.js").then((c) => c.askIgnore({ id: "values-1", check: "values", level: "warning", scene: "01-dash", message: "the narration says 14.3: it isn't on screen", identity: { value: "14.3" } }))`,
               );
               await page.waitForSelector(".ignore-scope");
+            } else if (screen === "director-working") {
+              // the Director's state (P1a A2): published like pi's events would make the engine publish it
+              const slug = (seed as { slug: string }).slug;
+              rt?.bus.publish(
+                "director.started",
+                {
+                  task: "Revising the voice-over from your review of v3",
+                  by: "panel",
+                  since: Date.now(),
+                  message: "Director: Revising the voice-over",
+                },
+                slug,
+              );
+              rt?.bus.publish(
+                "director.step",
+                {
+                  tool: "demo_rec_vo",
+                  label: "Writing the voice-over",
+                  stage: "vo",
+                  since: Date.now(),
+                  message: "Director: Writing the voice-over",
+                },
+                slug,
+              );
+              await page.waitForSelector(".ds-next[data-tone=working]");
             } else if (screen === "director-asks") {
               // a request only for this page (it would add tab stops to every other one)
               askFirst(
@@ -321,6 +347,12 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
           pages[`${screen}|${theme}|${width}`] = audit;
           await page.close();
           for (const r of rt?.grants.pending() ?? []) rt?.grants.deny(r.id);
+          if (screen === "director-working")
+            rt?.bus.publish(
+              "director.settled",
+              { task: "x", aborted: false, ms: 1, message: "Director finished" },
+              (seed as { slug: string }).slug,
+            );
         }
       }
     }

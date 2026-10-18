@@ -120,6 +120,13 @@
       "focusMissing": 0,
       "focusChecked": 26
     },
+    "director-working|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 24
+    },
     "toast|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
@@ -245,6 +252,13 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 26
+    },
+    "director-working|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 24
     },
     "toast|macchiato|900": {
       "axe": {},
@@ -372,6 +386,13 @@
       "focusMissing": 0,
       "focusChecked": 26
     },
+    "director-working|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 24
+    },
     "toast|latte|1400": {
       "axe": {},
       "axeSerious": 0,
@@ -497,6 +518,13 @@
       "smallTargets": 0,
       "focusMissing": 0,
       "focusChecked": 26
+    },
+    "director-working|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 24
     },
     "toast|latte|900": {
       "axe": {},

@@ -13,6 +13,7 @@ import path from "node:path";
 import { EventBus } from "./bus.ts";
 import { layerFiles } from "./config-edit.ts";
 import { type DemoRecConfig, resolveConfig } from "./config.ts";
+import { DirectorTracker } from "./director/state.ts";
 import type { DiscoverySession } from "./discovery/session.ts";
 import { voiceFit } from "./edit/pipeline.ts";
 import { type EnvOverride, envOverrides } from "./env-overrides.ts";
@@ -97,6 +98,10 @@ export class Runtime {
   readonly jobs = new Jobs();
   /** What the user has allowed the Director to spend (P1a). */
   readonly grants = new GrantStore();
+  /** What the Director is doing right now, from pi's events (P1a A2). */
+  readonly director = new DirectorTracker((type, data, slug = this.activeSlug) =>
+    this.bus.publish(type, data, slug),
+  );
   private ui: StatusSink | undefined;
   private lastStatus = 0;
 
@@ -301,6 +306,7 @@ export class Runtime {
         sources: cfg.sources,
       },
       envOverrides: this.envOverrides(),
+      director: this.director.snapshot(),
       project: p ? { slug: p.slug, dir: p.dir, app: p.app, state: p.state } : null,
       discovery:
         this.discovery && !this.discovery.isClosed

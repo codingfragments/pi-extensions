@@ -8,7 +8,7 @@ import { Config } from "./config.js";
 import { useApi, useBus, useHashRoute } from "./core.js";
 import { setModels } from "./cost.js";
 import { toast } from "./dialog.js";
-import { newsTab, nextBand, stepStates, stripState } from "./frame-state.js";
+import { directorNow, newsTab, nextBand, stepStates, stripState } from "./frame-state.js";
 import { ActivityDrawer, ActivityStrip, Header } from "./frame.js";
 import { installKeys } from "./keys.js";
 import { activityRows } from "./live.js";
@@ -31,6 +31,18 @@ const SCREEN_BODY = {
   render: (p) => html`<${Render} events=${p.events} stages=${p.stages} />`,
   config: (p) => html`<${Config} events=${p.events} />`,
 };
+
+/** The time, refreshed every 30 s while `on` (so "no news for N min" ages without an event). */
+function useTick(on) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return undefined;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, [on]);
+  return now;
+}
 
 export function App() {
   useEffect(installKeys, []);
@@ -125,11 +137,20 @@ export function App() {
 
   const rows = useMemo(() => activityRows(events), [events]);
   const discovery = rows.some((r) => r.key === "discovery" && r.state === "running");
-  const states = useMemo(() => stepStates({ stages, jobs, discovery }), [stages, jobs, discovery]);
-  const band = useMemo(() => nextBand({ stages, states, jobs }), [stages, states, jobs]);
+  // what the Director is doing (pi's events, via the engine): the band, the strip and the stepper all say it
+  const director = useMemo(() => directorNow(state, events), [state, events]);
+  const now = useTick(!!director.working);
+  const states = useMemo(
+    () => stepStates({ stages, jobs, discovery, director }),
+    [stages, jobs, discovery, director],
+  );
+  const band = useMemo(
+    () => nextBand({ stages, states, jobs, director, now }),
+    [stages, states, jobs, director, now],
+  );
   const strip = useMemo(
-    () => stripState({ jobs, rows, status, dismissed }),
-    [jobs, rows, status, dismissed],
+    () => stripState({ jobs, rows, status, dismissed, director }),
+    [jobs, rows, status, dismissed, director],
   );
   const body = (SCREEN_BODY[tab] ?? SCREEN_BODY.project)({ events, stages });
   return html`

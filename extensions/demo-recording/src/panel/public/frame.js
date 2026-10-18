@@ -43,8 +43,14 @@ const closeOnEscape = (e) => {
 /** The next-action band: what needs you (or is blocked) and where to go. Navigation only, never an action. */
 export function NextBand({ band }) {
   if (!band) return null;
-  const icon = { needs: "●", blocked: "!", done: "✓", idle: "○" }[band.tone];
-  const iconTone = { needs: "accent", blocked: "err", done: "ok", idle: undefined }[band.tone];
+  const icon = { needs: "●", blocked: "!", done: "✓", idle: "○", working: "◔" }[band.tone];
+  const iconTone = {
+    needs: "accent",
+    blocked: "err",
+    done: "ok",
+    idle: undefined,
+    working: "info",
+  }[band.tone];
   return html`<div class="ds-next" data-tone=${band.tone} role="region" aria-label="Next step" title=${band.title ?? ""}>
     <span class="ds-status" data-tone=${iconTone} aria-hidden="true">${icon}</span>
     <span class="ds-next-label">${band.label}</span>
@@ -53,7 +59,7 @@ export function NextBand({ band }) {
     ${
       band.more.length
         ? html`<details class="ds-menu" onKeyDown=${closeOnEscape}>
-            <summary>${band.more.length} other item${band.more.length === 1 ? "" : "s"} need${band.more.length === 1 ? "s" : ""} you</summary>
+            <summary>${band.moreWord ? `${band.more.length} item${band.more.length === 1 ? "" : "s"} ${band.moreWord.replace("wait for", band.more.length === 1 ? "waits for" : "wait for")}` : `${band.more.length} other item${band.more.length === 1 ? "" : "s"} need${band.more.length === 1 ? "s" : ""} you`}</summary>
             <ul>${band.more.map((m) => html`<li key=${m.tab}><a href=${formatRoute({ screen: m.tab })}>${m.text}</a></li>`)}</ul>
           </details>`
         : null

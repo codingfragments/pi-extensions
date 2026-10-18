@@ -37,7 +37,9 @@ export interface StepState {
   node?: string;
 }
 export interface Band {
-  tone: "needs" | "blocked" | "idle" | "done";
+  tone: "needs" | "blocked" | "idle" | "done" | "working";
+  /** For the working band: how the "N items … you" link reads ("wait for you"). */
+  moreWord?: string;
   label: string;
   text: string;
   title?: string;
@@ -45,6 +47,16 @@ export interface Band {
   /** Graph node to show in the map (a blocked step). */
   map?: string;
   more: { tab: string; text: string }[];
+}
+/** What the Director is doing now (src/director/state.ts). */
+export interface DirectorView {
+  working: boolean;
+  task?: string;
+  by?: "you" | "panel" | "report";
+  since?: number;
+  step?: { tool: string; label: string; stage?: string };
+  lastAt?: number;
+  last?: { task: string; aborted: boolean; ms: number; at: number };
 }
 export interface Strip {
   tone: "idle" | "running" | "err" | "warn";
@@ -62,16 +74,24 @@ export function stepStates(o: {
   stages: StagesData | null | undefined;
   jobs: JobData[] | undefined;
   discovery?: boolean;
+  director?: DirectorView;
 }): Record<string, StepState>;
 export function nextBand(o: {
   stages: StagesData | null | undefined;
   states: Record<string, StepState>;
   jobs: JobData[] | undefined;
+  director?: DirectorView;
+  now?: number;
 }): Band | null;
 export function stripState(o: {
   jobs: JobData[] | undefined;
   rows: Row[] | undefined;
   status?: string;
   dismissed?: Set<string>;
+  director?: DirectorView;
 }): Strip;
+export function directorNow(
+  state: { director?: DirectorView; busSeq?: number } | null | undefined,
+  events?: { seq: number; type: string; at: string; data: Record<string, unknown> }[],
+): DirectorView;
 export function newsTab(e: { type: string; data?: { by?: string } }): string | null;

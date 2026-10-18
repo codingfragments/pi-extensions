@@ -27,6 +27,11 @@ Every screen has the same frame around it, so you always know where you are, wha
 
 - **The address says where you are** (`#/voice`, `#/render/v2`, `#/config?q=voice`): back, forward and reload work; a bare address
   restores the last place in this project; an unknown one says so and shows Project. Moving around never changes project state.
+- **The Director's work is visible** (from pi's own events, `docs/DIRECTOR_STATE.md`). While the Director works the band says
+  **Director working: <what it is doing> · <the step>** instead of "Needs you" (what waits for you is a small link beside it), the strip says
+  it when no job runs, the stage a step belongs to shows as running, and Activity has a **Director** row; when it ends, Activity says "Director
+  finished" or "stopped" (Escape). It lasts until pi says it will not continue by itself (a retry after a failed model call does not end it);
+  a long silence is said ("no news for N min"), not hidden.
 - **Nothing happens in silence** (run-and-tell). What the panel does with an event is written down once (`src/panel/public/steps.js`, a test
   keeps it complete): an **ask** is the Director asking to spend; **progress** shows in the strip and the Activity rows; an **alert** (a model
   warning, a failure to reach the Director) is always a toast; your own actions say nothing; and a **result that arrived by itself** (the

@@ -651,6 +651,7 @@ function RunInspector({ r, row, events, viewed, reload }) {
   return html`<div class="ds-stack ds-inspector" id=${`render-${r.version}`} data-version=${r.version}>
     <div class="ds-row-flex">
       <h2>${r.kind === "final" ? "Final" : "Draft"} render v${r.version}</h2>
+      ${r.kind === "draft" && r.basedOn.annotations === undefined ? html`<span class="ds-badge" data-tone="info" title="Made by the voice step, before there are annotations: the annotated draft and the final come later.">no annotations</span>` : null}
       <span class="ds-badge" data-tone=${r.status === "done" ? "neutral" : r.status === "running" ? "info" : "err"}>${r.status}</span>
       ${r.accepted ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Approved · deliverable</span>` : null}
       ${row?.inLine && !r.accepted ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In production line</span>` : null}
@@ -693,7 +694,9 @@ function qaCell(r) {
 const basedOnWord = (r) =>
   r.basedOn.annotations !== undefined
     ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved)" : ""}`
-    : "no annotations";
+    : r.kind === "draft"
+      ? "" // the badge next to its name says it
+      : "no annotations";
 
 export function Render({ events }) {
   const hist = useHistory("render", events);
@@ -742,7 +745,7 @@ export function Render({ events }) {
     const rr = rowOf(r);
     return html`<li key=${r.version}><button class="ds-item ds-run" type="button" data-key=${r.version} aria-current=${current?.version === r.version ? "true" : undefined} onClick=${() => select(r.version)}>
       <span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>
-      <span class="run-name"><span class="ds-item-title">${r.kind === "final" ? "Final" : "Draft"} v${r.version}</span>
+      <span class="run-name"><span class="ds-item-title">${r.kind === "final" ? "Final" : "Draft"} v${r.version}</span>${r.kind === "draft" && r.basedOn.annotations === undefined ? html` <span class="ds-badge" data-tone="info" title="Made by the voice step, before there are annotations: the annotated draft and the final come later.">no annotations</span>` : null}
         <span class="ds-row-flex run-badges">${r.accepted ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Approved</span>` : rr?.inLine ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In production line</span>` : null}</span></span>
       <span class="run-based ds-small">${basedOnWord(r)}</span>
       <span class="run-qa">${qaCell(r) ?? (r.status !== "done" ? html`<span class="ds-badge" data-tone=${r.status === "running" ? "info" : "err"}>${r.status}</span>` : null)}</span>

@@ -8,6 +8,8 @@
 //  - "running" comes from real engine jobs (or a live discovery), never from "the Director has not
 //    started yet"; no percentage is invented for a job without progress.
 
+import { stepOf } from "./steps.js";
+
 /** The production stages in order, with the panel tab of each. */
 export const STEPS = [
   { tab: "storyboard", stage: "storyboard", label: "Storyboard" },
@@ -221,23 +223,8 @@ export function stripState({ jobs, rows, status, dismissed = new Set() }) {
   return { tone: "idle", text: "Nothing running", progress: null, running: [], failure };
 }
 
-/** The events that mean "something new for you" on a tab (a result arrived), or null. */
+/** The events that mean "something new for you" on a tab (a result arrived), or null. Decided by the step table (steps.js). */
 export function newsTab(e) {
-  switch (e.type) {
-    case "storyboard.written":
-      return "storyboard";
-    case "take.finished":
-    case "take.analyzed":
-    case "take.proposed":
-      return "recording";
-    case "vo.written":
-      return e.data?.by === "user" ? null : "voice";
-    case "annotations.updated":
-      return e.data?.by === "agent" ? "annotations" : null;
-    case "render.started":
-    case "render.finished":
-      return "render";
-    default:
-      return null;
-  }
+  const s = stepOf(e);
+  return s?.class === "run-and-tell" && s.tab ? s.tab : null;
 }

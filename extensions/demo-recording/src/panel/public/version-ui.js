@@ -295,7 +295,7 @@ export async function runVersionAction({ stage, version, intent }) {
     }
     const res = await post("/api/version-act", { stage, version, intent, token: plan.token });
     if (!res.stale) {
-      toast(DONE[intent](plan), {
+      toast(`${DONE[intent](plan)}${res.next ? ` ${res.next}` : ""}`, {
         kind: "info",
         action: res.undo ? { label: "Undo", onClick: () => undoAction(res.undo, plan) } : undefined,
       });

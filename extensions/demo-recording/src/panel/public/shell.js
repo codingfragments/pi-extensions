@@ -7,6 +7,7 @@ import { DirectorAsks } from "./asks.js";
 import { Config } from "./config.js";
 import { useApi, useBus, useHashRoute } from "./core.js";
 import { setModels } from "./cost.js";
+import { toast } from "./dialog.js";
 import { newsTab, nextBand, stepStates, stripState } from "./frame-state.js";
 import { ActivityDrawer, ActivityStrip, Header } from "./frame.js";
 import { installKeys } from "./keys.js";
@@ -17,6 +18,7 @@ import { Recording } from "./recording.js";
 import { Render } from "./render.js";
 import { readLastPlace, writeLastPlace } from "./route.js";
 import { useStages } from "./stages.js";
+import { stepOf } from "./steps.js";
 import { Review } from "./storyboard.js";
 import { Voice } from "./voice.js";
 
@@ -97,10 +99,17 @@ export function App() {
     const fresh = events.filter((e) => e.seq > seen.current);
     if (!fresh.length) return;
     seen.current = fresh.at(-1).seq;
-    const add = fresh
-      .filter((e) => e.seq > historyUntil.current)
-      .map(newsTab)
-      .filter((t) => t && t !== here.current);
+    const live = fresh.filter((e) => e.seq > historyUntil.current);
+    // run-and-tell (steps.js): a result that arrived by itself is a badge on its screen, and a toast when you are
+    // looking at that screen; an alert is never silent
+    for (const e of live) {
+      const step = stepOf(e);
+      const said = typeof e.data?.message === "string" ? e.data.message : "";
+      if (step?.class === "alert" && said) toast(said, { kind: "error" });
+      else if (step?.class === "run-and-tell" && step.tab === here.current && said)
+        toast(said, { kind: "info" });
+    }
+    const add = live.map(newsTab).filter((t) => t && t !== here.current);
     if (add.length) setNews((n) => new Set([...n, ...add]));
   }, [events, state]);
   useEffect(

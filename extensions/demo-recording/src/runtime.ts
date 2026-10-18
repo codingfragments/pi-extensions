@@ -25,6 +25,7 @@ import { brandRoutes } from "./panel/brand-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { costRoutes } from "./panel/cost.ts";
 import { draftRoutes } from "./panel/draft-routes.ts";
+import { fixRoutes } from "./panel/fix-routes.ts";
 import { grantRoutes } from "./panel/grant-routes.ts";
 import { graphRoutes } from "./panel/graph-routes.ts";
 import { jobRoutes } from "./panel/job-routes.ts";
@@ -388,6 +389,7 @@ export class Runtime {
     });
     const cost = costRoutes(this);
     const grants = grantRoutes(this);
+    const fixes = fixRoutes(this);
     const jobs = jobRoutes(this);
     const graph = graphRoutes(this);
     const drafts = draftRoutes({
@@ -406,6 +408,7 @@ export class Runtime {
         ...jobs.get,
         ...graph.get,
         ...grants.get,
+        ...fixes.get,
         ...drafts.get,
         ...versions.get,
         ...brand.get,
@@ -429,6 +432,7 @@ export class Runtime {
         ...drafts.post,
         ...cost.post,
         ...grants.post,
+        ...fixes.post,
       },
     };
   }

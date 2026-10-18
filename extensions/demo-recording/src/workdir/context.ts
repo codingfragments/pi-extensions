@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { formatFixSets } from "../qa/fixes.ts";
 import { formatIgnores } from "../qa/ignores.ts";
 import { DEPTH_DEFAULTS, effectiveFacts, formatLength } from "./brief.ts";
 import { formatFindings, listFindings } from "./findings.ts";
@@ -33,6 +34,12 @@ export function factsSummary(brief: string): string {
     `URL: ${f.url ?? "—"}${e.extraUrls.length ? ` + ${e.extraUrls.join(", ")}` : ""}`,
   ];
   return parts.join(" · ");
+}
+
+/** The QA fix sets in progress: what the user flagged and what the Director proposed (P1c Q3). */
+function qaFixes(projectDir: string): string[] {
+  const lines = formatFixSets(projectDir);
+  return lines.length ? ["", "## QA fixes in progress", ...lines] : [];
 }
 
 /** What the user decided to leave alone in the QA, so the Director does not raise it again (P1a Q2). */
@@ -81,6 +88,7 @@ export function projectContext(projectDir: string, slug: string): string {
     `## Findings (${findings.length}; from discovery, recordings and the engine)`,
     formatFindings(findings),
     ...qaDecisions(projectDir),
+    ...qaFixes(projectDir),
     "",
     "Follow the active inputs unless the user now says otherwise. Outdated inputs were withdrawn by the user — ignore them.",
   ].join("\n");

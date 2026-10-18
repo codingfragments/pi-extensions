@@ -10,6 +10,7 @@ import { registerBrowserTool } from "./src/tools/browser.ts";
 import { registerConfigTool } from "./src/tools/config.ts";
 import { registerEditTool } from "./src/tools/edit.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
+import { registerQaTool } from "./src/tools/qa.ts";
 import { registerRecordTool } from "./src/tools/record.ts";
 import { registerRenderTool } from "./src/tools/render.ts";
 import { registerStoryboardTool } from "./src/tools/storyboard.ts";
@@ -81,4 +82,5 @@ export default function (pi: ExtensionAPI) {
   registerBrandTool(pi, rt);
   registerAnnotationsTool(pi, rt);
   registerRenderTool(pi, rt);
+  registerQaTool(pi, rt);
 }

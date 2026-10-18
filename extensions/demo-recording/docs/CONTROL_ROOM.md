@@ -135,7 +135,8 @@ The runs (finals and drafts) as a table, the delivered final first, the drafts f
 | **New render…** (header) | kind (draft or final), annotation version, brands, annotation types, subtitles, logo bug; **Render now** uses what the summary says |
 | **Runs** | Run, Based on, QA, Files, Created; chips All, Finals, Drafts, QA problems |
 | **Player** | a **Full video / Scenes** switch, one chip per scene, a table of the variants with downloads |
-| **Quality check** | the items found (**Hard stops** first, then **Needs your eyes** and **Worth a look**, with a ▶ time link and fixes; **Ignore…** on any finding that is a judgement call, with a scope and a reason, and **Export anyway…** for a leaking redaction) and, in plain words, the checks that found nothing |
+| **Quality check** | the items found (**Hard stops** first, then **Needs your eyes** and **Worth a look**, with a ▶ time link and fixes; **Fix / Leave** and **Ignore…** on any finding that is a judgement call, **Export anyway…** for a leaking redaction) and, in plain words, the checks that found nothing |
+| **Fixes** | under the findings: your context, **Ask the Director for suggested fixes**, the proposals (one per stage, the earliest first, with why, what it answers and what applying costs), Accept / Reject / Edit the wording / a note per proposal, and **Ask the Director to rethink** with more context. Nothing is applied here |
 | **The bar** | what approving does; **Show in map**, **Download** (the video, transcript, callouts, poster, a zip of the variant, its folder), **Delete files…** and the approve / withdraw buttons. A reason is said once if two buttons are blocked for the same reason |
 
 ## Versions and the production line

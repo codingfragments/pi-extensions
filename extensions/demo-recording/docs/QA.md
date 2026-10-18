@@ -159,6 +159,29 @@ project remembers (the panel's **Ignore…** on a finding, `qa --ignore ID --sco
 - **The Director reads the decisions** in the project context ("QA decisions"), is told when you ignore something, and does not raise it
   again or ask about it. **Stop ignoring** removes the decision and brings the finding back.
 
+## Suggested fixes: flag, propose, rethink, decide (Q3)
+
+You do not have to hunt for the cause of every finding. In the Quality check of a final:
+
+1. **Flag.** Every finding that is a judgement call has **Fix** and **Leave** (Leave is not Ignore: it only keeps the Director away from it
+   this time). The toolbar flags many at once ("all that need your eyes", "all", "none"). A broken file and info cannot be flagged.
+2. **Add context** (optional): what matters, what to keep. It is saved as you write.
+3. **Ask the Director for suggested fixes.** This starts a Director turn (the band says what it is doing). It reads what you flagged in
+   full, your context and what you already decided to leave alone (`demo_rec_qa context`), thinks about the **cause**, and answers with
+   `demo_rec_qa propose`.
+4. **Read the proposals.** The goal is **one run at the earliest stage that needs a fix, fixing as many problems as possible**, so an
+   answer has **at most one proposal per stage** (the tool refuses two for the same stage: it must merge them), the earliest stage is shown
+   ("the earliest stage that needs a fix: Voice over; one run there fixes 2 findings"), every finding you flagged is answered or named
+   under "the Director could not fix" with a reason, and every proposal says concretely what would change, why, and what applying it costs.
+5. **Decide**, per proposal: **Accept**, **Reject**, **Edit the wording** (your own text replaces the Director's), and a **note**.
+6. **Rethink.** Write more context ("only fix the numbers, keep the intro") and **Ask the Director to rethink**: it sees the earlier
+   rounds with your decisions, edits and notes, and proposes again. As many rounds as you like; a note on a stage carries over.
+
+**Nothing is applied in this step**: no voice-over, annotations or render version is made, nothing is synthesized, the script is untouched.
+Applying the accepted proposals as one new draft at the earliest stage is the next step. The rounds are kept in the project
+(`fixes/fs-N.json`), the Director sees fix sets in progress in the project context ("QA fixes in progress"), and the Director has no tool to
+accept or apply anything (a test enforces it).
+
 ## Files
 
 ```

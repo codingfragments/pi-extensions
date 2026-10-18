@@ -12,7 +12,9 @@ import { annotationVersions, readAnnotations, writeAnnotations } from "../annota
 import { listBrands } from "../brand/brand.ts";
 import { listAnnotationDrafts, preferredAnnotationDraft } from "../drafts/annotations.ts";
 import { findingsFor } from "../qa/findings.ts";
+import { addIgnore, listIgnores, removeIgnore } from "../qa/ignores.ts";
 import { confirmItem, qaBlocker, readQa } from "../qa/run.ts";
+import type { IgnoreScope } from "../qa/types.ts";
 import { type RenderRequest, finalBlocker, latestTimelineFor } from "../render/run.ts";
 import {
   deleteRenderFiles,
@@ -30,6 +32,7 @@ import { recordInput } from "../workdir/inputs.ts";
 import { STAGES, type Stage } from "../workdir/stages.ts";
 import { isUsable } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
+import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export function rendersView(rt: Runtime) {
@@ -130,6 +133,7 @@ export function renderRoutes(rt: Runtime): {
           version: v,
           summary: rec.qa,
           report: readQa(p.dir, v) ?? null,
+          ignores: listIgnores(p.dir),
           blocker: qaBlocker(rec) ?? null,
         };
       },
@@ -227,6 +231,63 @@ export function renderRoutes(rt: Runtime): {
           p.slug,
         );
         return { summary, blocker: qaBlocker(rec) ?? null };
+      },
+      /**
+       * Leave a finding alone, with a scope and a reason (P1a Q2): it is remembered, covers the finding in every later
+       * render of the same content, and ends when that content changes.
+       */
+      "render-qa-ignore": (body) => {
+        const p = requireProject();
+        const v = Number(body.version);
+        const { ignore, summary } = addIgnore(p.dir, {
+          version: v,
+          itemId: String(body.id ?? ""),
+          scope: body.scope as IgnoreScope,
+          reason: String(body.reason ?? ""),
+          by: "panel",
+        });
+        const rec = readRender(p.dir, v);
+        const what = `${ignore.check}${ignore.kind ? `/${ignore.kind}` : ""}${ignore.scene ? ` in ${ignore.scene}` : ""}`;
+        recordInput(p.dir, {
+          stage: "render",
+          version: v,
+          source: "panel",
+          kind: "review",
+          text: `QA of render v${v}: ignoring ${what} (${ignore.scope}): ${ignore.reason}`,
+        });
+        rt.bus.publish(
+          "render.qa",
+          {
+            version: v,
+            status: summary.status,
+            ignore: ignore.id,
+            message: `render v${v}: ignored ${ignore.id} (${ignore.scope}, ${what}) — QA now ${summary.status}`,
+          },
+          p.slug,
+        );
+        rt.tellAgent(
+          `${PANEL_PREFIX} The user decided to leave this QA finding alone (${ignore.scope}: ${what}): "${ignore.reason}". It is in the project's QA decisions; do not raise it again or ask about it.`,
+        );
+        return { ignore, summary, blocker: rec ? (qaBlocker(rec) ?? null) : null };
+      },
+      /** Stop ignoring (P1a Q2). */
+      "render-qa-unignore": (body) => {
+        const p = requireProject();
+        const { removed, summary } = removeIgnore(
+          p.dir,
+          String(body.ignore ?? ""),
+          body.version === undefined ? undefined : Number(body.version),
+        );
+        rt.bus.publish(
+          "render.qa",
+          {
+            ignore: removed.id,
+            ...(summary ? { status: summary.status } : {}),
+            message: `stopped ignoring ${removed.id} (${removed.check}${removed.scene ? ` in ${removed.scene}` : ""})`,
+          },
+          p.slug,
+        );
+        return { removed, ...(summary ? { summary } : {}) };
       },
       /** Apply proposed fixes (D74) → a new final render with overrides. */
       "render-qa-fix": (body) => {

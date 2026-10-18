@@ -16,6 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import type { QaIgnore } from "../qa/types.ts";
 import { recordInput } from "./inputs.ts";
 import {
   type Accepted,
@@ -90,6 +91,8 @@ export interface ProjectState {
   voReviews?: Record<string, StoryboardReview>;
   /** Storyboard reviews keyed by version number (as string). */
   reviews?: Record<string, StoryboardReview>;
+  /** What you decided to leave alone in the QA (P1a Q2): ignores with scopes, kept after they end. */
+  qaIgnores?: QaIgnore[];
   history: HistoryEntry[];
 }
 

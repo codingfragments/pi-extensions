@@ -20,6 +20,53 @@ export interface QaFix {
   label: string;
 }
 
+/** The parts of a finding that stay the same across renders; `sameFinding` compares them (identity.ts). */
+export interface FindingIdentity {
+  /** The anchor mark of the narration it is about. */
+  anchor?: string;
+  /** The first words of that anchored phrase: finds it again when the mark was renamed. */
+  phrase?: string[];
+  /** A value (normalised number or lower-case name) the narration says. */
+  value?: string;
+  /** What a toast or console error says, normalised. */
+  text?: string;
+  /** A kind of media finding: still, pause, black. */
+  kind?: string;
+  /** Where it is inside its scene (ms), for findings with no anchor. */
+  relMs?: number;
+  /** An annotation id or a layout reference (redactions, privacy hits). */
+  ref?: string;
+}
+
+export type IgnoreScope = "finding" | "scene" | "project";
+
+/**
+ * Something you decided to leave alone, remembered in the project (P1a Q2, D-QA-3). It covers a finding by what it
+ * is, not by its numbers, survives re-renders of the same content, and ends when that content changes.
+ */
+export interface QaIgnore {
+  id: string;
+  scope: IgnoreScope;
+  check: QaCheck;
+  /** For a redaction rule: the hard-stop kind it covers. */
+  hard?: "integrity" | "redaction";
+  /** Which kind of finding of that check (still, pause, black, …), so "this check" is not every finding of it. */
+  kind?: string;
+  /** The scene (finding and scene scope). */
+  scene?: string;
+  /** The finding as it was when you ignored it (finding scope). */
+  finding?: { identity: FindingIdentity; message: string };
+  /** What it was true for: the scene's narration, or the take. A different one ends the ignore. */
+  contentKey?: string;
+  reason: string;
+  createdAt: string;
+  /** The render you ignored it in. */
+  renderVersion: number;
+  by: "panel" | "cli";
+  endedAt?: string;
+  endedWhy?: string;
+}
+
 export interface QaItem {
   id: string;
   /** Which stage version this finding is about (P1a Q1b: a finding names its stage, not only a render). Set when the report is written. */
@@ -37,6 +84,10 @@ export interface QaItem {
   high?: true;
   /** One item standing for several moments (collapsed noise): where each is, for the player. */
   moments?: number[];
+  /** What makes this the same finding in the next render, whatever its numbers do (P1a Q2, D-QA-3). */
+  identity?: FindingIdentity;
+  /** Set when an ignore of yours covers it: it stays in the report, out of the counts. */
+  ignored?: { id: string; scope: IgnoreScope; reason: string; since: number };
   fix?: QaFix;
   /** "Confirm & export anyway" (D73). */
   confirmed?: { at: string; reason: string };
@@ -117,6 +168,8 @@ export interface QaSummary {
   status: QaStatus;
   /** Hard stops (the name stays for older records). */
   blocking: number;
+  /** Findings an ignore of yours covers: in the report, out of every count above and below. */
+  ignored?: number;
   confirmed: number;
   /** Warnings that need your eyes first (a subset of `warnings`). */
   high?: number;

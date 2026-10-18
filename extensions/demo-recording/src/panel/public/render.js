@@ -4,7 +4,7 @@ import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js"
 // logo bug) that starts a background engine job, and the render history:
 // players with the transcript, subtitled versions, scenes, downloads, open
 // folder, accept (finals), delete (files go, the record stays), legacy renders.
-import { openChecks } from "./checks.js";
+import { IgnoredList, ignoreFinding, openChecks } from "./checks.js";
 import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { confirmAsk, errorToast } from "./dialog.js";
 import { formatRoute } from "./route.js";
@@ -401,6 +401,7 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload }) {
     ${it.fix ? html`<label class="ds-check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
     ${it.confirmed ? html`<p class="small-text muted">✔ confirmed: “${it.confirmed.reason}”</p>` : null}
     ${it.hard === "integrity" ? html`<p class="small-text muted">A broken file cannot be confirmed: render again.</p>` : null}
+    ${it.hard !== "integrity" && it.level !== "info" ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm" data-act="ignore" onClick=${async () => (await ignoreFinding(r.version, it)) && reload()}>Ignore…</button>` : null}
     ${
       it.hard === "redaction" && !it.confirmed
         ? confirming
@@ -419,7 +420,7 @@ function QaSection({ r, onSeek, reload }) {
   useEffect(() => {
     if (!r.qa) return;
     api(`/api/render-qa?version=${r.version}`).then(setRep, () => setRep(null));
-  }, [stamp, r.qa?.confirmed]);
+  }, [stamp, r.qa?.confirmed, r.qa?.ignored, r.qa?.high, r.qa?.warnings]);
   const rerun = async () => {
     setBusy(true);
     try {
@@ -455,7 +456,8 @@ function QaSection({ r, onSeek, reload }) {
   ]
     .filter(([c]) => !found.has(c))
     .map(([check, text]) => ({ check, text }));
-  const by = (lvl) => items.filter((i) => i.level === lvl);
+  const by = (lvl) => items.filter((i) => i.level === lvl && !i.ignored);
+  const leftAlone = items.filter((i) => i.ignored);
   const row = (it) =>
     html`<${QaItemRow} key=${it.id} r=${r} it=${it} picked=${chosen.has(it.id)} togglePick=${() => {
       const n = new Set(chosen);
@@ -487,6 +489,7 @@ function QaSection({ r, onSeek, reload }) {
             .map(row)}</ul>`
         : null
     }
+    ${leftAlone.length || (rep?.ignores ?? []).length ? html`<${IgnoredList} items=${leftAlone} ignores=${rep?.ignores ?? []} version=${r.version} reload=${reload} />` : null}
     ${rep?.report ? html`<ul class="qa-passes">${passed.map((c) => html`<li key=${c.check}><span class="ds-status" data-tone="ok" aria-hidden="true">✓</span> ${c.text}</li>`)}</ul>` : null}
     ${by("info").length ? html`<details><summary class="small-text muted">${by("info").length} info</summary><ul class="qa-list">${by("info").map(row)}</ul></details>` : null}
   </div>`;

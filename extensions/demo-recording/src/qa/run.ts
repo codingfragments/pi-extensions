@@ -39,11 +39,21 @@ import type { RenderRequest } from "../render/run.ts";
 import type { RenderRecord, RenderVariantRec } from "../render/store.ts";
 import { readManifest, whisperWords } from "../tts/synthesize.ts";
 import { parseVo } from "../vo/script.ts";
+import { placeFindings, sameFinding } from "./identity.ts";
+import { applyIgnores } from "./ignores.ts";
 import { checkIntegrity } from "./integrity.ts";
 import { pageHas, spokenValues } from "./numbers.ts";
 import { type RenderOverrides, applyShifts } from "./overrides.ts";
 import { legacyLevels, summarize } from "./summary.ts";
-import type { AnchorDiag, QaDiagnostics, QaFix, QaItem, QaReport, QaSummary } from "./types.ts";
+import type {
+  AnchorDiag,
+  FindingIdentity,
+  QaDiagnostics,
+  QaFix,
+  QaItem,
+  QaReport,
+  QaSummary,
+} from "./types.ts";
 
 /** A narration this far off its moment needs your eyes first (it is a warning, never a stop). */
 export const DRIFT_HIGH_MS = 300;
@@ -158,6 +168,11 @@ export function checkValues(c: Ctx): QaItem[] {
           seg.anchor ? domText(c.takeDir, seg.anchor) : "",
         ].join("\n");
         if (pageHas(atText, v)) continue;
+        const identity: FindingIdentity = {
+          ...(seg.anchor ? { anchor: seg.anchor } : {}),
+          phrase: words.slice(0, 3).map((x) => norm(x.w)),
+          value: v.kind === "number" ? v.value : v.said.toLowerCase(),
+        };
         const label =
           v.kind === "number"
             ? `“${v.said}”${v.said.replace(/[^\d.]/g, "") !== v.value ? ` (${v.value})` : ""}`
@@ -180,6 +195,7 @@ export function checkValues(c: Ctx): QaItem[] {
             id: "",
             check: "values",
             level: "warning",
+            identity,
             scene: sc.id,
             atMs: start + said,
             message: `${label} is said at ${secStr(start + said)} but shown ${shown !== undefined ? `at ${secStr(start + shown)}` : "at another moment"} in ${sc.id}`,
@@ -190,6 +206,7 @@ export function checkValues(c: Ctx): QaItem[] {
             id: "",
             check: "values",
             level: "warning",
+            identity,
             ...(v.kind === "number" ? { high: true as const } : {}),
             scene: sc.id,
             atMs: start + said,
@@ -228,6 +245,7 @@ export function checkFootage(c: Ctx): QaItem[] {
         id: "",
         check: "footage",
         level: "warning",
+        identity: { text: norm(a.text).slice(0, 80) },
         ...(err ? { high: true as const } : {}),
         scene: sc.id,
         atMs: start + takeToSceneMs(sc, a.t),
@@ -242,6 +260,9 @@ export function checkFootage(c: Ctx): QaItem[] {
         id: "",
         check: "footage",
         level: "warning",
+        identity: {
+          text: norm(String((e.data as { text?: string } | undefined)?.text ?? "")).slice(0, 80),
+        },
         high: true,
         scene: sc.id,
         atMs: start + takeToSceneMs(sc, e.t),
@@ -360,6 +381,13 @@ export async function checkDrift(
       diag.gapMs = Math.round(best - diag.plannedAudioMs);
       const abs = Math.abs(drift);
       const disagree = Math.abs(diag.gapMs) > DRIFT_DISAGREE_MS;
+      const identity: FindingIdentity = {
+        anchor: a.mark,
+        phrase: sec.alignment.words
+          .filter((w) => w.seg === k)
+          .slice(0, 3)
+          .map((w) => norm(w.w)),
+      };
       const planned = `the edit planned ${diag.plannedDriftMs >= 0 ? "+" : "−"}${Math.abs(diag.plannedDriftMs)} ms`;
       if (abs <= DRIFT_WARN_MS) {
         if (disagree)
@@ -367,6 +395,7 @@ export async function checkDrift(
             id: "",
             check: "drift",
             level: "info",
+            identity,
             scene: sc.id,
             atMs: expect,
             message: `@${a.mark}: the measured narration is ${Math.abs(diag.gapMs)} ms ${diag.gapMs > 0 ? "after" : "before"} where the edit put it, though it lands on its moment: the measurement and the render disagree (see the diagnostics in the QA report)`,
@@ -377,6 +406,7 @@ export async function checkDrift(
         id: "",
         check: "drift",
         level: "warning",
+        identity,
         ...(abs > DRIFT_HIGH_MS ? { high: true as const } : {}),
         scene: sc.id,
         atMs: expect,
@@ -496,6 +526,7 @@ export async function checkMedia(c: Ctx): Promise<QaItem[]> {
       id: "",
       check: "media",
       level: "warning",
+      identity: { kind: "still" },
       atMs: s,
       message: `the picture stands still for ${((e - s) / 1000).toFixed(1)} s — a loading screen or a frozen page?`,
     });
@@ -506,6 +537,7 @@ export async function checkMedia(c: Ctx): Promise<QaItem[]> {
       id: "",
       check: "media",
       level: "info",
+      identity: { kind: "held" },
       atMs: heldFrames[0]?.at as number,
       moments: heldFrames.map((h) => h.at),
       message: `${heldFrames.length} held frame${heldFrames.length === 1 ? "" : "s"} where the picture stands still (${(heldFrames.reduce((n, h) => n + h.ms, 0) / 1000).toFixed(1)} s in all, the longest ${(Math.max(...heldFrames.map((h) => h.ms)) / 1000).toFixed(1)} s): the edit holds a frame on purpose, or the picture is short`,
@@ -520,6 +552,7 @@ export async function checkMedia(c: Ctx): Promise<QaItem[]> {
         id: "",
         check: "media",
         level: "warning",
+        identity: { kind: "pause" },
         atMs: s,
         message: `no narration for ${((e - s) / 1000).toFixed(1)} s — a long pause`,
       });
@@ -530,6 +563,7 @@ export async function checkMedia(c: Ctx): Promise<QaItem[]> {
       id: "",
       check: "media",
       level: "info",
+      identity: { kind: "short-pauses" },
       atMs: pauses[0]?.at as number,
       moments: pauses.map((p) => p.at),
       message: `${pauses.length} short pause${pauses.length === 1 ? "" : "s"} in the narration (the longest ${(Math.max(...pauses.map((p) => p.ms)) / 1000).toFixed(1)} s)`,
@@ -541,6 +575,7 @@ export async function checkMedia(c: Ctx): Promise<QaItem[]> {
       id: "",
       check: "media",
       level: "warning",
+      identity: { kind: "black" },
       atMs: s,
       message: `a black picture for ${((e - s) / 1000).toFixed(1)} s`,
     });
@@ -562,7 +597,13 @@ export function checkAnnotations(c: Ctx): QaItem[] {
     const rc = { ...resolveContext(c.projectDir, c.t), timeline: c.t };
     const r = resolveAnnotations({ ...file, items: included }, rc);
     for (const w of r.warnings)
-      items.push({ id: "", check: "annotations", level: "warning", message: w });
+      items.push({
+        id: "",
+        check: "annotations",
+        level: "warning",
+        identity: { text: norm(w).slice(0, 100) },
+        message: w,
+      });
     // Redaction gaps: the redacted element's later positions must stay inside the redaction.
     for (const res of r.items.filter((x) => x.type === "redact" && x.box)) {
       const it = included.find((x) => x.id === res.id);
@@ -594,6 +635,7 @@ export function checkAnnotations(c: Ctx): QaItem[] {
               check: "annotations",
               level: "blocking",
               hard: "redaction",
+              identity: { ref: res.id },
               scene: res.scene,
               atMs: (c.timing.sceneStart[res.scene] ?? 0) + takeToSceneMs(sc, s.t),
               message: `redaction ${res.id} doesn't cover its element here — it moved; add a redaction for its new position`,
@@ -617,6 +659,7 @@ export function checkAnnotations(c: Ctx): QaItem[] {
       id: "",
       check: "annotations",
       level: "warning",
+      identity: { ref: h.ref },
       scene: h.scene,
       atMs: (c.timing.sceneStart[h.scene] ?? 0) + takeToSceneMs(sc, h.t),
       message: `possibly private data on screen, not redacted: ${h.reason} (${h.masked})`,
@@ -670,14 +713,20 @@ export async function runQa(o: {
   ];
   const order = { blocking: 0, warning: 1, info: 2 } as const;
   items.sort((a, b) => order[a.level] - order[b.level] || (a.atMs ?? 0) - (b.atMs ?? 0));
+  placeFindings(items, c.timing.sceneStart);
   items.forEach((it, i) => {
     it.id = `${it.check}-${i + 1}`;
-    // Keep confirmations across re-runs when the same issue is found again.
+    // Keep confirmations across re-runs when the same issue is found again (by what it is, not its numbers).
     const same = previous?.items.find(
-      (p) => p.confirmed && p.check === it.check && p.message === it.message,
+      (p) =>
+        p.confirmed &&
+        !p.confirmed.reason.startsWith("ignored (") &&
+        (sameFinding(p, it) || (p.check === it.check && p.message === it.message)),
     );
     if (same?.confirmed) it.confirmed = same.confirmed;
   });
+  // What you decided to leave alone covers its findings again, and ends when its content changed (Q2)
+  applyIgnores(o.projectDir, o.rec, items);
   const report: QaReport = {
     render: o.rec.version,
     variant: v.key,
@@ -769,11 +818,11 @@ export function qaBlocker(rec: RenderRecord): string | undefined {
 }
 
 export function formatQa(report: QaReport, summary: QaSummary): string {
-  const head = `QA of render v${report.render} (${report.variant}): ${summary.status} — ${summary.blocking} hard stop(s)${summary.confirmed ? ` (${summary.confirmed} confirmed)` : ""}, ${summary.high ?? 0} need your eyes, ${summary.warnings} warning(s) in all, ${summary.info} info${report.whisper ? "" : " · sync not checked (no Whisper)"}`;
+  const head = `QA of render v${report.render} (${report.variant}): ${summary.status} — ${summary.blocking} hard stop(s)${summary.confirmed ? ` (${summary.confirmed} confirmed)` : ""}, ${summary.high ?? 0} need your eyes, ${summary.warnings} warning(s) in all, ${summary.info} info${summary.ignored ? `, ${summary.ignored} ignored by you` : ""}${report.whisper ? "" : " · sync not checked (no Whisper)"}`;
   const lines = [head];
   for (const it of report.items.filter((i) => i.level !== "info"))
     lines.push(
-      `- [${it.level === "blocking" ? "HARD STOP" : it.high ? "needs your eyes" : it.level}${it.confirmed ? ", confirmed" : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}${it.fix ? ` → fix: ${it.fix.label}` : ""}`,
+      `- [${it.level === "blocking" ? "HARD STOP" : it.high ? "needs your eyes" : it.level}${it.confirmed ? ", confirmed" : ""}${it.ignored ? `, ignored: ${it.ignored.reason}` : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}${it.fix ? ` → fix: ${it.fix.label}` : ""}`,
     );
   return lines.join("\n");
 }
@@ -792,7 +841,7 @@ export function formatQaMarkdown(report: QaReport): string {
     lines.push(`## ${level}`, "");
     for (const it of xs)
       lines.push(
-        `- ${it.atMs !== undefined ? `\`${secStr(it.atMs)}\` ` : ""}${it.scene ? `(${it.scene}) ` : ""}${it.message}${it.fix ? ` — fix: ${it.fix.label}` : ""}${it.confirmed ? ` — **confirmed**: ${it.confirmed.reason}` : ""}`,
+        `- ${it.atMs !== undefined ? `\`${secStr(it.atMs)}\` ` : ""}${it.scene ? `(${it.scene}) ` : ""}${it.message}${it.fix ? ` — fix: ${it.fix.label}` : ""}${it.confirmed ? ` — **confirmed**: ${it.confirmed.reason}` : ""}${it.ignored ? ` — **ignored** (${it.ignored.scope}, since render v${it.ignored.since}): ${it.ignored.reason}` : ""}`,
       );
     lines.push("");
   }

@@ -7,9 +7,10 @@
 
 import { readRender } from "../render/store.ts";
 import type { Stage } from "../workdir/stages.ts";
+import { listIgnores } from "./ignores.ts";
 import { readQa } from "./run.ts";
 import { summarize } from "./summary.ts";
-import type { QaItem, QaSummary } from "./types.ts";
+import type { QaIgnore, QaItem, QaSummary } from "./types.ts";
 
 export interface Finding extends QaItem {
   stage: Stage;
@@ -29,6 +30,8 @@ export interface FindingsView {
   coverage?: { anchors: { measured: number; total: number } };
   /** Whisper ran (render only): without it sync is not checked. */
   whisper?: boolean;
+  /** What you decided to leave alone in this project (active first), with why and since when. */
+  ignores?: QaIgnore[];
   /** Why there is nothing, when there is nothing. */
   note?: string;
 }
@@ -62,5 +65,6 @@ export function findingsFor(projectDir: string, stage: Stage, version: number): 
     summary: summarize(report.items, report.createdAt),
     ...(report.coverage ? { coverage: report.coverage } : {}),
     whisper: report.whisper,
+    ignores: [...listIgnores(projectDir)].sort((a, b) => Number(!!a.endedAt) - Number(!!b.endedAt)),
   };
 }

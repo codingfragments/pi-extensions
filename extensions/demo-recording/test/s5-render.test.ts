@@ -814,6 +814,11 @@ test(
       const high = qa.report.items.filter((i) => i.high);
       assert.equal(high.length, 1);
       assert.equal(high[0]?.check, "values");
+      assert.deepEqual(
+        (high[0] as { identity?: { value?: string; anchor?: string } }).identity?.value,
+        "3.1",
+        "a finding carries what it is about (Q2): the value, not its numbers",
+      );
       assert.match(
         high[0]?.message ?? "",
         /“Three point one” \(3\.1\) — it isn't on screen anywhere in 01-a/,

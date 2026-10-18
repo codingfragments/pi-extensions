@@ -2340,3 +2340,19 @@ ol[data-next-steps] {
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* the fix loop's window: wide enough to read a proposal, tall enough to scroll, the actions pinned at the bottom */
+.modal.fixes {
+  inline-size: min(60rem, 94vw);
+  max-block-size: 90vh;
+}
+.modal.fixes .modal-foot {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.fix-flagged ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+}

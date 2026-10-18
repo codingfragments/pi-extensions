@@ -665,14 +665,20 @@ test(
       // a broken file and info cannot be flagged
       assert.equal(await row("the audio is silent").locator(".flag-chips").count(), 0);
       // flag: one by hand, the rest with the toolbar
-      const ask = qa.getByRole("button", { name: /Ask the Director for suggested fixes/ });
-      assert.equal(await ask.isDisabled(), true, "nothing flagged yet");
+      const open = qa.locator("[data-act=open-fixes]");
+      assert.equal(await open.isDisabled(), true, "nothing flagged yet");
       await row("the narration says 14.3").locator("[data-flag=fix]").click();
       await row("no narration for 4.6 s").locator("[data-flag=leave]").click();
       await qa.locator("[data-act=flag-eyes]").click();
       await qa.getByText("3 flagged to fix").first().waitFor();
-      await qa.locator("[data-field=guidance]").fill("keep the intro as it is");
-      await qa.locator("[data-field=guidance]").blur();
+      // the loop itself is a window: it lists what you flagged, takes your context, and asks
+      await open.click();
+      const m = page.locator(".modal.fixes");
+      await m.waitFor();
+      assert.match(await m.innerText(), /3 findings to fix/);
+      const ask = m.locator("[data-act=ask-fixes]");
+      await m.locator("[data-field=guidance]").fill("keep the intro as it is");
+      await m.locator("[data-field=guidance]").blur();
       await page.waitForTimeout(300);
       assert.equal(
         readFixSet(seed.dir, "fs-1")?.draft.guidance,
@@ -681,12 +687,21 @@ test(
       );
       assert.equal(await ask.isDisabled(), false);
       await ask.click();
-      await qa.getByText(/Waiting for the Director: it is working on round 1/).waitFor();
+      await m.getByText(/Waiting for the Director: it is working on round 1/).waitFor();
       assert.match(
         told.at(-1) ?? "",
         /flagged 3 QA findings of render v1 to fix and asks for suggested fixes \(fix set fs-1, round 1\)/,
       );
-      assert.equal(await ask.isDisabled(), true, "one ask at a time");
+      assert.equal(
+        await ask.count(),
+        0,
+        "one ask at a time: the button is gone while the Director works",
+      );
+      assert.match(
+        await qa.locator("[data-fix-where]").innerText(),
+        /Round 1: waiting for the Director/,
+        "the list says where it stands",
+      );
 
       // the Director answers (here: the store, as the tool would)
       recordProposals(seed.dir, "fs-1", {
@@ -699,8 +714,13 @@ test(
         { message: "fixes proposed for QA of render v1: 2 proposals", by: "agent" },
         seed.slug,
       );
-      await qa.locator(".fix-proposal").first().waitFor();
-      const text = await qa.locator(".fixes").innerText();
+      await m.locator(".fix-proposal").first().waitFor();
+      assert.equal(
+        await page.locator(".toast").count(),
+        0,
+        "the window shows it in place: no toast over its buttons",
+      );
+      const text = await m.locator(".fixes").innerText();
       assert.match(text, /The earliest stage that needs a fix: Voice over/);
       assert.match(text, /One run there fixes 2 findings/);
       assert.match(text, /Rewrite two sentences of 01-dash/);
@@ -708,19 +728,19 @@ test(
       assert.match(text, /Nothing changes until you apply/);
       if (process.env.P1A_SHOTS)
         await page.screenshot({ path: `${process.env.P1A_SHOTS}-fixes.png`, fullPage: true });
-      const vo = qa.locator(".fix-proposal[data-stage=vo]");
+      const vo = m.locator(".fix-proposal[data-stage=vo]");
       await vo.locator("[data-decision=accepted]").click();
-      await qa.locator(".fix-proposal[data-stage=vo][data-decision=accepted]").waitFor();
-      await qa
+      await m.locator(".fix-proposal[data-stage=vo][data-decision=accepted]").waitFor();
+      await m
         .locator(".fix-proposal[data-stage=annotations]")
         .locator("[data-decision=rejected]")
         .click();
       await vo.locator("[data-act=edit-proposal]").click();
-      await qa.getByLabel("Your wording of the change").fill("Say 14.2 only.");
-      await qa.getByRole("button", { name: "Save my wording" }).click();
-      await qa.getByText("your wording").waitFor();
-      await qa.locator(".fix-proposal[data-stage=vo] .fix-note").fill("keep 'steady'");
-      await qa.locator(".fix-proposal[data-stage=vo] .fix-note").blur();
+      await m.getByLabel("Your wording of the change").fill("Say 14.2 only.");
+      await m.getByRole("button", { name: "Save my wording" }).click();
+      await m.getByText("your wording").waitFor();
+      await m.locator(".fix-proposal[data-stage=vo] .fix-note").fill("keep 'steady'");
+      await m.locator(".fix-proposal[data-stage=vo] .fix-note").blur();
       await page.waitForTimeout(400);
       const set = readFixSet(seed.dir, "fs-1");
       const p1 = set?.rounds[0]?.proposals?.[0];
@@ -729,13 +749,13 @@ test(
         ["accepted", "Say 14.2 only.", "keep 'steady'"],
       );
       assert.equal(set?.rounds[0]?.proposals?.[1]?.decision, "rejected");
-      await qa.getByText(/1 accepted, from Voice over on/).waitFor();
+      await m.getByText(/1 accepted, from Voice over on/).waitFor();
 
       // more context: the same button now asks the Director to rethink
-      const again = qa.getByRole("button", { name: /Ask the Director to rethink/ });
-      await qa.locator("[data-field=guidance]").fill("only fix the numbers");
+      const again = m.getByRole("button", { name: /Ask the Director to rethink/ });
+      await m.locator("[data-field=guidance]").fill("only fix the numbers");
       await again.click();
-      await qa.getByText(/working on round 2/).waitFor();
+      await m.getByText(/working on round 2/).waitFor();
       assert.match(told.at(-1) ?? "", /round 2: they added context and ask you to rethink/);
       await page.close();
     } finally {

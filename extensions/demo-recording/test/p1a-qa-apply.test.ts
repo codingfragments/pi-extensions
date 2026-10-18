@@ -445,36 +445,44 @@ test(
       const page = await browser.newPage({ viewport: { width: 1400, height: 1100 } });
       await page.goto(`${panel.url}#/render/v1`);
       const qa = page.locator(".ds-inspector .ds-section", { hasText: "Quality check" });
-      await qa.locator(".fix-proposal").first().waitFor();
+      // the loop is a window: the list only says where it stands
+      await qa.locator("[data-fix-where]").waitFor();
+      assert.match(
+        await qa.locator("[data-fix-where]").innerText(),
+        /Round 1: 2 proposals, 0 accepted/,
+      );
+      await qa.locator("[data-act=open-fixes]").click();
+      const m = page.locator(".modal.fixes");
+      await m.locator(".fix-proposal").first().waitFor();
       // readable: the changes are bullets, and the steps to a new render are a numbered list under the proposals
       assert.ok(
-        (await qa.locator(".fix-proposal .fix-change li").count()) >= 2,
+        (await m.locator(".fix-proposal .fix-change li").count()) >= 2,
         "bullets, not a paragraph",
       );
-      assert.deepEqual(await qa.locator(".fix-next li").allInnerTexts(), [
+      assert.deepEqual(await m.locator(".fix-next li").allInnerTexts(), [
         "Approve the new draft",
         "Render a final",
       ]);
-      await qa.getByText("Next steps to a new render").first().waitFor();
+      await m.getByText("Next steps to a new render").first().waitFor();
       assert.equal(
-        await qa.locator("[data-act=apply-fixes]").count(),
+        await m.locator("[data-act=apply-fixes]").count(),
         0,
         "nothing accepted: nothing to apply",
       );
-      await qa.locator(".fix-proposal[data-stage=vo] [data-decision=accepted]").click();
-      await qa.locator(".fix-proposal[data-stage=annotations] [data-decision=accepted]").click();
-      const apply = qa.locator("[data-act=apply-fixes]");
+      await m.locator(".fix-proposal[data-stage=vo] [data-decision=accepted]").click();
+      await m.locator(".fix-proposal[data-stage=annotations] [data-decision=accepted]").click();
+      const apply = m.locator("[data-act=apply-fixes]");
       await apply.waitFor();
-      await qa.getByRole("button", { name: /Apply 2 accepted proposals/ }).waitFor();
+      await m.getByRole("button", { name: /Apply 2 accepted proposals/ }).waitFor();
       assert.match(
-        await qa.locator(".fixes").innerText(),
+        await m.locator(".fixes").innerText(),
         /ONE new voice over draft from them\. Nothing is rendered and nothing is synthesized/,
       );
       await apply.click();
-      await qa
+      await m
         .getByText(/The Director is writing the voice over draft from the fixes you accepted/)
         .waitFor();
-      const steps = await qa.locator(".fixes ol[data-next-steps] li").allInnerTexts();
+      const steps = await m.locator(".fixes ol[data-next-steps] li").allInnerTexts();
       assert.match(steps[0] ?? "", /Read the new voice-over draft and approve it/);
       assert.match(
         steps.at(-1) ?? "",
@@ -484,14 +492,14 @@ test(
         told.at(-1) ?? "",
         /ACCEPTED 1 fix proposal for the voice-over \(fix set fs-1, round 1/,
       );
-      assert.equal(await qa.locator("[data-act=apply-fixes]").count(), 0, "once");
+      assert.equal(await m.locator("[data-act=apply-fixes]").count(), 0, "once");
       assert.equal(
-        await qa.locator("[data-field=guidance]").count(),
+        await m.locator("[data-field=guidance]").count(),
         0,
         "no more asking while it writes",
       );
-      await qa.getByText("Pending fixes").waitFor();
-      assert.match(await qa.locator(".fix-pending").innerText(), /Annotations\s+Move redaction r1/);
+      await m.getByText("Pending fixes").waitFor();
+      assert.match(await m.locator(".fix-pending").innerText(), /Annotations\s+Move redaction r1/);
 
       // the Director writes the draft (here: the event the tool publishes)
       rt.bus.publish(
@@ -499,15 +507,12 @@ test(
         { version: 3, by: "agent", message: "voice-over v3 written" },
         seed.slug,
       );
-      await qa.locator("[data-applied=vo]").waitFor();
+      await m.locator("[data-applied=vo]").waitFor();
       assert.match(
-        await qa.locator("[data-applied=vo]").innerText(),
+        await m.locator("[data-applied=vo]").innerText(),
         /Applied\. Voice over v3 is a new draft written from your accepted fixes/,
       );
-      assert.match(
-        (await qa.locator("[data-applied=vo] a").getAttribute("href")) ?? "",
-        /#\/voice/,
-      );
+      assert.match((await m.locator("[data-applied=vo] a").getAttribute("href")) ?? "", /#\/voice/);
       if (process.env.P1A_SHOTS)
         await page.screenshot({ path: `${process.env.P1A_SHOTS}-applied.png` });
       await page.close();

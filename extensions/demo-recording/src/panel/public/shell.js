@@ -118,7 +118,13 @@ export function App() {
       const step = stepOf(e);
       const said = typeof e.data?.message === "string" ? e.data.message : "";
       if (step?.class === "alert" && said) toast(said, { kind: "error" });
-      else if (step?.class === "run-and-tell" && step.tab === here.current && said)
+      else if (
+        step?.class === "run-and-tell" &&
+        step.tab === here.current &&
+        said &&
+        // the fix loop's window shows its own events in place: a toast would only cover its buttons
+        !(e.type.startsWith("qa.") && document.querySelector(".modal.fixes"))
+      )
         toast(said, { kind: "info" });
     }
     const add = live.map(newsTab).filter((t) => t && t !== here.current);

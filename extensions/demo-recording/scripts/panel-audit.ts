@@ -318,8 +318,11 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
               );
               await page.waitForSelector(".ds-next[data-tone=working]");
             } else if (screen === "render-fixes") {
+              // the fix loop is a window: open it, with a proposal accepted (the Apply button is audited too)
               await page.goto(`${url}#/render/v1`);
-              await page.waitForSelector(".fix-proposal");
+              await page.waitForSelector("[data-act=open-fixes]");
+              await page.click("[data-act=open-fixes]");
+              await page.waitForSelector(".modal.fixes .fix-proposal");
               await page.waitForTimeout(300);
             } else if (screen === "director-asks") {
               // a request only for this page (it would add tab stops to every other one)

@@ -1,7 +1,7 @@
 // The fix loop in the panel (P1c Q3): flag findings (Fix / Leave), write context, ask the Director for suggested fixes, decide on
 // its proposals, give it more context and ask it to rethink. Nothing here applies a fix.
 import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
-import { api, post, useApi } from "./core.js";
+import { Modal, api, post, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
 import { ask, errorToast } from "./dialog.js";
 
@@ -163,7 +163,7 @@ function Proposal({ p, set, items, reload }) {
 }
 
 /** The Fixes section of a render's quality check. */
-export function FixesPanel({ r, items, fixes }) {
+function FixesModal({ r, items, fixes, onClose }) {
   const set = fixes.data?.fixset;
   const round = set?.rounds?.at(-1);
   const flagged = Object.values(fixes.flags).filter((c) => c === "fix").length;
@@ -196,7 +196,6 @@ export function FixesPanel({ r, items, fixes }) {
       errorToast(e, "cancelling");
     }
   };
-  if (!fixes.can.size && !set?.rounds?.length) return null;
   const proposed = round?.status === "proposed";
   const applying = set?.applying;
   const writing = applying && !applying.version && !applying.kept;
@@ -215,9 +214,32 @@ export function FixesPanel({ r, items, fixes }) {
     }
   };
   const pending = fixes.data?.pending ?? [];
-  return html`<section class="fixes ds-stack" aria-label="Fixes">
-    <h4 class="qa-head">Fixes</h4>
-    ${waiting ? html`<div class="ds-notice" data-tone="info" role="status"><span class="ds-status" data-tone="info" aria-hidden="true">◔</span><div class="ds-grow">Waiting for the Director: it is working on round ${round.n} (the band above says what it is doing).</div><button class="ds-btn ds-btn--sm" type="button" data-act="cancel-ask" onClick=${cancel}>Cancel this ask</button></div>` : null}
+  const flaggedItems = items.filter((i) => fixes.flags[i.id] === "fix");
+  const stateWords = waiting
+    ? `Round ${round.n}: waiting for the Director`
+    : applied
+      ? `Applied: ${STAGE_WORD[applying.stage]} v${applying.version}`
+      : writing
+        ? `The Director is writing the ${STAGE_WORD[applying.stage].toLowerCase()} draft`
+        : applying?.kept
+          ? "Kept as pending fixes"
+          : proposed
+            ? `Round ${round.n}: ${accepted.length} of ${round.proposals.length} accepted`
+            : `${flagged} flagged to fix`;
+  const footer = html`<span class="ds-small ds-muted ds-grow" data-fix-state>${stateWords}</span>
+    ${waiting ? html`<button class="ds-btn" type="button" data-act="cancel-ask" onClick=${cancel}>Cancel this ask</button>` : null}
+    <button class="ds-btn" type="button" data-act="close-fixes" onClick=${onClose}>Close</button>
+    ${applying || waiting ? null : html`<button class=${`ds-btn${proposed && accepted.length ? "" : " ds-btn--primary"}`} type="button" data-act="ask-fixes" disabled=${busy || !flagged} title=${flagged ? "" : "flag at least one finding as Fix"} onClick=${ask}>${proposed ? "Ask the Director to rethink" : "Ask the Director"} (${flagged} flagged)</button>`}
+    ${!applying && proposed && accepted.length ? html`<button class="ds-btn ds-btn--primary" type="button" data-act="apply-fixes" disabled=${busy} onClick=${apply}>${startsItself ? `Keep the ${accepted.length} accepted fix${accepted.length === 1 ? "" : "es"} for when I start the ${STAGE_WORD[earliestAccepted].toLowerCase()}` : `Apply ${accepted.length} accepted proposal${accepted.length === 1 ? "" : "s"}`}</button>` : null}
+    ${applying || waiting ? null : html`<${CostHint} />`}`;
+  const flaggedList = html`<details class="fix-flagged small-text" open=${flaggedItems.length <= 4}>
+      <summary><b>${flaggedItems.length} finding${flaggedItems.length === 1 ? "" : "s"} to fix</b> <span class="muted">(to change which, close this window and flag them in the list)</span></summary>
+      <ul>${flaggedItems.map((i) => html`<li key=${i.id}><span class="fix-finding">${i.id}</span> ${i.message}</li>`)}</ul>
+    </details>`;
+  return html`<${Modal} title=${`Suggested fixes · render v${r.version}`} size="fixes" onClose=${onClose} footer=${footer}>
+    <div class="fixes ds-stack" aria-label="Suggested fixes" data-fixes-modal>
+    ${flaggedList}
+    ${waiting ? html`<div class="ds-notice" data-tone="info" role="status"><span class="ds-status" data-tone="info" aria-hidden="true">◔</span><div class="ds-grow">Waiting for the Director: it is working on round ${round.n} (the band above says what it is doing).</div></div>` : null}
     ${round?.status === "failed" ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>Round ${round.n} did not get an answer (${round.summary}). You can ask again.</div></div>` : null}
     ${
       proposed
@@ -228,12 +250,7 @@ export function FixesPanel({ r, items, fixes }) {
       ${round.nextSteps?.length ? html`<div class="fix-next" data-next-steps><p class="small-text"><b>Next steps to a new render</b></p><ol class="small-text">${round.nextSteps.map((x, i) => html`<li key=${i}>${x}</li>`)}</ol></div>` : null}
       ${round.unresolved?.length ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div><b>The Director could not fix:</b><ul>${round.unresolved.map((u) => html`<li key=${u.finding}><span class="fix-finding">${u.finding}</span> ${u.why}</li>`)}</ul></div></div>` : null}
       <p class="small-text muted">${accepted.length ? `${accepted.length} accepted, from ${STAGE_WORD[accepted[0].stage]} on.` : "Nothing accepted yet."} ${applying ? "" : "Nothing changes until you apply the accepted proposals."}</p>
-      ${
-        !applying && accepted.length
-          ? html`<div class="row fix-apply"><button class="ds-btn ds-btn--primary" type="button" data-act="apply-fixes" disabled=${busy} onClick=${apply}>${startsItself ? `Keep the ${accepted.length} accepted fix${accepted.length === 1 ? "" : "es"} for when I start the ${STAGE_WORD[earliestAccepted].toLowerCase()}` : `Apply ${accepted.length} accepted proposal${accepted.length === 1 ? "" : "s"}`}</button>${startsItself ? null : html`<${CostHint} />`}</div>
-        <p class="small-text muted">${startsItself ? `A ${STAGE_WORD[earliestAccepted].toLowerCase()} is something you start yourself: the fixes are remembered and the Director takes them into account then.` : `The Director writes ONE new ${STAGE_WORD[earliestAccepted].toLowerCase()} draft from them. Nothing is rendered and nothing is synthesized: you read the draft, verify it and approve it, and only then does the voice cost anything.`}</p>`
-          : null
-      }
+      ${!applying && accepted.length ? html`<p class="small-text muted">${startsItself ? `A ${STAGE_WORD[earliestAccepted].toLowerCase()} is something you start yourself: the fixes are remembered and the Director takes them into account then.` : `The Director writes ONE new ${STAGE_WORD[earliestAccepted].toLowerCase()} draft from them. Nothing is rendered and nothing is synthesized: you read the draft, verify it and approve it, and only then does the voice cost anything.`}</p>` : null}
     </div>`
         : null
     }
@@ -242,15 +259,73 @@ export function FixesPanel({ r, items, fixes }) {
     ${applying?.kept ? html`<div class="ds-notice" data-tone="info" role="note"><span class="ds-status" data-tone="info" aria-hidden="true">i</span><div class="ds-grow">The earliest accepted fix is for the ${STAGE_WORD[applying.stage].toLowerCase()}, which you start yourself. The fixes are kept as pending fixes.${applying.path?.length ? html`<p class="small-text"><b>Next steps to a new render</b></p><ol class="small-text" data-next-steps>${applying.path.map((x, i) => html`<li key=${i}>${x}</li>`)}</ol>` : null}</div></div>` : null}
     ${pending.length ? html`<div class="fix-pending"><p class="small-text"><b>Pending fixes</b> (kept for their stage; its writer takes them into account):</p><ul class="small-text">${pending.map((x) => html`<li key=${x.id} data-stage=${x.stage}><span class="ds-badge" data-tone="neutral">${STAGE_WORD[x.stage]}</span> ${x.text}</li>`)}</ul></div>` : null}
     ${
-      applying
+      applying || waiting
         ? null
         : html`<label class="ds-field"><span class="ds-label">${proposed ? "More context: ask the Director to rethink" : "Context for the Director (optional)"}</span>
       <textarea class="ds-textarea" data-field="guidance" placeholder=${proposed ? "what it missed, what you want different, what to keep…" : "what matters here, what to keep, what you would rather not change…"} value=${fixes.guidance} onInput=${(e) => fixes.writeGuidance(e.target.value)} onBlur=${fixes.saveGuidance}></textarea></label>
-    <div class="row">
-      <button class="ds-btn ds-btn--primary" type="button" data-act="ask-fixes" disabled=${busy || waiting || !flagged} title=${flagged ? "" : "flag at least one finding as Fix"} onClick=${ask}>${proposed ? "Ask the Director to rethink" : "Ask the Director for suggested fixes"} (${flagged} flagged)</button>
-      <${CostHint} />
-    </div>`
+`
     }
+    </div>
+  </${Modal}>`;
+}
+
+/**
+ * The Fixes part of a render's quality check (P1c): a line saying where the fix loop stands and the button that opens it. The loop itself, asking
+ * the Director, reading and deciding on its proposals, rethinking, applying, happens in a window (FixesModal), so the findings stay put.
+ */
+export function FixesPanel({ r, items, fixes }) {
+  const [open, setOpen] = useState(false);
+  const set = fixes.data?.fixset;
+  const round = set?.rounds?.at(-1);
+  if (!fixes.can.size && !set?.rounds?.length) return null;
+  const flagged = Object.values(fixes.flags).filter((c) => c === "fix").length;
+  const applying = set?.applying;
+  const pending = fixes.data?.pending ?? [];
+  const accepted = (round?.proposals ?? []).filter((p) => p.decision === "accepted").length;
+  const where =
+    round?.status === "asked"
+      ? { tone: "info", icon: "◔", text: `Round ${round.n}: waiting for the Director.` }
+      : applying?.version !== undefined
+        ? {
+            tone: "ok",
+            icon: "✓",
+            text: `Applied: ${STAGE_WORD[applying.stage]} v${applying.version} is a new draft from this render's fixes.`,
+          }
+        : applying && !applying.kept
+          ? {
+              tone: "info",
+              icon: "◔",
+              text: `The Director is writing the ${STAGE_WORD[applying.stage].toLowerCase()} draft.`,
+            }
+          : applying?.kept
+            ? {
+                tone: "info",
+                icon: "i",
+                text: "The accepted fixes are kept for when you start the recording.",
+              }
+            : round?.status === "proposed"
+              ? {
+                  tone: "info",
+                  icon: "i",
+                  text: `Round ${round.n}: ${round.proposals.length} proposal${round.proposals.length === 1 ? "" : "s"}, ${accepted} accepted.`,
+                }
+              : round?.status === "failed"
+                ? {
+                    tone: "warn",
+                    icon: "!",
+                    text: `Round ${round.n} got no answer. You can ask again.`,
+                  }
+                : null;
+  const label = round ? "Open suggested fixes" : "Suggested fixes…";
+  return html`<section class="fixes-launch ds-stack" aria-label="Fixes">
+    <h4 class="qa-head">Fixes</h4>
+    <div class="row">
+      ${where ? html`<span class="small-text" data-fix-where><span class="ds-status" data-tone=${where.tone} aria-hidden="true">${where.icon}</span> ${where.text}</span>` : html`<span class="small-text muted">${flagged ? `${flagged} flagged to fix.` : "Flag findings as Fix, then ask the Director for suggested fixes."}</span>`}
+      <span class="grow"></span>
+      <button class="ds-btn ${round ? "" : "ds-btn--primary"}" type="button" data-act="open-fixes" disabled=${!round && !flagged} title=${round || flagged ? "" : "flag at least one finding as Fix"} onClick=${() => setOpen(true)}>${label}</button>
+    </div>
+    ${pending.length ? html`<p class="small-text muted" data-pending-count>${pending.length} fix${pending.length === 1 ? "" : "es"} kept for later stages.</p>` : null}
+    ${open ? html`<${FixesModal} r=${r} items=${items} fixes=${fixes} onClose=${() => setOpen(false)} />` : null}
   </section>`;
 }
 

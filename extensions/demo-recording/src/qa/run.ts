@@ -181,16 +181,6 @@ export function checkValues(c: Ctx): QaItem[] {
           const shownSnap = sceneSnaps.find((s) => pageHas(snapText(s), v));
           const shown = shownSnap ? takeToSceneMs(sc, shownSnap.t) : undefined;
           const later = shown !== undefined && shown > said + 200;
-          const fix: QaFix | undefined =
-            later && v.kind === "number"
-              ? {
-                  kind: "shift-narration",
-                  scene: sc.id,
-                  anchor: seg.anchor ?? "",
-                  deltaMs: Math.round(shown - said + 300),
-                  label: `say it ${((shown - said + 300) / 1000).toFixed(1)} s later, when it's on screen`,
-                }
-              : undefined;
           items.push({
             id: "",
             check: "values",
@@ -199,7 +189,6 @@ export function checkValues(c: Ctx): QaItem[] {
             scene: sc.id,
             atMs: start + said,
             message: `${label} is said at ${secStr(start + said)} but shown ${shown !== undefined ? `at ${secStr(start + shown)}` : "at another moment"} in ${sc.id}`,
-            ...(fix ? { fix } : {}),
           });
         } else
           items.push({
@@ -415,19 +404,7 @@ export async function checkDrift(
         ...(abs > DRIFT_HIGH_MS ? { high: true as const } : {}),
         scene: sc.id,
         atMs: expect,
-        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} ${moment} (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}${diag.supported ? "" : " — not offered as a fix: the measurement is not on a speech onset"}`,
-        // A fix acts on a measurement only when it sits on a speech onset (Q1b): else it is reported, never acted on.
-        ...(diag.supported
-          ? {
-              fix: {
-                kind: "shift-narration" as const,
-                scene: sc.id,
-                anchor: a.mark,
-                deltaMs: -drift,
-                label: `move it ${(abs / 1000).toFixed(2)} s ${drift > 0 ? "earlier" : "later"}`,
-              },
-            }
-          : {}),
+        message: `the narration for @${a.mark} starts ${abs} ms ${drift > 0 ? "after" : "before"} ${moment} (measured; ${planned})${disagree ? `: the two disagree by ${Math.abs(diag.gapMs)} ms${sidesWith(diag)}` : ""}${diag.supported ? "" : " — the measurement is not on a speech onset: it may be wrong"}`,
       });
     }
   }
@@ -827,7 +804,7 @@ export function formatQa(report: QaReport, summary: QaSummary): string {
   const lines = [head];
   for (const it of report.items.filter((i) => i.level !== "info"))
     lines.push(
-      `- [${it.level === "blocking" ? "HARD STOP" : it.high ? "needs your eyes" : it.level}${it.confirmed ? ", confirmed" : ""}${it.ignored ? `, ignored: ${it.ignored.reason}` : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}${it.fix ? ` → fix: ${it.fix.label}` : ""}`,
+      `- [${it.level === "blocking" ? "HARD STOP" : it.high ? "needs your eyes" : it.level}${it.confirmed ? ", confirmed" : ""}${it.ignored ? `, ignored: ${it.ignored.reason}` : ""}] ${it.atMs !== undefined ? `${secStr(it.atMs)} ` : ""}${it.message}`,
     );
   return lines.join("\n");
 }
@@ -846,7 +823,7 @@ export function formatQaMarkdown(report: QaReport): string {
     lines.push(`## ${level}`, "");
     for (const it of xs)
       lines.push(
-        `- ${it.atMs !== undefined ? `\`${secStr(it.atMs)}\` ` : ""}${it.scene ? `(${it.scene}) ` : ""}${it.message}${it.fix ? ` — fix: ${it.fix.label}` : ""}${it.confirmed ? ` — **confirmed**: ${it.confirmed.reason}` : ""}${it.ignored ? ` — **ignored** (${it.ignored.scope}, since render v${it.ignored.since}): ${it.ignored.reason}` : ""}`,
+        `- ${it.atMs !== undefined ? `\`${secStr(it.atMs)}\` ` : ""}${it.scene ? `(${it.scene}) ` : ""}${it.message}${it.confirmed ? ` — **confirmed**: ${it.confirmed.reason}` : ""}${it.ignored ? ` — **ignored** (${it.ignored.scope}, since render v${it.ignored.since}): ${it.ignored.reason}` : ""}`,
       );
     lines.push("");
   }
@@ -870,50 +847,6 @@ export function formatQaMarkdown(report: QaReport): string {
     );
   }
   return lines.join("\n");
-}
-
-/**
- * The render request that applies fixes of render `version` (D74): same
- * annotations, timeline, brands and options; the overrides are that render's
- * own plus the chosen fixes, shifts of the same segment added up.
- */
-export function fixRequest(
-  projectDir: string,
-  version: number,
-  ids: string[] | "all",
-  by: RenderRecord["by"],
-): RenderRequest {
-  const rec = readRenderRecord(projectDir, version);
-  const q = readQa(projectDir, version);
-  if (!q) throw new Error(`render v${version} has no QA report`);
-  const chosen = q.items
-    .filter((i) => i.fix && (ids === "all" || ids.includes(i.id)))
-    .map((i) => i.fix as QaFix);
-  if (!chosen.length) throw new Error("no fixable items selected");
-  const prev = path.join(projectDir, "render", `v${version}.overrides.json`);
-  const earlier = fs.existsSync(prev)
-    ? (JSON.parse(fs.readFileSync(prev, "utf8")) as RenderOverrides).shifts
-    : [];
-  const merged = new Map<string, QaFix>();
-  for (const f of [...earlier, ...chosen]) {
-    const k = `${f.scene}\u0000${f.anchor}`;
-    const m = merged.get(k);
-    merged.set(
-      k,
-      m ? { ...m, deltaMs: m.deltaMs + f.deltaMs, label: `${m.label}; ${f.label}` } : { ...f },
-    );
-  }
-  return {
-    kind: "final",
-    ...(rec.basedOn.annotations !== undefined
-      ? { annotations: rec.basedOn.annotations }
-      : { annotations: null }),
-    timeline: rec.timeline,
-    brands: rec.brands,
-    options: rec.options,
-    overrides: { fromRender: version, shifts: [...merged.values()].filter((f) => f.deltaMs !== 0) },
-    by,
-  };
 }
 
 function readRenderRecord(projectDir: string, v: number): RenderRecord {

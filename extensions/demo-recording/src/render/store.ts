@@ -76,7 +76,7 @@ export interface RenderRecord {
   variants: RenderVariantRec[];
   /** QA summary (part 10, D69); null = not run. The report: render/vN.qa.json. */
   qa: null | QaSummary;
-  /** Mechanical fixes applied on top of another render (D74): render/vN.overrides.json. */
+  /** LEGACY: a render made with timing overrides (D74, retired in Q7): render/vN.overrides.json is still read, nothing writes one. */
   overrides?: { fromRender: number; shifts: number };
   /** Files deleted by the user (record kept, D64). */
   deleted?: string;

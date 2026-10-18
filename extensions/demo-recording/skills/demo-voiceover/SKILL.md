@@ -115,8 +115,10 @@ Two questions, and the regional churn problem is on the table.
 
 `[@mark +300ms]` / `[@mark -300ms]` (a sign, a number, `ms` or `s`; at most ±3000 ms) says the narration after the mark starts that long **after
 (+) or before (−)** the mark's event. It is never spoken and changes no audio, so it costs no credits: only the edit and the render run again.
-Use it to fix sync instead of rewording: the QA says "starts 400 ms after its moment" → write `[@mark -400ms]`. A bare `[@mark]` means on the
-moment. Anything else that looks like an anchor (`[@mark 300ms]`, `[@Mark]`) is an error: it would be spoken as words. The user also nudges
+A hint states where you WANT the narration relative to the moment (a beat before the picture, a beat after); the QA compares what it hears with
+the moment plus the hint. It does NOT correct a measured deviation: a QA finding "starts 400 ms after its moment" is not fixed by `-400ms` (the
+finding would come back, now against a moved target). Fix it where the cause is: shorten the words before it, move the anchor to where the
+words really land, or, if the offset is fine, accept it by writing it (`+400ms`). A bare `[@mark]` means on the moment. Anything else that looks like an anchor (`[@mark 300ms]`, `[@Mark]`) is an error: it would be spoken as words. The user also nudges
 hints in the panel (the Voice over screen, under each anchor's picture).
 
 ## Timing

@@ -381,7 +381,7 @@ const QA_LABEL = {
   error: "QA failed to run",
 };
 
-function QaItemRow({ r, it, picked, togglePick, onSeek, reload, fixes }) {
+function QaItemRow({ r, it, onSeek, reload, fixes }) {
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState(null);
@@ -403,7 +403,6 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload, fixes }) {
       ${it.atMs !== undefined ? html`<button class="ds-btn ds-btn--ghost ds-btn--sm time" title="play from here" onClick=${() => onSeek(it.atMs)}>▶ ${fmt(it.atMs)}</button>` : null}
       <span class="qa-msg">${it.message}</span>
     </div>
-    ${it.fix ? html`<label class="ds-check small-text qa-fix"><input type="checkbox" checked=${picked} onChange=${togglePick} /> fix: ${it.fix.label}</label>` : null}
     ${it.confirmed ? html`<p class="small-text muted">✔ confirmed: “${it.confirmed.reason}”</p>` : null}
     ${it.hard === "integrity" ? html`<p class="small-text muted">A broken file cannot be confirmed: render again.</p>` : null}
     <div class="row qa-item-actions">${fixes ? html`<${FlagChips} id=${it.id} fixes=${fixes} />` : null}
@@ -422,7 +421,6 @@ function QaItemRow({ r, it, picked, togglePick, onSeek, reload, fixes }) {
 function QaSection({ r, onSeek, reload, events }) {
   const fixes = useFixes(r.version, events);
   const [rep, setRep] = useState(null);
-  const [picked, setPicked] = useState(null);
   const [busy, setBusy] = useState(false);
   const stamp = r.qa?.ranAt ?? "";
   useEffect(() => {
@@ -440,18 +438,6 @@ function QaSection({ r, onSeek, reload, events }) {
     }
   };
   const items = rep?.report?.items ?? [];
-  const fixable = items.filter((i) => i.fix);
-  const chosen = picked ?? new Set(fixable.map((i) => i.id));
-  const apply = async () => {
-    setBusy(true);
-    try {
-      await post("/api/render-qa-fix", { version: r.version, ids: [...chosen] });
-    } catch (e) {
-      errorToast(e);
-    } finally {
-      setBusy(false);
-    }
-  };
   const status = r.qa?.status;
   // The checks that found nothing, in plain words. Only said when the report exists and the check could run.
   const found = new Set(items.map((i) => i.check));
@@ -467,18 +453,13 @@ function QaSection({ r, onSeek, reload, events }) {
   const by = (lvl) => items.filter((i) => i.level === lvl && !i.ignored);
   const leftAlone = items.filter((i) => i.ignored);
   const row = (it) =>
-    html`<${QaItemRow} key=${it.id} r=${r} it=${it} picked=${chosen.has(it.id)} togglePick=${() => {
-      const n = new Set(chosen);
-      n.has(it.id) ? n.delete(it.id) : n.add(it.id);
-      setPicked(n);
-    }} onSeek=${onSeek} reload=${reload} fixes=${fixes} />`;
+    html`<${QaItemRow} key=${it.id} r=${r} it=${it} onSeek=${onSeek} reload=${reload} fixes=${fixes} />`;
   return html`<div class=${`qa-section ${status ?? "none"}`}>
     <div class="row">
       <b>${status ? QA_LABEL[status] : "QA not run"}</b>
       ${r.qa && status !== "error" ? html`<span class="muted small-text">${r.qa.blocking} hard stop${r.qa.blocking === 1 ? "" : "s"}${r.qa.confirmed ? ` (${r.qa.confirmed} confirmed)` : ""} · ${r.qa.high ?? 0} need${(r.qa.high ?? 0) === 1 ? "s" : ""} your eyes · ${r.qa.warnings - (r.qa.high ?? 0)} other warning${r.qa.warnings - (r.qa.high ?? 0) === 1 ? "" : "s"} · ${r.qa.info} info${rep?.report && !rep.report.whisper ? " · sync not checked (no Whisper)" : ""}${rep?.report?.coverage ? ` · sync measured at ${rep.report.coverage.anchors.measured} of ${rep.report.coverage.anchors.total} anchors` : ""}</span>` : null}
       ${status === "error" ? html`<span class="small-text error">${r.qa.error}</span>` : null}
       <span class="grow"></span>
-      ${fixable.length ? html`<button class="ds-btn ds-btn--primary" disabled=${busy || !chosen.size} title="a new final render with these mechanical fixes (the approved script, audio and annotations stay untouched); it gets its own QA" onClick=${apply}>Apply ${chosen.size} fix${chosen.size === 1 ? "" : "es"}</button>` : null}
       ${r.qa ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => openChecks({ stage: "render", version: r.version })}>All checks…</button>` : null}
       <button class="ds-btn ds-btn--ghost" disabled=${busy} onClick=${rerun}>${r.qa ? "Re-run QA" : "Run QA"}</button>
     </div>
@@ -667,7 +648,7 @@ function RunInspector({ r, row, events, viewed, reload }) {
       ${row?.inLine && !r.accepted ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">▶</span>In production line</span>` : null}
       ${gone ? html`<span class="ds-badge" data-tone="warn"><span class="ds-badge-ico" aria-hidden="true">!</span>${r.deleted ? `Files deleted ${when(r.deleted)}` : "Files pruned"}</span>` : null}
     </div>
-    <p class="ds-small ds-muted">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}${r.overrides ? ` · ${r.overrides.shifts} fix(es) on render v${r.overrides.fromRender}` : ""}</p>
+    <p class="ds-small ds-muted">${r.basedOn.annotations !== undefined ? `annotations v${r.basedOn.annotations}${r.fromDraft ? " (unsaved changes)" : ""}` : "no annotations"} · ${types}${o.subtitles ? " · subtitles" : ""}${o.logoBug ? "" : " · no logo"} · edit v${r.timeline} · ${r.size.width}×${r.size.height} · ${when(r.createdAt)} · by ${r.by}${r.overrides ? ` · legacy timing fixes: ${r.overrides.shifts} shift(s) from render v${r.overrides.fromRender}` : ""}</p>
     ${r.error ? html`<p class="ds-small" style="color: var(--status-err)">${r.error}</p>` : null}
     <div class=${`render-detail-grid${finalDone ? "" : " solo"}`}>
       ${

@@ -158,7 +158,7 @@ Each phase, with its gate:
 | 4 | **Voice-over** | writes the script **from the analysis and keyframes**, anchored to marks, quoting real values; rewrites on a **voice direction** | validates anchors, `{{dom:…}}` bindings, banned words, speech vs footage; rates **confidence**; word-diffs against the base | – | **approve the script** | `demo_rec_vo`, panel *Voice over* |
 | 5 | **Voice and sync edit** | – | **estimates the cost** (cached vs billed), runs TTS, builds the **audio-led timeline** (cuts, holds, speed ramps, never touching typing), renders a **draft** | ElevenLabs / OpenAI / Kokoro, Whisper timings, ffmpeg | **confirm the estimate** (panel) | `demo_rec_tts`, `demo_rec_edit`, panel *Generate voice & render* |
 | 6 | **Annotations** | the **Annotation designer** suggests ~2× as many as should be on (session model, or its own configured model) | resolves targets and anchors, weighs value vs noise, enables the best half, adds **privacy redactions** (off) | – | **toggle, edit, accept** | `demo_rec_annotations`, panel *Annotations* |
-| 7 | **Render and deliver** | – | renders by **brand** and variant, runs **QA** (values, drift, footage, picture, redactions), proposes **mechanical fixes** | ffmpeg, Whisper, Chromium (overlays) | **confirm or fix blocking items, accept the final** | `demo_rec_render`, `/demo render`, panel *Render* |
+| 7 | **Render and deliver** | – | renders by **brand** and variant, runs **QA** (values, drift, footage, picture, redactions), reports findings (fixes go through the Director's proposals, not overrides) | ffmpeg, Whisper, Chromium (overlays) | **confirm or fix blocking items, accept the final** | `demo_rec_render`, `/demo render`, panel *Render* |
 
 The **Director** reads a report after every engine job, tells you in a few
 lines what happened, and waits. It never skips a gate: the tools themselves
@@ -259,11 +259,11 @@ projects/<demo>/
   takes/take-NNN/           the recording and its evidence (table above)
   vo/script.vN.md           + script.vN.meta.json (base, direction), direction.pending.json
   vo/audio/                 per-section wav, word timings, the content-hash cache
-  edit/timeline.vN.json     the audio-led timeline (+ overrides from QA fixes)
+  edit/timeline.vN.json     the audio-led timeline (timing hints in the script, [@mark +300ms], move it; no overrides any more)
   annotations/vN.json       + the panel's unsaved draft
   render/vN.json            one record per render version (draft or final)
   render/vN/<flavor>/       full.mp4, scenes/, vtt, srt, poster — per brand and subtitles variant
-  render/vN.qa.json         the QA report, render/vN.overrides.json the fixes
+  render/vN.qa.json         the QA report, render/vN.overrides.json only on renders made before Q7 (legacy)
   previews/  jobs/  out/    annotation stills and clips, job logs, legacy edit output
 ```
 

@@ -12,7 +12,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { ANNOTATION_TYPES } from "../annotations/types.ts";
 import type { Job } from "../jobs.ts";
-import { fixRequest, formatQa, readQa, renderEvent, runQaSafe } from "../qa/run.ts";
+import { formatQa, readQa, renderEvent, runQaSafe } from "../qa/run.ts";
 import {
   type RenderRequest,
   finalBlocker,
@@ -134,17 +134,6 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
   );
   job.label = "Quality check";
   return job;
-}
-
-/** Apply proposed fixes (D74): a new final render with overrides on the same annotations, options and brands. */
-export function startFixes(
-  rt: Runtime,
-  version: number,
-  ids: string[] | "all",
-  by: RenderRecord["by"],
-): Job<RenderRecord> {
-  const p = rt.requireProject();
-  return startRender(rt, fixRequest(p.dir, version, ids, by));
 }
 
 export function rendersSummary(projectDir: string): string {

@@ -698,6 +698,26 @@
   align-items: center;
   gap: var(--space-1);
 }
+/* the band collapses (it is not removed) once you are on the page it points to, so the header does not jump and the pinned panels follow smoothly */
+.ds-next-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.18s ease;
+}
+.ds-next-wrap[data-hidden="true"] {
+  grid-template-rows: 0fr;
+}
+.ds-next-clip {
+  min-block-size: 0;
+  overflow: hidden;
+}
+.ds-next-clip[inert] {
+  visibility: hidden;
+}
+.ds-menu.ds-suggest > summary {
+  text-decoration: none;
+  color: var(--text-body);
+}
 .ds-next {
   display: flex;
   align-items: center;
@@ -1175,7 +1195,10 @@ mark.ds-mark {
 .ds-hwrap .ds-header {
   position: static;
 }
-@container (max-width: 64rem) {
+/* Three steps as the header gets narrower (the stepper with its labels, the tools and the Suggestions entry need about 1250 / 1360 / 1540 px):
+   below 96rem "Suggestions" is an icon and the count; below 85rem Map and Config keep only their icon; below 80rem the step labels are hidden (still read).
+   (The labels used to hide at 64rem, which let them overlap the tools between about 1024 and 1260 px once the header got its Suggestions entry.) */
+@container (max-width: 80rem) {
   /* visually hidden, still read: the link keeps its name */
   .ds-steps .ds-step:not([aria-current="step"]) .ds-step-label {
     position: absolute;
@@ -1190,6 +1213,37 @@ mark.ds-mark {
   }
   .ds-brand-sub {
     display: none;
+  }
+}
+@container (max-width: 85rem) {
+  /* Map and Config keep their icon; the word stays for screen readers */
+  .ds-tool-word {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+/* the header has room for the word "Suggestions" only on a very wide window; otherwise an icon and the count (the word stays for screen readers) */
+@container (max-width: 96rem) {
+  .ds-suggest-word {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .ds-suggest-ico {
+    display: inline;
+  }
+  .ds-suggest-ico + .ds-suggest-word + .ds-suggest-count {
+    margin-inline-start: var(--space-1);
+  }
+  .ds-suggest-count {
+    white-space: nowrap;
   }
 }
 

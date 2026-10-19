@@ -201,6 +201,29 @@ export function nextBand({ stages, states, jobs, director, now = Date.now() }) {
 }
 
 /**
+ * The band is a guide to a page: once you are ON the page it points to, it is hidden (D-R2-8). Blocked is a stop and "Director working" a status,
+ * not suggestions, so they are never hidden; the stepper still shows the state of the step you are on.
+ */
+export function bandHiddenAt(band, tab) {
+  return !!band && band.tone === "needs" && band.action?.tab === tab;
+}
+
+/**
+ * What waits for you, for the header's "Suggestions" entry: the current suggestion first, then the others, whether or not the band is showing.
+ * `here` marks the one on the page you are on. Nothing is stored: this is the state of the project right now.
+ */
+export function suggestions(band, tab) {
+  if (!band) return [];
+  const items = [];
+  if (band.tone === "needs" && band.action)
+    items.push({ tab: band.action.tab, text: band.text, first: true });
+  else if (band.tone === "blocked" && band.action)
+    items.push({ tab: band.action.tab, text: band.text, blocked: true });
+  for (const m of band.more ?? []) items.push({ tab: m.tab, text: m.text });
+  return items.map((i) => ({ ...i, here: i.tab === tab }));
+}
+
+/**
  * The status strip: what runs (with progress only when it is known), what failed, the connection.
  * `rows` are the activity rows (progress detail from events); `dismissed` is a Set of job ids.
  * { tone: "idle" | "running" | "err" | "warn", text, progress: number | null, running: [], failure: job | null }

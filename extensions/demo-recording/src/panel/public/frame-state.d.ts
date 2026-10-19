@@ -98,3 +98,15 @@ export function directorNow(
   events?: { seq: number; type: string; at: string; data: Record<string, unknown> }[],
 ): DirectorView;
 export function newsTab(e: { type: string; data?: { by?: string } }): string | null;
+export interface SuggestionItem {
+  tab: string;
+  text: string;
+  first?: boolean;
+  blocked?: boolean;
+  here: boolean;
+}
+export function bandHiddenAt(
+  band: { tone: string; action?: { tab: string } | null } | null | undefined,
+  tab: string,
+): boolean;
+export function suggestions(band: unknown, tab: string): SuggestionItem[];

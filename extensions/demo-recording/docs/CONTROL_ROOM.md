@@ -18,7 +18,7 @@ Every screen has the same frame around it, so you always know where you are, wha
 | Part | Where | What it is |
 |---|---|---|
 | **Top bar** | top | the project name; **Project**; the five stages as a stepper, each with a state (complete, needs you, running, blocked, not started: an icon **and** a word); **◇ Map**, **? (shortcuts)**, **⚙ Config**, the theme |
-| **Next-step band** | under the bar | what needs you (a draft newer than the newest approved version, or the engine's next step) or what is blocked, with a link to go there and a menu of the other pending items. It only links: it never starts anything and never moves you |
+| **Next-step band** | under the bar | what needs you (a draft newer than the newest approved version, or the engine's next step) or what is blocked, with a link to go there and a menu of the other pending items. It only links: it never starts anything and never moves you. **Once you are on the page it points to it is hidden** (collapsed; Blocked, Director working and Done never hide), and the header's **Suggestions · N** menu lists what waits for you (the current suggestion, then the others; "you are here" marks the page you are on), always, with nothing stored |
 | **The screen** | middle | one of the stages, Project, Config, or the Map as an overlay |
 | **Status strip** | bottom | one short line: *Nothing running*, what runs (a percentage only when the job reports one), a failure in red with **Show error**, or the connection state |
 | **Activity drawer** | right, on demand, **docked** beside the screen | the running jobs with progress, **what happened by itself**, what needs attention, recent jobs, the live frame, the safety feed and the log |

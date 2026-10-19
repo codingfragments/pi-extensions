@@ -121,12 +121,24 @@ test(
           new RegExp(`${stage}[\\s\\S]*Viewing\\s*v\\d`),
           `${stage}: the viewed version`,
         );
-        const band = await page.locator(".ds-next").innerText();
-        assert.match(
-          band,
-          /Storyboard v2 is waiting for review/,
-          `${stage}: the pending review, in the band`,
-        );
+        if (stage === "Storyboard") {
+          // at the page the band points to, the band is hidden (D-R2-8) and the pending review is in the header's Suggestions
+          await page.waitForFunction(
+            "document.querySelector('.ds-next-wrap')?.dataset.hidden === 'true'",
+          );
+          assert.match(
+            (await page.locator(".ds-suggest ul").textContent()) ?? "",
+            /Storyboard v2 is waiting for review/,
+            `${stage}: the pending review, in Suggestions`,
+          );
+        } else {
+          const band = await page.locator(".ds-next").innerText();
+          assert.match(
+            band,
+            /Storyboard v2 is waiting for review/,
+            `${stage}: the pending review, in the band`,
+          );
+        }
         await page.waitForFunction(
           `/Render/.test(document.querySelector(".ds-strip .strip-text")?.textContent ?? "")`,
         );

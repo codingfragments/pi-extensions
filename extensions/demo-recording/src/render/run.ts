@@ -17,7 +17,7 @@ import {
   type AnnotationFile,
   type AnnotationType,
 } from "../annotations/types.ts";
-import { resolveBrand } from "../brand/brand.ts";
+import { effectiveBrand, resolveBrand } from "../brand/brand.ts";
 import type { DemoRecConfig } from "../config.ts";
 import { preferredAnnotationDraft, readAnnotationDraft } from "../drafts/annotations.ts";
 import { type CutResult, renderCut } from "../edit/pipeline.ts";
@@ -76,6 +76,8 @@ export interface RenderPlan {
   timelineVersion: number;
   timeline: Timeline;
   brands: string[];
+  /** The configured default brand was not found and the built-in neutral is used instead (never set for brands someone chose). */
+  brandFallback?: { wanted: string; used: string };
   options: RenderOptionsRec;
   size: { width: number; height: number };
 }
@@ -195,8 +197,11 @@ export function planRender(
     file = { ...file, items: file.items.filter((it) => it.enabled && keep(it.type)) };
     included = file.items.length;
   }
-  const brands = [...new Set(req.brands?.length ? req.brands : [config.brand])];
-  for (const b of brands) resolveBrand(config.root, b); // fail fast on unknown brands
+  // a brand someone chose must exist (fail fast, clearly); the CONFIGURED default falls back to neutral and says so
+  const chosen = req.brands?.length ? req.brands : undefined;
+  const fallback = chosen ? undefined : effectiveBrand(config.root, config.brand);
+  const brands = [...new Set(chosen ?? [(fallback as { name: string }).name])];
+  for (const b of brands) resolveBrand(config.root, b);
   return {
     kind: req.kind,
     ...(annotationVersion !== undefined ? { annotationVersion } : {}),
@@ -206,6 +211,9 @@ export function planRender(
     timelineVersion,
     timeline,
     brands,
+    ...(fallback?.fellBackFrom
+      ? { brandFallback: { wanted: fallback.fellBackFrom, used: fallback.name } }
+      : {}),
     options,
     size: req.kind === "draft" ? DRAFT_SIZE : config.output,
   };
@@ -378,6 +386,11 @@ export async function runRender(o: {
             : {}),
         };
       }
+      if (plan.brandFallback && brand === plan.brandFallback.used)
+        variant.warnings = [
+          `the configured brand "${plan.brandFallback.wanted}" was not found under ${path.join(o.config.root, "brands")}: rendered with ${plan.brandFallback.used}`,
+          ...(variant.warnings ?? []),
+        ];
       variant.bytes = dirBytes(dir);
       rec.variants.push(variant);
       saveRecord(o.projectDir, rec);

@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { effectiveBrand } from "./brand/brand.ts";
 import { type LayerFiles, layerFiles } from "./config-edit.ts";
 import type { DemoRecConfig } from "./config.ts";
 import { envOverrides, formatOverride } from "./env-overrides.ts";
@@ -187,6 +188,14 @@ export async function runDoctor(
   try {
     p.ensureWritable(cfg.root);
     add("workdir", "pass", cfg.root);
+    const brand = effectiveBrand(cfg.root, cfg.brand);
+    add(
+      "brand",
+      brand.fellBackFrom ? "warn" : "pass",
+      brand.fellBackFrom
+        ? `"${cfg.brand}" is not under ${cfg.root}/brands (a new working folder has no brands): renders use ${brand.name} instead. Copy the brand folder over, or /demo brand use <name>`
+        : cfg.brand,
+    );
   } catch (err) {
     add("workdir", "fail", `${cfg.root} not writable: ${(err as Error).message}`);
   }

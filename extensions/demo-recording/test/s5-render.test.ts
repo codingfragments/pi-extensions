@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { writeAnnotations } from "../src/annotations/file.ts";
+import { effectiveBrand } from "../src/brand/brand.ts";
 import { resolveConfig } from "../src/config.ts";
 import type { SceneTimeline, Timeline } from "../src/edit/timeline.ts";
 import { hasBinary } from "../src/media/ffmpeg.ts";
@@ -42,6 +43,7 @@ import {
   wrap,
 } from "../src/render/subtitles.ts";
 import { Runtime } from "../src/runtime.ts";
+import { startEdit } from "../src/tools/edit.ts";
 import { writeZip } from "../src/util/zip.ts";
 import { ensureProject } from "../src/workdir/layout.ts";
 import { nextStep } from "../src/workdir/stages.ts";
@@ -861,3 +863,90 @@ test(
     }
   },
 );
+
+// --- R2-8: a configured brand that does not exist, and a draft that fails after the edit worked --------------------------------
+
+test("the default brand falls back to neutral and says which one was wanted; a chosen brand is never replaced", () => {
+  assert.deepEqual(effectiveBrand(root, "neutral"), { name: "neutral" });
+  assert.deepEqual(effectiveBrand(root, "datadog-poc"), {
+    name: "neutral",
+    fellBackFrom: "datadog-poc",
+  });
+  // a brand of the working folder is found
+  fs.mkdirSync(path.join(root, "brands", "acme"), { recursive: true });
+  fs.writeFileSync(path.join(root, "brands", "acme", "brand.json"), "{}");
+  assert.deepEqual(effectiveBrand(root, "acme"), { name: "acme" });
+
+  const dir = project();
+  const cfg = { ...config(), brand: "datadog-poc" };
+  const plan = planRender(dir, cfg, { kind: "draft", annotations: null, by: "cli" });
+  assert.deepEqual(plan.brands, ["neutral"]);
+  assert.deepEqual(plan.brandFallback, { wanted: "datadog-poc", used: "neutral" });
+  // somebody chose it: it must exist, and the message names the ones that do
+  assert.throws(
+    () =>
+      planRender(dir, cfg, {
+        kind: "draft",
+        annotations: null,
+        brands: ["datadog-poc"],
+        by: "cli",
+      }),
+    /unknown brand "datadog-poc" \(available: .*neutral/,
+  );
+  // nothing wanted-but-missing, nothing to say
+  assert.equal(
+    planRender(dir, config(), { kind: "draft", annotations: null, by: "cli" }).brandFallback,
+    undefined,
+  );
+});
+
+test(
+  "a render with a missing configured brand is made with neutral and carries the warning",
+  { skip: !hasBinary("ffmpeg") && "needs ffmpeg", timeout: 120_000 },
+  async () => {
+    const dir = project(true);
+    const cfg = { ...config(), brand: "datadog-poc", output: { width: 1280, height: 720 } };
+    const draft = await runRender({
+      projectDir: dir,
+      config: cfg,
+      request: { kind: "draft", annotations: null, by: "cli" },
+    });
+    assert.equal(draft.status, "done");
+    assert.deepEqual(draft.brands, ["neutral"]);
+    assert.match(
+      draft.variants[0]?.warnings?.[0] ?? "",
+      /the configured brand "datadog-poc" was not found under .*brands: rendered with neutral/,
+    );
+  },
+);
+
+test("a draft that fails AFTER the edit worked is a warning: the edit result, its numbers and the report still come", async () => {
+  project();
+  const rt = new Runtime(() => config());
+  rt.setActiveProject("p");
+  const events: { type: string; data: Record<string, unknown> }[] = [];
+  rt.bus.subscribe((e) => events.push({ type: e.type, data: e.data as Record<string, unknown> }));
+  try {
+    // rerender of the latest timeline with annotations that do not exist: the render fails, the timeline is there
+    const job = startEdit(rt, "rerender", undefined, 99);
+    await job.done;
+    assert.equal(job.status, "done", "the edit job did not fail");
+    assert.equal(job.result?.render, undefined);
+    assert.match(job.result?.renderError ?? "", /annotations v99/);
+    assert.equal(job.result?.version, 1, "the timeline is the edit's result");
+    const fin = events.find((e) => e.type === "edit.finished");
+    assert.match(
+      String(fin?.data.message),
+      /edit v1 · .* ⚠ the draft render failed: annotations v99/,
+    );
+    assert.match(String(fin?.data.renderError), /annotations v99/);
+    assert.ok(Array.isArray(fin?.data.scenes), "the sync numbers are reported");
+    assert.equal(
+      events.some((e) => e.type === "render.finished"),
+      false,
+      "no draft finished",
+    );
+  } finally {
+    await rt.shutdown();
+  }
+});

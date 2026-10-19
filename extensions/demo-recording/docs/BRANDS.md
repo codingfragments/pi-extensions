@@ -44,7 +44,7 @@ Decisions behind this: D24 (brand packages), D25 (frame and title), D27 (brand s
 If a user brand has the same name as a built-in, the user brand wins.
 
 **Choosing a brand:**
-- The **default brand** is the config key `brand` (default `neutral`), set globally or per project. The env var `DEMO_REC_BRAND` overrides both.
+- The **default brand** is the config key `brand` (default `neutral`), set globally or per project. The env var `DEMO_REC_BRAND` overrides both. **If the configured brand does not exist** under the current working folder (a new folder has no `brands/`), a render that nobody gave a brand uses the built-in `neutral` and says so: a warning on the render, in `/demo doctor` (**brand**) and on the Config screen; a brand somebody chose explicitly must exist, and the error lists the ones that do.
 - A single render can name another brand (`demo_rec_edit … brand=…`, `/demo brand rerender <name>`, or the panel). That doesn't change the default.
 
 **Names:** lowercase letters, digits and dashes (`acme`, `acme-dark`), at most 41 characters.

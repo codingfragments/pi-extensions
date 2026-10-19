@@ -143,6 +143,36 @@ test("/api/config carries the list for the Config screen", async () => {
   ]);
 });
 
+test("/api/config says when the configured brand is not under the working folder (R2-8)", async () => {
+  const f = files({ brand: "datadog-poc" });
+  const env = { DEMO_REC_CONFIG: f.global };
+  const routes = configRoutes({
+    activeProject: () => undefined,
+    reloadConfig: () => ({ ...resolveConfig({ env, home: f.dir }), root: f.dir }),
+    publish: () => {},
+    env,
+    home: f.dir,
+  } as never);
+  const view = (await routes.get.config?.(new URLSearchParams())) as {
+    brandMissing: { name: string; used: string; root: string } | null;
+  };
+  assert.deepEqual(view.brandMissing, { name: "datadog-poc", used: "neutral", root: f.dir });
+  const ok = configRoutes({
+    activeProject: () => undefined,
+    reloadConfig: () => ({
+      ...resolveConfig({ env: { DEMO_REC_CONFIG: files({}).global }, home: f.dir }),
+      root: f.dir,
+    }),
+    publish: () => {},
+    env,
+    home: f.dir,
+  } as never);
+  assert.equal(
+    ((await ok.get.config?.(new URLSearchParams())) as { brandMissing: unknown }).brandMissing,
+    null,
+  );
+});
+
 test("the runtime reports the overrides of the process environment", () => {
   const saved = process.env.DEMO_REC_NO_OPEN;
   process.env.DEMO_REC_NO_OPEN = "1";

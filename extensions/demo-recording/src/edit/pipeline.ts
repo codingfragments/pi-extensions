@@ -11,7 +11,7 @@ import { fullOps, prepareAnnotations, sceneOps, takeGeometry } from "../annotati
 import { readAnnotations } from "../annotations/file.ts";
 import type { AnnotationFile } from "../annotations/types.ts";
 import { type TitleInfo, renderBrandAssets } from "../brand/assets.ts";
-import { resolveBrand } from "../brand/brand.ts";
+import { effectiveBrand, resolveBrand } from "../brand/brand.ts";
 import { type Rim, edgeLuminance, resolveRim } from "../brand/rim.ts";
 import type { DemoRecConfig } from "../config.ts";
 import { draftStamp } from "../render/stamp.ts";
@@ -345,7 +345,7 @@ export async function renderVariant(o: {
   signal?: AbortSignal;
   onProgress?: (p: { done: number; total: number; label: string }) => void;
 }): Promise<EditResult> {
-  const brandName = o.variant?.brand ?? o.config.brand;
+  const brandName = o.variant?.brand ?? effectiveBrand(o.config.root, o.config.brand).name;
   const annVersion = o.variant?.annotations;
   const annFile = annVersion ? readAnnotations(o.projectDir, annVersion) : undefined;
   if (annVersion && !annFile) throw new Error(`annotations v${annVersion} do not exist`);

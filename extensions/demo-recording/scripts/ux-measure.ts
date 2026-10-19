@@ -31,6 +31,8 @@ export const COUNT = `(() => {
   const sel = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=switch], [tabindex]';
   const vis = (e) => {
     if (e.closest('[inert]')) return false;
+    // the inside of a closed <details> is not shown (Chromium still gives it a box)
+    if (e.tagName !== 'SUMMARY' && e.closest('details:not([open])')) return false;
     const r = e.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return false;
     const cs = getComputedStyle(e);

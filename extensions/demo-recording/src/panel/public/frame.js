@@ -1,5 +1,5 @@
-import { html, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { STEPS, jobTitle } from "./frame-state.js";
+import { html, useEffect, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { STEPS, bandHiddenAt, jobTitle, suggestions } from "./frame-state.js";
 // The control room's frame (UX2, D98–D101): the header with the stepper, the next-action band,
 // the status strip and the Activity drawer. What they say is decided in frame-state.js; this file
 // draws it with the design-system components (ds/components.css).
@@ -41,7 +41,7 @@ const closeOnEscape = (e) => {
 };
 
 /** The next-action band: what needs you (or is blocked) and where to go. Navigation only, never an action. */
-export function NextBand({ band }) {
+export function NextBand({ band, hidden = false }) {
   if (!band) return null;
   const icon = { needs: "●", blocked: "!", done: "✓", idle: "○", working: "◔" }[band.tone];
   const iconTone = {
@@ -51,7 +51,8 @@ export function NextBand({ band }) {
     idle: undefined,
     working: "info",
   }[band.tone];
-  return html`<div class="ds-next" data-tone=${band.tone} role="region" aria-label="Next step" title=${band.title ?? ""}>
+  // Hidden once you are on the page it points to: collapsed (not removed) so the header does not jump, and out of reach of the keyboard.
+  return html`<div class="ds-next-wrap" data-hidden=${hidden ? "true" : undefined}><div class="ds-next-clip" inert=${hidden}><div class="ds-next" data-tone=${band.tone} role="region" aria-label="Next step" title=${band.title ?? ""}>
     <span class="ds-status" data-tone=${iconTone} aria-hidden="true">${icon}</span>
     <span class="ds-next-label">${band.label}</span>
     <span class="ds-next-text">${band.text}</span>
@@ -66,7 +67,32 @@ export function NextBand({ band }) {
     }
     ${band.map ? html`<a class="ds-btn ds-btn--ghost band-map" href=${formatRoute({ screen: "map", query: { sel: band.map, focus: "1" } })}>Show in map</a>` : null}
     ${band.action ? html`<a class="ds-btn ds-btn--primary" href=${formatRoute({ screen: band.action.tab })}>${band.action.label}</a>` : null}
-  </div>`;
+  </div></div></div>`;
+}
+
+/**
+ * "Suggestions · N" in the header: what waits for you (the band's suggestion and the other items), always reachable, also when the band is
+ * hidden because you are on its page. Links only; nothing is stored (D-R2-8).
+ */
+function Suggestions({ band, tab }) {
+  const items = suggestions(band, tab);
+  const menu = useRef(null);
+  useEffect(() => {
+    const out = (e) => {
+      if (menu.current?.open && !menu.current.contains(e.target))
+        menu.current.removeAttribute("open");
+    };
+    document.addEventListener("pointerdown", out);
+    return () => document.removeEventListener("pointerdown", out);
+  }, []);
+  return html`<details class="ds-menu ds-suggest" ref=${menu} onKeyDown=${closeOnEscape}>
+    <summary class="ds-btn ds-btn--ghost" data-act="suggestions" title="Suggestions: what waits for you"><span class="ds-suggest-ico" aria-hidden="true">✦</span><span class="ds-suggest-word">Suggestions</span>${items.length ? html`<span class="ds-suggest-count"> · ${items.length}</span>` : null}</summary>
+    ${
+      items.length
+        ? html`<ul aria-label="Suggestions" onClick=${() => menu.current?.removeAttribute("open")}>${items.map((s) => html`<li key=${`${s.tab}-${s.text}`} data-here=${s.here ? "true" : undefined}><a href=${formatRoute({ screen: s.tab })} aria-current=${s.here ? "page" : undefined}>${s.blocked ? html`<span class="ds-status" data-tone="err" aria-hidden="true">!</span> ` : null}${s.text}${s.here ? html` <span class="ds-badge" data-tone="neutral">you are here</span>` : null}</a></li>`)}</ul>`
+        : html`<ul aria-label="Suggestions"><li class="ds-small ds-muted" style="padding: var(--space-2) var(--space-3)">Nothing waits for you.</li></ul>`
+    }
+  </details>`;
 }
 
 /** Header: the project, the five production stages with their state, Config and the theme. */
@@ -109,13 +135,14 @@ export function Header({ slug, tab, states, news, band }) {
         </ol>
       </nav>
       <span class="ds-header-tools">
-        <a class="ds-btn ds-btn--ghost map-link" href="#/map" aria-haspopup="dialog" title="The project map: every version and what depends on what">◇ Map</a>
-        <a class="ds-btn ds-btn--ghost config-btn" href="#/config" aria-current=${tab === "config" ? "page" : undefined} title="Settings and brands (not a process step)">⚙ Config</a>
+        <${Suggestions} band=${band} tab=${tab} />
+        <a class="ds-btn ds-btn--ghost map-link" href="#/map" aria-haspopup="dialog" title="The project map: every version and what depends on what"><span aria-hidden="true">◇</span><span class="ds-tool-word"> Map</span></a>
+        <a class="ds-btn ds-btn--ghost config-btn" href="#/config" aria-current=${tab === "config" ? "page" : undefined} title="Settings and brands (not a process step)"><span aria-hidden="true">⚙</span><span class="ds-tool-word"> Config</span></a>
         <button class="ds-btn ds-btn--ghost ds-btn--icon" type="button" data-act="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick=${showShortcuts}>?</button>
         <${ThemeToggle} />
       </span>
     </header>
-    <${NextBand} band=${band} />
+    <${NextBand} band=${band} hidden=${bandHiddenAt(band, tab)} />
   </div>`;
 }
 

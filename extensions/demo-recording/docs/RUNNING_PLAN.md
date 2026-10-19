@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 2 (small fixes).
+`main`.** The next piece of work is item 6 (Config).
 
 ## 2. Done
 
@@ -38,8 +38,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 2 | **Small fixes** (2a, 2b, 2c) | a missing brand falls back and a failing draft only warns (2a); the review buttons show their state with Revoke (2b); the voice button says it makes a draft (2c) | R2-8, R2-6, R2-7 | done | 2 | 3 |
 | 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | done | 3 | 6 |
 | 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | done | 2 | 8 |
-| 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | **next** | 2 | 10 |
-| 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | planned | 4 | 14 |
+| 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | done | 2 | 10 |
+| 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | **next** | 4 | 14 |
 | 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | planned | 8 | 22 |
 | 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | planned | 4 | 26 |
 | 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | planned | 5 | 31 |
@@ -91,9 +91,16 @@ between 1216 and 1279 px Render is one column while the drawer is open. Tested a
 main content narrower by 352 px and never under the drawer, the drawer between header and strip, Render's columns, the overlay below 76rem) and
 the remembering. The old test of the overlay decision (D101) was rewritten. **Not tried on the real project;** the 22rem width is as decided.
 
-**5. Suggestions** (D-R2-8). `nextBand` learns the current tab and hides when it equals the band's target (Blocked and Director working never
-hide). The header gets "Suggestions · N": the current suggestion and what else waits, each a link, whether or not the band shows. No stored
-history. The band collapses with a short transition; the test checks the pinned panels keep their offset.
+**5. Suggestions** (D-R2-8), **done.** `bandHiddenAt(band, tab)` is true only for a "needs you" band whose target is the page you are on (Blocked,
+Director working, Running and Done never hide). The band is collapsed, not removed (a grid row going to 0 in 0.18 s, `inert` so the keyboard cannot
+reach it), so the header block shrinks and `--hwrap-h` follows; the pinned panels move up with it (tested). The header gets a **Suggestions · N**
+menu (`suggestions(band, tab)`: the current suggestion, a stop, then what else waits; the one on this page is marked "you are here"; links only;
+Escape, a click elsewhere or choosing one closes it; nothing stored). **Header room:** the new entry did not fit, and the stepper's labels used to
+overlap the tools between about 1024 and 1260 px, so the header now gives up in three steps: below 96rem "Suggestions" is an icon and the count,
+below 85rem Map and Config keep only their icons, below 80rem the step labels hide (all still read by screen readers; they used to hide at 64rem).
+Checked for overlap at 1600 to 900 px. **Measuring:** the controls count (`scripts/ux-measure.ts`) counted the links inside a closed menu, which are
+not shown; it no longer does (the menu on the band was counted too, so Annotations went 37 to 34 of its own). **Not tried on the real project;**
+the 96/85/80rem steps are measured on the seeded one at the Macchiato theme only.
 
 **6. Config** (D-R2-9). With a project open a row edits that project's override, labelled "Editing for <project>"; the global value is under
 Scopes. Edits are staged; a "N changes: Review and save" bar opens one combined diff; one write per file. The backend needs a batch endpoint that

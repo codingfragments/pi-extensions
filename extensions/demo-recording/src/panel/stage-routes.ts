@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { reviewScenes } from "../analysis/review.ts";
 import { readAnalysis } from "../analysis/take.ts";
+import { compareVersions } from "../compare/facts.ts";
 import { listFixSets } from "../qa/fixes.ts";
 import {
   addNote,
@@ -297,6 +298,12 @@ export function stageRoutes(deps: StageRouteDeps): {
           storyboardUsable: sb !== undefined && isUsable(p.dir, state.accepted, "storyboard", sb),
           takes,
         };
+      },
+      /** The facts of two versions of a stage (item 9): free and instant, nothing is spent. `?stage=storyboard|vo&a=1&b=2` */
+      compare: (q) => {
+        const p = deps.activeProject();
+        if (!p) throw new Error("no active project");
+        return compareVersions(p.dir, q.get("stage") ?? "", Number(q.get("a")), Number(q.get("b")));
       },
       /** Newest frame of a take being recorded right now (null when nothing is recording). */
       "live-frame": () => {

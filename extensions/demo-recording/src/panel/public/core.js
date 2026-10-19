@@ -24,7 +24,11 @@ export async function api(path) {
     throw new Error(
       "This panel link has expired (pi restarted). Open the current link from /demo panel.",
     );
-  if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  if (!res.ok) {
+    // the server says why in { error } (a refused request, a missing version): show that, not a status code
+    const json = await res.json().catch(() => ({}));
+    throw new Error(typeof json?.error === "string" ? json.error : `${path}: ${res.status}`);
+  }
   return res.json();
 }
 

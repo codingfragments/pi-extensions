@@ -162,6 +162,11 @@ Every stage has a **Versions** list next to its title. A row says what the versi
 
 ![The Versions list: v1 is in the production line, v2 is an approved alternative](images/guide/06-versions.jpg)
 
+**Advanced → Compare two versions…** (Storyboard and Voice over, once there are two versions) opens a window with the **facts** of two versions: counts with
+their difference (scenes, steps and marks, or sections, words, anchors and speech against footage), and what was added, removed or changed, in words and
+numbers. It is free and instant, it says nothing about which version is better, and it never changes a version. By default it compares the production
+line's version with the one you are viewing; *swap* turns it round.
+
 | Action | What it does | Asks? |
 |---|---|---|
 | **Approve & use** | approves it and puts it in the production line; **starts the Director** | when it changes the line |

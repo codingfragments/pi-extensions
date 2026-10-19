@@ -104,12 +104,13 @@ Director with its own note, once; they then show as *sent* and become a record (
 
 A list of sections (an intro, one per scene, an outro) and one in detail.
 
-![Voice over: sections, the narration and the picture at each anchor](images/guide/05-voice.jpg)
+![Voice over: sections, the narration and the timing at each anchor](images/guide/05-voice.jpg)
 
 | Part | What it does |
 |---|---|
 | **Narration** | editable; autosaves as a working draft on the version it started from; **Save new version** makes exactly one version and approves nothing |
-| **Under the narration** | one picture per anchor `[@mark]` the section speaks: the take's keyframe at that moment, the time and a line of what the page said, and **timing controls**: −100 / +100 ms nudges that write a timing hint `[@mark +300ms]` into the narration (a working draft until you save a version), what it says in words, Reset. The words and the voice stay the same, so it costs no audio |
+| **The scene's moments** | under the narration, **every frame of the scene in time order**: the start, each mark, notable moments (a toast) and the end. A mark the narration uses shows ✓ and the first words it pins; a mark it does not use says **not mentioned in the narration** (mention the moment, or leave it out on purpose) and is a button that puts its `[@mark]` into the narration **where the cursor was** (the strip follows the draft as you type; an anchor out of the take's order is flagged as before). An intro shows how the first scene opens, an outro how the last one ends |
+| **Timing at each anchor** | one card per `[@mark]` the section speaks: the time and a line of what the page said, and **timing controls**: −100 / +100 ms nudges that write a timing hint `[@mark +300ms]` into the narration (a working draft until you save a version), what it says in words, Reset. The words and the voice stay the same, so it costs no audio |
 | **Review** | Mark reviewed / Needs changes / Re-run as a state with **Revoke** (the others stay available), a note, and **Send review to agent** |
 | **Direction** | stance, tone, length, focus and notes for the whole narrative; the Director writes a new version from the same take |
 | **Confidence** | a badge per section with the reasons (a number not on the page, speech longer than the footage, changed since the version you approved) |
@@ -125,7 +126,7 @@ a draft is never rebased or dropped for you.
 
 ## Annotations
 
-Zooms, highlights, spotlights, callouts, chapter titles and privacy redactions, grouped by scene.
+Zooms, highlights, spotlights, callouts, chapter titles and privacy redactions, grouped by scene. **Previous** and **Next** flank the preview with "4 of 21" (disabled at the ends; they walk the list as it is filtered, and the selection follows); `[` and `]` do the same from the keyboard.
 
 ![Annotations: items by scene, one in detail](images/guide/07-annotations.jpg)
 
@@ -221,7 +222,7 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
   | `?` | show the shortcut sheet |
   | Tab, Shift+Tab | move between controls (a list is one stop) |
   | ↑ ↓, Home, End | move between the items of a list; Enter opens the one in focus |
-  | `[`, `]` | previous / next chapter in the recording review (focus inside it) |
+  | `[`, `]` | previous / next chapter in the recording review, previous / next annotation in Annotations (never in a text field) |
   | `N`, `+` | add a note at the current moment of the recording (focus inside the review) |
   | Esc | close the top layer: a dialog, the Versions list, the Map, or clear a search |
   | `/`, Ctrl/Cmd+K | search the settings (in Config) |

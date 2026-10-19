@@ -46,3 +46,26 @@ export function Chapters({ scenes, time = null, onSeek, note, label = "Chapters"
     })}
   </ol>`;
 }
+
+/**
+ * The frames of ONE scene as a strip (the voice-over's "the scene's moments", F16): `frames` are
+ * [{ label, kind, t, file?, note?: { text, tone }, onPick?: () => void }]. A frame with `onPick` is a button, the others are plain
+ * pictures with their caption. `note` says what the narration does with the moment ("used", "not mentioned").
+ */
+export function FrameStrip({ frames, label }) {
+  return html`<ul class="ds-frames ds-frames--strip" aria-label=${label}>
+    ${frames.map((f) => {
+      const body = html`${f.file ? html`<img loading="lazy" src=${media("project", f.file)} alt="" />` : html`<span class="ds-frame-missing" aria-hidden="true">no frame</span>`}
+        <span class="ds-frame-cap"><span class="ds-frame-label">${WORD[f.kind] ?? f.label}</span><span class="ds-muted ds-small">${clock(f.t)}</span></span>
+        ${f.note ? html`<span class="ds-frame-note" data-tone=${f.note.tone}>${f.note.text}</span>` : null}`;
+      const name = `${WORD[f.kind] ?? f.label}, ${clock(f.t)}${f.note ? `, ${f.note.text}` : ""}`;
+      return html`<li key=${`${f.label}-${f.t}`} data-kind=${f.kind} data-label=${f.label} data-used=${f.used ? "true" : undefined}>
+        ${
+          f.onPick
+            ? html`<button class="ds-frame" type="button" data-act="frame-pick" aria-label=${name} onClick=${f.onPick}>${body}</button>`
+            : html`<div class="ds-frame ds-frame--plain" role="group" aria-label=${name}>${body}</div>`
+        }
+      </li>`;
+    })}
+  </ul>`;
+}

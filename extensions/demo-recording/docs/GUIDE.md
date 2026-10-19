@@ -144,7 +144,7 @@ In the panel the narration is a list of sections (an intro, one per scene, an ou
 
 When the voice-over is right, **Approve & use**. Approving unlocks the voice.
 
-![Voice over: sections, the narration and the picture at each anchor](images/guide/05-voice.jpg)
+![Voice over: sections, the narration and the timing at each anchor](images/guide/05-voice.jpg)
 
 ### 3b. Voice and edit: this is where credits are spent
 

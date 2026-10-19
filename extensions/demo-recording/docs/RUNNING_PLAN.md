@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 8 (voice-over filmstrip and annotations step-through).
+`main`.** The next piece of work is item 9 (compare versions).
 
 ## 2. Done
 
@@ -41,8 +41,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | done | 2 | 10 |
 | 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | done | 4 | 14 |
 | 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | done | 8 | 22 |
-| 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | **next** | 4 | 26 |
-| 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | planned | 5 | 31 |
+| 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | done | 4 | 26 |
+| 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | **next** | 5 | 31 |
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | later | 12 | 43 |
 | 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | later | 7 | 50 |
 | 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | later | 4 | 54 |
@@ -158,8 +158,22 @@ key works only while focus is in the player area and never in a text field, the 
   **Not done / uncertain:** notes are not offered to the voice-over writer (decided: new take only); nothing checks that the Director acted on a note; the
   composer is not kept if you navigate away before saving; not tried on the real take. **Item 7 is done.**
 
-**8. Filmstrip and step-through.** The voice-over inspector shows all the scene's frames, used anchors marked and unused ones "not mentioned", a
-click inserts `[@mark]`; Annotations get Previous / Next flanking the preview with "4 of 21" and keys.
+**8. Filmstrip and step-through** (two PRs), **done.**
+- **8a, the voice-over filmstrip (F16).** `sectionFrames` (`src/panel/anchors.ts`) reads the same analysis as the recording review and returns every frame of
+  the section's scene in time order (start, each mark, notable moments, end; a still only when it exists), an intro showing how the first scene opens and
+  an outro how the last one ends, a bridge nothing. In the panel `FrameStrip` (in `chapters.js`, the 7a component's frame style) shows them under the
+  narration; **which marks are used is read from the draft text as you type** (`marksSpoken`), so inserting one turns it "used" at once: a used mark says ✓
+  and the first nine words it pins, an unused one says "not mentioned in the narration" and is a button that inserts `[@mark]` at the cursor (a space before
+  and after, the box keeps the focus and the caret after it; where the box never had the cursor, at the end). The "At each anchor" cards stay as **Timing at
+  each anchor** (time, page text, nudge) without repeating the picture. **Decided with you:** notable moments are shown (labelled, not clickable), the
+  cards stay, click inserts.
+- **8b, annotations step through (F19).** Previous / Next buttons flank the preview, "4 of 21" under it (with "shown (N in all)" when a filter hides some),
+  disabled at the ends; they follow the filtered, grouped list and the selection and the address follow; `[` and `]` do the same with focus anywhere in the
+  screen except a text field or over a dialog.
+- **Not done / uncertain:** the strip's picture of a used mark is the take's still, not the narration's timing (the cards keep that); nothing re-checks the
+  order of an inserted anchor until the version is validated, as before; an annotation whose list row is out of view is not scrolled to by the keys; not
+  tried on the real take. Tested: `vo-filmstrip.test.ts` (frames, pins, intro and outro, a browser walk with the insert at the cursor) and
+  `annotations-step.test.ts`; `ux19-anchors` now checks the cards without a picture.
 
 **9. Compare versions** (D-R2-11). Advanced, "Compare two versions…" on storyboard and voice-over. The engine supplies the facts from the existing
 diffs; the Director answers through a validated tool that refuses an answer without a verdict, the evidence it names (a scene, a section, a

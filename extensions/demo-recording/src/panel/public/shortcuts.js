@@ -4,7 +4,10 @@ export const SHORTCUTS = [
   ["?", "Show this list"],
   ["Tab · Shift+Tab", "Move between controls (a list is one stop)"],
   ["↑ ↓ · Home · End", "Move between the items of a list; Enter opens the one in focus"],
-  ["[ · ]", "Previous / next chapter in the recording review (focus inside it)"],
+  [
+    "[ · ]",
+    "Previous / next chapter in the recording review, previous / next annotation in Annotations",
+  ],
   ["N · +", "Add a note at the current moment of the recording (focus inside the review)"],
   ["Esc", "Close the top layer: a dialog, the Versions list, the Map, or clear a search"],
   ["/ · Ctrl/Cmd+K", "Search the settings (in Config)"],

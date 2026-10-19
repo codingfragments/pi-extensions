@@ -479,7 +479,7 @@ function TextField({ item, onCommit }) {
 }
 
 /** The selected annotation: its preview, text, timing, target and the reasons; the enable switch and reset. */
-function Inspector({ d, item, onEdit, onToggle, onOpen, resettable, readOnlyNote }) {
+function Inspector({ d, item, onEdit, onToggle, onOpen, resettable, readOnlyNote, step }) {
   const res = d.resolved[item.id];
   const problem = res && "problem" in res ? res.problem : null;
   const conf = confOf(d.confidence, item.id);
@@ -499,7 +499,12 @@ function Inspector({ d, item, onEdit, onToggle, onOpen, resettable, readOnlyNote
     </div>
     <${ConfReasons} c=${conf} />
     ${problem ? html`<p class="ds-small" style="color: var(--status-err)">Can't be placed: ${problem}</p>` : null}
-    <div class="ds-shot ann-shot"><${Preview} version=${d.version} item=${item} onOpen=${onOpen} /></div>
+    <div class="ds-stepper">
+      <button class="ds-btn ds-btn--icon" type="button" data-act="prev-annotation" disabled=${!step?.hasPrev} aria-label="Previous annotation" title="Previous annotation ([)" onClick=${() => step?.go(-1)}>‹</button>
+      <div class="ds-shot ann-shot"><${Preview} version=${d.version} item=${item} onOpen=${onOpen} /></div>
+      <button class="ds-btn ds-btn--icon" type="button" data-act="next-annotation" disabled=${!step?.hasNext} aria-label="Next annotation" title="Next annotation (])" onClick=${() => step?.go(1)}>›</button>
+    </div>
+    ${step ? html`<p class="ds-small ds-muted ds-stepper-label" role="status" aria-live="polite" data-position>${step.index + 1} of ${step.total}${step.filtered ? ` shown (${step.all} in all)` : ""} · <kbd class="ds-kbd">[</kbd> / <kbd class="ds-kbd">]</kbd> step</p>` : null}
     ${item.type === "callout" || item.type === "chapter" ? html`<${TextField} item=${item} onCommit=${(text) => onEdit({ op: "text", id: item.id, text })} />` : null}
     <div class="ds-stack">
       <span class="ds-label">When</span>
@@ -604,6 +609,29 @@ export function Annotations({ events }) {
     .filter((g) => g.total.length);
   const flat = groups.flatMap((g) => g.items);
   const item = flat.find((x) => x.id === route?.query?.item) ?? flat[0];
+  const at = flat.findIndex((x) => x.id === item?.id);
+  /** Previous / Next through the annotations as they are filtered and grouped; the selection follows. */
+  const step = {
+    index: at,
+    total: flat.length,
+    all: f.items.length,
+    filtered: shown.length < f.items.length,
+    hasPrev: at > 0,
+    hasNext: at >= 0 && at < flat.length - 1,
+    go: (delta) => {
+      const to = flat[at + delta];
+      if (to) select(to.id);
+    },
+  };
+  const onStepKey = (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+    if (document.querySelector(".modal-backdrop")) return;
+    if (e.key === "[" || e.key === "]") {
+      e.preventDefault();
+      step.go(e.key === "]" ? 1 : -1);
+    }
+  };
   const select = (id) =>
     goTo(
       { screen: "annotations", ...(version ? { version } : {}), query: { item: id } },
@@ -690,7 +718,7 @@ export function Annotations({ events }) {
     </section>
     <${Notices} d=${d} ed=${ed} setVersion=${setVersion} />
     <div class="ds-root ds-workspace">
-      <div class="ds-split">
+      <div class="ds-split" onKeyDown=${onStepKey}>
         <${NarrowSelect} label="Annotation" value=${item?.id} onChange=${select}
           options=${flat.map((it) => [it.id, `${it.scene} · ${rowTitle(it)}${it.enabled ? "" : " (off)"}`])} />
         <section class="ds-split-list" aria-label="Annotations">
@@ -730,7 +758,7 @@ export function Annotations({ events }) {
         </section>
         <section class="ds-split-detail" aria-label="Selected annotation">
           <div class="ds-detail-pin">
-          ${item ? html`<${Inspector} key=${`${d.version}-${item.id}`} d=${d} item=${item} onEdit=${ed.edit} onToggle=${onToggle} onOpen=${setLightbox} resettable=${resettable.has(item.id)} />` : null}
+          ${item ? html`<${Inspector} key=${`${d.version}-${item.id}`} d=${d} item=${item} onEdit=${ed.edit} onToggle=${onToggle} onOpen=${setLightbox} resettable=${resettable.has(item.id)} step=${step} />` : null}
           <div class="ds-actionbar">
             <span class="ds-savestate" data-state=${ed.save.status} role="status"><span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>${saveText(ed.save, d.draft)}</span>
             ${ed.save.status === "failed" ? html`<button class="ds-btn ds-btn--sm" type="button" onClick=${ed.retry}>Retry</button>` : null}

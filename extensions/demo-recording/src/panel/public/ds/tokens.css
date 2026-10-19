@@ -167,6 +167,8 @@
   --hwrap-h: 7.5rem;
   --strip-h: 2.5rem;
   --list-w: 22rem;
+  /* the Activity drawer docked beside the main content */
+  --drawer-w: 22rem;
   --inspector-min: 28rem;
   --target-min: 2rem; /* interactive targets: 32 px, above the 24 px WCAG floor */
 }

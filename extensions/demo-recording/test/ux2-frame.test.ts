@@ -409,19 +409,28 @@ test(
         "focus returns to the Activity button",
       );
 
-      // it overlays: the page does not get narrower, and it is closed again after a reload
-      const width = await page.evaluate(
+      // it is docked (D135): the main content gets narrower, the header does not, and it is remembered across a reload
+      const width = (await page.evaluate(
         `document.querySelector("main").getBoundingClientRect().width`,
-      );
+      )) as number;
       await button.click();
       await drawer.waitFor({ state: "visible" });
       assert.equal(
-        await page.evaluate(`document.querySelector("main").getBoundingClientRect().width`),
-        width,
+        Math.round(
+          width -
+            ((await page.evaluate(
+              `document.querySelector("main").getBoundingClientRect().width`,
+            )) as number),
+        ),
+        352,
+      );
+      assert.equal(
+        await page.evaluate(`document.querySelector(".ds-hwrap").getBoundingClientRect().width`),
+        1400,
       );
       await page.reload();
       await page.waitForSelector(".ds-strip");
-      assert.equal(await page.locator("aside#activity").isVisible(), false);
+      assert.equal(await page.locator("aside#activity").isVisible(), true, "remembered open");
     } finally {
       await close();
     }

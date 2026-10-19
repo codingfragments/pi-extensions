@@ -37,8 +37,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 1 | **Docs: decisions and the running plan** | the decisions recorded, this page, the early checks described and moved to the long tail | the grill | done | 1 | 1 |
 | 2 | **Small fixes** (2a, 2b, 2c) | a missing brand falls back and a failing draft only warns (2a); the review buttons show their state with Revoke (2b); the voice button says it makes a draft (2c) | R2-8, R2-6, R2-7 | done | 2 | 3 |
 | 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | done | 3 | 6 |
-| 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | **next** | 2 | 8 |
-| 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | planned | 2 | 10 |
+| 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | done | 2 | 8 |
+| 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | **next** | 2 | 10 |
 | 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | planned | 4 | 14 |
 | 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | planned | 8 | 22 |
 | 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | planned | 4 | 26 |
@@ -82,11 +82,14 @@ wrapped to two or three lines, pinned at the line while scrolling, never below t
 pinned). **Not done:** the Brands editor shares the layout and gets the wrapping, but not the pin (its list is short); Annotations' Previous / Next
 is item 8.
 
-**4. Docked drawer** (D-R2-7). The page below the header becomes a row of workspace and drawer; header, band and strip keep the full width, so
-`--hwrap-h` and every pin keep working. The drawer is 22rem and the Render grid's two-column limit drops from about 72rem to 60rem; below about
-1184 px the drawer stays an overlay. The user's open state is stored in the browser and restored after a reload (never opened by the system).
-Escape, focus in and back, and the strip stay. Test: at 1400, 1100 and 900 px, open and closed, no element is covered. **Uncertain until tried
-on the real project:** whether 22rem and 60rem are right.
+**4. Docked drawer** (D-R2-7), **done.** The page below the header is a row of the screen and the drawer (`.ds-body`); the drawer is a sticky 22rem
+column from a 76rem window up (the list screens' 52rem narrow limit plus the drawer), an overlay below that; the header, the band and the strip
+keep the full width, so `--hwrap-h` and every pin are untouched. The open state is stored when you toggle it and restored after a reload without
+taking the focus; the system never opens it; Escape, focus back to the strip button and the contents are unchanged. **Deviation from the decision:**
+Render's two-column limit is 56rem, not "about 60rem", so a 1280 px window keeps two columns with the drawer open (at 60rem it needed 1344 px);
+between 1216 and 1279 px Render is one column while the drawer is open. Tested at 1400, 1280, 1100 and 900 px (full-width header and strip, the
+main content narrower by 352 px and never under the drawer, the drawer between header and strip, Render's columns, the overlay below 76rem) and
+the remembering. The old test of the overlay decision (D101) was rewritten. **Not tried on the real project;** the 22rem width is as decided.
 
 **5. Suggestions** (D-R2-8). `nextBand` learns the current tab and hides when it equals the band's target (Blocked and Director working never
 hide). The header gets "Suggestions · N": the current suggestion and what else waits, each a link, whether or not the band shows. No stored

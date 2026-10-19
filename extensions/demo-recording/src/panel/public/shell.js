@@ -22,6 +22,8 @@ import { stepOf } from "./steps.js";
 import { Review } from "./storyboard.js";
 import { Voice } from "./voice.js";
 
+const DRAWER_KEY = "demo-rec-activity";
+
 const SCREEN_BODY = {
   project: (p) => html`<${Project} events=${p.events} />`,
   storyboard: (p) => html`<${Review} events=${p.events} stages=${p.stages} />`,
@@ -59,7 +61,25 @@ export function App() {
   const jobs = jobData?.jobs ?? [];
   const slug = state?.project?.slug ?? null;
   const [notice, setNotice] = useState(null);
-  const [drawer, setDrawer] = useState(false);
+  // The Activity drawer: closed until you open it, and then it stays as you left it, also after a reload (D135). The system never opens it.
+  const [drawer, setDrawerState] = useState(() => {
+    try {
+      return localStorage.getItem(DRAWER_KEY) === "open";
+    } catch {
+      return false;
+    }
+  });
+  // remembered the moment you toggle it (not in a deferred effect: a quick reload must not lose it)
+  const setDrawer = (next) =>
+    setDrawerState((was) => {
+      const now = typeof next === "function" ? next(was) : next;
+      try {
+        localStorage.setItem(DRAWER_KEY, now ? "open" : "closed");
+      } catch {
+        // no storage: it simply starts closed next time
+      }
+      return now;
+    });
   const [dismissed, setDismissed] = useState(() => new Set());
   const [news, setNews] = useState(() => new Set());
   const stripButton = useRef(null);
@@ -161,15 +181,17 @@ export function App() {
   const body = (SCREEN_BODY[tab] ?? SCREEN_BODY.project)({ events, stages });
   return html`
     <${Header} slug=${slug} tab=${tab} states=${states} news=${news} band=${band} />
+    <div class="ds-body">
     <main class=${tab}>
       ${notice ? html`<div class="ds-root ds-notice route-notice" role="note" data-tone="warn"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div class="ds-grow">${notice}</div><button class="ds-btn ds-btn--sm" type="button" onClick=${() => setNotice(null)}>Dismiss</button></div>` : null}
       <${DirectorAsks} events=${events} />
       ${stateError ? html`<section class="card error">${stateError}</section>` : null}
       ${body}
     </main>
+    <${ActivityDrawer} open=${drawer} onClose=${() => setDrawer(false)} events=${events} rows=${rows} jobs=${jobs}
+      dismissed=${dismissed} onDismiss=${(id) => setDismissed((d) => new Set([...d, id]))} buttonRef=${stripButton} />
+    </div>
     ${mapOpen ? html`<${ProjectMap} route=${route} go=${go} slug=${slug} events=${events} onClose=${closeMap} />` : null}
     <${ActivityStrip} strip=${strip} status=${status} open=${drawer} buttonRef=${stripButton}
-      onToggle=${(forceOpen) => setDrawer((o) => (forceOpen === true ? true : !o))} />
-    <${ActivityDrawer} open=${drawer} onClose=${() => setDrawer(false)} events=${events} rows=${rows} jobs=${jobs}
-      dismissed=${dismissed} onDismiss=${(id) => setDismissed((d) => new Set([...d, id]))} buttonRef=${stripButton} />`;
+      onToggle=${(forceOpen) => setDrawer((o) => (forceOpen === true ? true : !o))} />`;
 }

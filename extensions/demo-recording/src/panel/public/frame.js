@@ -181,8 +181,9 @@ function JobList({ jobs, dismissed, onDismiss }) {
 }
 
 /**
- * The Activity drawer: a non-modal overlay on the right. It opens only on request, takes the focus
- * when it opens, gives it back to the strip's button when it closes, and Escape closes it (unless a
+ * The Activity drawer: a non-modal panel on the right, DOCKED beside the main content when the window is wide enough (the main content gets
+ * narrower; the header, the band and the strip keep the full width) and an overlay below that. It opens only on request (and is remembered
+ * as you left it), takes the focus when you open it, gives it back to the strip's button when it closes, and Escape closes it (unless a
  * dialog or popup is on top, which then closes first).
  */
 /** What happened by itself (run-and-tell, steps.js): the last few results that arrived without you asking. */
@@ -216,12 +217,14 @@ export function ActivityDrawer({
   buttonRef,
 }) {
   const box = useRef(null);
+  const restored = useRef(open); // open when the page loaded: it was your choice, not a new request: no focus is taken
   const [fullLog, setFullLog] = useState(false);
   const [line, setLine] = useState(null);
   // A layout effect: the focus and the Escape handler must be in place the moment the drawer shows.
   useLayoutEffect(() => {
     if (!open) return;
-    box.current?.focus();
+    if (restored.current) restored.current = false;
+    else box.current?.focus();
     const onKey = (e) => {
       if (e.key !== "Escape" || document.querySelector(".modal-backdrop")) return;
       if (

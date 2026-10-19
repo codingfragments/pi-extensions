@@ -21,7 +21,7 @@ Every screen has the same frame around it, so you always know where you are, wha
 | **Next-step band** | under the bar | what needs you (a draft newer than the newest approved version, or the engine's next step) or what is blocked, with a link to go there and a menu of the other pending items. It only links: it never starts anything and never moves you |
 | **The screen** | middle | one of the stages, Project, Config, or the Map as an overlay |
 | **Status strip** | bottom | one short line: *Nothing running*, what runs (a percentage only when the job reports one), a failure in red with **Show error**, or the connection state |
-| **Activity drawer** | right, on demand | the running jobs with progress, **what happened by itself**, what needs attention, recent jobs, the live frame, the safety feed and the log |
+| **Activity drawer** | right, on demand, **docked** beside the screen | the running jobs with progress, **what happened by itself**, what needs attention, recent jobs, the live frame, the safety feed and the log |
 
 ![The frame while a render runs, with the Activity drawer open](images/guide/12-frame-running.jpg)
 
@@ -42,7 +42,7 @@ Every screen has the same frame around it, so you always know where you are, wha
   badge so it is not mistaken for the annotated one.
 - **A result that arrives** (a storyboard, a take, a voice-over, annotations, a render) puts a **new** badge on its step. It never
   switches the screen, takes the focus or touches what you are typing.
-- **The Activity drawer never opens by itself**, not even on an error; it is closed again after a reload. A failure is also in the strip
+- **The Activity drawer never opens by itself**, not even on an error; it opens when you ask and is **remembered as you left it**, also after a reload (open it, and it is open next time; close it, and it stays closed). It is **docked**: the screen gets 22 rem narrower and sits beside it, while the header, the band and the strip keep the full width; Render keeps its two columns from a 1280 px window up. In a window narrower than about 76 rem (1216 px) there is no room to squeeze, so it overlays the screen instead. A failure is also in the strip
   and in the band, so it cannot be missed without taking the screen over.
 - **Messages** are toasts: errors stay until dismissed and have **Copy**; information goes away after a few seconds (not while the
   pointer or the keyboard focus is on it).

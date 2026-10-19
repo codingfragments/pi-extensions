@@ -112,8 +112,9 @@ The strip exposes running jobs, progress when known, failures and connection
 state. Multiple jobs get a count and a route to their details. Idle takes one
 short line. No invented percentages for work whose progress is unknown.
 
-The drawer overlays the workspace, never squeezes it, and opens only on user
-request. It contains job progress, live preview when available and logs;
+The drawer is **docked** beside the workspace (the workspace gets narrower; the header, the band and the strip keep the full width; D135, which
+supersedes D101) and overlays only when the window is too narrow to squeeze (below about 76 rem). It opens only on user
+request and is remembered as you left it. It contains job progress, live preview when available and logs;
 existing full-log, event inspection, filtering and Copy remain accessible.
 Failures stay discoverable after a toast is dismissed. No automatic drawer
 opening, even on error; actionable failures are visible in the strip/summary.

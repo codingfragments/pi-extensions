@@ -328,7 +328,7 @@ NEXT  Complete the missing brief details before discovery.
 One result per setting. Search keys, labels, descriptions and displayed
 non-secret values across groups/scopes. Show the effective value and source,
 global value and project override together. Search does not change the edit
-scope; actions explicitly say **Edit global** or **Override for this project**.
+scope; with a project open the row's own button is **Edit for <project>** and the global value is under Scopes (D136; this sketch shows the Scopes layers).
 
 ```text
 Config                                         [Search settings…]

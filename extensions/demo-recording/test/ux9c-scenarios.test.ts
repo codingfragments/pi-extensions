@@ -657,14 +657,15 @@ test(
       await page.click(`${card} [data-act=edit-project]`);
       assert.match(
         await page.locator(`${card} .ds-srow-edit label`).innerText(),
-        /Editing the project override \(keycraft\)/,
+        /Editing for keycraft/,
       );
       assert.match(
         await page.locator(`${card} .ds-srow-edit .ds-notice`).innerText(),
         /no effect right now/,
       );
       await page.fill("#edit-voiceName", "Project_voice");
-      await page.click(`${card} [data-act=save]`);
+      await page.click(`${card} [data-act=stage]`);
+      await page.click(".ds-cfg-stagebar [data-act=review]");
       for (let i = 0; i < 100 && !dlg.seen.length; i++) await wait(50);
       assert.match(dlg.seen[0] ?? "", /no effect right now[\s\S]*overridden by/i);
       const projectFile = path.join(seed.dir, "config.json");

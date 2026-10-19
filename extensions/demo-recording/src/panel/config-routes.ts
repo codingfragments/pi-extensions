@@ -14,15 +14,18 @@ import path from "node:path";
 import { listBrands } from "../brand/brand.ts";
 import { effectiveBrand } from "../brand/brand.ts";
 import {
+  type BatchItem,
   CONFIG_DOCS,
   ENV_KEYS,
   type LayerFiles,
   type Scope,
+  applyBatch,
   applyChange,
   describeConfig,
   getPath,
   layerFiles,
   parseValue,
+  planBatch,
   planChange,
 } from "../config-edit.ts";
 import { type DemoRecConfig, defaultConfig } from "../config.ts";
@@ -322,6 +325,67 @@ export function configRoutes(deps: ConfigRouteDeps): {
           slug,
         );
         return { saved: true, file: change.file, effective: change.effective ?? null };
+      },
+      /**
+       * Several changes at once (the panel stages edits and saves them together): without confirm → one diff per
+       * file and what each change does; with confirm → one write per file. All of them are validated first; if one
+       * is rejected nothing is written and the error names the setting.
+       */
+      "config-batch": (body) => {
+        const raw = body.changes;
+        if (!Array.isArray(raw) || !raw.length)
+          throw new Error('"changes" must be a non-empty list');
+        const items: BatchItem[] = raw.map((c, i) => {
+          const o = (c ?? {}) as Record<string, unknown>;
+          if (typeof o.key !== "string" || !o.key)
+            throw new Error(`change ${i + 1}: "key" is required`);
+          const unset = o.unset === true;
+          if (!unset && o.value === undefined)
+            throw new Error(`${o.key}: "value" is required (or "unset": true)`);
+          return {
+            key: o.key,
+            scope: scopeOf(o),
+            unset,
+            ...(unset
+              ? {}
+              : { value: typeof o.value === "string" ? parseValue(o.value) : o.value }),
+          };
+        });
+        const plan = planBatch(files(), items, { env: env(), home: home() });
+        if (body.confirm !== true)
+          return {
+            planned: true,
+            files: plan.files.map(({ file, scope, diff }) => ({ file, scope, diff })),
+            changes: plan.changes.map((c) => ({
+              key: c.key,
+              scope: c.scope,
+              before: c.before ?? null,
+              after: c.after ?? null,
+              effective: c.effective ?? null,
+              shadowedBy: c.shadowedBy ?? null,
+            })),
+          };
+        applyBatch(plan);
+        deps.reloadConfig();
+        const slug = deps.activeProject()?.slug;
+        const fileOf = (scope: Scope) => plan.files.find((f) => f.scope === scope)?.file;
+        for (const c of plan.changes)
+          deps.publish(
+            "config.changed",
+            {
+              key: c.key,
+              scope: c.scope,
+              by: "panel",
+              file: fileOf(c.scope),
+              before: c.before ?? null,
+              after: c.after ?? null,
+              effective: c.effective ?? null,
+              ...(c.shadowedBy ? { shadowedBy: c.shadowedBy } : {}),
+              message: `${c.key}: ${fmtVal(c.before)} → ${c.after === undefined ? "unset" : fmtVal(c.after)} (${c.scope})`,
+            },
+            slug,
+          );
+        return { saved: true, count: plan.changes.length, files: plan.files.map((f) => f.file) };
       },
       /** Open the global or project config file in the default editor (created as {} if missing). */
       "config-open": (body) => {

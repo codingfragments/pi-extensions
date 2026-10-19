@@ -1,6 +1,6 @@
 # Roadmap: the phases after the first real-app run
 
-Status: **planned, nothing implemented.** Source: the 32 findings of the first real-app run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)),
+Status: **P1 is done and accepted; the order of what is left is the first table below.** Source: the 32 findings of the first real-app run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)),
 grouped into phases with the user (meaningful groups, not a list of tweaks). The plan for the first and largest phase is
 [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md). The phase table is also in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left).
 
@@ -9,7 +9,41 @@ screenshots at 900 and 1400 px where the panel changes, and CI green before merg
 approves, the agent proposes. Sizes: S about a day, M 2 to 4 days, L about 5 to 6. Estimates are rough and sequential for one person;
 they give the order of magnitude, not dates.
 
-## The phases
+## Current order after the run 2 grill
+
+Status (2026-10-19): **P1 is done and accepted** (P1a safety and truth, P1b QA as a report, P1c the fix loop, Q7 the overrides retired, Run 2
+complete). What is left, in the order to do it, decided with the user ([the decisions](REAL_RUN2_FINDINGS.md#the-run-2-grill-decisions-d-r2-1-to-d-r2-12)).
+Days are sequential for one person (S about 1, M 2 to 4, L about 5 to 6); Σ is the running total, an order of magnitude and not a date.
+
+| # | Work package | What changes for you | From | Days | Σ |
+|---|---|---|---|---:|---:|
+| 1 | **Docs: decisions and roadmap** | the decisions recorded (D101 and D125 amended), this roadmap, the early checks described and moved to the long tail | the grill | 1 | 1 |
+| 2 | **Small fixes** | review buttons show their state with Revoke; a missing brand falls back to neutral and a failing draft only warns; the voice button says it makes a draft; title bleeding fixed | R2-6, R2-7, R2-8, R2-9 | 2 | 3 |
+| 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | 3 | 6 |
+| 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render stays two columns (absorbs L3, moved up from P4) | R2-12, F7 | 2 | 8 |
+| 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | 2 | 10 |
+| 6 | **Config** | edit the project value on the row; staged edits with one combined review | R2-1, R2-2 | 4 | 14 |
+| 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | 8 | 22 |
+| 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | 4 | 26 |
+| 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | 5 | 31 |
+| 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview (the discovery checks, QS-disc, are in the long tail) | F1, F2, F3, F5, F6 | 12 | 43 |
+| 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | 7 | 50 |
+| 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | 4 | 54 |
+| 13 | **Run 3** (the user) | a full run on a different app, every screen at 1400 and 900 px | | 2 | 56 |
+| 14 | **S7 Login and sessions** | required for v1, with the session checks | F4 | 8 | 64 |
+| 15 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | 6 | 70 |
+| 16 | **S8 Native capture** | optional | | later | |
+| 17 | **Long tail, not scheduled** | the thin early checks (P1d, [described](FUTURE_IDEAS.md#early-checks-thin-config-gated-informational)), the coherence review (Q8), extra QA checks (Q9), discovery checks (QS-disc), compare for recording, annotations and render, a stored suggestion history, `superseded` / `stale` pending fixes, a map node for fix sets, the two flaky tests ([KNOWN_ISSUES.md](KNOWN_ISSUES.md)) | | | |
+
+What moved: **L1, L3 and L6 are absorbed** into items 3, 4 and 9 (so they are not done twice, and 3 and 4 come earlier than in the original
+grouping); the early checks and the discovery checks left the plan because run 2 showed no need; the filmstrip and step-through (8) follow the
+recording review (7) because they reuse its chapter and frame component.
+
+## The original grouping (after run 1, before the run 2 grill)
+
+Kept for the record: the phases as first grouped. Items marked done are done; the order that applies now is the table above.
+
+### The phases (original table)
 
 | Phase | Theme: what changes for you | Findings | Days |
 |---|---|---|---|

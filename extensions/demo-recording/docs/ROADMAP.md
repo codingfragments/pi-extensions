@@ -1,6 +1,6 @@
 # Roadmap: the phases after the first real-app run
 
-Status: **planned, nothing implemented.** Source: the 32 findings of the first real-app run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)),
+Status: **P1 is done and accepted; the order of what is left is in [RUNNING_PLAN.md](RUNNING_PLAN.md).** Source: the 32 findings of the first real-app run ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)),
 grouped into phases with the user (meaningful groups, not a list of tweaks). The plan for the first and largest phase is
 [PLAN_QA_CHANGE.md](PLAN_QA_CHANGE.md). The phase table is also in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left).
 
@@ -9,7 +9,18 @@ screenshots at 900 and 1400 px where the panel changes, and CI green before merg
 approves, the agent proposes. Sizes: S about a day, M 2 to 4 days, L about 5 to 6. Estimates are rough and sequential for one person;
 they give the order of magnitude, not dates.
 
-## The phases
+## Current order after the run 2 grill
+
+**The order of what is left, with statuses, sizes and the running total, is [RUNNING_PLAN.md](RUNNING_PLAN.md#3-the-plan-in-order).** It is the
+single source of truth and is updated with every PR; this page keeps the detail of the later phases (the workstreams below) and the history.
+P1 is done and accepted. The decisions behind the order are
+[D-R2-1 to D-R2-12](REAL_RUN2_FINDINGS.md#the-run-2-grill-decisions-d-r2-1-to-d-r2-12).
+
+## The original grouping (after run 1, before the run 2 grill)
+
+Kept for the record: the phases as first grouped. Items marked done are done; the order that applies now is the table above.
+
+### The phases (original table)
 
 | Phase | Theme: what changes for you | Findings | Days |
 |---|---|---|---|

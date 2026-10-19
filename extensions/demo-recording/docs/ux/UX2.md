@@ -27,8 +27,8 @@ inside it are unchanged (they move in UX3 to UX8), except Recording, which adopt
   at all, have them now.
 - **The status strip** is one line: nothing running, what runs, a failure (red, with *Show error*), or the
   connection. Screen readers hear changes of meaning, not every progress tick.
-- **The Activity drawer** opens only on request, overlays, takes the focus, gives it back, closes on Escape
-  (a dialog or popup first) and is closed again after a reload. An error never opens it. It holds running
+- **The Activity drawer** opens only on request, takes the focus, gives it back, closes on Escape
+  (a dialog or popup first). *(Changed by D135 after run 2: it is docked beside the screen instead of overlaying it, and is remembered across a reload.)* An error never opens it. It holds running
   jobs, *Needs attention* (a failed job with details and *Dismiss*), recent jobs, the preview, safety and
   the log with its popups.
 - **Recording** uses the shared stage title and design-system controls (its version machinery follows in UX3).

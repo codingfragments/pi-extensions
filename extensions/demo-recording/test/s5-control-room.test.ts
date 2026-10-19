@@ -480,17 +480,28 @@ test(
       assert.ok(readState(dir)?.accepted.recording?.["2"], "cancelled: still approved");
       dlg.answer.accept = true;
 
-      // The Activity drawer: closed by default, opens on request, overlays (the page does not shrink),
-      // Escape closes it and the focus goes back to the strip's button. It is not remembered across reloads.
+      // The Activity drawer (D135): closed by default, opens on request and is DOCKED beside the main content (which gets narrower by the
+      // drawer's width; the header and the strip keep the full width), Escape closes it and the focus goes back to the strip's button.
+      // It is remembered across reloads (your own choice, never opened by the system).
       const widthBefore = await page.evaluate(
         `document.querySelector("main").getBoundingClientRect().width`,
       );
       await page.locator(".ds-strip button[aria-controls=activity]").click();
       await page.waitForSelector("aside#activity", { state: "visible" });
       assert.equal(
-        await page.evaluate(`document.querySelector("main").getBoundingClientRect().width`),
-        widthBefore,
-        "the drawer overlays: the page does not get narrower",
+        Math.round(
+          (widthBefore as number) -
+            ((await page.evaluate(
+              `document.querySelector("main").getBoundingClientRect().width`,
+            )) as number),
+        ),
+        352,
+        "docked at 1400 px: the main content gets narrower by the drawer's 22rem",
+      );
+      assert.equal(
+        await page.evaluate(`document.querySelector(".ds-hwrap").getBoundingClientRect().width`),
+        1400,
+        "the header keeps the full width",
       );
       await page.keyboard.press("Escape");
       assert.equal(
@@ -500,10 +511,19 @@ test(
       );
       await page.locator(".ds-strip button[aria-controls=activity]").click();
       await page.reload();
+      await page.waitForSelector("aside#activity", { state: "visible" });
+      assert.equal(
+        await page.evaluate(`document.activeElement?.closest("aside#activity") !== null`),
+        false,
+        "open after a reload, as you left it, and it did not take the focus",
+      );
+      await page.keyboard.press("Escape");
+      await page.reload();
+      await page.waitForSelector(".ds-strip");
       assert.equal(
         await page.locator("aside#activity").isVisible(),
         false,
-        "closed again after a reload",
+        "closed after a reload when you left it closed",
       );
       await page.setViewportSize({ width: 900, height: 900 });
       await page.locator(".ds-strip button[aria-controls=activity]").click();

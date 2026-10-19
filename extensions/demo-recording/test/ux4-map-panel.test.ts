@@ -65,7 +65,7 @@ test(
       assert.equal(await hash(page), "#/map");
       assert.equal(await page.locator(".ds-map [role=status]").innerText(), "12 shown");
       assert.equal(
-        await page.evaluate("document.querySelector('#app > main').inert"),
+        await page.evaluate("document.querySelector('#app > .ds-body').inert"),
         true,
         "the page behind is inert",
       );

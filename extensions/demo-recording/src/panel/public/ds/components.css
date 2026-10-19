@@ -797,6 +797,29 @@
   background: var(--surface-overlay);
   box-shadow: var(--shadow-2);
 }
+/* Docked (D135): when the window is wide enough for the narrow-layout limit of the list screens (52rem) plus the drawer, the drawer is a column BESIDE
+   the main content, which gets narrower; the header, the band and the strip keep the full width. Below that it stays an overlay. */
+.ds-body {
+  display: flex;
+  align-items: flex-start;
+}
+.ds-body > main {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+@media (min-width: 76rem) {
+  .ds-drawer {
+    position: sticky;
+    inset-block-start: var(--hwrap-h);
+    inset-block-end: auto;
+    inset-inline-end: auto;
+    flex: 0 0 var(--drawer-w);
+    inline-size: var(--drawer-w);
+    block-size: calc(100vh - var(--hwrap-h) - var(--strip-h));
+    z-index: auto;
+    box-shadow: none;
+  }
+}
 .ds-drawer-head {
   display: flex;
   align-items: center;

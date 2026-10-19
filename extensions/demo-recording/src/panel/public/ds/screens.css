@@ -2098,7 +2098,7 @@ video.ann-thumb {
   object-fit: contain;
 }
 
-@container (min-width: 72rem) {
+@container (min-width: 56rem) {
   .render-detail-grid {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }

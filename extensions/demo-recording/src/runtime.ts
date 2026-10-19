@@ -22,6 +22,7 @@ import { Jobs } from "./jobs.ts";
 import type { RegistryLike } from "./models.ts";
 import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
+import { compareRoutes } from "./panel/compare-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { costRoutes } from "./panel/cost.ts";
 import { draftRoutes } from "./panel/draft-routes.ts";
@@ -428,6 +429,7 @@ export class Runtime {
     const cost = costRoutes(this);
     const grants = grantRoutes(this);
     const fixes = fixRoutes(this);
+    const compare = compareRoutes(this);
     const jobs = jobRoutes(this);
     const graph = graphRoutes(this);
     const drafts = draftRoutes({
@@ -447,6 +449,7 @@ export class Runtime {
         ...graph.get,
         ...grants.get,
         ...fixes.get,
+        ...compare.get,
         ...drafts.get,
         ...versions.get,
         ...brand.get,
@@ -471,6 +474,7 @@ export class Runtime {
         ...cost.post,
         ...grants.post,
         ...fixes.post,
+        ...compare.post,
       },
     };
   }

@@ -167,6 +167,14 @@ their difference (scenes, steps and marks, or sections, words, anchors and speec
 numbers. It is free and instant, it says nothing about which version is better, and it never changes a version. By default it compares the production
 line's version with the one you are viewing; *swap* turns it round.
 
+Below the facts, **Ask the Director for a verdict** starts a visible Director turn (model tokens only: nothing is recorded, spoken or changed; no Allow).
+The Director cannot answer loosely: its tool **refuses** a verdict that is not one of *better*, *worse*, *different* or *no meaningful change*; that has
+fewer than two or more than six points; that cites a scene, section or number that is not in the facts above; that says better or worse without citing a
+measured fact; that leaves out **Against this recommendation** (the strongest argument against its own recommendation); or that recommends against its
+own verdict. The verdict shows with its points as chips (a click jumps to the fact, and the facts it cites are marked), the argument against, and the
+recommendation with **Use vN for next steps**, which is the usual Use action with its consequence dialog. One verdict is kept per pair of versions: asking
+again replaces it (after asking you), you can give up on an ask the Director has not answered, and **Advanced → Past comparisons (n)** reopens a stored one.
+
 | Action | What it does | Asks? |
 |---|---|---|
 | **Approve & use** | approves it and puts it in the production line; **starts the Director** | when it changes the line |

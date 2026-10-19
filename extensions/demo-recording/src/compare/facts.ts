@@ -63,6 +63,7 @@ const evidenceOf = (facts: CompareFact[], changes: CompareChange[]) => [
 
 // ---------------------------------------------------------------- storyboard
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const steps = (sb: Storyboard) => sb.scenes.flatMap((s) => s.steps);
 const marksOf = (s: Scene) => s.steps.map((x) => x.mark).filter(Boolean) as string[];
 const improvised = (sb: Storyboard) =>
@@ -135,14 +136,14 @@ export function compareStoryboardData(a: Storyboard, b: Storyboard): Comparison 
       id: `scene:${id}`,
       kind: "removed",
       label: sa.get(id)?.title ?? id,
-      detail: `scene ${id} is gone (${sa.get(id)?.steps.length ?? 0} steps)`,
+      detail: `scene ${id} is gone (${plural(sa.get(id)?.steps.length ?? 0, "step")})`,
     });
   for (const id of d.added)
     changes.push({
       id: `scene:${id}`,
       kind: "added",
       label: sb.get(id)?.title ?? id,
-      detail: `new scene ${id} (${sb.get(id)?.steps.length ?? 0} steps)`,
+      detail: `new scene ${id} (${plural(sb.get(id)?.steps.length ?? 0, "step")})`,
     });
   for (const id of d.changed)
     changes.push({

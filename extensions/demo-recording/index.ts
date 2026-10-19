@@ -7,6 +7,7 @@ import { Runtime } from "./src/runtime.ts";
 import { registerAnnotationsTool } from "./src/tools/annotations.ts";
 import { registerBrandTool } from "./src/tools/brand.ts";
 import { registerBrowserTool } from "./src/tools/browser.ts";
+import { registerCompareTool } from "./src/tools/compare.ts";
 import { registerConfigTool } from "./src/tools/config.ts";
 import { registerEditTool } from "./src/tools/edit.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
@@ -83,4 +84,5 @@ export default function (pi: ExtensionAPI) {
   registerAnnotationsTool(pi, rt);
   registerRenderTool(pi, rt);
   registerQaTool(pi, rt);
+  registerCompareTool(pi, rt);
 }

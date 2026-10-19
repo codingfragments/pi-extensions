@@ -9,7 +9,7 @@
 //   alert         something went wrong or needs a look: never silent, always a toast
 //   quiet         your own action or bookkeeping: nothing to tell
 //
-// `tab` is the screen it concerns; `when(e)` narrows it (an edit you made yourself is not news to you).
+// `tab` is the screen it concerns (a name, or a function of the event); `when(e)` narrows it (an edit you made yourself is not news to you).
 
 const mine = (e) => ["user", "panel", "cli"].includes(e.data?.by);
 const notMine = (e) => !mine(e);
@@ -23,6 +23,13 @@ export const STEPS = {
   "brand.changed": { class: "quiet" },
   "brief.requested": { class: "quiet" },
   "brief.written": { class: "run-and-tell", tab: "project", when: notMine },
+  // the verdict of a comparison: a result the Director wrote; it belongs to the stage that was compared
+  "compare.answered": {
+    class: "run-and-tell",
+    tab: (e) => (e.data?.stage === "vo" ? "voice" : "storyboard"),
+  },
+  "compare.asked": { class: "quiet" },
+  "compare.cancelled": { class: "quiet" },
   "config.changed": { class: "quiet" },
   "confirm.denied": { class: "ask" },
   "confirm.granted": { class: "ask" },
@@ -104,5 +111,5 @@ export function stepOf(e) {
   // a job that failed or was cancelled is not a result: the strip and the band already say so (UX2), a toast would only repeat it
   if (s.class === "run-and-tell" && ["failed", "cancelled"].includes(e.data?.status))
     return { ...s, class: "quiet", tab: undefined };
-  return s;
+  return typeof s.tab === "function" ? { ...s, tab: s.tab(e) } : s;
 }

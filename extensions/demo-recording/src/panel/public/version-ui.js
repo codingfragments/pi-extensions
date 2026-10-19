@@ -196,7 +196,7 @@ export function StageSummary({
         </div>
       </div>
       ${children ?? null}
-      ${noVersions ? null : html`<${AdvancedMenu} stage=${stage} rows=${rows} viewed=${viewed} />`}
+      ${noVersions ? null : html`<${AdvancedMenu} stage=${stage} rows=${rows} viewed=${viewed} events=${events} onUse=${onUse} />`}
       ${noVersions ? null : html`<${History} stage=${stage} rows=${rows} viewed=${viewed} onUse=${onUse} />`}
     </div>
     ${missing ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${NAME[stage]} ${stage === "recording" ? `take-${String(viewed).padStart(3, "0")}` : `v${viewed}`} does not exist. <a href=${formatRoute({ screen: SCREEN[stage] })}>Show the latest</a></div></div>` : null}

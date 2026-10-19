@@ -159,6 +159,9 @@ const TOOL: Record<string, (a: Record<string, unknown>) => { label: string; stag
               a.action === "propose" ? "Proposing fixes" : "Reading the QA findings you flagged",
             stage: "render",
           },
+  demo_rec_compare: (a) => ({
+    label: a.action === "answer" ? "Writing the verdict" : "Reading the facts of the two versions",
+  }),
   demo_rec_config: () => ({ label: "Checking the settings" }),
   demo_rec_brand: () => ({ label: "Working on the brand" }),
 };

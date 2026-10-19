@@ -1,4 +1,5 @@
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { Chapters } from "./chapters.js";
 import { media, mmss, post, useApi, useRouteVersion } from "./core.js";
 // demo-recording panel — Recording tab (S5 part 4, D44–D46; UX3): the takes of the production line's
 // storyboard (a take of another storyboard can be looked at via History), approve several, put one in
@@ -16,7 +17,33 @@ import {
 
 function TakeCard({ t, row, events, viewed, reload }) {
   const [showVideo, setShowVideo] = useState(false);
+  const [time, setTime] = useState(null);
   const card = useRef(null);
+  const video = useRef(null);
+  const pending = useRef(null);
+  // a click on a chapter or a frame: show the player, go to that moment (once the video knows its length when it has not loaded yet)
+  const seek = (ms) => {
+    setShowVideo(true);
+    const v = video.current;
+    if (v?.readyState >= 1) {
+      v.currentTime = ms / 1000;
+      setTime(ms);
+      v.scrollIntoView({ block: "nearest" });
+    } else pending.current = ms;
+  };
+  const attach = (el) => {
+    video.current = el;
+    if (el && pending.current !== null) {
+      const ms = pending.current;
+      const go = () => {
+        el.currentTime = ms / 1000;
+        setTime(ms);
+        pending.current = null;
+      };
+      if (el.readyState >= 1) go();
+      else el.addEventListener("loadedmetadata", go, { once: true });
+    }
+  };
   useEffect(() => {
     if (viewed) card.current?.scrollIntoView({ block: "nearest" });
   }, [viewed]);
@@ -32,16 +59,18 @@ function TakeCard({ t, row, events, viewed, reload }) {
       ${t.video ? html`<button class="ds-btn ds-btn--ghost" onClick=${() => setShowVideo(!showVideo)}>${showVideo ? "hide video" : "play raw take"}</button>` : null}
       <${VersionActions} stage="recording" row=${row} events=${events} eager=${false} compact label=${t.id} onDone=${reload} />
     </div>
-    ${showVideo && t.video ? html`<video class="take-video" controls preload="metadata" src=${media("project", t.video)}></video>` : null}
+    ${showVideo && t.video ? html`<video class="take-video" ref=${attach} controls preload="metadata" src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>` : null}
     ${
-      t.scenes.length
-        ? html`<div class="keyframes">${t.scenes.map(
-            (s) => html`<figure title=${s.title}>
+      t.review?.length
+        ? html`<${Chapters} scenes=${t.review} time=${showVideo ? time : null} onSeek=${t.video ? seek : undefined} label=${`Chapters of ${t.id}`} />`
+        : t.scenes.length
+          ? html`<div class="keyframes">${t.scenes.map(
+              (s) => html`<figure title=${s.title}>
               ${s.keyframe ? html`<img loading="lazy" src=${media("project", s.keyframe)} alt=${s.title} />` : html`<div class="kf-missing">no keyframe</div>`}
               <figcaption><span class="mono">${s.id}</span> · ${mmss(s.durationMs)}</figcaption>
             </figure>`,
-          )}</div>`
-        : null
+            )}</div>`
+          : null
     }
   </section>`;
 }

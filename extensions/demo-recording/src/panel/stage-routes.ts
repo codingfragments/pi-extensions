@@ -7,9 +7,12 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { reviewScenes } from "../analysis/review.ts";
 import { readAnalysis } from "../analysis/take.ts";
 import { listFixSets } from "../qa/fixes.ts";
+import { readStoryboard } from "../storyboard/store.ts";
 import { listTakes } from "../tools/take.ts";
+import { listFindings } from "../workdir/findings.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
 import {
@@ -192,6 +195,22 @@ export function stageRoutes(deps: StageRouteDeps): {
         if (!p) return { project: null };
         const state = readState(p.dir) ?? p.state;
         const sb = q.get("storyboard") ? Number(q.get("storyboard")) : state.line.storyboard;
+        const sbCache = new Map<number, ReturnType<typeof readStoryboard>>();
+        const storyboardFor = (v: number) => {
+          if (!sbCache.has(v)) {
+            try {
+              sbCache.set(v, readStoryboard(p.dir, v));
+            } catch {
+              sbCache.set(v, undefined);
+            }
+          }
+          return sbCache.get(v)?.storyboard;
+        };
+        let findingsCache: ReturnType<typeof listFindings> | undefined;
+        const allFindings = () => {
+          findingsCache ??= listFindings(p.dir);
+          return findingsCache;
+        };
         const takes = listTakes(p.dir)
           .filter((t) => sb === undefined || t.storyboardVersion === sb)
           .reverse()
@@ -228,6 +247,19 @@ export function stageRoutes(deps: StageRouteDeps): {
               video: fs.existsSync(path.join(dir, "raw.mp4"))
                 ? rel(p.dir, path.join(dir, "raw.mp4"))
                 : null,
+              review: analysis
+                ? reviewScenes({
+                    analysis,
+                    ...(storyboardFor(t.storyboardVersion)?.scenes
+                      ? { storyboardScenes: storyboardFor(t.storyboardVersion)?.scenes }
+                      : {}),
+                    findings: allFindings(),
+                    localize: (f) => {
+                      const l = localize(p.dir, f);
+                      return l ? rel(p.dir, l) : undefined;
+                    },
+                  })
+                : [],
               scenes: (analysis?.scenes ?? []).map((s) => {
                 const files = s.keyframes.map((x) => ({
                   label: x.label,

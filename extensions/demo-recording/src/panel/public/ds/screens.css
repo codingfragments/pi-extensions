@@ -2379,3 +2379,115 @@ ol[data-next-steps] {
 .ds-review-help {
   margin: 0;
 }
+
+/* ---- chapters and frames (item 7, R0): the scenes of a take as navigation ---- */
+.ds-chapters {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-chapter {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+}
+.ds-chapter[data-here="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.ds-chapter-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-block-size: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ds-chapter-head:hover {
+  background: var(--surface-raised);
+}
+.ds-chapter-no {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.ds-chapter-title {
+  font-weight: var(--weight-strong);
+  overflow-wrap: anywhere;
+}
+.ds-chapter-len {
+  margin-inline-start: auto;
+}
+.ds-frames {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-frame {
+  display: grid;
+  gap: var(--space-1);
+  inline-size: 100%;
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+  color: var(--text-body);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ds-frame:hover {
+  border-color: var(--border-strong);
+}
+.ds-frame[aria-current="true"] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+.ds-frame img,
+.ds-frame-missing {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+.ds-frame-missing {
+  display: grid;
+  place-items: center;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.ds-frame-cap {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+.ds-frame-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-medium);
+}
+.ds-frame-note {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.ds-frame-note[data-tone="warn"] {
+  color: var(--status-warn);
+}

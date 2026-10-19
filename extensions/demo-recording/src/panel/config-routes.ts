@@ -12,6 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { listBrands } from "../brand/brand.ts";
+import { effectiveBrand } from "../brand/brand.ts";
 import {
   CONFIG_DOCS,
   ENV_KEYS,
@@ -269,6 +270,11 @@ export function configRoutes(deps: ConfigRouteDeps): {
           apiKeys: API_KEY_VARS.map((k) => ({ ...k, set: !!env()[k.name] })),
           sources: cfg.sources,
           envOverrides: envOverrides(f, env(), home()),
+          // the configured brand does not exist under this root: renders fall back to neutral (R2-8)
+          brandMissing: (() => {
+            const b = effectiveBrand(cfg.root, cfg.brand);
+            return b.fellBackFrom ? { name: b.fellBackFrom, used: b.name, root: cfg.root } : null;
+          })(),
         };
       },
     },

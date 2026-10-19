@@ -84,3 +84,22 @@ test("unwritable workdir fails", async () => {
   );
   assert.equal(results.find((r) => r.name === "workdir")?.status, "fail");
 });
+
+test("a configured brand that is not under the working folder is a warning that says what renders use instead (R2-8)", async () => {
+  const gone = await runDoctor(
+    { ...cfg, brand: "datadog-poc", root: "/tmp/no-such-folder-for-brands" },
+    probes(),
+  );
+  const b = gone.find((r) => r.name === "brand");
+  assert.equal(b?.status, "warn");
+  assert.match(
+    b?.detail ?? "",
+    /"datadog-poc" is not under \/tmp\/no-such-folder-for-brands\/brands .* renders use neutral instead/,
+  );
+  // the built-in is always there
+  const fine = await runDoctor(
+    { ...cfg, brand: "neutral", root: "/tmp/no-such-folder-for-brands" },
+    probes(),
+  );
+  assert.equal(fine.find((r) => r.name === "brand")?.status, "pass");
+});

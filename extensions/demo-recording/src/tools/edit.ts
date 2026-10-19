@@ -69,14 +69,23 @@ export function editSummary(r: EditResult): string {
 export interface EditJobResult {
   version: number;
   timeline: Timeline;
-  render: RenderRecord;
+  /** The draft render, when it worked. */
+  render?: RenderRecord;
+  /**
+   * Why the draft render did not come, when it failed AFTER the edit worked (R2-8, D-R2-4): the edit (the timeline, the sync numbers, the hand-off
+   * to the annotations) stands either way, and the draft can be re-run (`demo_rec_edit rerender`).
+   */
+  renderError?: string;
 }
 
 export const editJobSummary = (r: EditJobResult) =>
   [
     ...timelineSummary(r.version, r.timeline),
     "",
-    formatRender(r.render),
+    r.render
+      ? formatRender(r.render)
+      : `⚠ The draft render did not come: ${r.renderError ?? "unknown error"}. The edit itself worked (edit v${r.version}); fix that, then demo_rec_edit action=rerender makes the draft.`,
+    ...(r.render?.variants.flatMap((v) => (v.warnings ?? []).map((w) => `⚠ ${v.key}: ${w}`)) ?? []),
     "Drafts are for watching; the final render (full quality, scenes, transcripts) comes from the Render stage once annotations are accepted.",
   ].join("\n");
 
@@ -136,23 +145,37 @@ export function startEdit(
         action === "rerender"
           ? { version: latestTimeline(p.dir) }
           : buildEdit({ projectDir: p.dir, config: cfg });
-      const render = await runRender({
-        projectDir: p.dir,
-        config: cfg,
-        request: {
-          kind: "draft",
-          timeline: edit.version,
-          ...(annotations !== undefined ? { annotations } : {}),
-          ...(brand ? { brands: [brand] } : {}),
-          by: "edit",
-        },
-        signal,
-        onProgress: progress(action === "rerender" ? "draft render" : "rendering a draft"),
-      });
+      // The draft is for watching; the edit (the timeline) is what the next step needs. A draft that fails (a missing brand, a full disk, ffmpeg)
+      // must not take the edit's report and the hand-off to the annotations with it (R2-8): it is a warning, and can be re-run.
+      let render: RenderRecord | undefined;
+      let renderError: string | undefined;
+      try {
+        render = await runRender({
+          projectDir: p.dir,
+          config: cfg,
+          request: {
+            kind: "draft",
+            timeline: edit.version,
+            ...(annotations !== undefined ? { annotations } : {}),
+            ...(brand ? { brands: [brand] } : {}),
+            by: "edit",
+          },
+          signal,
+          onProgress: progress(action === "rerender" ? "draft render" : "rendering a draft"),
+        });
+      } catch (err) {
+        if (signal.aborted) throw err; // a cancel is a cancel
+        renderError = firstLine((err as Error).message);
+      }
       const timeline = JSON.parse(
         fs.readFileSync(path.join(p.dir, "edit", `timeline.v${edit.version}.json`), "utf8"),
       ) as Timeline;
-      return { version: edit.version, timeline, render };
+      return {
+        version: edit.version,
+        timeline,
+        ...(render ? { render } : {}),
+        ...(renderError ? { renderError } : {}),
+      };
     },
     (j: Job<EditJobResult>) => {
       rt.bus.publish(
@@ -163,7 +186,8 @@ export function startEdit(
           ...(j.result
             ? {
                 version: j.result.version,
-                render: j.result.render.version,
+                ...(j.result.render ? { render: j.result.render.version } : {}),
+                ...(j.result.renderError ? { renderError: j.result.renderError } : {}),
                 voVersion: j.result.timeline.voVersion,
                 take: j.result.timeline.take,
                 totals: j.result.timeline.totals,
@@ -180,12 +204,12 @@ export function startEdit(
               }
             : {}),
           message: j.result
-            ? `edit v${j.result.version} · ${secs(j.result.timeline.totals.fullMs)} · cut ${secs(j.result.timeline.totals.cutMs)} · worst drift ${j.result.timeline.totals.worstDriftMs} ms · draft render v${j.result.render.version}`
+            ? `edit v${j.result.version} · ${secs(j.result.timeline.totals.fullMs)} · cut ${secs(j.result.timeline.totals.cutMs)} · worst drift ${j.result.timeline.totals.worstDriftMs} ms · ${j.result.render ? `draft render v${j.result.render.version}` : `⚠ the draft render failed: ${j.result.renderError ?? "unknown error"}`}`
             : `edit ${j.status}: ${firstLine(j.error ?? "")}`,
         },
         p.slug,
       );
-      if (j.result)
+      if (j.result?.render)
         rt.bus.publish(
           "render.finished",
           { ...renderEvent(p.dir, j.result.render), by: "edit" },

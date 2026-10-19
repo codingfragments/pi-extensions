@@ -313,6 +313,19 @@ export function listBrands(root: string): BrandEntry[] {
   );
 }
 
+/**
+ * The brand a render uses when nobody picked one: the configured brand when it exists (a built-in or in `<root>/brands/`), else the built-in
+ * `neutral`, and which brand was wanted. A brand someone CHOSE is never replaced (see `resolveBrand`, which fails clearly): choosing is not
+ * guessing. A new working folder has no `brands/`, while the global config can still name a brand of the old one (run 2, R2-8).
+ */
+export function effectiveBrand(
+  root: string,
+  wanted: string,
+): { name: string; fellBackFrom?: string } {
+  if (listBrands(root).some((b) => b.name === wanted)) return { name: wanted };
+  return { name: "neutral", fellBackFrom: wanted };
+}
+
 export function resolveBrand(root: string, name: string): LoadedBrand {
   const entry = listBrands(root).find((b) => b.name === name);
   if (!entry) {

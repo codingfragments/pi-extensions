@@ -2356,3 +2356,26 @@ ol[data-next-steps] {
   display: grid;
   gap: var(--space-1);
 }
+
+/* a review decision as a state (D-R2-5): the chosen one is highlighted and can be revoked; the others stay available */
+.ds-review-chosen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+}
+.ds-review-chosen[data-tone="ok"] {
+  border-color: var(--status-ok);
+  background: var(--status-ok-tint);
+}
+.ds-review-chosen[data-tone="warn"] {
+  border-color: var(--status-warn);
+  background: var(--status-warn-tint);
+}
+.ds-review-help {
+  margin: 0;
+}

@@ -379,8 +379,18 @@ test(
       );
       await page.click("[data-status=approved]");
       await page.waitForFunction(
-        "/Mark reviewed/.test(document.querySelector('.ds-item[data-key=_intro]')?.innerText ?? '')",
+        "/· Reviewed/.test(document.querySelector('.ds-item[data-key=_intro]')?.innerText ?? '')",
       );
+      // the decision is a state now: highlighted with a Revoke, the other two still available, and a badge in the header
+      assert.equal(await page.locator("[data-state=approved]").count(), 1);
+      assert.equal(
+        await page.locator("[data-status=approved]").count(),
+        0,
+        "the chosen action is the state",
+      );
+      assert.equal(await page.locator("[data-act=revoke]").count(), 1);
+      assert.equal(await page.locator("[data-status=changes], [data-status=rerun]").count(), 2);
+      assert.match(await page.locator("[data-review-badge=approved]").innerText(), /Reviewed/);
       assert.equal(
         readDraft(seed.dir, "vo", 2)?.edits._intro,
         "Edited but not reviewed.",

@@ -117,18 +117,18 @@ test(
       await page.waitForFunction(
         "/Needs changes/.test(document.querySelector(\".ds-item[data-key='01-dash']\")?.innerText ?? '')",
       );
-      assert.equal(
-        await page.locator("[data-status=changes]").getAttribute("aria-pressed"),
-        "true",
-      );
+      // the chosen decision is the state with a Revoke; the other two stay available
+      assert.equal(await page.locator("[data-state=changes]").count(), 1);
+      assert.equal(await page.locator("[data-status=changes]").count(), 0);
+      assert.equal(await page.locator("[data-status=approved], [data-status=rerun]").count(), 2);
       assert.equal(review().scenes["01-dash"]?.status, "changes");
       await page.fill("textarea[aria-label='Notes for this scene']", "Show the EMEA row first.");
       await page.locator("textarea[aria-label='Notes for this scene']").blur();
       await page.waitForFunction("true");
       await new Promise((r) => setTimeout(r, 400));
       assert.equal(review().scenes["01-dash"]?.note, "Show the EMEA row first.");
-      // toggling the same status clears it
-      await page.click("[data-status=changes]");
+      // Revoke clears it
+      await page.click("[data-act=revoke]");
       await page.waitForFunction(
         "/not reviewed/.test(document.querySelector(\".ds-item[data-key='01-dash']\")?.innerText ?? '')",
       );
@@ -177,6 +177,78 @@ test(
       await page.goto(`${page.url().split("#")[0]}#/storyboard/v9`);
       await page.waitForSelector(".stage-summary");
       assert.match(await page.locator(".stage-summary").innerText(), /v9 does not exist/);
+      assert.deepEqual(errors, []);
+    } finally {
+      await close();
+    }
+  },
+);
+
+test(
+  "a review decision is a visible state in both themes and both widths: highlighted, revocable, switchable, in the header and the row, kept by a reload",
+  { skip, timeout: 120_000 },
+  async () => {
+    const { page, open, review, errors, close } = await setup();
+    try {
+      await open(page);
+      const look = () =>
+        page.evaluate(`(() => {
+          const el = document.querySelector('.ds-review-chosen');
+          const btn = document.querySelector('.ds-review button[data-status]');
+          if (!el || !btn) return null;
+          const a = getComputedStyle(el), b = getComputedStyle(btn);
+          return { chosen: a.backgroundColor + '|' + a.borderTopColor, plain: b.backgroundColor + '|' + b.borderTopColor };
+        })()`) as Promise<{ chosen: string; plain: string } | null>;
+      // before: three actions, no state, no badge
+      assert.equal(await page.locator(".ds-review button[data-status]").count(), 3);
+      assert.equal(await page.locator(".ds-review-chosen, [data-review-badge]").count(), 0);
+      assert.match(
+        await page.locator(".ds-review-help").innerText(),
+        /Re-run: the Director redoes it from the app/,
+      );
+      for (const status of ["approved", "changes", "rerun"] as const) {
+        await page.click(`[data-status=${status}]`);
+        await page.waitForSelector(`[data-state=${status}]`);
+        assert.equal(review().scenes["01-dash"]?.status, status);
+        // the same word in the chosen state, the header badge and the list row
+        const word = { approved: "Reviewed", changes: "Needs changes", rerun: "Re-run requested" }[
+          status
+        ];
+        assert.match(await page.locator(`[data-state=${status}]`).innerText(), new RegExp(word));
+        assert.match(
+          await page.locator(`[data-review-badge=${status}]`).innerText(),
+          new RegExp(word),
+        );
+        assert.match(
+          await page.locator(".ds-item[data-key='01-dash']").innerText(),
+          new RegExp(`· ${word}`),
+        );
+        // the other two are still there to switch, and nothing is pressed-looking without being the state
+        assert.equal(await page.locator(".ds-review button[data-status]").count(), 2);
+      }
+      // the look differs from a plain action, in both themes, at both widths (a measured style difference, not a hope)
+      for (const theme of ["macchiato", "latte"]) {
+        await page.evaluate(`localStorage.setItem("demo-rec-theme", "${theme}")`);
+        await page.reload();
+        await page.waitForSelector("[data-state=rerun]");
+        for (const width of [1400, 900]) {
+          await page.setViewportSize({ width, height: 1000 });
+          const l = await look();
+          assert.ok(
+            l && l.chosen !== l.plain,
+            `${theme} at ${width}: the state looks like the actions (${JSON.stringify(l)})`,
+          );
+        }
+      }
+      // a reload keeps it; Revoke clears it everywhere
+      await page.reload();
+      await page.waitForSelector("[data-state=rerun]");
+      await page.click("[data-act=revoke]");
+      await page.waitForSelector(".ds-review button[data-status=rerun]");
+      assert.equal(await page.locator(".ds-review button[data-status]").count(), 3);
+      assert.equal(await page.locator("[data-review-badge]").count(), 0);
+      assert.equal(review().scenes["01-dash"], undefined);
+      assert.match(await page.locator(".ds-item[data-key='01-dash']").innerText(), /not reviewed/);
       assert.deepEqual(errors, []);
     } finally {
       await close();

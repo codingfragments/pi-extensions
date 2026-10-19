@@ -248,7 +248,7 @@ Known issues and things not yet verified are in [KNOWN_ISSUES.md](KNOWN_ISSUES.m
 | **Approved** | good enough to build on; several versions per stage can be approved |
 | **Production line** | the one path the next steps and the Director follow: storyboard → take → voice-over → annotations → render |
 | **Blocked by dependency** | approved, but something it is built on is not; it cannot be used until that is approved again |
-| **Mark reviewed / Needs changes / Re-run** | your opinion of one scene, section or item; it never approves the whole version |
+| **Mark reviewed / Needs changes / Re-run** | your opinion of one scene, section or item; once chosen it shows as the state ("Reviewed", "Needs changes", "Re-run requested") with a Revoke, and you can switch it; it never approves the whole version |
 | **Variant** | one rendering of a final in one brand (and subtitled or not) |
 | **The Director** | the agent in pi that writes and records; the engine and scripts do the measuring, voice, edit and checks |
 

@@ -222,6 +222,10 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
 
   ![The light theme](images/guide/18-light.jpg)
 
+- **Long lists** (Voice over sections, Storyboard scenes, Annotations): the list is 22 rem wide, a row's text **wraps** (up to three lines, the whole
+  text on hover) and never runs into the detail, and the **detail stays pinned just below the header while the list scrolls**, until the list
+  ends. The pinned block holds the selected item's inspector, which scrolls inside it when it is tall, and the screen's action bar (Save new
+  version) at its bottom, always in view. The Brands editor shares the layout but is not pinned (its list is short).
 - **Small windows:** the layout follows the width of the workspace, not the window. Below about 52 rem the list becomes a select above
   the detail, secondary columns of a table fold away, and the header drops the stepper's labels.
 

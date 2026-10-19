@@ -36,8 +36,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 |---|---|---|---|---|---:|---:|
 | 1 | **Docs: decisions and the running plan** | the decisions recorded, this page, the early checks described and moved to the long tail | the grill | done | 1 | 1 |
 | 2 | **Small fixes** (2a, 2b, 2c) | a missing brand falls back and a failing draft only warns (2a); the review buttons show their state with Revoke (2b); the voice button says it makes a draft (2c) | R2-8, R2-6, R2-7 | done | 2 | 3 |
-| 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | **next** | 3 | 6 |
-| 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | planned | 2 | 8 |
+| 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | done | 3 | 6 |
+| 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | **next** | 2 | 8 |
 | 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | planned | 2 | 10 |
 | 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | planned | 4 | 14 |
 | 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | planned | 8 | 22 |
@@ -59,7 +59,7 @@ section 6); the filmstrip and step-through (8) follow the recording review (7) b
 Each item is its own branch and PR (or a few, where stated), with tests, a docs update, before and after screenshots at 900 and 1400 px where the
 panel changes, and CI green before merge.
 
-**2. Small fixes** (three PRs, the decisions D-R2-3 to D-R2-5). **2a, 2b and 2c are done**; item 3 is next.
+**2. Small fixes** (three PRs, the decisions D-R2-3 to D-R2-5). **2a, 2b and 2c are done.**
 - **2a, the brand (R2-8), done.** A helper resolves the default brand: the configured one when it exists, else the built-in `neutral`, saying so (a
   warning on the render, in the Render screen's Warnings, and in the edit report the Director gets; there is no separate Activity line); an explicitly chosen brand still fails fast. The draft render after the edit runs
   in its own guard: if it fails the edit still reports its numbers and hands over to the annotations, with "the draft failed: <why>" and a
@@ -72,11 +72,15 @@ panel changes, and CI green before merge.
   others stay" is wrong, change D-R2-5 before building.
 - **2c, wording (R2-7), done.** The voice button reads "Generate voice, edit and a draft to watch", and the cost dialog says the same. No setting.
 
-**3. List screens** (D-R2-6). One change in the shared split layout (`.ds-split`): the list 20rem becomes 22rem; the row title becomes a wrapping
-block (three lines, the full text on hover; the bug is an inline span that ignores `overflow`); the detail column is pinned below the header
-(`--hwrap-h`) with its own maximum height and inner scroll, released at the end of the list; a list shorter than the inspector needs no pin; the
-bottom action bar must not cover the inspector; the narrow layout (list behind a picker) is unchanged. Test like the Render pin: a seeded 40-row
-list and the real annotations, 1400 and 900 px, nothing reaches past the list's edge, the pin holds and is released.
+**3. List screens** (D-R2-6), **done.** One change in the shared split layout (`.ds-split`) for Voice over, Storyboard and Annotations: the list is
+22rem (was 20rem); a row's title is a wrapping block (up to three lines, the whole text on hover), because it was an inline span where `overflow`
+does nothing; the detail is ONE pinned block under the header (`--hwrap-h`) holding the inspector, which scrolls inside it when it is tall, and the
+action bar at its bottom (the bar had to move into the block: left outside it, it stayed behind in the middle of the pinned inspector), released at
+the end of the list; the narrow layout (list behind a select) is unpinned and unchanged. The detail cell became a column (a sticky child of a grid
+item can only move inside its own track). Tested with 40 rows of long text on each screen at 1400 and 900 px (list width, nothing past the edge,
+wrapped to two or three lines, pinned at the line while scrolling, never below the strip, released at the end) and at 700 px (a select, nothing
+pinned). **Not done:** the Brands editor shares the layout and gets the wrapping, but not the pin (its list is short); Annotations' Previous / Next
+is item 8.
 
 **4. Docked drawer** (D-R2-7). The page below the header becomes a row of workspace and drawer; header, band and strip keep the full width, so
 `--hwrap-h` and every pin keep working. The drawer is 22rem and the Render grid's two-column limit drops from about 72rem to 60rem; below about

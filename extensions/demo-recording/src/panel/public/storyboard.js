@@ -185,12 +185,14 @@ export function Review({ events }) {
           </ul>
         </section>
         <section class="ds-split-detail" aria-label="Selected scene">
+          <div class="ds-detail-pin">
           ${
             scene
               ? html`<${SceneInspector} key=${`${data.version}-${scene.id}`} scene=${scene} index=${scenes.indexOf(scene)} review=${data.review}
                   diffKind=${diffKind(scene.id)} readOnly=${readOnly} onReview=${onReview} conf=${confOf(data.confidence, scene.id)} />`
               : null
           }
+          </div>
         </section>
       </div>
     </div>

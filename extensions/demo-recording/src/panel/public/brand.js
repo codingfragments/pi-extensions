@@ -275,7 +275,7 @@ export function Brand({ events }) {
               b,
             ) => html`<li key=${b.name}><button class="ds-item" type="button" data-key=${b.name} aria-current=${b.name === selected ? "true" : undefined} onClick=${() => setName(b.name)}>
               <span class="ds-status" data-tone=${b.error ? "err" : b.name === data.default ? "ok" : undefined} aria-hidden="true">${b.error ? "!" : b.name === data.default ? "✓" : "○"}</span>
-              <span><span class="ds-item-title">${b.name}</span><br /><span class="ds-item-meta">${b.builtin ? "built-in" : "yours"}</span></span>
+              <span><span class="ds-item-title">${b.name}</span><span class="ds-item-meta">${b.builtin ? "built-in" : "yours"}</span></span>
               <span class="ds-row-flex">${b.name === data.default ? html`<span class="ds-badge" data-tone="ok"><span class="ds-badge-ico" aria-hidden="true">✓</span>Default</span>` : null}${b.error ? html`<span class="ds-badge" data-tone="err"><span class="ds-badge-ico" aria-hidden="true">!</span>Invalid</span>` : null}</span>
             </button></li>`,
           )}

@@ -138,7 +138,15 @@ key works only while focus is in the player area and never in a text field, the 
   frame, an optional `note(scene, frame)` for the voice-over's "used / not mentioned"; buttons are disabled when there is no video). The take card shows
   it under the player in place of the one-frame-per-scene grid; a click shows the player and seeks. **Not yet:** the three-column layout, the small
   pinned player, goal and findings above it (7b), notes (7c). Tested with a real video (a click seeks, the playhead moves the marker).
-- **7b, R1** the three columns, the small pinned player, the Director's comment, the goal and findings, chapter marks under the video.
+- **7b, R1, done.** The take cards became one line each (with a **Review** button; the workspace shows the picked take, else the one you are viewing, else
+  the production line's, else the newest). The workspace is two columns (chapters about 40 %, the pane 60 %: decided because three would leave about 260 px
+  for the chapters with the drawer open; the notes column joins in 7c): the pane is pinned below the header block and holds, top to bottom, the chapter you
+  are in (goal and emphasis from the storyboard, the findings the scene names with their state, what this take found with its time, each a click to seek), the
+  player (at most 40 % of the window height, always there, no "play raw take"), and the chapter bar (one segment per scene on the take's own time line, a
+  click seeks, the playhead on top). `[` and `]` go to the previous / next chapter while focus is inside (never in a text field; in the "?" sheet and the
+  tour). Below 52rem the columns stack, the player first and unpinned (the list screens' rule). **Decided with you:** no per-take "Director's comment" (the goal
+  and findings carry it), "Request a new take" stays at the top. **Not done / uncertain:** a pane taller than its chapter list cannot move (a take of two or
+  three short scenes has nothing to pin against); the chapter bar has no ticks for the findings; not tried on the real take.
 - **7c** timestamped notes.
 
 **8. Filmstrip and step-through.** The voice-over inspector shows all the scene's frames, used anchors marked and unused ones "not mentioned", a

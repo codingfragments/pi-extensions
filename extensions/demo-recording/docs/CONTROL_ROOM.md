@@ -81,7 +81,7 @@ Director in each (the doubtful ones come first with **riskiest first**).
 
 ## Recording
 
-The takes of the selected storyboard, newest first, each with status, duration, analysis state, a keyframe per scene and the raw
+The takes of the selected storyboard, newest first, each with status, duration, analysis state, the scenes as **chapters with their frames** (the start, each mark, notable moments, the end; a click shows the player and goes to that moment, the playhead marks where you are) and the raw
 video. **Approve** each take that is good enough to build on. **Request a new take** (with an optional note) asks the Director for
 another one, and shows its cost first.
 

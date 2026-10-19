@@ -129,6 +129,18 @@ fallbacks, dead time) and chapter marks on a thin bar under the video (native co
 `+` adds a note at the current time and chapter, notes are editable, stored per take, reach the Director as a review message and the input log, and
 feed "Request a new take". **Risk:** notes are a new concept; the `+` key must not clash with typing.
 
+**Item 7 in three PRs** (notes decided: review input, bundled into the Director's message on "Request a new take", nothing sent as you type; the add-note
+key works only while focus is in the player area and never in a text field, the button always works):
+- **7a, R0, done.** `src/analysis/review.ts` (`reviewScenes`) builds per scene of a take its frames (start, each mark, notable events such as a toast, end;
+  time order, file only when it exists), the storyboard scene's goal (`takeaway`, `emphasis`, outline), the findings it names, and what THIS take found
+  there (the engine's findings: errors, fallbacks, dead time, resumes, placed by scene or by time); `GET /api/recordings` carries it as `review`.
+  `chapters.js` is the shared component (`Chapters`: chapters with frame thumbnails, a click calls `onSeek(ms)`, the playhead marks the chapter and the
+  frame, an optional `note(scene, frame)` for the voice-over's "used / not mentioned"; buttons are disabled when there is no video). The take card shows
+  it under the player in place of the one-frame-per-scene grid; a click shows the player and seeks. **Not yet:** the three-column layout, the small
+  pinned player, goal and findings above it (7b), notes (7c). Tested with a real video (a click seeks, the playhead moves the marker).
+- **7b, R1** the three columns, the small pinned player, the Director's comment, the goal and findings, chapter marks under the video.
+- **7c** timestamped notes.
+
 **8. Filmstrip and step-through.** The voice-over inspector shows all the scene's frames, used anchors marked and unused ones "not mentioned", a
 click inserts `[@mark]`; Annotations get Previous / Next flanking the preview with "4 of 21" and keys.
 

@@ -208,7 +208,9 @@ Allow, and can feed the fix window.
 Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the shape is here.
 - **P3 Discovery (10):** D1 start and enhance from the Project page with a budget chooser, D2 a discovery report with guidance for the storyboard,
   D3 measured progress per area, D4 an enlarged live preview. The estimate of 12 days is the original 15 without the discovery checks; it has not
-  been re-checked slice by slice.
+  been re-checked slice by slice. **D4 is done** (the drawer's preview is a button that opens a larger window rendering the same source, the newest
+  discovery screen or the polled live frame of a take, so it keeps updating; Escape closes it and the focus goes back; tested with two real screens
+  arriving while it is open; the recording case uses the same component and is not tested separately). D1, D3 and D2 are still to do, in that order.
 - **P4 The Director in the open (11):** A4 a pending question owned by the engine and answered in chat or panel (L), A5 role labels in the chat
   (S to M). The docked drawer (L3) moved to item 4.
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.

@@ -2777,3 +2777,43 @@ ol[data-next-steps] {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* ---- the live preview: small in the drawer, a click opens it bigger (D4, F3) ---- */
+.ds-preview-open {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.ds-preview-hint {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  display: grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-scrim);
+  color: var(--text-strong);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.ds-preview-open:hover .ds-preview-hint,
+.ds-preview-open:focus-visible .ds-preview-hint {
+  opacity: 1;
+}
+.frame--big img {
+  inline-size: auto;
+  max-inline-size: 100%;
+  max-block-size: calc(100vh - 14rem);
+  margin-inline: auto;
+  object-fit: contain;
+  background: var(--surface-media);
+}
+.frame--big figcaption {
+  text-align: center;
+}

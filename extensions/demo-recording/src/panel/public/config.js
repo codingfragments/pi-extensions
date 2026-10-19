@@ -10,13 +10,24 @@ import {
   searchFromQuery,
   showValue,
 } from "./config-search.js";
+import {
+  clearStaged,
+  countWord,
+  guardLeaving,
+  stage,
+  stageId,
+  stagedList,
+  toBatch,
+  unstage,
+  useStaged,
+} from "./config-stage.js";
 import { post, useApi, useHashRoute } from "./core.js";
 import { confirmAsk, errorToast, toast } from "./dialog.js";
 // demo-recording panel — ⚙ Config → Settings (S5 part 5b, D41/D48): every
-// setting grouped with its effective value, source and per-layer values;
-// edits are global or for this project only, always through a diff
-// confirmation (same two-phase write as demo_rec_config). The raw files are
-// shown read-only; API keys only as "set / not set".
+// setting grouped with its effective value, source and per-layer values.
+// An edit on a row is STAGED (D-R2-9): with a project open the row edits that project's override ("Editing for <project>"),
+// the global value is under Scopes; "Review and save" shows one combined diff and writes everything at once
+// (/api/config-batch, all or nothing). The raw files are shown read-only; API keys only as "set / not set".
 import { VoiceInput } from "./voices.js";
 
 const CONFIG_EVENTS = /^(config|project|brand)\./;
@@ -88,13 +99,13 @@ const badge = (tone, label) =>
   html`<span class="ds-badge" data-tone=${tone} key=${label}>${label}</span>`;
 
 /** The four scopes of a setting, each with its own action (D125): environment (read-only), project, global, default. */
-function ScopeRows({ s, project, busy, onEdit, onRemove }) {
+function ScopeRows({ s, project, onEdit, onRemove }) {
   const blocked = !project || s.globalOnly;
   const why = !project ? "Open a project to override" : "Global only";
   const proj = s.layers.project;
   const glob = s.layers.global;
   const act = (scope, label, extra = {}) =>
-    html`<button class="ds-btn ds-btn--sm" type="button" data-act=${`${extra.act ?? "edit"}-${scope}`} aria-disabled=${busy ? "true" : undefined} onClick=${() => !busy && (extra.run ?? onEdit)(scope)}>${label}</button>`;
+    html`<button class="ds-btn ds-btn--sm" type="button" data-act=${`${extra.act ?? "edit"}-${scope}`} onClick=${() => (extra.run ?? onEdit)(scope)}>${label}</button>`;
   return html`
     <div class="ds-scope" data-layer="env"><span>Environment</span><span>${s.envVar ? html`<code>${s.envVar}</code> = ${s.envSet ? showValue(s, s.value) : "not set"}` : html`<span class="ds-muted">Not set</span>`}</span><span class="ds-muted ds-small">${s.envSet ? "read-only, wins over both files" : "read-only"}</span></div>
     <div class="ds-scope" data-layer="project"><span>Project override</span><span data-set=${isSet(proj) ? "true" : "false"}>${isSet(proj) ? showValue(s, proj) : "Not set"}</span>
@@ -112,74 +123,61 @@ function ScopeRows({ s, project, busy, onEdit, onRemove }) {
  * from; and "Scopes", which opens its layers with an action each. Editing opens under the row, in the layer that
  * was chosen, and ends in the diff confirmation, so a result of the search can never edit the wrong layer.
  */
-function SettingRow({ s, project, ws, open, toggle, files, onSaved }) {
+function SettingRow({ s, project, ws, open, toggle, files, staged }) {
   const [edit, setEdit] = useState(null); // "global" | "project" | null
   const [draft, setDraft] = useState(undefined);
-  const [busy, setBusy] = useState(false);
   const layerOf = (scope) => (scope === "project" ? s.layers.project : s.layers.global);
+  const stagedAt = (scope) => staged.find((x) => x.scope === scope);
+  // what a scope holds once the staged edits are written: the draft is compared with this
+  const pendingOf = (scope) => {
+    const st = stagedAt(scope);
+    return st ? (st.unset ? undefined : st.value) : layerOf(scope);
+  };
   useEffect(() => {
     setEdit(null);
     setDraft(undefined);
   }, [JSON.stringify(s.layers)]);
-  const run = async (scope, body, title) => {
-    setBusy(true);
-    try {
-      const plan = await post("/api/config-set", { key: s.key, scope, ...body });
-      const ok = await confirmAsk({
-        title,
-        text: `${scope === "project" ? `Project ${project}` : "Global"} · ${plan.file}`,
-        diff: plan.diff,
-        warnings: plan.shadowedBy
-          ? [`This change has no effect right now: it is overridden by ${plan.shadowedBy}.`]
-          : [],
-        confirmLabel: "Save",
-      });
-      if (!ok) return;
-      await post("/api/config-set", { key: s.key, scope, ...body, confirm: true });
-      setEdit(null);
-      setDraft(undefined);
-      onSaved(`${s.key} saved (${scope})`);
-    } catch (e) {
-      errorToast(e, s.key);
-    } finally {
-      setBusy(false);
-    }
+  /** Stage the change (nothing is written until Review and save); putting back what is saved takes the staged one away. */
+  const stageIt = (scope, body) => {
+    if (!body.unset && same(body.value, layerOf(scope))) unstage(stageId(scope, s.key));
+    else stage({ key: s.key, scope, project, ...body });
+    setEdit(null);
+    setDraft(undefined);
   };
   const start = (scope) => {
     setEdit(scope);
-    setDraft(layerOf(scope) ?? s.value);
+    setDraft(pendingOf(scope) ?? s.value);
   };
-  const remove = (scope) =>
-    run(
-      scope,
-      { unset: true },
-      scope === "project"
-        ? `Remove the project override of ${s.key}?`
-        : `Reset ${s.key} to its default?`,
-    );
-  const dirty = edit && !same(draft, layerOf(edit));
+  const remove = (scope) => stageIt(scope, { unset: true });
+  const dirty = edit && !same(draft, pendingOf(edit));
+  const rowScope = project && !s.globalOnly ? "project" : "global";
   const [tone, name] = SRC[s.source] ?? SRC.unset;
   const showScopes = open || !!edit;
   const target = edit ? (edit === "project" ? files.project : files.global) : "";
-  return html`<div class="ds-srow" data-key=${s.key} id=${`setting-${s.key}`} data-edit=${edit ? "true" : undefined}>
+  return html`<div class="ds-srow" data-key=${s.key} id=${`setting-${s.key}`} data-edit=${edit ? "true" : undefined} data-staged=${staged.length ? "true" : undefined}>
     <div class="ds-srow-main"><div class="ds-srow-title"><h4><${Hl} text=${s.label} ws=${ws} /></h4><code><${Hl} text=${s.key} ws=${ws} /></code></div><p class="ds-small ds-muted"><${Hl} text=${s.doc} ws=${ws} /></p></div>
-    <div class="ds-srow-value" data-effective><strong><${Hl} text=${showValue(s, s.value)} ws=${ws} /></strong><span>${s.source === "unset" ? null : badge(tone, s.source === "env" ? `Environment (${s.envVar})` : name)}${isSet(s.layers.project) && s.source !== "project" ? badge("accent", "Project override") : null}</span></div>
-    <button class="ds-btn ds-btn--sm" type="button" data-toggle=${s.key} aria-expanded=${showScopes} onClick=${() => toggle(s.key)}>${showScopes ? "Hide scopes" : "Scopes"}</button>
+    <div class="ds-srow-value" data-effective><strong><${Hl} text=${showValue(s, s.value)} ws=${ws} /></strong><span>${s.source === "unset" ? null : badge(tone, s.source === "env" ? `Environment (${s.envVar})` : name)}${isSet(s.layers.project) && s.source !== "project" ? badge("accent", "Project override") : null}</span>
+      ${staged.map((x) => html`<span class="ds-staged" data-staged-scope=${x.scope} key=${x.id}>${badge("accent", "Staged")} <span>${x.unset ? (x.scope === "project" ? "remove the project override" : "reset to default") : `${x.scope === "project" ? "project" : "global"}: ${showValue(s, x.value)}`}</span> <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="unstage" aria-label=${`Discard the staged change of ${s.label}`} onClick=${() => unstage(x.id)}>Discard</button></span>`)}
+    </div>
+    <div class="ds-srow-actions">
+      <button class="ds-btn ds-btn--sm" type="button" data-act="edit-row" data-scope=${rowScope} aria-expanded=${edit === rowScope} title=${rowScope === "project" ? `Change the value for ${project} only` : s.globalOnly && project ? "Global only: this setting is not set per project" : "Change the global value"} onClick=${() => (edit === rowScope ? setEdit(null) : start(rowScope))}>${rowScope === "project" ? `Edit for ${project}` : "Edit"}</button>
+      <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-toggle=${s.key} aria-expanded=${showScopes} onClick=${() => toggle(s.key)}>${showScopes ? "Hide scopes" : "Scopes"}</button>
+    </div>
     ${
       edit
         ? html`<div class="ds-srow-edit">
-        <div class="ds-field"><label class="ds-label" for=${`edit-${s.key}`}>Editing the ${edit === "project" ? `project override (${project})` : "global value"}</label>
-          <${SettingInput} s=${s} id=${`edit-${s.key}`} value=${draft} disabled=${busy} onChange=${setDraft} />
-          <span class="ds-hint-text">Saved to <code>${target}</code> after you review the change. ${edit === "global" ? "Applies to every project unless one overrides it." : "Applies to this project only."}</span></div>
+        <div class="ds-field"><label class="ds-label" for=${`edit-${s.key}`}>${edit === "project" ? `Editing for ${project}` : "Editing the global value"}</label>
+          <${SettingInput} s=${s} id=${`edit-${s.key}`} value=${draft} onChange=${setDraft} />
+          <span class="ds-hint-text">Staged now, written to <code>${target}</code> when you review and save. ${edit === "global" ? "Applies to every project unless one overrides it." : "Applies to this project only."}</span></div>
         ${s.envSet ? html`<div class="ds-notice" data-tone="warn"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>This change has no effect right now: it is overridden by the environment variable <code>${s.envVar}</code>.</div></div>` : null}
-        <div class="ds-row-flex"><button class="ds-btn ds-btn--primary" type="button" data-act="save" disabled=${busy || !dirty} onClick=${() => run(edit, { value: draft }, `Set ${s.key}?`)}>Review change…</button><button class="ds-btn" type="button" data-act="cancel" onClick=${() => {
+        <div class="ds-row-flex"><button class="ds-btn ds-btn--primary" type="button" data-act="stage" disabled=${!dirty} onClick=${() => stageIt(edit, { value: draft })}>Stage change</button><button class="ds-btn" type="button" data-act="cancel" onClick=${() => {
           setEdit(null);
           setDraft(undefined);
         }}>Cancel</button></div>
       </div>`
         : null
     }
-    ${showScopes && !edit ? html`<div class="ds-srow-panel" role="group" aria-label=${`${s.label} by scope`}><${ScopeRows} s=${s} project=${project} busy=${busy} onEdit=${start} onRemove=${remove} /></div>` : null}
+    ${showScopes && !edit ? html`<div class="ds-srow-panel" role="group" aria-label=${`${s.label} by scope`}><${ScopeRows} s=${s} project=${project} onEdit=${start} onRemove=${remove} /></div>` : null}
   </div>`;
 }
 
@@ -221,6 +219,23 @@ function SearchBar({ text, setText, filters, toggleFilter, status, searching, cl
   </div>`;
 }
 
+const fmtVal = (v) =>
+  v === null || v === undefined ? "not set" : typeof v === "string" ? v : JSON.stringify(v);
+
+/** "N changes staged: Review and save": the one place edits are written (D-R2-9). Sticky above the activity strip. */
+function StageBar({ list, busy, onReview, onDiscard }) {
+  if (!list.length) return null;
+  const names = [...new Set(list.map((x) => x.key))];
+  return html`<div class="ds-actionbar ds-cfg-stagebar" role="region" aria-label="Staged changes" data-count=${list.length}>
+    <span class="ds-status" data-tone="accent" aria-hidden="true">●</span>
+    <strong>${countWord(list.length)} staged</strong>
+    <span class="ds-small ds-muted ds-cfg-stagenames">not written yet: ${names.slice(0, 4).join(", ")}${names.length > 4 ? ` and ${names.length - 4} more` : ""}</span>
+    <span class="ds-grow"></span>
+    <button class="ds-btn ds-btn--ghost" type="button" data-act="discard-all" disabled=${busy} onClick=${onDiscard}>Discard all</button>
+    <button class="ds-btn ds-btn--primary" type="button" data-act="review" disabled=${busy} onClick=${onReview}>Review and save</button>
+  </div>`;
+}
+
 export function Settings({ events }) {
   const { data, error, reload } = useApi("/api/config", events, CONFIG_EVENTS);
   const [route, go] = useHashRoute();
@@ -232,7 +247,20 @@ export function Settings({ events }) {
   const [openScopes, setOpenScopes] = useState(new Set());
   const [active, setActive] = useState(null);
   const input = useRef(null);
+  const staged = useStaged();
+  const [saving, setSaving] = useState(false);
   useEffect(() => setText(st.q), [st.q]);
+  // staged project edits belong to the project that was open when they were made
+  useEffect(() => {
+    if (!data) return;
+    const stray = stagedList().filter((x) => x.scope === "project" && x.project !== data.project);
+    if (!stray.length) return;
+    for (const x of stray) unstage(x.id);
+    toast(
+      `${countWord(stray.length)} staged for another project dropped: the open project changed.`,
+      { kind: "info" },
+    );
+  }, [data?.project]);
   const update = (next) =>
     go({ screen: "config", query: queryFromSearch({ ...st, ...next }) }, { replace: true });
   // typing reaches the address a moment later
@@ -246,6 +274,57 @@ export function Settings({ events }) {
   const say = (m) => {
     toast(m, { kind: "info" });
     reload();
+  };
+  /** One combined review of everything staged, then one write per file; a rejected change keeps all of them staged. */
+  const review = async () => {
+    const list = stagedList();
+    if (!list.length || saving) return;
+    setSaving(true);
+    try {
+      const changes = toBatch(list);
+      const plan = await post("/api/config-batch", { changes });
+      const diff = plan.files
+        .map(
+          (f) =>
+            `── ${f.scope === "project" ? `Project ${data.project}` : "Global"} · ${f.file}\n${f.diff}`,
+        )
+        .join("\n\n");
+      const ok = await confirmAsk({
+        title: `Save ${countWord(list.length)}?`,
+        text: "Everything below is written at once; if one change is refused, none is.",
+        list: {
+          title: "What changes",
+          items: plan.changes.map(
+            (c) =>
+              `${c.key} (${c.scope === "project" ? data.project : "global"}): ${fmtVal(c.before)} → ${c.after === null && list.find((x) => x.key === c.key && x.scope === c.scope)?.unset ? "removed" : fmtVal(c.after)}`,
+          ),
+        },
+        warnings: plan.changes
+          .filter((c) => c.shadowedBy)
+          .map((c) => `${c.key}: no effect right now, it is overridden by ${c.shadowedBy}.`),
+        diff,
+        confirmLabel: `Save ${countWord(list.length)}`,
+      });
+      if (!ok) return;
+      const done = await post("/api/config-batch", { changes, confirm: true });
+      clearStaged();
+      say(`${countWord(done.count)} saved`);
+    } catch (e) {
+      errorToast(e, "config");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const discardAll = async () => {
+    const n = stagedList().length;
+    if (
+      await confirmAsk({
+        title: `Discard ${countWord(n)}?`,
+        text: "They are staged, not written: nothing in your files changes.",
+        confirmLabel: "Discard",
+      })
+    )
+      clearStaged();
   };
   const open = async (sc) => {
     try {
@@ -326,7 +405,7 @@ export function Settings({ events }) {
                     const isOpen = res.searching || groupsOpen.has(g.id);
                     return html`<section class="ds-group" id=${`g-${g.id}`} key=${g.id} aria-labelledby=${`gh-${g.id}`}>
                       <button class="ds-group-head" id=${`gh-${g.id}`} type="button" data-group=${g.id} aria-expanded=${isOpen} onClick=${() => toggleGroup(g.id)}><span class="ds-group-chev" aria-hidden="true">${isOpen ? "▾" : "▸"}</span>${g.label}<span class="ds-cfg-count">${res.searching ? `${g.settings.length} of ${all}` : all}</span>${!res.searching && changedHere ? html`<span class="ds-badge" data-tone="accent" data-changed title="settings in this group that differ from their default">${changedHere} changed</span>` : null}</button>
-                      ${isOpen ? g.settings.map((s) => html`<${SettingRow} key=${s.key} s=${s} project=${data.project} ws=${res.words} open=${openScopes.has(s.key)} toggle=${toggleIn(setOpenScopes)} files=${data.files} onSaved=${say} />`) : null}
+                      ${isOpen ? g.settings.map((s) => html`<${SettingRow} key=${s.key} s=${s} project=${data.project} ws=${res.words} open=${openScopes.has(s.key)} toggle=${toggleIn(setOpenScopes)} files=${data.files} staged=${staged.filter((x) => x.key === s.key)} />`) : null}
                     </section>`;
                   })
             }
@@ -348,6 +427,7 @@ export function Settings({ events }) {
           </details>
         </div>
       </div>
+      <${StageBar} list=${staged} busy=${saving} onReview=${review} onDiscard=${discardAll} />
     </div>`;
 }
 
@@ -375,6 +455,19 @@ export function Config({ events }) {
   // Settings or Brands, in the address with the search (#/config?view=brands, #/config?q=voice)
   const [route, go] = useHashRoute();
   const st = searchFromQuery(route?.query);
+  // leaving Config with staged edits asks first (links to other screens; a reload gets the browser's warning)
+  useEffect(
+    () =>
+      guardLeaving((n) =>
+        confirmAsk({
+          title: `Leave Config with ${countWord(n)} not saved?`,
+          text: "They are staged, not written. Leaving drops them.",
+          confirmLabel: "Leave and drop",
+          cancelLabel: "Stay",
+        }),
+      ),
+    [],
+  );
   const setView = (view) =>
     go(
       { screen: "config", query: queryFromSearch(view === "brands" ? { view } : { ...st, view }) },

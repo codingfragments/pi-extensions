@@ -191,7 +191,8 @@ test(
       );
       assert.equal(await select.inputValue(), "Narrator_voice");
       await select.selectOption("Stefan_trained");
-      await page.click(".ds-srow[data-key='voiceName'] [data-act=save]");
+      await page.click(".ds-srow[data-key='voiceName'] [data-act=stage]");
+      await page.click(".ds-cfg-stagebar [data-act=review]");
       for (
         let i = 0;
         i < 100 && JSON.parse(fs.readFileSync(globalFile, "utf8")).voiceName !== "Stefan_trained";
@@ -199,7 +200,7 @@ test(
       )
         await new Promise((r) => setTimeout(r, 50));
       assert.equal(JSON.parse(fs.readFileSync(globalFile, "utf8")).voiceName, "Stefan_trained");
-      assert.match(dlg.seen.at(-1) ?? "", /Set voiceName\?[\s\S]*Stefan_trained/);
+      assert.match(dlg.seen.at(-1) ?? "", /Save 1 change\?[\s\S]*voiceName[\s\S]*Stefan_trained/);
 
       // the brief: a Voice field with the same list, and "type a name" still possible
       await page.goto(`${panel.url}#/project?group=brief&field=voice`);

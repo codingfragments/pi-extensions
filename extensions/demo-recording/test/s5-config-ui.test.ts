@@ -229,18 +229,20 @@ test(
       await fps.locator("[data-toggle]").click();
       await fps.locator("[data-act=edit-global]").click();
       await page.locator("#edit-fps").fill("24");
-      await fps.locator("[data-act=save]").click();
+      await fps.locator("[data-act=stage]").click();
+      await page.locator(".ds-cfg-stagebar [data-act=review]").click();
       await page.waitForTimeout(600);
-      assert.match(dialogs.at(-1) ?? "", /Set fps\?[\s\S]*Global[\s\S]*"fps": 24/);
+      assert.match(dialogs.at(-1) ?? "", /Save 1 change\?[\s\S]*Global[\s\S]*"fps": 24/);
       assert.equal(JSON.parse(fs.readFileSync(globalFile, "utf8")).fps, 24);
       // The project's voiceName override: removed from its own cell, no page-level scope to switch
       const vn = page.locator(".ds-srow[data-key='voiceName']");
       await vn.locator("[data-toggle]").click();
       await vn.locator("[data-act=remove-project]").click();
+      await page.locator(".ds-cfg-stagebar [data-act=review]").click();
       await page.waitForTimeout(600);
       assert.match(
         dialogs.at(-1) ?? "",
-        /Remove the project override of voiceName\?[\s\S]*Project kc/,
+        /Save 1 change\?[\s\S]*voiceName[\s\S]*removed[\s\S]*Project kc/,
       );
       assert.equal(
         JSON.parse(fs.readFileSync(path.join(p.dir, "config.json"), "utf8")).voiceName,

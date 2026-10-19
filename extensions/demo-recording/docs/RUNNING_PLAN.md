@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 6 (Config).
+`main`.** The next piece of work is item 7 (Recording review).
 
 ## 2. Done
 
@@ -39,8 +39,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | done | 3 | 6 |
 | 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | done | 2 | 8 |
 | 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | done | 2 | 10 |
-| 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | **next** | 4 | 14 |
-| 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | planned | 8 | 22 |
+| 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | done | 4 | 14 |
+| 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | **next** | 8 | 22 |
 | 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | planned | 4 | 26 |
 | 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | planned | 5 | 31 |
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | later | 12 | 43 |
@@ -106,6 +106,21 @@ the 96/85/80rem steps are measured on the seeded one at the Macchiato theme only
 Scopes. Edits are staged; a "N changes: Review and save" bar opens one combined diff; one write per file. The backend needs a batch endpoint that
 composes several changes to one file in memory, validates all of them and applies none if one fails. Leaving with unsaved edits asks; an
 environment variable that wins is still said per line. **Risk:** staged edits against the search and the quick filters.
+
+**Done.** `planBatch` / `applyBatch` (`src/config-edit.ts`) compose the changes per file in memory and run the real resolver after EACH change, so a
+refusal names its setting (`fps: …`); nothing is written unless all pass, then one atomic write per file; `POST /api/config-batch` plans without
+`confirm` (one diff per file, what each change does, per-change shadowing) and writes with it, publishing one `config.changed` per change so the log
+reads as before. `config-set` stays (the Director's tool and old callers). In the panel (`config-stage.js` is the store: one staged value per
+setting and scope, a newer one replaces the older, putting the saved value back unstages it) a row's own button is **Edit for <project>** (or
+**Edit** with no project, or for a global-only setting), the editor says "Editing for <project>" and its button is "Stage change"; Scopes keeps
+all four layers and their actions, now staging too; a staged row says "Staged · project: 24" with Discard; a sticky bar at the foot says "N changes
+staged · Review and save · Discard all". Review is one dialog: the list "key (scope): before → after", a warning per change that a project override
+or an environment variable hides ("no effect right now"), one diff per file; Cancel keeps everything staged. Staged edits survive Settings ⇄ Brands;
+a click on a link to another screen asks ("Leave Config with N changes not saved?"), a reload gets the browser's warning, and staged project edits
+are dropped (and said) if another project opens. **Not done / uncertain:** staged edits are not kept across a reload (said by the warning); a
+Back-button navigation is not asked about (only links are); the search hides a staged row but the bar still names it; the old per-setting dialog
+is gone (the review shows the same diff for all). Five old browser tests ended in the per-edit dialog and now go through the bar. **Not tried on the
+real project.**
 
 **7. Recording review** (D-R2-10). **R0** the shared chapter and frame component (frames: the start, each mark, the end; a click seeks; "used /
 not mentioned" for the voice-over later). **R1** three columns: the chapters and frames (about 25 %), the smaller pinned player (about 50 %) with

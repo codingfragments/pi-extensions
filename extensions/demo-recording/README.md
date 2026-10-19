@@ -100,7 +100,7 @@ The first step, with three views:
   - **Per setting:** the effective value, a source badge (default / global / project / env), the docs, and the value in each layer.
   - **Override notes:** e.g. "overridden by project kc", or "env DEMO_REC_VOICE overrides the files".
   - **Scope:** switch between **Global** and **This project**, so project-only overrides live here too, never in the Project tab.
-  - **Saving:** inputs follow the type: number, toggle, select (brand, alignment model), a reorderable TTS engine chain, the model list. **Save** and **reset** go through a diff confirmation and are validated by the real config resolver. `root` is global-only. Secret-looking keys are refused, and `_comment` is kept.
+  - **Saving:** inputs follow the type: number, toggle, select (brand, alignment model), a reorderable TTS engine chain, the model list. Edits are **staged** and written together: with a project open a row edits that project's value ("Edit for <project>"; the global value is under Scopes), "N changes staged: Review and save" shows one combined diff per file, and the batch is validated by the real config resolver and written all or nothing. Leaving Config with staged edits asks. `root` is global-only. Secret-looking keys are refused, and `_comment` is kept.
 - **Raw files:** the global and project `config.json` are shown **read-only** beside the form, with *open in editor* and *reload*.
 - **API keys:** only `ELEVENLABS_API_KEY: set / not set` and the same for OpenAI. Keys come from the environment only.
 - **Brands:** the brand editor (preview, tweaks, save, save as copy, set default).

@@ -205,9 +205,13 @@ test(
         /Editing the global value/,
       );
       await page.fill("#edit-voiceName", "Global_voice");
-      await page.click(`${c} [data-act=save]`);
+      await page.click(`${c} [data-act=stage]`);
+      // staged, not written: the bar says so and the file is untouched until Review and save
+      await page.waitForSelector(".ds-cfg-stagebar");
+      assert.equal(readJson(globalFile)?.voiceName, undefined, "staged, not written");
+      await page.click(".ds-cfg-stagebar [data-act=review]");
       for (let i = 0; i < 100 && !dlg.seen.length; i++) await wait(50);
-      assert.match(dlg.seen[0] ?? "", /Set voiceName\?[\s\S]*Global[\s\S]*Global_voice/);
+      assert.match(dlg.seen[0] ?? "", /Save 1 change\?[\s\S]*voiceName[\s\S]*Global_voice/);
       for (let i = 0; i < 100 && readJson(globalFile)?.voiceName !== "Global_voice"; i++)
         await wait(50);
       assert.equal(readJson(globalFile)?.voiceName, "Global_voice");
@@ -217,10 +221,11 @@ test(
       await page.click(`${c} [data-act=edit-project]`);
       assert.match(
         await page.locator(`${c} .ds-srow-edit label`).innerText(),
-        /Editing the project override \(keycraft\)/,
+        /Editing for keycraft/,
       );
       await page.fill("#edit-voiceName", "Project_voice");
-      await page.click(`${c} [data-act=save]`);
+      await page.click(`${c} [data-act=stage]`);
+      await page.click(".ds-cfg-stagebar [data-act=review]");
       for (let i = 0; i < 100 && readJson(projectFile)?.voiceName !== "Project_voice"; i++)
         await wait(50);
       assert.equal(readJson(projectFile)?.voiceName, "Project_voice");
@@ -229,6 +234,7 @@ test(
         "Global_voice",
         "global unchanged by the override",
       );
+      await page.waitForSelector(".ds-cfg-stagebar", { state: "detached" });
       await page.waitForFunction(
         `/Project/.test(document.querySelector("${c} [data-effective]")?.innerText ?? "")`,
       );
@@ -241,11 +247,16 @@ test(
       if (!(await page.locator(`${c} [data-act=remove-project]`).count()))
         await page.click(scopes("voiceName"));
       await page.click(`${c} [data-act=remove-project]`);
+      assert.match(
+        await page.locator(`${c} .ds-staged`).innerText(),
+        /remove the project override/,
+      );
+      await page.click(".ds-cfg-stagebar [data-act=review]");
       for (let i = 0; i < 100 && readJson(projectFile)?.voiceName !== undefined; i++)
         await wait(50);
       assert.equal(readJson(projectFile)?.voiceName, undefined);
       assert.equal(readJson(globalFile)?.voiceName, "Global_voice");
-      assert.match(dlg.seen.at(-1) ?? "", /Remove the project override of voiceName\?/);
+      assert.match(dlg.seen.at(-1) ?? "", /Save 1 change\?[\s\S]*voiceName[\s\S]*removed/);
       // cancel leaves everything as it was
       await page.waitForSelector(`${c} [data-act=edit-global]`);
       await page.click(`${c} [data-act=edit-global]`);
@@ -338,7 +349,8 @@ test(
         /no effect right now[\s\S]*DEMO_REC_VOICE/,
       );
       await page.fill("#edit-voiceName", "File_voice");
-      await page.click(`${c} [data-act=save]`);
+      await page.click(`${c} [data-act=stage]`);
+      await page.click(".ds-cfg-stagebar [data-act=review]");
       for (let i = 0; i < 100 && !dlg.seen.length; i++) await wait(50);
       assert.match(dlg.seen[0] ?? "", /no effect right now[\s\S]*overridden by/i);
       for (let i = 0; i < 100 && readJson(globalFile)?.voiceName !== "File_voice"; i++)

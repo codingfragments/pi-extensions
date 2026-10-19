@@ -337,6 +337,125 @@ export function planChange(
   };
 }
 
+export interface BatchItem {
+  scope: Scope;
+  key: string;
+  value?: unknown;
+  unset?: boolean;
+}
+
+export interface PlannedBatch {
+  /** One entry per file that changes, with its combined diff and the new text. */
+  files: { file: string; scope: Scope; diff: string; newText: string }[];
+  /** One entry per requested change, in the order given. */
+  changes: {
+    scope: Scope;
+    key: string;
+    before: unknown;
+    after: unknown;
+    /** Effective value once the whole batch is written. */
+    effective: unknown;
+    shadowedBy?: string;
+  }[];
+}
+
+/**
+ * Plan several changes at once (the panel stages edits and saves them together): the changes are composed per
+ * file in memory, validated with the real resolver after EACH one (so a rejection names the setting that caused
+ * it), and nothing is written here. Throws on the first problem, so a batch applies completely or not at all.
+ * The same scope + key twice is refused (the panel keeps one staged value per setting and scope).
+ */
+export function planBatch(
+  files: LayerFiles,
+  items: BatchItem[],
+  opts: { env: NodeJS.ProcessEnv; home: string },
+): PlannedBatch {
+  if (!items.length) throw new Error("no changes to plan");
+  const seen = new Set<string>();
+  const texts = new Map<string, string>(); // file → composed text so far
+  const before = new Map<string, string>(); // file → text on disk
+  const raws = new Map<string, Record<string, unknown>>();
+  const touched: { file: string; scope: Scope }[] = [];
+  const old: unknown[] = [];
+  const read = (f: string) =>
+    texts.get(f) ?? (fs.existsSync(f) ? fs.readFileSync(f, "utf8") : undefined);
+  const resolve = () =>
+    resolveConfig({
+      env: opts.env,
+      home: opts.home,
+      readFile: read,
+      ...(files.project ? { projectConfigFile: files.project } : {}),
+    });
+  for (const it of items) {
+    const id = `${it.scope}:${it.key}`;
+    if (seen.has(id)) throw new Error(`${it.key} is changed twice for the ${it.scope} config`);
+    seen.add(id);
+    if (SECRET.test(it.key))
+      throw new Error(
+        `"${it.key}" looks like a secret — API keys come from the environment only (export it, then restart pi)`,
+      );
+    if (!knownKeys().includes(it.key)) throw new Error(`unknown setting "${it.key}"`);
+    if (it.scope === "project" && it.key === "root")
+      throw new Error('"root" can only be set globally (it decides where projects live)');
+    const file = it.scope === "project" ? files.project : files.global;
+    if (!file) throw new Error("no active project — use scope global, or open a project first");
+    if (!raws.has(file)) {
+      raws.set(file, structuredClone(readRaw(file) ?? {}));
+      before.set(file, fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "{}\n");
+      touched.push({ file, scope: it.scope });
+    }
+    const raw = raws.get(file) as Record<string, unknown>;
+    old.push(getPath(raw, it.key));
+    if (it.unset) {
+      if (!deletePath(raw, it.key))
+        throw new Error(`"${it.key}" is not set in the ${it.scope} config`);
+    } else if (it.value === undefined)
+      throw new Error(`"${it.key}": a value is required (or unset)`);
+    else setPath(raw, it.key, it.value);
+    texts.set(file, `${JSON.stringify(raw, null, 2)}\n`);
+    try {
+      resolve();
+    } catch (e) {
+      throw new Error(`${it.key}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const cfg = resolve();
+  const projectRaw = files.project ? (raws.get(files.project) ?? readRaw(files.project) ?? {}) : {};
+  return {
+    files: touched.map(({ file, scope }) => ({
+      file,
+      scope,
+      diff: lineDiff((before.get(file) as string).trimEnd(), (texts.get(file) as string).trimEnd()),
+      newText: texts.get(file) as string,
+    })),
+    changes: items.map((it, i) => {
+      const envVar = ENV_KEYS[it.key];
+      const shadowedBy =
+        envVar && opts.env[envVar]
+          ? `env ${envVar}`
+          : it.scope === "global" && files.project && getPath(projectRaw, it.key) !== undefined
+            ? `project ${files.project}`
+            : undefined;
+      return {
+        scope: it.scope,
+        key: it.key,
+        before: old[i],
+        after: it.unset ? undefined : it.value,
+        effective: getPath(cfg, it.key),
+        ...(shadowedBy ? { shadowedBy } : {}),
+      };
+    }),
+  };
+}
+
+/** Write a planned batch: one atomic write per file. */
+export function applyBatch(plan: PlannedBatch): void {
+  for (const f of plan.files) {
+    fs.mkdirSync(path.dirname(f.file), { recursive: true });
+    writeFileAtomic(f.file, f.newText);
+  }
+}
+
 export function applyChange(change: PlannedChange): void {
   fs.mkdirSync(path.dirname(change.file), { recursive: true });
   writeFileAtomic(change.file, change.newText);

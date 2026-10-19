@@ -11,7 +11,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 
 **Start here to understand it:**
 
-- **Using it:** the **user guide** (the whole path from an idea to a delivered video, what it costs, when something goes wrong): [docs/GUIDE.md](docs/GUIDE.md); the **control room tour** (every screen of the panel, the keyboard, themes): [docs/CONTROL_ROOM.md](docs/CONTROL_ROOM.md); a **step-by-step first run**, first on a free sample project and then on your own app: [docs/TUTORIAL-101.md](docs/TUTORIAL-101.md)
+- **Using it:** the **user guide** (the whole path from an idea to a delivered video, what it costs, when something goes wrong): [docs/GUIDE.md](docs/GUIDE.md); the **control room tour** (every screen of the panel, the keyboard, themes): [docs/CONTROL_ROOM.md](docs/CONTROL_ROOM.md); a **step-by-step first run**, first on a free sample project and then on your own app: [docs/TUTORIAL-101.md](docs/TUTORIAL-101.md); and the **repeat of the real-app run** on a clean folder, the check of everything since run 1: [docs/RUN2-101.md](docs/RUN2-101.md)
 - **How it works, end to end** (the flow, the principles and their reasons, the stage chain, the files, the panel and the agent bridge, with diagrams): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Who does what**: the cast (you, models, engine, scripts), each role's inputs, outputs, decisions and model, and how work is handed over: [docs/ACTORS.md](docs/ACTORS.md)
 - **Branching**: how to try a second narration, story or look without losing the first, with the map as it looks in the panel: [docs/BRANCHING.md](docs/BRANCHING.md)

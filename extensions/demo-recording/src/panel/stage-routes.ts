@@ -10,6 +10,16 @@ import path from "node:path";
 import { reviewScenes } from "../analysis/review.ts";
 import { readAnalysis } from "../analysis/take.ts";
 import { listFixSets } from "../qa/fixes.ts";
+import {
+  addNote,
+  deleteNote,
+  editNote,
+  formatNotes,
+  markSent,
+  openNotes,
+  readNotes,
+  restoreNote,
+} from "../recording/notes.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { listTakes } from "../tools/take.ts";
 import { listFindings } from "../workdir/findings.ts";
@@ -247,6 +257,7 @@ export function stageRoutes(deps: StageRouteDeps): {
               video: fs.existsSync(path.join(dir, "raw.mp4"))
                 ? rel(p.dir, path.join(dir, "raw.mp4"))
                 : null,
+              notes: readNotes(p.dir, t.id),
               review: analysis
                 ? reviewScenes({
                     analysis,
@@ -278,6 +289,10 @@ export function stageRoutes(deps: StageRouteDeps): {
           });
         return {
           project: p.slug,
+          openNotes: openNotes(
+            p.dir,
+            takes.map((t) => t.id),
+          ).length,
           storyboard: sb ?? null,
           storyboardUsable: sb !== undefined && isUsable(p.dir, state.accepted, "storyboard", sb),
           takes,
@@ -339,6 +354,39 @@ export function stageRoutes(deps: StageRouteDeps): {
         );
         return { line: state.line, lineText: formatLine(state.line) };
       },
+      /** Notes on a take (item 7c): add, edit, delete (returns the note for Undo), restore. Review input: nothing reaches the Director until a take is requested. */
+      "take-note-add": (body) => {
+        const p = requireProject();
+        const take = String(body.take ?? "");
+        const note = addNote(p.dir, take, {
+          t: Number(body.t),
+          ...(typeof body.scene === "string" && body.scene ? { scene: body.scene } : {}),
+          text: String(body.text ?? ""),
+        });
+        deps.publish("take.noted", { take, message: `note on ${take}` }, p.slug);
+        return { note };
+      },
+      "take-note-edit": (body) => {
+        const p = requireProject();
+        const take = String(body.take ?? "");
+        const note = editNote(p.dir, take, String(body.id ?? ""), body.text);
+        deps.publish("take.noted", { take, message: `note edited on ${take}` }, p.slug);
+        return { note };
+      },
+      "take-note-delete": (body) => {
+        const p = requireProject();
+        const take = String(body.take ?? "");
+        const note = deleteNote(p.dir, take, String(body.id ?? ""));
+        deps.publish("take.noted", { take, message: `note removed from ${take}` }, p.slug);
+        return { note };
+      },
+      "take-note-restore": (body) => {
+        const p = requireProject();
+        const take = String(body.take ?? "");
+        const note = restoreNote(p.dir, take, body.note as never);
+        deps.publish("take.noted", { take, message: `note restored on ${take}` }, p.slug);
+        return { note };
+      },
       /** Ask the agent for a new take of a storyboard (default: the working line's). Recording needs the improvise model, so it is an agent job. */
       rerecord: (body) => {
         const p = requireProject();
@@ -349,28 +397,49 @@ export function stageRoutes(deps: StageRouteDeps): {
             "approve a storyboard first — a take is always recorded from an approved storyboard",
           );
         const note = typeof body.note === "string" ? body.note.trim() : "";
+        // the open notes of this storyboard's takes go with the request, once (item 7c)
+        const carried = openNotes(
+          p.dir,
+          listTakes(p.dir)
+            .filter((t) => t.storyboardVersion === sb)
+            .map((t) => t.id),
+        );
+        const notesText = carried.length
+          ? `\nNotes on earlier takes:\n${formatNotes(carried)}`
+          : "";
         recordInput(p.dir, {
           stage: "recording",
           version: sb,
           source: "panel",
           kind: "direction",
-          text: `re-record requested for storyboard v${sb}${note ? `: ${note}` : ""}`,
+          text: `re-record requested for storyboard v${sb}${note ? `: ${note}` : ""}${notesText}`,
+          ...(carried.length ? { refs: carried.map((n) => `${n.take}#${n.id}`) } : {}),
         });
         // the click, after the cost dialog, is the permission for exactly this take (P1a)
         deps.grant?.("take", p.slug, `storyboard:${sb}`);
         deps.notifyAgent(
-          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}, and ALLOWED the recording. Record it with demo_rec_record storyboard=${sb} (then analyze it and suggest it with demo_rec_take propose; the user approves takes in the Recording tab).`,
+          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}${notesText}, and ALLOWED the recording. Record it with demo_rec_record storyboard=${sb} (then analyze it and suggest it with demo_rec_take propose; the user approves takes in the Recording tab).`,
         );
         deps.publish(
           "recording.requested",
           {
             storyboard: sb,
             ...(note ? { note } : {}),
-            message: `new take of storyboard v${sb} requested${note ? " (with notes)" : ""}`,
+            message: `new take of storyboard v${sb} requested${note || carried.length ? " (with notes)" : ""}`,
           },
           p.slug,
         );
-        return { requested: true, storyboard: sb };
+        if (carried.length) {
+          markSent(p.dir, carried, sb);
+          deps.publish(
+            "take.noted",
+            {
+              message: `${carried.length} note${carried.length === 1 ? "" : "s"} sent with the request`,
+            },
+            p.slug,
+          );
+        }
+        return { requested: true, storyboard: sb, notesSent: carried.length };
       },
     },
   };

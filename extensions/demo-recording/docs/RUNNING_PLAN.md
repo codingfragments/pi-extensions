@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 7 (Recording review).
+`main`.** The next piece of work is item 8 (voice-over filmstrip and annotations step-through).
 
 ## 2. Done
 
@@ -40,8 +40,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | done | 2 | 8 |
 | 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | done | 2 | 10 |
 | 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | done | 4 | 14 |
-| 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | **next** | 8 | 22 |
-| 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | planned | 4 | 26 |
+| 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | done | 8 | 22 |
+| 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | **next** | 4 | 26 |
 | 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | planned | 5 | 31 |
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | later | 12 | 43 |
 | 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | later | 7 | 50 |
@@ -147,7 +147,16 @@ key works only while focus is in the player area and never in a text field, the 
   tour). Below 52rem the columns stack, the player first and unpinned (the list screens' rule). **Decided with you:** no per-take "Director's comment" (the goal
   and findings carry it), "Request a new take" stays at the top. **Not done / uncertain:** a pane taller than its chapter list cannot move (a take of two or
   three short scenes has nothing to pin against); the chapter bar has no ticks for the findings; not tried on the real take.
-- **7c** timestamped notes.
+- **7c, done.** Timestamped notes (decided: review input, nothing sent as you type). `src/recording/notes.ts` keeps them per take in
+  `takes/<take>/notes.json` (id, time on the take clock, the scene, text up to 1000 characters; a sent note records which request carried it and is then
+  read-only, though it can still be removed and Undo brings it back as it was). Routes `take-note-add / -edit / -delete / -restore`; `GET /api/recordings`
+  carries each take's `notes` and `openNotes`. **Request a new take** bundles every open note of the storyboard's takes (take, moment, scene, text) into the
+  Director's message and the input log (with `refs` to the notes), marks them sent, and never carries one twice. In the panel: **Add note at 0:23 · 02-search**
+  under the video, or `N` / `+` with focus inside the workspace (never in a text field): the video pauses and the moment is fixed when you start; Ctrl/Cmd+Enter
+  saves, Esc cancels; a note has a time chip that seeks, Edit, Delete with an Undo toast; "N open notes will go with it" next to the request button. The notes
+  are a third pinned column from a 72rem container, else under the chapters, and between the player and the chapters when the columns stack.
+  **Not done / uncertain:** notes are not offered to the voice-over writer (decided: new take only); nothing checks that the Director acted on a note; the
+  composer is not kept if you navigate away before saving; not tried on the real take. **Item 7 is done.**
 
 **8. Filmstrip and step-through.** The voice-over inspector shows all the scene's frames, used anchors marked and unused ones "not mentioned", a
 click inserts `[@mark]`; Annotations get Previous / Next flanking the preview with "4 of 21" and keys.

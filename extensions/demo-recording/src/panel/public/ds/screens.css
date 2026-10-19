@@ -2499,8 +2499,35 @@ ol[data-next-steps] {
 .ds-rv {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-areas:
+    "chapters pane"
+    "notes pane";
+  grid-template-rows: auto 1fr;
   gap: var(--space-4);
   align-items: start;
+}
+.ds-rv-chapters {
+  grid-area: chapters;
+}
+.ds-rv-pane {
+  grid-area: pane;
+}
+.ds-rv-notes {
+  grid-area: notes;
+}
+/* room for a third column: the notes sit beside the player, pinned like it */
+@container (min-width: 72rem) {
+  .ds-rv {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-areas: "chapters pane notes";
+    grid-template-rows: auto;
+  }
+  .ds-rv-notes {
+    position: sticky;
+    inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
+    max-block-size: calc(100vh - var(--hwrap-h, 7rem) - var(--strip-h, 3rem) - var(--space-4));
+    overflow: auto;
+  }
 }
 .ds-rv-pane {
   position: sticky;
@@ -2518,11 +2545,15 @@ ol[data-next-steps] {
 @container (max-width: 52rem) {
   .ds-rv {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "pane"
+      "notes"
+      "chapters";
+    grid-template-rows: auto;
   }
   .ds-rv-pane {
     position: static;
     max-block-size: none;
-    order: -1;
   }
 }
 .ds-rv-video {
@@ -2588,4 +2619,57 @@ ol[data-next-steps] {
   inline-size: 2px;
   background: var(--text-strong);
   pointer-events: none;
+}
+
+/* ---- notes on a take (item 7c) ---- */
+.ds-rv-notes {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+}
+.ds-rv-notes h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-md);
+}
+.ds-rv-notes p {
+  margin: 0;
+}
+.ds-notes {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-note {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-page);
+}
+.ds-note[data-sent="true"] {
+  background: transparent;
+}
+.ds-note-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ds-note-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ds-note-box {
+  display: grid;
+  gap: var(--space-2);
 }

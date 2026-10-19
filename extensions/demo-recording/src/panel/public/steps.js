@@ -81,6 +81,7 @@ export const STEPS = {
   "take.analyzed": { class: "run-and-tell", tab: "recording" },
   "take.analyzing": { class: "progress" },
   "take.event": { class: "progress" },
+  "take.noted": { class: "quiet" },
   "take.finished": { class: "run-and-tell", tab: "recording" },
   "take.progress": { class: "progress" },
   "take.proposed": { class: "run-and-tell", tab: "recording" },

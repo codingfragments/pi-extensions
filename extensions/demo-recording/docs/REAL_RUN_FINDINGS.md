@@ -8,7 +8,7 @@ and [ROADMAP.md](ROADMAP.md) (all remaining phases, their order and the other wo
 Kinds: bug, ux, idea, design, policy, cost, praise, question. Evidence names files of the test project (`projects/keycraft/...`).
 "Not acted on" means exactly that: none of this is implemented yet; see the phase list in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md#6a-phases-left).
 
-F1 [ux] Project page · there is no way to start a new discovery, or to enhance (re-run / extend) an existing one, from the Project page. Expected: a button there (start discovery; if one exists, "enhance" it, e.g. with extra notes, areas or sources).
+F1 [ux] (**addressed by D1, work package 10**) Project page · there is no way to start a new discovery, or to enhance (re-run / extend) an existing one, from the Project page. Expected: a button there (start discovery; if one exists, "enhance" it, e.g. with extra notes, areas or sources).
    Context when noted: discovery starts only from pi (`/demo discover`); the Project page has Brief, Sources & context, Findings and Project history groups but no action for it.
 
 F2 [idea] Discovery output · a discovery should leave a readable result: what it found about the app, what the additional research (sources, notes, links) contributed, and the guidance it would use for the storyboard phase. Expected: one place in the panel to review and understand the gathered information (the app itself and the extra research), and what the Director will carry into the storyboard.
@@ -20,7 +20,7 @@ F3 [ux] (**addressed by D4, work package 10**) Live preview (Activity drawer / d
 F4 [idea] Login between discovery and recording · the login (session) should be checked and refreshed between phases, not only once at the start: a session that was valid during discovery may be expired when recording starts (and could expire mid-take). Expected: before recording (and before discovery) the Director/engine checks the session is still logged in and, if not, prompts for a re-login and carries on, instead of recording a login screen.
    Context when noted: asked together with the question "when do we add authentication and session login" (answer: slice S7, not started). Today no login support exists beyond a hand-made storage file being picked up if present.
 
-F5 [question→idea] Discovery budget on the Project page · the budget (screens / actions / minutes) is only a Config setting (global, with a per-project override). Question: should the Project page show and set it, so it can be chosen when a discovery is started or enhanced (F1), and extended when it runs out?
+F5 [question→idea] (**addressed by D1, work package 10**) Discovery budget on the Project page · the budget (screens / actions / minutes) is only a Config setting (global, with a per-project override). Question: should the Project page show and set it, so it can be chosen when a discovery is started or enhanced (F1), and extended when it runs out?
    Context when noted: defaults 40 screens / 150 actions / 20 minutes per discovery session; enforced in the engine; shown in the Activity drawer during discovery. Answer given in chat; the decision comes at the summary. Linked to F1 and F2.
 
 F6 [bug+idea] Discovery progress bar stalls · the segmented progress bar during discovery suddenly stops moving. For S6 (parallel discovery): the discovery control cycle needs more attention: the Director must make sure every area gets attention, and the progress bar(s) (one per lane) keep updating.

@@ -2817,3 +2817,24 @@ ol[data-next-steps] {
 .frame--big figcaption {
   text-align: center;
 }
+
+/* ---- Project → Discovery (item 10, D1) ---- */
+.ds-discovery {
+  display: grid;
+  gap: var(--space-3);
+}
+.ds-discovery h2,
+.ds-discovery p {
+  margin: 0;
+}
+.ds-disc-num {
+  min-inline-size: 7rem;
+  flex: 1 1 7rem;
+}
+.ds-disc-budget {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

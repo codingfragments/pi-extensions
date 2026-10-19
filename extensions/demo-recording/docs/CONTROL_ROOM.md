@@ -61,6 +61,7 @@ Below it, one group at a time (the chip that is open closes when you press it ag
 | Group | What it holds |
 |---|---|
 | **Brief** | the facts as a form (title card preview, audience, depth, stance, target length, voice, URLs, goal). Each save shows a diff and writes a new brief version |
+| **Discovery** | where discovery stands (not started, running, done, budget used, cut off) and every session with what it used against its budget and how it ended. **Start discovery** and **Enhance…** ask the Director in one window: what to keep in mind, the areas to cover, and the **budget** (quick, standard, deep or the three numbers; standard is the Config value). **Extend the budget…** appears when the last session ran out and offers twice what it had. A request waits until the Director picks it up and can be taken back; it costs model tokens and browser time, no money |
 | **Sources & context** | what you gave the Director (notes, links, assets) |
 | **Findings** | what discovery and the recordings found (strengths, weaknesses, friction, values, use cases, length), each **auto**, **use** (always in the recording and the narration) or **ignore** |
 | **Project history** | the input log: every direction, review, edit and note; withdrawn ones are marked outdated, never deleted |

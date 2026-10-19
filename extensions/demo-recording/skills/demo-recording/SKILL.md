@@ -98,7 +98,7 @@ annotations → render.
    sales, see the demo-brief skill's depth table), stance, target length and
    goal before you click anything. Depth decides what to look for: poc = go
    deep and capture weaknesses, showcase = breadth, sales = a few outcome flows.
-2. `demo_rec_browser open`. The screenshot is the source of truth. The aria
+2. `demo_rec_browser open`. If the user started or enhanced discovery from the Project page, a `[demo-panel]` message says so (notes, areas to cover, budget, and for an enhance what to build on): the session then takes THAT request's budget by itself, so just open it; declare the areas in your plan, cover each, and for an enhance read the earlier findings first and say what the new session added. When the budget runs out, stop exploring and say so: the user can extend it from the Project page. The screenshot is the source of truth. The aria
    digest gives exact values and the `{role, name}` targets to use.
 3. **Declare your plan.** Right after the first look, call
    `demo_rec_browser plan` with `areas` (the 3–7 parts of the app you intend

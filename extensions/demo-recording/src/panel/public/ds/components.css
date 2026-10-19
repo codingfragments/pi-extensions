@@ -1613,3 +1613,24 @@ dialog.ds-dialog::backdrop {
     grid-column: 1 / -1;
   }
 }
+
+/* Annotations: Previous / Next flank the preview (item 8b, F19) */
+.ds-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ds-stepper > .ds-shot {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.ds-stepper > .ds-btn {
+  flex: none;
+  min-block-size: var(--target-min);
+  min-inline-size: var(--target-min);
+  font-size: var(--text-lg);
+}
+.ds-stepper-label {
+  margin: 0;
+  text-align: center;
+}

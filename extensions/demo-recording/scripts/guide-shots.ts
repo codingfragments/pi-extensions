@@ -158,8 +158,7 @@ async function main() {
     await shot(page, "04-recording");
     await go(page, "#/voice/v1", ".ds-split-list .ds-item");
     await page.click(".ds-item[data-key='01-dash']");
-    await page.waitForSelector(".ds-anchor img");
-    await page.waitForFunction("document.querySelector('.ds-anchor img')?.complete");
+    await page.waitForSelector(".ds-anchor");
     await shot(page, "05-voice");
     await go(page, "#/voice/v2", ".history-btn");
     await page.click(".history-btn");

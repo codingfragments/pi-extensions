@@ -18,3 +18,28 @@ export function chapterAt(scenes, ms) {
   for (let i = 0; i < scenes.length; i++) if (scenes[i].startMs <= ms) at = i;
   return at;
 }
+
+const PIN_WORDS = 9;
+
+/**
+ * The marks a narration text anchors to, with the first words spoken after each (the draft as it is now, so the filmstrip
+ * follows what you type). Tokens look like `[@mark]` or `[@mark +300ms]`.
+ */
+export function marksSpoken(text) {
+  const out = new Map();
+  const re = /\[@([A-Za-z0-9_-]+)(?:\s+[+-]\d+ms)?\]/g;
+  const hits = [...String(text ?? "").matchAll(re)];
+  hits.forEach((m, i) => {
+    if (out.has(m[1])) return;
+    const from = m.index + m[0].length;
+    const to = hits[i + 1]?.index ?? text.length;
+    const words = text.slice(from, to).split(/\s+/).filter(Boolean);
+    out.set(
+      m[1],
+      words.length
+        ? `${words.slice(0, PIN_WORDS).join(" ")}${words.length > PIN_WORDS ? "…" : ""}`
+        : "",
+    );
+  });
+  return out;
+}

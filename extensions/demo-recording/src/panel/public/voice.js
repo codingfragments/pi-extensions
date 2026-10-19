@@ -2,7 +2,9 @@
 // with working drafts for the narration. Editing keeps a working draft (autosaved, private until saved,
 // never a version); "Save new version" turns it into exactly one version. Reviewing a section is a
 // separate act from editing it, and approving a version is separate from both.
-import { html, useEffect, useMemo, useState } from "/vendor/preact-htm.module.js";
+import { html, useEffect, useMemo, useRef, useState } from "/vendor/preact-htm.module.js";
+import { marksSpoken } from "./chapters-core.js";
+import { FrameStrip } from "./chapters.js";
 import { ApproveHighModal, ConfReasons, NeedsEyes, byRisk, confOf } from "./confidence.js";
 import { media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint, confirmCost } from "./cost.js";
@@ -223,18 +225,62 @@ function Anchors({ anchors, text, onText }) {
   if (!anchors?.length) return null;
   const at = (ms) =>
     `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
-  return html`<section class="ds-anchors" aria-label="The picture at each anchor">
-    <span class="ds-label">At each anchor</span>
+  return html`<section class="ds-anchors" aria-label="Timing at each anchor">
+    <span class="ds-label">Timing at each anchor</span>
     <ul class="ds-anchor-list">
       ${anchors.map(
         (a) => html`<li class="ds-anchor" key=${a.mark} data-mark=${a.mark}>
-          ${a.image ? html`<img loading="lazy" src=${media("project", a.image)} alt=${`The take at [@${a.mark}], ${at(a.atMs)}${a.dom ? `: ${a.dom}` : ""}`} />` : html`<div class="ds-anchor-none ds-small">no picture for this moment</div>`}
           <div class="ds-small"><code>[@${a.mark}]</code> <span class="ds-muted">${at(a.atMs)} into the take</span></div>
           ${a.dom ? html`<div class="ds-small ds-muted ds-anchor-dom">${a.dom}</div>` : null}
           ${onText ? html`<${Nudge} mark=${a.mark} text=${text} onText=${onText} />` : null}
         </li>`,
       )}
     </ul>
+  </section>`;
+}
+
+/**
+ * The scene's moments under the narration (F16): every frame in time order, the marks the narration uses with the words they pin,
+ * the others "not mentioned" (mention the moment or cut it). Clicking an unused mark inserts its [@mark] where the cursor was.
+ */
+function Filmstrip({ section, text, onInsert }) {
+  const spoken = marksSpoken(text);
+  const frames = (section.frames ?? []).map((f) =>
+    f.kind === "mark" ? { ...f, used: spoken.has(f.label), pins: spoken.get(f.label) } : f,
+  );
+  if (!frames.length) return null;
+  const marks = frames.filter((f) => f.kind === "mark");
+  const unused = marks.filter((f) => !f.used).length;
+  const title =
+    section.kind === "intro"
+      ? `How ${frames[0].scene} opens`
+      : section.kind === "outro"
+        ? `How ${frames[0].scene} ends`
+        : "The scene's moments";
+  const shown = frames.map((f) => ({
+    label: f.label,
+    kind: f.kind,
+    t: f.t,
+    used: f.used,
+    file: f.image ?? undefined,
+    note:
+      f.kind !== "mark"
+        ? f.kind === "event"
+          ? { text: "notable moment", tone: "info" }
+          : undefined
+        : f.used
+          ? { text: f.pins ? `✓ “${f.pins}”` : "✓ used", tone: "ok" }
+          : { text: "not mentioned in the narration", tone: "warn" },
+    ...(f.kind === "mark" && !f.used && onInsert ? { onPick: () => onInsert(f.label) } : {}),
+  }));
+  return html`<section class="ds-filmstrip" aria-label=${title}>
+    <span class="ds-label">${title}</span>
+    <${FrameStrip} frames=${shown} label=${title} />
+    ${
+      section.kind === "scene" && marks.length
+        ? html`<p class="ds-hint-text" data-filmstrip-summary>${marks.length - unused} of ${marks.length} marks used${unused ? html`; <strong>${unused} not mentioned</strong>: click one to put its <code>[@mark]</code> into the narration at the cursor, or leave it out on purpose.` : "."}</p>`
+        : null
+    }
   </section>`;
 }
 
@@ -256,12 +302,29 @@ function SectionInspector({
   const r = review?.scenes?.[section.key];
   const [note, setNote] = useState(r?.note ?? "");
   useEffect(() => setNote(r?.note ?? ""), [r?.note]);
+  const caret = useRef(null);
   const edited =
     draft.texts[section.key] !== undefined && draft.texts[section.key] !== section.written;
   const text = draft.texts[section.key] ?? section.written;
   const diffParts = showChanges && Array.isArray(section.diff) ? section.diff : null;
   const choose = (status) => onReview(section.key, status, note);
   const id = `narration-${data.version}-${section.key}`;
+  /** Put [@mark] into the narration where the cursor was (at the end when it was never in the box); the box gets the focus back after it. */
+  const insertMark = (mark) => {
+    const at = Math.min(caret.current ?? text.length, text.length);
+    const before = text.slice(0, at);
+    const after = text.slice(at);
+    const lead = before && !/\s$/.test(before) ? " " : "";
+    const token = `${lead}[@${mark}] `;
+    draft.setText(section.key, `${before}${token}${after.replace(/^\s+/, "")}`);
+    const pos = before.length + token.length;
+    caret.current = pos;
+    requestAnimationFrame(() => {
+      const ta = document.getElementById(id);
+      ta?.focus();
+      ta?.setSelectionRange(pos, pos);
+    });
+  };
   return html`<div class="ds-stack ds-inspector">
     <div class="ds-row-flex">
       <h2>${section.key}</h2>
@@ -282,10 +345,15 @@ function SectionInspector({
     }
     <div class="ds-field">
       <label class="ds-label" for=${id}>Narration</label>
-      <textarea class="ds-textarea ds-measure" id=${id} rows="6" value=${text} onInput=${(e) => draft.setText(section.key, e.target.value)}></textarea>
+      <textarea class="ds-textarea ds-measure" id=${id} rows="6" value=${text} onInput=${(e) => draft.setText(section.key, e.target.value)} onBlur=${(
+        e,
+      ) => {
+        caret.current = e.target.selectionStart;
+      }}></textarea>
       <span class="ds-hint-text">Anchors in [@brackets] are kept. ${wordCount(text)} words · about ${Math.round(wordCount(text) / 2.58)} s at 155 words per minute.</span>
       ${edited ? html`<span class="ds-row-flex"><button class="ds-btn ds-btn--sm ds-btn--ghost" type="button" data-act="revert" onClick=${() => draft.setText(section.key, section.written)}>Revert this section</button></span>` : null}
     </div>
+    <${Filmstrip} section=${section} text=${text} onInsert=${insertMark} />
     <${Anchors} anchors=${section.anchors} text=${text} onText=${(t) => draft.setText(section.key, t)} />
     ${section.anchors?.length ? html`<p class="ds-hint-text">Timing moves only when the narration after an anchor starts. The words and the voice stay the same, so it costs no audio: save a version, approve it, and the voice comes from the cache (the cost dialog says 0).</p>` : null}
     ${issues.map((i) => html`<p class=${`issue ${i.level}`}>${i.level === "error" ? "✖" : "⚠"} ${i.message}</p>`)}

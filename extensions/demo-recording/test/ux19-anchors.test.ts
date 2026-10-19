@@ -1,6 +1,6 @@
 /**
- * UX19b (D132): the Voice inspector shows the picture at each anchor of the narration (the take's keyframe at that mark),
- * so the words can be checked against what is on screen.
+ * UX19b (D132): the Voice inspector shows the moment and the page text at each anchor of the narration, with its timing
+ * nudge (the pictures are in the scene's moments strip, item 8a, tested in vo-filmstrip.test.ts).
  */
 
 import assert from "node:assert/strict";
@@ -86,7 +86,7 @@ const browserType = await chromium();
 const skip = !browserType && "needs Playwright Chromium";
 
 test(
-  "Voice inspector: the picture at each anchor, a note where there is none, nothing for sections without anchors",
+  "Voice inspector: the timing cards at each anchor, nothing for sections without anchors",
   { skip, timeout: 90_000 },
   async () => {
     process.env.DEMO_REC_NO_OPEN = "1";
@@ -133,15 +133,11 @@ test(
         await items.nth(0).innerText(),
         /\[@m1\][\s\S]*0:01 into the take[\s\S]*Churn 3\.1%/,
       );
-      assert.match(await items.nth(1).innerText(), /no picture for this moment[\s\S]*\[@m2\]/);
-      const img = items.nth(0).locator("img");
-      await img.waitFor();
-      assert.match((await img.getAttribute("alt")) ?? "", /\[@m1\], 0:01/);
-      await page.waitForFunction("document.querySelector('.ds-anchor img')?.complete");
+      assert.match(await items.nth(1).innerText(), /\[@m2\][\s\S]*0:03 into the take/);
       assert.equal(
-        await page.evaluate("document.querySelector('.ds-anchor img').naturalWidth > 0"),
-        true,
-        "the picture is served and shown",
+        await page.locator(".ds-anchor img").count(),
+        0,
+        "the pictures are in the scene's moments strip, not repeated here",
       );
       assert.deepEqual(errors, []);
     } finally {

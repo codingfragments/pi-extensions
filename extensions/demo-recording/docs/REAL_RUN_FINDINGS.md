@@ -14,7 +14,7 @@ F1 [ux] Project page · there is no way to start a new discovery, or to enhance 
 F2 [idea] Discovery output · a discovery should leave a readable result: what it found about the app, what the additional research (sources, notes, links) contributed, and the guidance it would use for the storyboard phase. Expected: one place in the panel to review and understand the gathered information (the app itself and the extra research), and what the Director will carry into the storyboard.
    Context when noted: findings exist as a list (strength, weakness, friction, value, use case, length) with evidence; no summary document and no explicit "storyboard guidance". F1 and F2 belong together (start/enhance it, then read what it produced).
 
-F3 [ux] Live preview (Activity drawer / discovery) · the preview picture is small. Expected: expand it into a bigger popup panel; the enlarged view must still update live with the picture, not be a frozen snapshot.
+F3 [ux] (**addressed by D4, work package 10**) Live preview (Activity drawer / discovery) · the preview picture is small. Expected: expand it into a bigger popup panel; the enlarged view must still update live with the picture, not be a frozen snapshot.
    Context when noted: the drawer shows a live frame preview during discovery and recording; no way to enlarge it.
 
 F4 [idea] Login between discovery and recording · the login (session) should be checked and refreshed between phases, not only once at the start: a session that was valid during discovery may be expired when recording starts (and could expire mid-take). Expected: before recording (and before discovery) the Director/engine checks the session is still logged in and, if not, prompts for a re-login and carries on, instead of recording a login screen.

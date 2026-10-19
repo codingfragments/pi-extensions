@@ -227,8 +227,20 @@ export function ProgressRows({ rows }) {
   )}`;
 }
 
-export function FramePreview({ events, recording }) {
+/**
+ * The live picture of what is being discovered or recorded. In the drawer it is small; a click opens it in a window (D4, F3)
+ * that goes on updating: the window renders the same source (the newest discovery screen, or the polled live frame of a take
+ * being recorded), it is not a snapshot of the moment you clicked.
+ */
+export function FramePreview({ events, recording, big = false }) {
   const [frame, setFrame] = useState(null);
+  const [open, setOpen] = useState(false);
+  const opener = useRef(null);
+  const close = () => {
+    setOpen(false);
+    // the focus goes back to the small preview that opened it
+    requestAnimationFrame(() => opener.current?.focus());
+  };
   useEffect(() => {
     if (!recording) {
       setFrame(null);
@@ -248,11 +260,31 @@ export function FramePreview({ events, recording }) {
     };
   }, [recording]);
   const look = last(events, ["discovery.look"]);
-  if (frame)
-    return html`<figure class="frame"><img src=${`${media("project", frame.media)}`} alt="live frame" /><figcaption>${frame.take} · live</figcaption></figure>`;
-  if (look)
-    return html`<figure class="frame"><img src=${media("app", look.data.media)} alt="current screen" /><figcaption class="mono">${look.data.screen} · ${look.data.title}</figcaption></figure>`;
-  return html`<p class="muted small-text">no frame yet — screens appear during discovery and recording</p>`;
+  const shot = frame
+    ? {
+        src: media("project", frame.media),
+        alt: "live frame",
+        caption: `${frame.take} · live`,
+        mono: false,
+      }
+    : look
+      ? {
+          src: media("app", look.data.media),
+          alt: "current screen",
+          caption: `${look.data.screen} · ${look.data.title}`,
+          mono: true,
+        }
+      : null;
+  if (!shot)
+    return html`<p class="muted small-text">no frame yet — screens appear during discovery and recording</p>`;
+  const img = html`<img src=${shot.src} alt=${shot.alt} />`;
+  const caption = html`<figcaption class=${shot.mono ? "mono" : undefined}>${shot.caption}</figcaption>`;
+  if (big) return html`<figure class="frame frame--big" data-live-big>${img}${caption}</figure>`;
+  return html`<figure class="frame">
+    <button class="ds-preview-open" type="button" data-act="enlarge-preview" ref=${opener} aria-label="Enlarge the live preview" title="Enlarge: the bigger picture keeps updating" onClick=${() => setOpen(true)}>${img}<span class="ds-preview-hint" aria-hidden="true">⤢</span></button>
+    ${caption}
+    ${open ? html`<${Modal} title="Live preview" size="large" onClose=${close}><${FramePreview} events=${events} recording=${recording} big /><//>` : null}
+  </figure>`;
 }
 
 export function Safety({ events }) {

@@ -251,7 +251,7 @@ target in discovery, add a `deep_link`).
 the panel shows *Allow / Not now* (they can also type `/demo allow`). Say what you are waiting for in one line,
 **stop, and do not retry or ask again**: a `[demo-recording] The user ALLOWED …` message arrives when they
 answer (a `did NOT allow` note means don't try again unless they ask). The permission is for exactly that
-version, for 15 minutes, once. In the panel, *Request a new take*, a separate designer run and *Generate voice
+version, for 15 minutes, once. In the panel, *Request a new take* (its message may carry "Notes on earlier takes": one line per note, `take moment · scene: what the user noticed`; read each, fix what it asks in the next take or say why not, and answer it in your report), a separate designer run and *Generate voice
 & render* open a dialog first; a `[demo-panel]` message for them arrives only after the user said yes (for the
 take, the click is the permission), so don't ask again. The separate designer starts by itself after the edit
 and announces itself (run-and-tell): don't start it yourself.

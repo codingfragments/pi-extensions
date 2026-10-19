@@ -1,11 +1,11 @@
-import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { html, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Chapters, chapterAt, clock } from "./chapters.js";
 import { media, mmss, post, useApi, useRouteVersion } from "./core.js";
 // demo-recording panel — Recording tab (S5 part 4, D44–D46; UX3): the takes of the production line's
 // storyboard (a take of another storyboard can be looked at via History), approve several, put one in
 // the production line, and ask for a new take of that storyboard.
 import { CostHint, confirmCost } from "./cost.js";
-import { errorToast } from "./dialog.js";
+import { errorToast, toast } from "./dialog.js";
 import { stageOf } from "./stages.js";
 import {
   RowBadges,
@@ -75,13 +75,99 @@ function SceneContext({ scene, onSeek }) {
   </div>`;
 }
 
+/** The note being written or edited: a text box, saved with the button or Ctrl/Cmd+Enter, left with Escape. */
+function NoteBox({ initial = "", label, onSave, onCancel }) {
+  const [text, setText] = useState(initial);
+  const box = useRef(null);
+  // focus before the browser paints, so the first letter you type after pressing N already lands in the box
+  useLayoutEffect(() => box.current?.focus(), []);
+  const save = () => text.trim() && onSave(text.trim());
+  return html`<div class="ds-note-box">
+    <label class="ds-label ds-small" for=${`nb-${label}`}>${label}</label>
+    <textarea class="ds-textarea ds-textarea--compact" id=${`nb-${label}`} ref=${box} rows="3" maxlength="1000" value=${text} onInput=${(e) => setText(e.target.value)}
+      onKeyDown=${(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onCancel();
+        } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          save();
+        }
+      }}></textarea>
+    <div class="ds-row-flex"><button class="ds-btn ds-btn--primary ds-btn--sm" type="button" data-act="note-save" disabled=${!text.trim()} onClick=${save}>Save note</button><button class="ds-btn ds-btn--sm" type="button" data-act="note-cancel" onClick=${onCancel}>Cancel</button><span class="ds-small ds-muted">Ctrl/Cmd+Enter saves, Esc cancels</span></div>
+  </div>`;
+}
+
+/** The notes of a take (item 7c): review input, listed by moment; a time chip goes there. Nothing is sent until a take is requested. */
+function NotesPanel({ take, notes, draft, onDraft, onSeek, onSaved }) {
+  const [editing, setEditing] = useState(null);
+  const call = async (route, body) => {
+    try {
+      return await post(`/api/${route}`, { take, ...body });
+    } catch (e) {
+      errorToast(e, "note");
+      return null;
+    }
+  };
+  const create = async (text) => {
+    if (await call("take-note-add", { t: draft.t, scene: draft.scene, text })) {
+      onDraft(null);
+      onSaved();
+    }
+  };
+  const edit = async (n, text) => {
+    if (await call("take-note-edit", { id: n.id, text })) {
+      setEditing(null);
+      onSaved();
+    }
+  };
+  const remove = async (n) => {
+    const r = await call("take-note-delete", { id: n.id });
+    if (!r) return;
+    onSaved();
+    toast(`Note at ${clock(n.t)} removed`, {
+      kind: "info",
+      action: {
+        label: "Undo",
+        onClick: async () => (await call("take-note-restore", { note: r.note })) && onSaved(),
+      },
+    });
+  };
+  const open = notes.filter((n) => !n.sent).length;
+  return html`<section class="ds-rv-notes" aria-label=${`Notes on ${take}`}>
+    <h3>Notes ${notes.length ? html`<span class="ds-badge" data-tone=${open ? "accent" : "neutral"}>${open ? `${open} open` : "all sent"}</span>` : null}</h3>
+    ${draft ? html`<${NoteBox} label=${`New note at ${clock(draft.t)}${draft.scene ? ` · ${draft.scene}` : ""}`} onSave=${create} onCancel=${() => onDraft(null)} />` : null}
+    ${
+      notes.length
+        ? html`<ul class="ds-notes">${notes.map(
+            (
+              n,
+            ) => html`<li class="ds-note" key=${n.id} data-note=${n.id} data-sent=${n.sent ? "true" : undefined}>
+              <div class="ds-note-meta"><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="note-seek" aria-label=${`Go to ${clock(n.t)}`} onClick=${() => onSeek(n.t)}>${clock(n.t)}</button>${n.scene ? html`<span class="mono ds-small ds-muted">${n.scene}</span>` : null}${n.sent ? html`<span class="ds-badge" data-tone="neutral" title=${`Carried by the request for a new take of storyboard v${n.sent.storyboard}`}>sent</span>` : null}</div>
+              ${
+                editing === n.id
+                  ? html`<${NoteBox} initial=${n.text} label=${`Edit the note at ${clock(n.t)}`} onSave=${(text) => edit(n, text)} onCancel=${() => setEditing(null)} />`
+                  : html`<p class="ds-note-text">${n.text}</p>
+                    <div class="ds-row-flex">${n.sent ? null : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="note-edit" onClick=${() => setEditing(n.id)}>Edit</button>`}<button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="note-delete" onClick=${() => remove(n)}>Delete</button></div>`
+              }
+            </li>`,
+          )}</ul>`
+        : draft
+          ? null
+          : html`<p class="ds-small ds-muted">No notes yet. Pause on a moment and press <kbd class="ds-kbd">N</kbd>, or use Add note under the video.</p>`
+    }
+    <p class="ds-small ds-muted">Notes are not sent as you write. <strong>Request a new take</strong> at the top carries the open ones to the Director, once.</p>
+  </section>`;
+}
+
 /**
  * The review workspace of one take: the chapters with their frames beside a smaller player that stays in view, the scene's
  * goal and findings above it, chapter marks under it. `[` and `]` go to the previous / next chapter while focus is inside.
  */
-function TakeWorkspace({ t }) {
+function TakeWorkspace({ t, reload }) {
   const [time, setTime] = useState(null);
   const [focus, setFocus] = useState(0);
+  const [draft, setDraft] = useState(null);
   const video = useRef(null);
   const pending = useRef(null);
   const scenes = t.review ?? [];
@@ -105,6 +191,16 @@ function TakeWorkspace({ t }) {
     const i = Math.min(scenes.length - 1, Math.max(0, current + d));
     if (scenes[i]) seek(scenes[i].startMs);
   };
+  /** A note at the moment the video is at (the video pauses: you are about to type). Its time is fixed when you start it. */
+  const startNote = () => {
+    const v = video.current;
+    if (!v) return;
+    v.pause();
+    const at = Math.round(v.currentTime * 1000);
+    const sc = scenes[chapterAt(scenes, at)];
+    setTime(at);
+    setDraft({ t: at, ...(sc ? { scene: sc.id } : {}) });
+  };
   const onKeyDown = (e) => {
     if (
       e.ctrlKey ||
@@ -116,6 +212,9 @@ function TakeWorkspace({ t }) {
     if (e.key === "[" || e.key === "]") {
       e.preventDefault();
       step(e.key === "]" ? 1 : -1);
+    } else if ((e.key === "n" || e.key === "N" || e.key === "+") && t.video) {
+      e.preventDefault();
+      startNote();
     }
   };
   if (!scenes.length)
@@ -128,10 +227,12 @@ function TakeWorkspace({ t }) {
         t.video
           ? html`<video class="ds-rv-video" ref=${video} controls preload="metadata" aria-label=${`Raw recording ${t.id}`} src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>
             <${ChapterBar} scenes=${scenes} durationMs=${t.durationMs ?? 0} time=${time} current=${current} onSeek=${seek} />
-            <p class="ds-small ds-muted">Focus here, then <kbd class="ds-kbd">[</kbd> / <kbd class="ds-kbd">]</kbd> go to the previous / next chapter.</p>`
+            <div class="ds-row-flex"><button class="ds-btn ds-btn--sm" type="button" data-act="add-note" onClick=${startNote}>Add note at ${clock(time ?? 0)}${scenes[current] ? ` · ${scenes[current].id}` : ""}</button>
+              <span class="ds-small ds-muted"><kbd class="ds-kbd">N</kbd> adds a note, <kbd class="ds-kbd">[</kbd> / <kbd class="ds-kbd">]</kbd> change chapter (focus inside)</span></div>`
           : html`<p class="ds-notice" role="note">This take has no raw video on disk, so the chapters cannot play.</p>`
       }
     </div>
+    ${t.video ? html`<${NotesPanel} take=${t.id} notes=${t.notes ?? []} draft=${draft} onDraft=${setDraft} onSeek=${seek} onSaved=${reload} />` : null}
   </div></div>`;
 }
 
@@ -186,6 +287,7 @@ export function Recording({ events, stages }) {
         <button class="ds-btn ds-btn--primary" type="button" disabled=${busy || !data.storyboardUsable} title=${data.storyboardUsable ? "asks the agent to record a new take of this storyboard" : "accept a storyboard first"}
           onClick=${request}>Request a new take</button>
         <${CostHint} />
+        ${data.openNotes ? html`<span class="ds-small" data-open-notes>${data.openNotes} open note${data.openNotes === 1 ? "" : "s"} will go with it</span>` : null}
         ${flash ? html`<span class="flash">${flash}</span>` : null}
       </div>
       <p class="muted small-text">Approve every take that is good enough to build on — each approved take can get its own voice-over. <b>Use for next steps</b> puts a take in the production line (the Voice over screen and the Director follow it).</p>
@@ -195,7 +297,7 @@ export function Recording({ events, stages }) {
         ? html`${data.takes.map(
             (t) =>
               html`<${TakeRow} key=${t.id} t=${t} row=${rows.find((r) => r.version === t.version)} events=${events} viewed=${t.version === routeVersion} selected=${t.id === reviewed.id} onSelect=${() => setPicked(t.id)} reload=${reload} />`,
-          )}<${TakeWorkspace} key=${reviewed.id} t=${reviewed} />`
+          )}<${TakeWorkspace} key=${reviewed.id} t=${reviewed} reload=${reload} />`
         : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (its progress is in the Activity drawer).` : "Accept a storyboard first; its takes show up here."}</section>`
     }`;
 }

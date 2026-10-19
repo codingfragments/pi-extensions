@@ -93,6 +93,11 @@ Under the video a **chapter bar** marks every scene on the take's own time line.
 to that moment; `[` and `]` (focus inside the workspace) go to the previous and next chapter. In a narrow window the player comes first and
 the chapters follow.
 
+**Notes** (the third column from a wide window, else under the chapters): pause on a moment and press `N` (or `+`, or *Add note* under the video)
+to write what you noticed; it is stamped with the time and the scene. A note's time chip goes to that moment; Edit, Delete (with Undo). Notes are
+review input: nothing is sent as you write. **Request a new take** carries every open note (the take, the moment, the scene, your words) to the
+Director with its own note, once; they then show as *sent* and become a record (no more editing).
+
 ![Recording: the takes of the selected storyboard](images/guide/04-recording.jpg)
 
 ## Voice over
@@ -217,6 +222,7 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
   | Tab, Shift+Tab | move between controls (a list is one stop) |
   | ↑ ↓, Home, End | move between the items of a list; Enter opens the one in focus |
   | `[`, `]` | previous / next chapter in the recording review (focus inside it) |
+  | `N`, `+` | add a note at the current moment of the recording (focus inside the review) |
   | Esc | close the top layer: a dialog, the Versions list, the Map, or clear a search |
   | `/`, Ctrl/Cmd+K | search the settings (in Config) |
   | arrow keys in the Map | walk the graph from node to node; Enter selects |

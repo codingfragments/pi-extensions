@@ -1,7 +1,8 @@
-import { html, useState } from "/vendor/preact-htm.module.js";
+import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { Modal, post, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
 import { errorToast, toast } from "./dialog.js";
+import { AREA_WORDS, stallOf, stallWords } from "./discovery-core.js";
 // demo-recording panel — Project → Discovery (item 10, D1; F1, F5): where discovery stands, how each session ended, and the way to
 // start it, enhance it, or extend its budget without leaving the page. Discovery itself is the Director's work (it explores the app in
 // a browser): Start and Enhance send it your notes, the areas you want covered and the budget you chose.
@@ -43,6 +44,45 @@ function Sessions({ sessions, running }) {
         <td><span class="ds-badge" data-tone=${tone}><span class="ds-badge-ico" aria-hidden="true">${icon}</span>${word}</span></td></tr>`;
     })}</tbody>
   </table></div>`;
+}
+
+/** Re-reads the clock while a session is open, so "no activity for 2 min" appears without any event. */
+function useNow(on) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return undefined;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(t);
+  }, [on]);
+  return now;
+}
+
+/** "No activity for 2 min": a stalled session says so, as an icon and words and never as an error (the Director may be thinking). */
+export function DiscoveryStall({ events }) {
+  const open = events.some((e) => e.type === "discovery.opened");
+  const now = useNow(open);
+  const s = stallOf(events, now);
+  if (!s) return null;
+  return html`<p class="ds-small ds-stall" role="status" data-stall=${s.kind}><span class="ds-status" data-tone="warn" aria-hidden="true">◔</span> ${stallWords(s)}</p>`;
+}
+
+/** What the latest session has actually seen, per declared area. Marking an area done is a claim; looks and actions are the measure. */
+function Areas({ measure, session }) {
+  if (!measure?.planned || !measure.areas.length) return null;
+  return html`<div class="ds-stack">
+    <h3>Areas · session ${session}</h3>
+    <div class="ds-table-wrap"><table class="ds-table" aria-label="What each area got">
+      <thead><tr><th scope="col">Area</th><th scope="col">State</th><th scope="col" class="ds-num">Looks</th><th scope="col" class="ds-num">Actions</th></tr></thead>
+      <tbody>${measure.areas.map((a) => {
+        const [tone, icon, word] = AREA_WORDS[a.status] ?? AREA_WORDS.todo;
+        return html`<tr key=${a.name} data-area=${a.name} data-area-status=${a.status}><th scope="row">${a.name}${a.routes.length ? html` <span class="ds-muted ds-small mono">${a.routes.join(" ")}</span>` : null}</th>
+          <td><span class="ds-badge" data-tone=${tone}><span class="ds-badge-ico" aria-hidden="true">${icon}</span>${word}</span>${a.droppedWhy ? html` <span class="ds-muted ds-small">${a.droppedWhy}</span>` : null}</td>
+          <td class="ds-num">${a.looks}</td><td class="ds-num">${a.acts}</td></tr>`;
+      })}</tbody>
+    </table></div>
+    ${measure.unassigned.looks + measure.unassigned.acts ? html`<p class="ds-small ds-muted" data-unassigned>${measure.unassigned.looks} look${measure.unassigned.looks === 1 ? "" : "s"} and ${measure.unassigned.acts} action${measure.unassigned.acts === 1 ? "" : "s"} were on pages no area's route claims and no area was in hand.</p>` : null}
+  </div>`;
 }
 
 const PRESET_WORD = { quick: "Quick", standard: "Standard", deep: "Deep" };
@@ -148,6 +188,9 @@ export function Discovery({ events }) {
       <${CostHint} />
       ${running ? html`<span class="ds-why">A session is running: wait for it to finish.</span>` : null}
     </div>
+    ${running ? html`<${DiscoveryStall} events=${events} />` : null}
+    <${Areas} measure=${data.measure} session=${last?.id} />
+    ${data.uncovered?.length && !running ? html`<div class="ds-notice" data-tone="warn" role="note" data-uncovered><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div><strong>Not seen yet:</strong> ${data.uncovered.join(", ")}. The storyboard is not written over these until the Director explores them or leaves them out on purpose with a reason.</div></div>` : null}
     <${Sessions} sessions=${data.sessions} running=${data.running} />
     ${ask ? html`<${AskModal} mode=${ask.mode} extend=${ask.extend} data=${data} onClose=${() => setAsk(null)} />` : null}
   </section>`;

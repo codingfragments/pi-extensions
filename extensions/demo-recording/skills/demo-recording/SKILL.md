@@ -102,9 +102,15 @@ annotations → render.
    digest gives exact values and the `{role, name}` targets to use.
 3. **Declare your plan.** Right after the first look, call
    `demo_rec_browser plan` with `areas` (the 3–7 parts of the app you intend
-   to explore, in order). Mark each one done (`plan` with `done: <area>`) as
-   you move on. This drives the progress estimate the user sees, so keep it
-   honest: re-declare it if you change course.
+   to explore, in order) and `routes` (`{"Search": ["/search"], "Cart":
+   ["/cart"]}`: looks and actions on those pages are counted for that area; a
+   hash-routed app uses `/#/search`). Progress is MEASURED from what you saw,
+   not from your flags: marking an area done (`done: <area>`) does not move the
+   bar, and an area marked done with nothing seen is shown as such. Re-declare
+   the plan if you change course. An area you will not explore is left out on
+   purpose with `drop: <area>` and `why`. **The storyboard is refused** while a
+   declared area was never seen and not dropped (the refusal names them): explore
+   them, or pass `skipAreas: [{ area, why }]` with the write.
 4. **Map first, then go deep.** Visit the main navigation areas once (look at
    each). Then spend most of the budget on the 2–4 areas that serve the brief's
    goal.

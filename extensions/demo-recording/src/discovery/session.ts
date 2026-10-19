@@ -28,12 +28,8 @@ import type { Target } from "../storyboard/types.ts";
 import { sleep } from "../util/duration.ts";
 import { createRng } from "../util/rng.ts";
 import { type AppInfo, appDir } from "../workdir/layout.ts";
-import {
-  type AreaState,
-  type DiscoveryProgress,
-  discoveryProgress,
-  formatDiscoveryProgress,
-} from "./progress.ts";
+import { type LogRecord, type Measure, measureAreas, measuredProgress } from "./measure.ts";
+import { type DiscoveryProgress, formatDiscoveryProgress } from "./progress.ts";
 import { readSessionRecord, writeSessionRecord } from "./state.ts";
 
 export interface DiscoveryBudgets {
@@ -275,39 +271,74 @@ export class DiscoverySession {
     this.opts.bus?.publish(type, { app: this.appSlug, ...data }, this.opts.project);
   }
 
+  /** The action log as it is on disk, kept in memory too: progress is measured from it (measure.ts). */
+  private log: LogRecord[] = [];
+
   private append(file: string, record: Record<string, unknown>): void {
-    fs.appendFileSync(
-      path.join(this.dir, file),
-      `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`,
-    );
+    const full = { at: new Date().toISOString(), ...record };
+    fs.appendFileSync(path.join(this.dir, file), `${JSON.stringify(full)}\n`);
+    if (file === "actions.jsonl") this.log.push(full as LogRecord);
   }
 
-  // ---- exploration plan + progress estimate (S3) ----
-  private areas: AreaState[] = [];
+  // ---- exploration plan + measured progress (S3, D3) ----
   private storyboardWritten = false;
 
-  /** Declare (or replace) the areas the director intends to explore. Done areas are kept. */
-  setPlan(names: string[]): void {
+  /**
+   * Declare (or replace) the areas the director intends to explore. `routes` may name the routes of each area (/search): looks and
+   * actions on those pages count for it. Areas already done or dropped keep their state.
+   */
+  setPlan(names: string[], routes?: Record<string, string[]>): void {
     const clean = [...new Set(names.map((n) => n.trim()).filter(Boolean))].slice(0, 20);
     if (!clean.length) throw new Error("plan needs at least one area name");
-    const done = new Map(this.areas.filter((a) => a.doneAt !== undefined).map((a) => [a.name, a]));
-    this.areas = clean.map((name) => done.get(name) ?? { name });
-    this.startCurrent();
-    this.append("actions.jsonl", { kind: "plan", areas: clean });
+    const hints: Record<string, string[]> = {};
+    for (const [name, list] of Object.entries(routes ?? {})) {
+      const area = clean.find((c) => c.toLowerCase() === name.trim().toLowerCase());
+      if (!area)
+        throw new Error(
+          `routes for "${name}", which is not one of the declared areas: ${clean.join(", ")}`,
+        );
+      const rs = (Array.isArray(list) ? list : []).map((r) => String(r).trim()).filter(Boolean);
+      const bad = rs.find((r) => !r.startsWith("/"));
+      if (bad)
+        throw new Error(
+          `route "${bad}" of "${area}" must be a path starting with / (for example /search)`,
+        );
+      hints[area] = rs;
+    }
+    this.append("actions.jsonl", {
+      kind: "plan",
+      areas: clean,
+      ...(Object.keys(hints).length ? { routes: hints } : {}),
+    });
     this.emitProgress();
   }
 
-  /** Mark an area explored; the next open area becomes current. */
-  markDone(name: string): void {
-    const area = this.areas.find((a) => a.name.toLowerCase() === name.trim().toLowerCase());
+  private declared(name: string) {
+    const m = this.measure();
+    const area = m.areas.find((a) => a.name.toLowerCase() === name.trim().toLowerCase());
     if (!area)
       throw new Error(
-        `unknown area "${name}" — declared areas: ${this.areas.map((a) => a.name).join(", ") || "none"}`,
+        `unknown area "${name}" — declared areas: ${m.areas.map((a) => a.name).join(", ") || "none"}`,
       );
-    area.startedAt ??= Date.now();
-    area.doneAt = Date.now();
-    this.startCurrent();
+    return area;
+  }
+
+  /** The director says an area is explored. Progress still counts only what was seen there. */
+  markDone(name: string): void {
+    const area = this.declared(name);
     this.append("actions.jsonl", { kind: "area-done", area: area.name });
+    this.emitProgress();
+  }
+
+  /** The director leaves an area out on purpose, and says why: the storyboard check accepts that. */
+  dropArea(name: string, why: string): void {
+    const area = this.declared(name);
+    if (!why.trim()) throw new Error(`say why "${area.name}" is dropped (a reason is required)`);
+    this.append("actions.jsonl", {
+      kind: "area-dropped",
+      area: area.name,
+      why: why.trim().slice(0, 240),
+    });
     this.emitProgress();
   }
 
@@ -317,18 +348,17 @@ export class DiscoverySession {
     this.emitProgress();
   }
 
-  private startCurrent(): void {
-    const current = this.areas.find((a) => a.doneAt === undefined);
-    if (current && current.startedAt === undefined) current.startedAt = Date.now();
+  /** What the session has actually seen, per area. */
+  measure(): Measure {
+    return measureAreas(this.log);
   }
 
   progress(): DiscoveryProgress {
     const b = this.opts.budgets;
     const minutes = (Date.now() - this.startedAt) / 60000;
-    return discoveryProgress({
+    return measuredProgress(this.measure(), {
       startedAt: this.startedAt,
       now: Date.now(),
-      areas: this.areas,
       budgetUsed: {
         screens: this.screens / b.discoveryScreens,
         actions: this.actions / b.discoveryActions,

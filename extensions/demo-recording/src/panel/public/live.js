@@ -3,6 +3,7 @@ import { Modal, SegmentBar, api, copyText, media, mmss, summarize } from "./core
 // demo-recording panel — the building blocks of the Activity drawer (UX2, D101): progress rows
 // for what runs, a frame preview, safety, and the log with its popups. The strip and the
 // drawer that arrange them are in frame.js.
+import { areaSegment } from "./discovery-core.js";
 import { collapseProgress } from "./logview.js";
 
 const last = (events, types) => events.filter((e) => types.includes(e.type)).at(-1);
@@ -26,13 +27,7 @@ function discoveryRow(events) {
   const segments =
     p.mode === "plan"
       ? [
-          ...p.areas.map((a) => ({
-            key: a.name,
-            label: a.name,
-            weight: exploreShare / p.areas.length,
-            done: a.status === "done" ? 1 : 0,
-            state: a.status,
-          })),
+          ...p.areas.map((a) => areaSegment(a, exploreShare / p.areas.length)),
           {
             key: "_write",
             label: "storyboard",

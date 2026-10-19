@@ -1,4 +1,5 @@
 import { html, useEffect, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { DiscoveryStall } from "./discovery.js";
 import { STEPS, bandHiddenAt, jobTitle, suggestions } from "./frame-state.js";
 // The control room's frame (UX2, D98–D101): the header with the stepper, the next-action band,
 // the status strip and the Activity drawer. What they say is decided in frame-state.js; this file
@@ -275,7 +276,7 @@ export function ActivityDrawer({
         ? html`<div class="ds-drawer-head"><h2>Activity</h2><span class="ds-grow"></span>
             <button class="ds-btn ds-btn--ghost ds-btn--icon" type="button" aria-label="Close activity" onClick=${onClose}>×</button></div>
           <div class="ds-drawer-body">
-            <section class="ds-stack" aria-label="Running"><h3>Running</h3><${ProgressRows} rows=${rows} /></section>
+            <section class="ds-stack" aria-label="Running"><h3>Running</h3><${ProgressRows} rows=${rows} /><${DiscoveryStall} events=${events} /></section>
             <${ByItself} events=${events} />
             <${JobList} jobs=${jobs} dismissed=${dismissed} onDismiss=${onDismiss} />
             <section class="ds-stack" aria-label="Preview"><h3>Preview</h3><${FramePreview} events=${events} recording=${recording} /></section>

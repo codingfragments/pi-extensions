@@ -9,6 +9,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence, writeStoryboardChecks } from "../confidence/storyboard.ts";
+import { coverageMessage, coverageProblem, dropInLog } from "../discovery/coverage.ts";
+import { listSessions } from "../discovery/state.ts";
 import { pendingBlock, pendingReminder } from "../qa/apply.ts";
 import { unsafeResumeScenes } from "../recorder/replay-guard.ts";
 import { describeTarget } from "../recorder/targets.ts";
@@ -37,6 +39,12 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         }),
       ),
       version: Type.Optional(Type.Number({ description: "get: version number (default latest)" })),
+      skipAreas: Type.Optional(
+        Type.Array(Type.Object({ area: Type.String(), why: Type.String() }), {
+          description:
+            "write: declared discovery areas you leave out on purpose, each with one sentence why (recorded and shown to the user). Needed only for an area nobody saw",
+        }),
+      ),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
@@ -56,6 +64,12 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         );
       }
       if (!params.yaml?.trim()) throw new Error("write needs yaml (the complete storyboard)");
+      // the storyboard is not written over areas nobody saw (D3): explore them, or leave them out on purpose with a reason
+      const dir = appDirOf(p.dir, p.app.slug);
+      const last = listSessions(dir).at(-1);
+      if (last && params.skipAreas?.length) dropInLog(dir, last.id, params.skipAreas);
+      const gap = coverageProblem(p.dir, dir);
+      if (gap) throw new Error(coverageMessage(gap));
       const written = writeStoryboard(p.dir, params.yaml);
       if (rt.discovery && !rt.discovery.isClosed) rt.discovery.markStoryboardWritten();
       if (["brief", "discovery", "storyboard-review"].includes(p.state.phase))

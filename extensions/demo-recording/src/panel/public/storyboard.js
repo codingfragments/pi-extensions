@@ -5,7 +5,14 @@ import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { ApproveHighModal, ConfReasons, NeedsEyes, byRisk, confOf } from "./confidence.js";
 import { post, screenUrl, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { CostHint } from "./cost.js";
-import { ConfPill, ListRow, NarrowSelect, STATUS_LABEL } from "./inspector.js";
+import {
+  ConfPill,
+  ListRow,
+  NarrowSelect,
+  ReviewBadge,
+  ReviewControl,
+  STATE_WORD,
+} from "./inspector.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 function targetLabel(t) {
@@ -42,12 +49,13 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
   const r = review?.scenes?.[scene.id];
   const [note, setNote] = useState(r?.note ?? "");
   useEffect(() => setNote(r?.note ?? ""), [r?.note]);
-  const set = (status) => onReview(scene.id, r?.status === status ? null : status, note);
+  const choose = (status) => onReview(scene.id, status, note);
   return html`<div class="ds-stack ds-inspector">
     <div class="ds-row-flex">
       <h2>${index + 1}. ${scene.title}</h2>
       <span class="ds-badge ds-mono" data-tone="neutral">${scene.id}</span>
       ${diffKind ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">${diffKind === "new" ? "+" : "~"}</span>${diffKind === "new" ? "New" : "Changed"}</span>` : null}
+      <${ReviewBadge} status=${r?.status} />
       <${ConfPill} c=${conf} long />
     </div>
     <${ConfReasons} c=${conf} />
@@ -73,9 +81,7 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
         ? html`<p class="ds-small ds-muted">An older version: the review is read-only.</p>`
         : html`<div class="ds-stack">
           <span class="ds-label">Review</span>
-          <div class="ds-row-flex">
-            ${Object.entries(STATUS_LABEL).map(([st, label]) => html`<button class="ds-btn ds-btn--sm" type="button" aria-pressed=${r?.status === st} data-status=${st} onClick=${() => set(st)}>${label}</button>`)}
-          </div>
+          <${ReviewControl} status=${r?.status} onChoose=${choose} noun="scene" what="the app (it explores that part again first)" />
           <textarea class="ds-textarea ds-textarea--compact" aria-label="Notes for this scene" placeholder="Notes for this scene (what to change, what to re-explore)…" value=${note} onInput=${(e) => setNote(e.target.value)}
             onBlur=${() => r && note !== (r.note ?? "") && onReview(scene.id, r.status, note)}></textarea>
         </div>`
@@ -173,7 +179,7 @@ export function Review({ events }) {
               const c = confOf(data.confidence, s.id);
               const dk = diffKind(s.id);
               return html`<${ListRow} key=${s.id} itemKey=${s.id} title=${`${scenes.indexOf(s) + 1}. ${s.title}`} review=${rv} current=${scene?.id === s.id} onSelect=${select}
-                meta=${`${s.id} · ${rv ? STATUS_LABEL[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
+                meta=${`${s.id} · ${rv ? STATE_WORD[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
                 badges=${html`${dk ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">${dk === "new" ? "+" : "~"}</span>${dk === "new" ? "New" : "Changed"}</span>` : null}${c && c.level !== "high" ? html`<${ConfPill} c=${c} />` : null}`} />`;
             })}
           </ul>

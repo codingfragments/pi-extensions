@@ -72,7 +72,7 @@ Director in each (the doubtful ones come first with **riskiest first**).
 
 ![Storyboard: scenes on the left, a scene in detail](images/guide/03-storyboard.jpg)
 
-- **Mark reviewed**, **Needs changes**, **Re-run** and a note per scene; **Mark high-confidence reviewed…** shows what it will mark
+- **Mark reviewed**, **Needs changes**, **Re-run** and a note per scene. A decision is a **state**: the one you choose becomes a highlighted "Reviewed" / "Needs changes" / "Re-run requested" with a **Revoke**, the other two stay available to switch, and the same state is a badge beside the title and the word in the list row. One line says what each does (Re-run: the Director redoes it from the take, or for a scene from the app, not just an edit; nothing happens until you send the review); **Mark high-confidence reviewed…** shows what it will mark
   before it does.
 - **Send review to agent** sends everything as one message (the button says it starts the Director); the next storyboard version comes
   back with a diff.
@@ -97,7 +97,7 @@ A list of sections (an intro, one per scene, an outro) and one in detail.
 |---|---|
 | **Narration** | editable; autosaves as a working draft on the version it started from; **Save new version** makes exactly one version and approves nothing |
 | **Under the narration** | one picture per anchor `[@mark]` the section speaks: the take's keyframe at that moment, the time and a line of what the page said, and **timing controls**: −100 / +100 ms nudges that write a timing hint `[@mark +300ms]` into the narration (a working draft until you save a version), what it says in words, Reset. The words and the voice stay the same, so it costs no audio |
-| **Review** | Mark reviewed / Needs changes / Re-run, a note, and **Send review to agent** |
+| **Review** | Mark reviewed / Needs changes / Re-run as a state with **Revoke** (the others stay available), a note, and **Send review to agent** |
 | **Direction** | stance, tone, length, focus and notes for the whole narrative; the Director writes a new version from the same take |
 | **Confidence** | a badge per section with the reasons (a number not on the page, speech longer than the footage, changed since the version you approved) |
 | **compare with v1** | the words that changed, per section |

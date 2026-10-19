@@ -9,7 +9,14 @@ import { CostHint, confirmCost } from "./cost.js";
 import { errorToast } from "./dialog.js";
 import { CompareTable, saveStateText, useDraft } from "./drafts.js";
 import { HINT_MAX_MS, HINT_STEP_MS, hintIn, hintWords, withHint } from "./hints.js";
-import { ConfPill, ListRow, NarrowSelect, STATUS_LABEL } from "./inspector.js";
+import {
+  ConfPill,
+  ListRow,
+  NarrowSelect,
+  ReviewBadge,
+  ReviewControl,
+  STATE_WORD,
+} from "./inspector.js";
 import { formatRoute } from "./route.js";
 import { stageOf } from "./stages.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
@@ -253,7 +260,7 @@ function SectionInspector({
     draft.texts[section.key] !== undefined && draft.texts[section.key] !== section.written;
   const text = draft.texts[section.key] ?? section.written;
   const diffParts = showChanges && Array.isArray(section.diff) ? section.diff : null;
-  const set = (status) => onReview(section.key, r?.status === status ? null : status, note);
+  const choose = (status) => onReview(section.key, status, note);
   const id = `narration-${data.version}-${section.key}`;
   return html`<div class="ds-stack ds-inspector">
     <div class="ds-row-flex">
@@ -262,6 +269,7 @@ function SectionInspector({
       ${showChanges && section.diff === "new" ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">+</span>New</span>` : null}
       ${diffParts ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">~</span>Changed</span>` : null}
       ${edited ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Edited in draft</span>` : null}
+      <${ReviewBadge} status=${r?.status} />
       <${ConfPill} c=${conf} long />
     </div>
     ${conf?.approvedIn !== undefined ? html`<p class="ds-small ds-muted carried">Unchanged since v${conf.approvedIn}, where you approved it.</p>` : null}
@@ -287,9 +295,7 @@ function SectionInspector({
         ? html`<p class="ds-small ds-muted">An older version: the review is read-only. You can still edit its text; that starts a working draft.</p>`
         : html`<div class="ds-stack">
           <span class="ds-label">Review</span>
-          <div class="ds-row-flex">
-            ${Object.entries(STATUS_LABEL).map(([st, label]) => html`<button class="ds-btn ds-btn--sm" type="button" aria-pressed=${r?.status === st} data-status=${st} onClick=${() => set(st)}>${label}</button>`)}
-          </div>
+          <${ReviewControl} status=${r?.status} onChoose=${choose} noun="section" what="the take" />
           <textarea class="ds-textarea ds-textarea--compact" aria-label="Notes for this section" placeholder="Notes for this section…" value=${note} onInput=${(e) => setNote(e.target.value)}
             onBlur=${() => r && note !== (r.note ?? "") && onReview(section.key, r.status, note)}></textarea>
         </div>`
@@ -450,7 +456,7 @@ export function Voice({ events, stages }) {
               const rv = data.review?.scenes?.[s.key];
               const c = confOf(data.confidence, s.key);
               return html`<${ListRow} key=${s.key} itemKey=${s.key} title=${s.key} review=${rv} current=${section?.key === s.key} onSelect=${select}
-                meta=${`${short(s.kind)} · ${rv ? STATUS_LABEL[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
+                meta=${`${short(s.kind)} · ${rv ? STATE_WORD[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
                 badges=${html`${editedKeys.has(s.key) ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Edited</span>` : null}${c && c.level !== "high" ? html`<${ConfPill} c=${c} />` : null}`} />`;
             })}
           </ul>

@@ -81,9 +81,17 @@ Director in each (the doubtful ones come first with **riskiest first**).
 
 ## Recording
 
-The takes of the selected storyboard, newest first, each with status, duration, analysis state, the scenes as **chapters with their frames** (the start, each mark, notable moments, the end; a click shows the player and goes to that moment, the playhead marks where you are) and the raw
-video. **Approve** each take that is good enough to build on. **Request a new take** (with an optional note) asks the Director for
-another one, and shows its cost first.
+The takes of the selected storyboard, newest first, one line each (status, duration, analysis state, **Review**, and the approve / use actions);
+**Approve** each take that is good enough to build on. **Request a new take** (with an optional note) asks the Director for another one, and
+shows its cost first.
+
+Below them is the **review workspace** of one take (the one you picked with *Review*, else the one you are viewing, else the one in the
+production line): the scenes as **chapters with their frames** (the start, each mark, notable moments, the end) beside a **smaller player that
+stays in view** while the list scrolls. Above the video are the chapter you are in: its **goal** from the storyboard, the **findings the scene
+should show** and **what this take found there** (an error shown, a fallback, dead time, a resume; each with its time, a click goes there).
+Under the video a **chapter bar** marks every scene on the take's own time line. A click on a chapter, a frame, a found item or a segment goes
+to that moment; `[` and `]` (focus inside the workspace) go to the previous and next chapter. In a narrow window the player comes first and
+the chapters follow.
 
 ![Recording: the takes of the selected storyboard](images/guide/04-recording.jpg)
 
@@ -208,6 +216,7 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
   | `?` | show the shortcut sheet |
   | Tab, Shift+Tab | move between controls (a list is one stop) |
   | ↑ ↓, Home, End | move between the items of a list; Enter opens the one in focus |
+  | `[`, `]` | previous / next chapter in the recording review (focus inside it) |
   | Esc | close the top layer: a dialog, the Versions list, the Map, or clear a search |
   | `/`, Ctrl/Cmd+K | search the settings (in Config) |
   | arrow keys in the Map | walk the graph from node to node; Enter selects |

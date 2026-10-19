@@ -2491,3 +2491,101 @@ ol[data-next-steps] {
 .ds-frame-note[data-tone="warn"] {
   color: var(--status-warn);
 }
+
+/* ---- the recording review workspace (item 7, R1): chapters beside a smaller player that stays in view ---- */
+.ds-rv-wrap {
+  container-type: inline-size;
+}
+.ds-rv {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.ds-rv-pane {
+  position: sticky;
+  inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
+  display: grid;
+  gap: var(--space-3);
+  max-block-size: calc(100vh - var(--hwrap-h, 7rem) - var(--strip-h, 3rem) - var(--space-4));
+  overflow: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+}
+/* narrow (as the list screens): the columns stack, the player comes first and nothing is pinned, so the chapters stay reachable */
+@container (max-width: 52rem) {
+  .ds-rv {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ds-rv-pane {
+    position: static;
+    max-block-size: none;
+    order: -1;
+  }
+}
+.ds-rv-video {
+  inline-size: 100%;
+  max-block-size: 40vh;
+  border-radius: var(--radius-md);
+  background: var(--surface-media);
+  object-fit: contain;
+}
+.ds-rv-context {
+  display: grid;
+  gap: var(--space-2);
+  max-block-size: 30vh;
+  overflow: auto;
+}
+.ds-rv-context h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.ds-rv-context p {
+  margin: 0;
+}
+.ds-rv-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.ds-rv-list li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* chapter marks: one segment per scene on the take's own time line, the playhead on top */
+.ds-cbar {
+  position: relative;
+  block-size: 1.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.ds-cbar-seg {
+  position: absolute;
+  inset-block: 0;
+  padding: 0;
+  border: 0;
+  border-inline-start: 2px solid var(--surface-panel);
+  background: var(--border-strong);
+  cursor: pointer;
+}
+.ds-cbar-seg:hover {
+  background: var(--text-muted);
+}
+.ds-cbar-seg[aria-current="true"] {
+  background: var(--accent);
+}
+.ds-cbar-head {
+  position: absolute;
+  inset-block: 0;
+  inline-size: 2px;
+  background: var(--text-strong);
+  pointer-events: none;
+}

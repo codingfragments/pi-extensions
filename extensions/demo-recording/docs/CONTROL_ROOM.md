@@ -101,7 +101,7 @@ A list of sections (an intro, one per scene, an outro) and one in detail.
 | **Direction** | stance, tone, length, focus and notes for the whole narrative; the Director writes a new version from the same take |
 | **Confidence** | a badge per section with the reasons (a number not on the page, speech longer than the footage, changed since the version you approved) |
 | **compare with v1** | the words that changed, per section |
-| **Generate voice & render…** | the cost dialog, then the voice and the edit (no agent). Only for an approved version in the production line |
+| **Generate voice, edit and a draft to watch…** | the cost dialog, then the voice and the edit (no agent). Only for an approved version in the production line |
 
 **The Director asks.** When the Director wants to spend (a voice synthesis, a new take) and you have not allowed it, nothing starts: a bar
 appears on every screen, above the content: *The Director asks to … / Allow / Not now*. Allow lets that one thing go (for 15 minutes,

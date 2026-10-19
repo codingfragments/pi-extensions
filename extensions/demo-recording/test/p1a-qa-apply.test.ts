@@ -584,7 +584,7 @@ test("the chat reply is structured: the stage, the fixes, bullets per change, th
     });
     const steps = [
       "Read the new voice-over draft and approve it",
-      "Generate voice & render (asks for your Allow)",
+      "Generate voice, edit and a draft to watch (asks for your Allow)",
       "Render a final and read its QA",
     ];
     const { set, round } = recordProposals(seed.dir, "fs-1", {
@@ -606,7 +606,7 @@ test("the chat reply is structured: the stage, the fixes, bullets per change, th
     );
     assert.match(
       reply,
-      /\*\*Next steps to a new render:\*\*\n1\. Read the new voice-over draft and approve it\n2\. Generate voice & render \(asks for your Allow\)\n3\. Render a final/,
+      /\*\*Next steps to a new render:\*\*\n1\. Read the new voice-over draft and approve it\n2\. Generate voice, edit and a draft to watch \(asks for your Allow\)\n3\. Render a final/,
     );
     assert.ok(reply.split("\n").length <= 14, `short: ${reply.split("\n").length} lines`);
     assert.deepEqual(bullets("One. Two! Three?"), ["One.", "Two!", "Three?"]);

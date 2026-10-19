@@ -164,7 +164,7 @@ export function registerTtsTool(pi: ExtensionAPI, rt: Runtime): void {
 
 /**
  * Synthesize an accepted voice-over as a background job (the tool and the
- * panel's "Generate voice & render", D84). `afterDone` runs after the agent report
+ * panel's "Generate voice, edit and a draft to watch", D84). `afterDone` runs after the agent report
  * (the panel chains the edit there).
  */
 export function startTts(
@@ -242,7 +242,7 @@ export function startTts(
         p.slug,
       );
       rt.setStatus(undefined, true);
-      // The panel's "Generate voice & render" goes on with the edit: a quiet note
+      // The panel's "Generate voice, edit and a draft to watch" goes on with the edit: a quiet note
       // now, the edit's report starts the agent's turn later (D84).
       const tell = (t: string) => (opts.quietReport ? rt.tellAgent(t) : rt.reportToAgent(t));
       if (j.result) {

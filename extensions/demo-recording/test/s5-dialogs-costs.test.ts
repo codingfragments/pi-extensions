@@ -479,7 +479,7 @@ test(
             classes: ["tts"],
             blocking: true,
             skippable: false,
-            title: "Generate voice & render · VO v1",
+            title: "Generate voice, edit and a draft · VO v1",
             confirmLabel: "Generate (≈ $0.41)",
             what: "",
             facts: [

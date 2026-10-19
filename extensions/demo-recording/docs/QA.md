@@ -122,7 +122,7 @@ sometimes 100 to 130 ms late). The voice step now moves each anchor of a provide
 of at least 150 ms of quiet): up to 250 ms earlier, or later as long as the onset is still inside the first word's own span (the provider
 says that word occupies that time; an onset after the word is another word, so the anchor stays). No onset nearby: the provider's time
 stays. The alignment is marked `snapped`; **older cache entries are upgraded once** when they are next read (no new synthesis, nothing
-billed), but a voice-over that was already synthesized needs "Generate voice & render" (cached: free) to write the new anchors into its
+billed), but a voice-over that was already synthesized needs "Generate voice, edit and a draft to watch" (cached: free) to write the new anchors into its
 manifest and a new edit. On the first run's voice-over 12 of the 16 anchors moved (most by 10 to 130 ms) to the onsets the QA had measured
 (`faq-expanded` 2.11 → 2.74 s, `recommended-products` 4.12 → 4.69 s).
 
@@ -203,7 +203,7 @@ from the fix to **a new render**. It returns the chat reply already built from w
   Cost: re-synthesises 1 section
 **Next steps to a new render:**
 1. Read the new voice-over draft and approve it
-2. Generate voice & render (asks for your Allow)
+2. Generate voice, edit and a draft to watch (asks for your Allow)
 3. Render a final and read its QA
 ```
 
@@ -242,7 +242,7 @@ audio cache key, so changing it is a 100 % cache hit and **costs no credits**; o
 - The **diff** shows a changed hint as one change. The **validator** refuses more than ±3000 ms, warns above ±1500 ms, and reports any `[@…]`
   that is not an anchor (it would be spoken as words).
 - In the **Voice over screen**, each anchor's picture has −100 / +100 nudges and Reset; they edit the narration (a working draft). Save a
-  version, approve it, and **Generate voice & render**: the cost dialog says 0.
+  version, approve it, and **Generate voice, edit and a draft to watch**: the cost dialog says 0.
 - A hint says where you **want** the narration. It does not correct a measured deviation (the QA compares what it hears with the moment plus the hint): see "Fixes" above for what does.
 
 ## Pending fixes: the stage writers read them and settle them (Q5)

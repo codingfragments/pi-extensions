@@ -6,7 +6,7 @@
 phases in detail in [ROADMAP.md](ROADMAP.md), the ideas not scheduled in [FUTURE_IDEAS.md](FUTURE_IDEAS.md). If this page and another disagree,
 this page is right and the other one is out of date: fix it.
 
-Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #110. The suite at #108: 795 tests passing, 3 skipped.
+Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #110. Item 2 (small fixes) merged as #112, #113 and the 2c PR. The suite at #108: 795 tests passing, 3 skipped.
 
 ## 1. Where we are
 
@@ -35,8 +35,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | # | Work package | What changes for you | From | Status | Days | Σ |
 |---|---|---|---|---|---:|---:|
 | 1 | **Docs: decisions and the running plan** | the decisions recorded, this page, the early checks described and moved to the long tail | the grill | done | 1 | 1 |
-| 2 | **Small fixes** (2a, 2b done; 2c) | a missing brand falls back and a failing draft only warns (done, 2a); the review buttons show their state with Revoke (done, 2b); the voice button says it makes a draft | R2-8, R2-6, R2-7 | **next** | 2 | 3 |
-| 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | planned | 3 | 6 |
+| 2 | **Small fixes** (2a, 2b, 2c) | a missing brand falls back and a failing draft only warns (2a); the review buttons show their state with Revoke (2b); the voice button says it makes a draft (2c) | R2-8, R2-6, R2-7 | done | 2 | 3 |
+| 3 | **List screens** | Voice over, Annotations, Storyboard: list 22rem, wrapping titles, the detail column pinned until the list ends (absorbs L1) | R2-5, R2-9, F19, F20 | **next** | 3 | 6 |
 | 4 | **Docked Activity drawer** | 22rem, squeezes only the main content, remembered open, Render keeps two columns (absorbs L3) | R2-12, F7 | planned | 2 | 8 |
 | 5 | **Suggestions** | the band hides at its target; a header "Suggestions · N" | R2-11 | planned | 2 | 10 |
 | 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | planned | 4 | 14 |
@@ -59,7 +59,7 @@ section 6); the filmstrip and step-through (8) follow the recording review (7) b
 Each item is its own branch and PR (or a few, where stated), with tests, a docs update, before and after screenshots at 900 and 1400 px where the
 panel changes, and CI green before merge.
 
-**2. Small fixes** (three PRs, the decisions D-R2-3 to D-R2-5). **2a and 2b are done**; 2c is next.
+**2. Small fixes** (three PRs, the decisions D-R2-3 to D-R2-5). **2a, 2b and 2c are done**; item 3 is next.
 - **2a, the brand (R2-8), done.** A helper resolves the default brand: the configured one when it exists, else the built-in `neutral`, saying so (a
   warning on the render, in the Render screen's Warnings, and in the edit report the Director gets; there is no separate Activity line); an explicitly chosen brand still fails fast. The draft render after the edit runs
   in its own guard: if it fails the edit still reports its numbers and hands over to the annotations, with "the draft failed: <why>" and a
@@ -70,7 +70,7 @@ panel changes, and CI green before merge.
   header. Storyboard and Voice over (one shared component). Test: for each status the pressed look differs (measured, both themes, both widths),
   the header badge and the list row agree, a second click or Revoke clears it, a reload keeps it. If the reading "highlighted plus Revoke, the
   others stay" is wrong, change D-R2-5 before building.
-- **2c, wording (R2-7).** The voice button reads "Generate voice, edit and a draft to watch", and the cost dialog says the same. No setting.
+- **2c, wording (R2-7), done.** The voice button reads "Generate voice, edit and a draft to watch", and the cost dialog says the same. No setting.
 
 **3. List screens** (D-R2-6). One change in the shared split layout (`.ds-split`): the list 20rem becomes 22rem; the row title becomes a wrapping
 block (three lines, the full text on hover; the bug is an inline span that ignores `overflow`); the detail column is pinned below the header

@@ -156,7 +156,7 @@ Each phase, with its gate:
 | 2 | **Storyboard** | writes scenes, steps, `emphasis` hints, and its own doubt (`confidence`) | validates the schema, warns on unseen targets and unsafe resumes, rates **confidence** per scene | – | **approve per scene**, then the version | `demo_rec_storyboard`, panel *Storyboard* |
 | 3 | **Recording** | the **Operator** invents live inputs (`improvise` steps) | runs **one continuous take**: human-like cursor and typing, events, layout snapshots, page text at marks; retries and resumes from the last good scene; then **analyses** the take | Chromium CDP screencast, ffmpeg encode | **accept the take** | `demo_rec_record`, `demo_rec_take`, panel *Recording* |
 | 4 | **Voice-over** | writes the script **from the analysis and keyframes**, anchored to marks, quoting real values; rewrites on a **voice direction** | validates anchors, `{{dom:…}}` bindings, banned words, speech vs footage; rates **confidence**; word-diffs against the base | – | **approve the script** | `demo_rec_vo`, panel *Voice over* |
-| 5 | **Voice and sync edit** | – | **estimates the cost** (cached vs billed), runs TTS, builds the **audio-led timeline** (cuts, holds, speed ramps, never touching typing), renders a **draft** | ElevenLabs / OpenAI / Kokoro, Whisper timings, ffmpeg | **confirm the estimate** (panel) | `demo_rec_tts`, `demo_rec_edit`, panel *Generate voice & render* |
+| 5 | **Voice and sync edit** | – | **estimates the cost** (cached vs billed), runs TTS, builds the **audio-led timeline** (cuts, holds, speed ramps, never touching typing), renders a **draft** | ElevenLabs / OpenAI / Kokoro, Whisper timings, ffmpeg | **confirm the estimate** (panel) | `demo_rec_tts`, `demo_rec_edit`, panel *Generate voice, edit and a draft to watch* |
 | 6 | **Annotations** | the **Annotation designer** suggests ~2× as many as should be on (session model, or its own configured model) | resolves targets and anchors, weighs value vs noise, enables the best half, adds **privacy redactions** (off) | – | **toggle, edit, accept** | `demo_rec_annotations`, panel *Annotations* |
 | 7 | **Render and deliver** | – | renders by **brand** and variant, runs **QA** (values, drift, footage, picture, redactions), reports findings (fixes go through the Director's proposals, not overrides) | ffmpeg, Whisper, Chromium (overlays) | **confirm or fix blocking items, accept the final** | `demo_rec_render`, `/demo render`, panel *Render* |
 
@@ -318,7 +318,7 @@ review of the annotations:
 
 - Steps 1–5: your acceptance is recorded by the engine *first*, then reported
   to the Director (a turn), which points you to the panel button.
-- Steps 6–11: **Generate voice & render** is a two-phase action. The first
+- Steps 6–11: **Generate voice, edit and a draft to watch** is a two-phase action. The first
   call only *estimates* (nothing is synthesized); the second, after your
   confirm, starts the jobs.
 - Steps 12–18: TTS, then the edit and its draft render, run as **engine jobs

@@ -1,5 +1,5 @@
 /**
- * Voice direction and "Generate voice & render" (S5 part 11, D82–D84).
+ * Voice direction and "Generate voice, edit and a draft to watch" (S5 part 11, D82–D84).
  *
  *   POST vo-direction  { version, stance?, tone?, length?, focus?, notes?, saveDefault? }
  *        → a pending direction (consumed by the agent's next VO version, which
@@ -227,7 +227,7 @@ export function voiceRoutes(rt: Runtime): { post: Record<string, PostRoute> } {
           p.slug,
         );
         rt.tellAgent(
-          `${PANEL_PREFIX} The user started "Generate voice & render" for voice-over v${version} in the panel (${formatEstimate(estimate)}). Voice synthesis, the edit and its draft render run as engine jobs; you'll get the edit report when they are done — don't start them yourself.`,
+          `${PANEL_PREFIX} The user started "Generate voice, edit and a draft to watch" for voice-over v${version} in the panel (${formatEstimate(estimate)}). Voice synthesis, the edit and its draft render run as engine jobs; you'll get the edit report when they are done — don't start them yourself.`,
         );
         return { job: job.id, estimate };
       },

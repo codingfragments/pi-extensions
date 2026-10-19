@@ -462,6 +462,7 @@ export function Voice({ events, stages }) {
           </ul>
         </section>
         <section class="ds-split-detail" aria-label="Selected section">
+          <div class="ds-detail-pin">
           ${
             section
               ? html`<${SectionInspector} key=${`${data.version}-${section.key}`}
@@ -481,6 +482,7 @@ export function Voice({ events, stages }) {
             <button class="ds-btn ds-btn--primary" type="button" data-act="save-version" aria-disabled=${canSave ? undefined : "true"} aria-describedby="why-save"
               onClick=${() => canSave && draft.saveVersion()}>Save new version</button>
             ${canSave ? null : html`<span class="ds-why" id="why-save" style="flex-basis: 100%; text-align: end">${draft.state.status === "conflict" ? "Resolve the conflict above first." : "Edit a section first: there is nothing to save."}</span>`}
+          </div>
           </div>
         </section>
       </div>

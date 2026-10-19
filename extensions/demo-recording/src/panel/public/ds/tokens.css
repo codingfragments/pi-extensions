@@ -166,7 +166,7 @@
   /* the sticky header and next-action band together: the frame measures it and sets the real value; what sticks below it uses this */
   --hwrap-h: 7.5rem;
   --strip-h: 2.5rem;
-  --list-w: 20rem;
+  --list-w: 22rem;
   --inspector-min: 28rem;
   --target-min: 2rem; /* interactive targets: 32 px, above the 24 px WCAG floor */
 }

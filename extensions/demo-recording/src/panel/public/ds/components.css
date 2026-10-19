@@ -475,8 +475,34 @@
 }
 .ds-split-detail {
   min-inline-size: 0;
-  display: grid;
-  align-content: start;
+  /* a column, not a grid: a sticky child of a grid item may only move inside its own track, in a column it moves inside the whole cell */
+  display: flex;
+  flex-direction: column;
+}
+/* wide: the detail (the inspector and, where there is one, its action bar) is ONE block pinned just below the header while the list scrolls, and
+   released at the list's end (the same pin as the Render preview). The inspector is tall, so it scrolls inside the block; the action bar stays at
+   the bottom of the block, always in view. */
+.ds-detail-pin {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+@container (width > 52rem) {
+  .ds-detail-pin {
+    position: sticky;
+    inset-block-start: calc(var(--hwrap-h) + var(--space-2));
+    max-block-size: calc(100vh - var(--hwrap-h) - var(--strip-h) - var(--space-4));
+  }
+  .ds-detail-pin > .ds-inspector {
+    flex: 1 1 auto;
+    min-block-size: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .ds-detail-pin > .ds-actionbar {
+    flex: 0 0 auto;
+    position: static;
+  }
 }
 .ds-split-bar {
   display: none;
@@ -542,6 +568,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* in the lists of the list + inspector screens a row's text WRAPS (up to three lines, the whole text on hover) and never runs into the detail:
+   the title was an inline span, where overflow and text-overflow do nothing */
+.ds-split-list .ds-item-title {
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.ds-split-list .ds-item-meta {
+  display: block;
+  overflow-wrap: anywhere;
 }
 .ds-item-meta {
   font-size: var(--text-xs);

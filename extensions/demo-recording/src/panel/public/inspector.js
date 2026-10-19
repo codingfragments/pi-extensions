@@ -61,7 +61,7 @@ export function ListRow({ itemKey, title, meta, review, current, onSelect, badge
   const [tone, icon] = REVIEW_ICON[review?.status] ?? ["", "○"];
   return html`<li><button class="ds-item" type="button" data-key=${itemKey} aria-current=${current ? "true" : undefined} onClick=${() => onSelect(itemKey)}>
     <span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>
-    <span><span class="ds-item-title">${title}</span><br /><span class="ds-item-meta">${meta}</span></span>
+    <span><span class="ds-item-title" title=${typeof title === "string" ? title : undefined}>${title}</span><span class="ds-item-meta">${meta}</span></span>
     <span class="ds-row-flex">${badges}</span>
   </button></li>`;
 }

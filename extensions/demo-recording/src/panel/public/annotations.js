@@ -712,7 +712,7 @@ export function Annotations({ events }) {
                   </button>
                   <button class="ds-item" type="button" data-key=${it.id} aria-current=${item?.id === it.id ? "true" : undefined} onClick=${() => select(it.id)}>
                     <span class="ds-status" aria-hidden="true">${ICON[it.type]}</span>
-                    <span><span class="ds-item-title">${rowTitle(it)}</span><br /><span class="ds-item-meta">${it.id} · ${anchorLabel(it.anchor)}${res && !problem ? ` · ${sec(res.startMs)}` : ""}</span>
+                    <span><span class="ds-item-title" title=${rowTitle(it)}>${rowTitle(it)}</span><span class="ds-item-meta">${it.id} · ${anchorLabel(it.anchor)}${res && !problem ? ` · ${sec(res.startMs)}` : ""}</span>
                       <span class="ds-row-flex" style="margin-block-start: var(--space-1)">
                         ${isPrivacy(it) ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">◆</span>Privacy</span>` : null}
                         ${touched(it) ? html`<span class="ds-badge" data-tone="accent"><span class="ds-badge-ico" aria-hidden="true">✎</span>Yours</span>` : null}
@@ -729,6 +729,7 @@ export function Annotations({ events }) {
           }
         </section>
         <section class="ds-split-detail" aria-label="Selected annotation">
+          <div class="ds-detail-pin">
           ${item ? html`<${Inspector} key=${`${d.version}-${item.id}`} d=${d} item=${item} onEdit=${ed.edit} onToggle=${onToggle} onOpen=${setLightbox} resettable=${resettable.has(item.id)} />` : null}
           <div class="ds-actionbar">
             <span class="ds-savestate" data-state=${ed.save.status} role="status"><span class="ds-status" data-tone=${tone || undefined} aria-hidden="true">${icon}</span>${saveText(ed.save, d.draft)}</span>
@@ -738,6 +739,7 @@ export function Annotations({ events }) {
             <button class="ds-btn ds-btn--primary" type="button" data-act="save-version" aria-disabled=${canSave ? undefined : "true"} aria-describedby="why-save-ann"
               onClick=${() => canSave && onSave()}>Save new version</button>
             ${canSave ? null : html`<span class="ds-why" id="why-save-ann" style="flex-basis: 100%; text-align: end">${ed.save.status === "conflict" ? "Resolve the conflict above first." : "Change an annotation first: there is nothing to save."}</span>`}
+          </div>
           </div>
         </section>
       </div>

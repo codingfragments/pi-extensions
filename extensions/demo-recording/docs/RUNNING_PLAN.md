@@ -175,7 +175,18 @@ key works only while focus is in the player area and never in a text field, the 
   tried on the real take. Tested: `vo-filmstrip.test.ts` (frames, pins, intro and outro, a browser walk with the insert at the cursor) and
   `annotations-step.test.ts`; `ux19-anchors` now checks the cards without a picture.
 
-**9. Compare versions** (D-R2-11). Advanced, "Compare two versions…" on storyboard and voice-over. The engine supplies the facts from the existing
+**9. Compare versions** (D-R2-11), **9a (the facts) done, 9b (the Director's verdict) next.** Two PRs, decided with you; stored verdicts are reopened per
+pair of versions ("Advanced shows how many", asking again replaces after asking), and the recommendation offers a "Use vN for next steps" button, not a link to
+the fix window.
+- **9a, done.** `src/compare/facts.ts` (`compareVersions`): deterministic and free. Storyboard: scenes, steps, marks, improvised inputs, scenes with a goal,
+  findings covered, a title change; per scene added / removed / changed (with what: title, takeaway, emphasis, steps 1 → 2, marks, findings, outline) /
+  unchanged, and a scene order change. Voice-over: sections, words, anchors used, speech estimate against usable footage, scenes where speech runs well over the
+  footage, warnings, the recording it was written from when it differs; per section added / removed / changed (`words 19 → 19 (+2 −2)`) / unchanged. It also
+  returns `evidence`: every id a verdict may cite (`fact:<id>`, `scene:<id>`, `section:<key>`, `order`). `GET /api/compare?stage=&a=&b=`. In the panel an
+  **Advanced** menu (storyboard and voice-over, from two versions on) opens **Compare two versions…**: from / to (defaults: the production line's version
+  against the one you are viewing, else the newest other), a swap, the facts table with the difference, the changes with a word and an icon each. Nothing
+  is spent. (`api()` now shows the server's own error text instead of a status code.) **Not done:** the verdict (9b); recording, annotations and render.
+- **9b, the original plan:** Advanced, "Compare two versions…" on storyboard and voice-over. The engine supplies the facts from the existing
 diffs; the Director answers through a validated tool that refuses an answer without a verdict, the evidence it names (a scene, a section, a
 number) and a recommendation; the note is stored in the project, linked to both versions, a visible Director turn that costs tokens and needs no
 Allow, and can feed the fix window.

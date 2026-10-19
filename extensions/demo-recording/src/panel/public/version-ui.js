@@ -1,3 +1,11 @@
+import {
+  html,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "/vendor/preact-htm.module.js";
 // Versions in the panel (UX3, D99, D103, D118): what you are viewing and how it relates to the
 // production line, a History of every version, and the four actions with their consequence.
 //
@@ -8,14 +16,7 @@
 //
 // Browsing never writes: a View link only changes the route. Every action asks the engine for a free
 // plan first (POST /api/version-plan) and applies it once, only if the project is still as planned.
-import {
-  html,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "/vendor/preact-htm.module.js";
+import { AdvancedMenu } from "./compare.js";
 import { post, useApi } from "./core.js";
 import { CostHint, getModels } from "./cost.js";
 import { ask, errorToast, toast } from "./dialog.js";
@@ -195,6 +196,7 @@ export function StageSummary({
         </div>
       </div>
       ${children ?? null}
+      ${noVersions ? null : html`<${AdvancedMenu} stage=${stage} rows=${rows} viewed=${viewed} />`}
       ${noVersions ? null : html`<${History} stage=${stage} rows=${rows} viewed=${viewed} onUse=${onUse} />`}
     </div>
     ${missing ? html`<div class="ds-notice" data-tone="warn" role="note"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${NAME[stage]} ${stage === "recording" ? `take-${String(viewed).padStart(3, "0")}` : `v${viewed}`} does not exist. <a href=${formatRoute({ screen: SCREEN[stage] })}>Show the latest</a></div></div>` : null}

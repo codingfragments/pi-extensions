@@ -2702,3 +2702,25 @@ ol[data-next-steps] {
 .ds-frames--strip .ds-frame-note[data-tone="info"] {
   color: var(--text-muted);
 }
+
+/* ---- compare two versions (item 9) ---- */
+.ds-compare-pick {
+  align-items: flex-end;
+}
+.ds-compare-pick .ds-field {
+  min-inline-size: 12rem;
+}
+.ds-compare-h {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-md);
+}
+.ds-compare-changes {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-compare-changes li {
+  overflow-wrap: anywhere;
+}

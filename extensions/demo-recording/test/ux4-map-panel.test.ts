@@ -85,7 +85,7 @@ test(
         "focus returns to the opener",
       );
       // History row: Show in map selects and focuses that version
-      await page.click(".stage-summary button:has-text('Versions')");
+      await page.click(".stage-summary .history-btn");
       await page.locator(".show-in-map").first().click();
       await page.waitForSelector(".ds-map .ds-node");
       assert.match(await hash(page), /^#\/map\?sel=vo%3A\d&focus=1$/);

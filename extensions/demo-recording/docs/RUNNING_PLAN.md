@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 9 (compare versions).
+`main`.** The next piece of work is item 10 (P3 Discovery).
 
 ## 2. Done
 
@@ -42,8 +42,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 6 | **Config** | edit the project value on the row; staged edits, one combined review | R2-1, R2-2 | done | 4 | 14 |
 | 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | done | 8 | 22 |
 | 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | done | 4 | 26 |
-| 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | **next** | 5 | 31 |
-| 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | later | 12 | 43 |
+| 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | done | 5 | 31 |
+| 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | **next** | 12 | 43 |
 | 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | later | 7 | 50 |
 | 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | later | 4 | 54 |
 | 13 | **Run 3** | a full run on a different app, every screen at 1400 and 900 px | | you | 2 | 56 |
@@ -175,7 +175,7 @@ key works only while focus is in the player area and never in a text field, the 
   tried on the real take. Tested: `vo-filmstrip.test.ts` (frames, pins, intro and outro, a browser walk with the insert at the cursor) and
   `annotations-step.test.ts`; `ux19-anchors` now checks the cards without a picture.
 
-**9. Compare versions** (D-R2-11), **9a (the facts) done, 9b (the Director's verdict) next.** Two PRs, decided with you; stored verdicts are reopened per
+**9. Compare versions** (D-R2-11), **done (9a the facts, 9b the Director's verdict).** Two PRs, decided with you; stored verdicts are reopened per
 pair of versions ("Advanced shows how many", asking again replaces after asking), and the recommendation offers a "Use vN for next steps" button, not a link to
 the fix window.
 - **9a, done.** `src/compare/facts.ts` (`compareVersions`): deterministic and free. Storyboard: scenes, steps, marks, improvised inputs, scenes with a goal,
@@ -186,6 +186,18 @@ the fix window.
   **Advanced** menu (storyboard and voice-over, from two versions on) opens **Compare two versions…**: from / to (defaults: the production line's version
   against the one you are viewing, else the newest other), a swap, the facts table with the difference, the changes with a word and an icon each. Nothing
   is spent. (`api()` now shows the server's own error text instead of a status code.) **Not done:** the verdict (9b); recording, annotations and render.
+- **9b, done.** `src/compare/verdict.ts` and the tool `demo_rec_compare` (context, answer; classified "free" and "proposal" in the ratchet). Asking
+  (`POST /api/compare-ask`, cost class "turn") stores the ask for the pair (`compare/<stage>.v<a>-v<b>.json`, one per pair; asking again replaces it) and sends the
+  Director the pair and the rules; the Director reads `context` (the facts and the ids it may cite) and calls `answer`. **Decided with you (strict):** the tool
+  refuses, listing every problem at once, a verdict outside better / worse / different / no meaningful change; a headline over 140 characters; fewer than 2 or
+  more than 6 points; evidence that is not in this pair's facts (the valid ids are listed in the refusal); fewer than 2 different pieces of evidence; a
+  better or worse verdict without a measured `fact:` id; a missing `against` (the strongest argument against its own recommendation); a recommendation that
+  contradicts the verdict (better with a or neither, worse with b or both). In the window: ask, "Waiting for the Director…" with "Give up on this ask", the verdict
+  with its points as chips (a click jumps to the fact and flashes it; the facts it cites are marked), the argument against, the recommendation with
+  **Use vN for next steps** (the existing Use action, no link to the fix window), **Ask again** (asks first, replaces) and **Advanced → Past comparisons (n)**.
+  `compare.answered` is a run-and-tell event for the stage compared (`tab` may now be a function of the event). **Not done / uncertain:** nothing re-checks
+  that the Director's claims are true beyond naming evidence that exists; a Director that stops without answering is only noticed by you (Give up, ask
+  again); recording, annotations and render; never run against a real model's answer (a scripted answer in the tests); not tried on the real project.
 - **9b, the original plan:** Advanced, "Compare two versions…" on storyboard and voice-over. The engine supplies the facts from the existing
 diffs; the Director answers through a validated tool that refuses an answer without a verdict, the evidence it names (a scene, a section, a
 number) and a recommendation; the note is stored in the project, linked to both versions, a visible Director turn that costs tokens and needs no

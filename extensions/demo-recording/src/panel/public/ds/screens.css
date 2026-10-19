@@ -2724,3 +2724,56 @@ ol[data-next-steps] {
 .ds-compare-changes li {
   overflow-wrap: anywhere;
 }
+
+/* ---- the Director's verdict on two versions (item 9b) ---- */
+.ds-verdict {
+  margin-block-start: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+}
+.ds-verdict p {
+  margin: 0;
+}
+.ds-verdict-points {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-verdict-points li {
+  overflow-wrap: anywhere;
+}
+.ds-verdict-against,
+.ds-verdict-rec {
+  display: grid;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 3px solid var(--border-strong);
+}
+.ds-verdict-rec {
+  border-inline-start-color: var(--accent);
+}
+.ds-verdict-rec .ds-btn {
+  justify-self: start;
+}
+/* the facts a verdict cites, and the one you just jumped to */
+[data-fact][data-cited="true"] > th,
+[data-change][data-cited="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+[data-fact][data-flash="true"],
+[data-change][data-flash="true"] {
+  background: var(--accent-tint);
+}
+.ds-menu > ul .ds-menu-label {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

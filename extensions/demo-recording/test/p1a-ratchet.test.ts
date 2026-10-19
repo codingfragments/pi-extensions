@@ -37,6 +37,8 @@ const POLICY: Record<string, Record<string, Kind>> = {
     use: "free",
   },
   demo_rec_browser: { open: "free", look: "free", act: "free", plan: "free", close: "free" },
+  // the Director gives a verdict on two versions; it cannot use, approve or change one
+  demo_rec_compare: { context: "free", answer: "proposal" },
   demo_rec_config: { show: "free", set: "free", unset: "free" },
   // start makes a draft render and then starts the annotation designer by itself: announced
   demo_rec_edit: { start: "announced", rerender: "free", status: "free", cancel: "free" },

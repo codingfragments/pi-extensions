@@ -67,7 +67,7 @@ R2-12 [ux, design, reverses a decision] The Activity drawer should be docked (a 
 ## The run 2 grill: decisions (D-R2-1 to D-R2-12)
 
 Made with the user after the collecting was over. Run 2 is **complete and P1 is accepted**. The work packages and their order are in
-[ROADMAP.md](ROADMAP.md#current-order-after-the-run-2-grill); where a decision changes an earlier one it is also in [VISION.md](VISION.md)
+[RUNNING_PLAN.md](RUNNING_PLAN.md#3-the-plan-in-order); where a decision changes an earlier one it is also in [VISION.md](VISION.md)
 (D135 to D139).
 
 | # | Decision | Findings |

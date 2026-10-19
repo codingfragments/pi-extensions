@@ -1,6 +1,6 @@
 # demo-recording — future ideas
 
-Ideas that came up while designing and are explicitly **not** in scope yet.
+Ideas that came up while designing and are explicitly **not** in scope yet. What is scheduled is in [RUNNING_PLAN.md](RUNNING_PLAN.md).
 Each one names where it came from, so it can be picked up with its context.
 
 | Idea | Origin | Notes |

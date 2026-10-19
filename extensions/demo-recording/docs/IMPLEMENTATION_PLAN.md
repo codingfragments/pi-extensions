@@ -1231,7 +1231,7 @@ real GPU rendering, behind a flag, reusing everything else.
 
 ## 6a. Phases left
 
-> **Update 2026-10-19 (after the run 2 grill):** P1 is done and accepted; the order of what is left, with sizes, is [ROADMAP.md](ROADMAP.md#current-order-after-the-run-2-grill). The table below is the grouping as first made (P1d, L1, L3 and L6 were re-scoped or absorbed).
+> **Update 2026-10-19 (after the run 2 grill):** P1 is done and accepted; the order of what is left, with statuses, sizes and the running total, is [RUNNING_PLAN.md](RUNNING_PLAN.md) (the single source of truth). The table below is the grouping as first made (P1d, L1, L3 and L6 were re-scoped or absorbed).
 
 Where the project stands: S0 to S5 are done (S5 including parts 1 to 14, the UX pass UX0 to UX19, the user documentation) and the first
 real-app run is done. It produced 32 findings ([REAL_RUN_FINDINGS.md](REAL_RUN_FINDINGS.md)), grouped with the user into the phases

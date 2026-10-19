@@ -148,7 +148,7 @@ When the voice-over is right, **Approve & use**. Approving unlocks the voice.
 
 ### 3b. Voice and edit: this is where credits are spent
 
-**Generate voice & render…** shows a cost dialog first: how many characters are cached (free) and how many are billed, in credits
+**Generate voice, edit and a draft to watch…** shows a cost dialog first: how many characters are cached (free) and how many are billed, in credits
 and in money. It can never be switched off for the voice. (If the Director gets there first, it does not synthesize: it asks, with the
 same numbers, and waits for your **Allow**.) Then the engine (no agent) synthesizes the voice with the first engine of
 your chain that works (ElevenLabs, then OpenAI, then the local Kokoro; one engine for the whole video), and **edits the take to the

@@ -107,10 +107,9 @@ shows:
 Unchanged high-confidence sections collapse to one line. Untick
 **show changes** for the plain script.
 
-### Generate voice & render (D84)
+### Generate voice, edit and a draft to watch (D84)
 
-On the **accepted** voice-over that is on the working line, **Generate voice &
-render…** opens a cost estimate first. It is free: it only checks the engine,
+On the **accepted** voice-over that is on the working line, **Generate voice, edit and a draft to watch…** opens a cost estimate first. It is free: it only checks the engine,
 nothing is synthesized. The estimate shows:
 
 - the engine, voice and model;

@@ -107,7 +107,7 @@ const briefText = (dir: string) =>
     : "";
 
 /**
- * The gate and the free estimate of "Generate voice & render" (D84): the voice-over must be
+ * The gate and the free estimate of "Generate voice, edit and a draft to watch" (D84): the voice-over must be
  * accepted, usable and on the working line. Used by the route and by `POST /api/estimate` (D94).
  */
 export async function voiceEstimate(rt: Runtime, version: number) {

@@ -161,7 +161,7 @@ export async function estimate(
     if (!Number.isInteger(version) || version < 1) throw new Error('"version" is required');
     const { estimate: e } = await voiceEstimate(rt, version);
     return base(action, ["tts"], {
-      title: `Generate voice & render · VO v${version}`,
+      title: `Generate voice, edit and a draft · VO v${version}`,
       confirmLabel: e.price > 0 ? `Generate (≈ ${e.currency}${e.cost.toFixed(2)})` : "Generate",
       what: formatEstimate(e),
       facts: [
@@ -177,7 +177,10 @@ export async function estimate(
             ? `≈ ${e.currency}${e.cost.toFixed(2)} (at ${e.currency}${e.price} ${e.priceUnit})`
             : "free",
         ],
-        ["Then", "the sync edit and a draft render run as engine jobs (no agent turn)"],
+        [
+          "Then",
+          "the sync edit and a draft render to watch run as engine jobs: local, no model, no credits, no agent turn",
+        ],
       ],
       warnings: e.skipped.map((s) => `${s.engine} skipped: ${s.reason}`),
     });

@@ -176,7 +176,7 @@ user to allow it (the estimate is in the request) and is refused until they do. 
    ElevenLabs voice by name, else OpenAI, else local Kokoro. If the user expects
    their own voice and the check says otherwise, tell them why (e.g. key not
    set, voice name not found) **before** synthesizing.
-   The panel's **"Generate voice & render"** runs TTS, the edit and a draft
+   The panel's **"Generate voice, edit and a draft to watch"** runs TTS, the edit and a draft
    render itself, after showing the user the cost. When you get a note that
    it started, **don't start them yourself**; wait for the edit report.
 2. `demo_rec_tts start` (after the user's **Allow**; without it the tool answers NOT STARTED and files the request) synthesizes every section in the background. One

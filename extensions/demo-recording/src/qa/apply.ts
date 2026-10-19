@@ -192,20 +192,20 @@ export function pathToRender(stage: FixStage, later: FixStage[] = []): string[] 
           : "Read the new storyboard draft and approve it (Storyboard tab)",
         "Record a new take: you start it, and it asks for your Allow (model calls and recording time)",
         "Approve the take (Recording tab); the voice-over is written from it, then read and approve it",
-        "Generate voice & render: it asks for your Allow and shows what is billed",
+        "Generate voice, edit and a draft to watch: it asks for your Allow and shows what is billed",
       );
       break;
     case "recording":
       steps.push(
         "Start the new take yourself (Recording tab, Request a new take): it asks for your Allow",
         "Approve the take; the voice-over is written from it, then read and approve it",
-        "Generate voice & render: it asks for your Allow and shows what is billed",
+        "Generate voice, edit and a draft to watch: it asks for your Allow and shows what is billed",
       );
       break;
     case "vo":
       steps.push(
         "Read the new voice-over draft and approve it (Voice tab)",
-        "Generate voice & render: only changed sections are synthesised (the rest comes from the cache); it asks for your Allow and shows the cost",
+        "Generate voice, edit and a draft to watch: only changed sections are synthesised (the rest comes from the cache); it asks for your Allow and shows the cost",
       );
       break;
     case "annotations":

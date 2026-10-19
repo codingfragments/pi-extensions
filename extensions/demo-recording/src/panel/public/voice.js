@@ -410,7 +410,7 @@ export function Voice({ events, stages }) {
         <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
         ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
         <${VersionActions} stage="vo" row=${row} events=${events} onDone=${reload} />
-        ${data.canGenerate ? html`<button class="ds-btn ds-btn--primary" title="synthesize the voice, then edit and render a draft — you see the cost estimate first" onClick=${generate}>Generate voice & render…</button>` : null}
+        ${data.canGenerate ? html`<button class="ds-btn ds-btn--primary" title="the voice first (you see the cost and press Allow), then the sync edit and a draft to watch: local, no model, no credits" onClick=${generate}>Generate voice, edit and a draft to watch…</button>` : null}
       </div>
       ${
         data.base !== null && data.base !== undefined

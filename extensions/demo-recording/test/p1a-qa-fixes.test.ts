@@ -438,7 +438,7 @@ test(
             action: "propose",
             nextSteps: [
               "Read the new draft and approve it",
-              "Generate voice & render (asks for your Allow)",
+              "Generate voice, edit and a draft to watch (asks for your Allow)",
             ],
             summary: "two voice-over changes",
             proposals: [
@@ -456,7 +456,7 @@ test(
               action: "propose",
               nextSteps: [
                 "Read the new draft and approve it",
-                "Generate voice & render (asks for your Allow)",
+                "Generate voice, edit and a draft to watch (asks for your Allow)",
               ],
               summary: "One voice-over run fixes two findings; the redaction is separate.",
               proposals: PROPOSALS,
@@ -541,7 +541,7 @@ test(
             action: "propose",
             nextSteps: [
               "Read the new draft and approve it",
-              "Generate voice & render (asks for your Allow)",
+              "Generate voice, edit and a draft to watch (asks for your Allow)",
             ],
             summary: "round one",
             proposals: PROPOSALS,
@@ -556,7 +556,7 @@ test(
               action: "propose",
               nextSteps: [
                 "Read the new draft and approve it",
-                "Generate voice & render (asks for your Allow)",
+                "Generate voice, edit and a draft to watch (asks for your Allow)",
               ],
               summary: "round two: only the numbers",
               proposals: [

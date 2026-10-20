@@ -40,7 +40,7 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
       "look: screenshot (source of truth) + aria digest with exact values and role/name targets; returns a screen id usable as a storyboard scene thumbnail. " +
       "act: click | hover | type | press | scroll | goto | back | wait, using storyboard target syntax ({role, name} preferred) — every action passes a safety check " +
       "(destructive/financial/sharing actions are blocked; state-changing ones are allowed but audited and shown to the user). " +
-      "plan: right after the first look, declare the areas you will explore (areas: [...]); mark each one done as you move on (done: name) — this drives the user's progress estimate. " +
+      'plan: right after the first look, declare the areas you will explore (areas: [...], with routes: {area: ["/path"]} so looks and actions are counted for the right area); progress is MEASURED from what you saw, so marking an area done (done: name) does not move it by itself. An area you will not explore is left out on purpose with drop + why. The storyboard is refused while a declared area was never seen or dropped. ' +
       "close: end the session. Budgets for screens/actions/minutes are enforced.",
     parameters: Type.Object({
       action: StringEnum(["open", "look", "act", "plan", "close"] as const),
@@ -72,10 +72,26 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             "plan: the app areas you intend to explore, in order (drives the user's progress estimate)",
         }),
       ),
+      routes: Type.Optional(
+        Type.Record(Type.String(), Type.Array(Type.String()), {
+          description:
+            'plan: routes per declared area, e.g. {"Search": ["/search"], "Cart": ["/cart", "/checkout"]}. Looks and actions on those pages are counted for that area; without routes they count for the area you are working on',
+        }),
+      ),
       done: Type.Optional(
         Type.String({
-          description: "plan: mark this area as explored (the next one becomes current)",
+          description:
+            "plan: say this area is explored. Progress still counts only what was seen there: an area marked done with nothing seen is flagged",
         }),
+      ),
+      drop: Type.Optional(
+        Type.String({
+          description:
+            "plan: leave this declared area out on purpose (needs why). The storyboard check accepts a dropped area; it refuses an area nobody saw",
+        }),
+      ),
+      why: Type.Optional(
+        Type.String({ description: "plan drop: one sentence, why this area is left out" }),
       ),
       look: Type.Optional(
         Type.Boolean({ description: "act: return a fresh look afterwards (default true)" }),
@@ -176,10 +192,15 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
         }
         case "plan": {
           const d = requireSession(rt);
-          if (params.areas?.length) d.setPlan(params.areas);
+          if (params.areas?.length) d.setPlan(params.areas, params.routes);
+          else if (params.routes)
+            throw new Error("routes go with areas: declare the areas in the same call");
           if (params.done) d.markDone(params.done);
-          if (!params.areas?.length && !params.done)
-            throw new Error("plan needs areas (declare) and/or done (mark an area explored)");
+          if (params.drop) d.dropArea(params.drop, params.why ?? "");
+          if (!params.areas?.length && !params.done && !params.drop)
+            throw new Error(
+              "plan needs areas (declare, with routes if you can), done (an area is explored) or drop with why (leave an area out on purpose)",
+            );
           return result(progressLine(rt) ?? "plan updated");
         }
         default: {

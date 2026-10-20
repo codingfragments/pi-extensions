@@ -2838,3 +2838,14 @@ ol[data-next-steps] {
   padding: 0;
   border: 0;
 }
+
+/* discovery segments by what was measured (D3): seen is part filled, a dropped area is dimmed and struck through */
+.seg.seen .fill {
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface-raised));
+}
+.seg.dropped {
+  opacity: 0.6;
+}
+.seg.dropped span {
+  text-decoration: line-through;
+}

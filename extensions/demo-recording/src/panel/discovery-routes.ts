@@ -8,6 +8,8 @@
  *   POST /api/discovery-cancel    take back a request the Director has not picked up
  */
 
+import { measureSession } from "../discovery/coverage.ts";
+import { uncoveredAreas } from "../discovery/measure.ts";
 import {
   PRESETS,
   addRequest,
@@ -49,6 +51,9 @@ export function discoveryRoutes(rt: Runtime): {
           status: discoveryStatus(sessions, running),
           running: running ?? null,
           sessions,
+          // what the latest session has actually seen, per area (measured from its action log, so it is live while it runs)
+          measure: last ? measureSession(app, last.id) : null,
+          uncovered: last ? uncoveredAreas(measureSession(app, last.id)).map((a) => a.name) : [],
           pending: pendingRequest(p.dir) ?? null,
           requests: readRequests(p.dir).slice(-5),
           defaults: standard,

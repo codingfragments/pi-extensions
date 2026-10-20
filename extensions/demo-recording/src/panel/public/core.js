@@ -168,7 +168,7 @@ export function SegmentBar({ segments }) {
     ${segments.map(
       (
         s,
-      ) => html`<div key=${s.key} class=${`seg ${s.state}${s.restarted ? " restarted" : ""}`} style=${`flex:${Math.max(0.02, s.weight)}`} title=${s.label}>
+      ) => html`<div key=${s.key} class=${`seg ${s.state}${s.restarted ? " restarted" : ""}`} style=${`flex:${Math.max(0.02, s.weight)}`} title=${s.title ?? s.label}>
         <div class="fill" style=${`width:${Math.round(s.done * 100)}%`}></div>
         <span>${s.label}</span>
       </div>`,

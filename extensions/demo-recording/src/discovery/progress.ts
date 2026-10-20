@@ -4,6 +4,9 @@
  * burn. Pure function over a small state object.
  */
 
+/** Where an area stands: done and seen, done with nothing seen, in hand, seen but not in hand, untouched, dropped on purpose. */
+export type AreaStatus = "done" | "done-empty" | "current" | "seen" | "todo" | "dropped";
+
 export interface AreaState {
   name: string;
   startedAt?: number;
@@ -23,7 +26,8 @@ export interface DiscoveryProgressInput {
 export interface DiscoveryProgress {
   /** 0..1 overall, including a final "write storyboard" segment. */
   fraction: number;
-  areas: { name: string; status: "done" | "current" | "todo" }[];
+  /** `seen`, `done-empty` and `dropped` come from measured progress (measure.ts); `looks` and `acts` are what the engine counted there. */
+  areas: { name: string; status: AreaStatus; looks?: number; acts?: number }[];
   current?: string;
   doneCount: number;
   /** Best estimate of remaining ms; undefined when no plan is declared. */

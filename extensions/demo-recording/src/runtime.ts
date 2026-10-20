@@ -32,6 +32,7 @@ import { grantRoutes } from "./panel/grant-routes.ts";
 import { graphRoutes } from "./panel/graph-routes.ts";
 import { jobRoutes } from "./panel/job-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
+import { questionRoutes } from "./panel/question-routes.ts";
 import { renderRoutes } from "./panel/render-routes.ts";
 import { panelRoutes } from "./panel/routes.ts";
 import { type GetRoute, type PanelHandle, type PostRoute, startPanel } from "./panel/server.ts";
@@ -432,6 +433,7 @@ export class Runtime {
     const fixes = fixRoutes(this);
     const compare = compareRoutes(this);
     const discover = discoveryRoutes(this);
+    const questions = questionRoutes(this);
     const jobs = jobRoutes(this);
     const graph = graphRoutes(this);
     const drafts = draftRoutes({
@@ -453,6 +455,7 @@ export class Runtime {
         ...fixes.get,
         ...compare.get,
         ...discover.get,
+        ...questions.get,
         ...drafts.get,
         ...versions.get,
         ...brand.get,
@@ -479,6 +482,7 @@ export class Runtime {
         ...fixes.post,
         ...compare.post,
         ...discover.post,
+        ...questions.post,
       },
     };
   }

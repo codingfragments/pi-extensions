@@ -41,6 +41,8 @@ const POLICY: Record<string, Record<string, Kind>> = {
   demo_rec_compare: { context: "free", answer: "proposal" },
   // the discovery report is a project artifact the Director writes; every claim must cite evidence that exists
   demo_rec_discovery: { context: "free", report: "free", get: "free" },
+  // the Director leaves a question; the user answers it (the panel today, the chat from 11b). It cannot approve, spend or answer for the user
+  demo_rec_ask: { ask: "proposal", pending: "free" },
   demo_rec_config: { show: "free", set: "free", unset: "free" },
   // start makes a draft render and then starts the annotation designer by itself: announced
   demo_rec_edit: { start: "announced", rerender: "free", status: "free", cancel: "free" },

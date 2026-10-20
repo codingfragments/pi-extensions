@@ -72,6 +72,10 @@ export const STEPS = {
   "qa.asked": { class: "quiet" },
   "qa.decided": { class: "quiet" },
   "qa.proposed": { class: "run-and-tell", tab: "render" },
+  // a question the Director asks you, and your answer or dismissal (D140): part of asking you, never a notification of its own
+  "question.answered": { class: "ask" },
+  "question.asked": { class: "ask" },
+  "question.cancelled": { class: "ask" },
   "render.approved": { class: "quiet" },
   "render.deleted": { class: "quiet" },
   "render.finished": { class: "run-and-tell", tab: "render" },

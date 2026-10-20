@@ -122,6 +122,13 @@ A list of sections (an intro, one per scene, an outro) and one in detail.
 appears on every screen, above the content: *The Director asks to … / Allow / Not now*. Allow lets that one thing go (for 15 minutes,
 once); Not now tells the Director not to try again unless you ask. In chat the same is `/demo allow [id | all]` and `/demo deny [id | all]`.
 
+**The Director asks you a question.** When it needs a decision it cannot make (which story first, whether to cut scenes), it asks with 2 to 4 options and
+**stops**: the question appears in the same bar on every screen (who asks, the question, why it matters, a button per option with its number, and
+Dismiss), in the next-step band ("The Director asks", before anything else that needs you) and in Suggestions. Answer with a button; your answer wakes the
+Director with a message that carries the question, your choice and where you answered. A question is resolved **once**: a second answer is told who got there first.
+It never approves, spends or replaces anything: those stay the actions you take in the panel. It waits for you, with no timeout. (Answering by typing the option's
+number or word in the chat arrives with the next step of this work.)
+
 If a newer version exists than the one a draft was started on, the draft is flagged ("v2 exists") and **Compare with v2** shows both;
 a draft is never rebased or dropped for you.
 

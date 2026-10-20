@@ -130,7 +130,7 @@ export function stepStates({ stages, jobs, discovery = false, director }) {
  * The next-action band: what needs you (or is blocked) and where to go. null without a project.
  * { tone: "needs" | "blocked" | "idle" | "done", label, text, title?, action?: { label, tab }, more: [{ tab, text }] }
  */
-export function nextBand({ stages, states, jobs, director, now = Date.now() }) {
+export function nextBand({ stages, states, jobs, director, now = Date.now(), questions = [] }) {
   if (!stages?.project) return null;
   const order = STEPS.map((s) => s.tab);
   const blocked = order.find((t) => states[t]?.state === "blocked");
@@ -146,6 +146,20 @@ export function nextBand({ stages, states, jobs, director, now = Date.now() }) {
   const next = stages.next;
   const nextTab = next?.stage ? stepOfStage(next.stage)?.tab : undefined;
   const needing = order.filter((t) => states[t]?.state === "needs");
+  // a question the Director asked you: it waits for exactly this (D140), so it comes before the rest of what needs you
+  if (questions.length) {
+    const q = questions[0];
+    return {
+      tone: "needs",
+      label: "The Director asks",
+      text: `${q.role}: ${q.what}${questions.length > 1 ? ` (+${questions.length - 1} more question${questions.length === 2 ? "" : "s"})` : ""}`,
+      action: null,
+      more: needing.map((t) => ({ tab: t, text: states[t].why })),
+      moreWord: "also wait for you",
+      title: "Answer it in the bar below, or type its number or word in the chat",
+      question: true,
+    };
+  }
   const first = next?.who === "user" && nextTab ? nextTab : needing[0];
   // the Director is working: say so instead of "Needs you" (F9); what waits for you is a small link beside it
   if (director?.working) {
@@ -215,7 +229,8 @@ export function bandHiddenAt(band, tab) {
 export function suggestions(band, tab) {
   if (!band) return [];
   const items = [];
-  if (band.tone === "needs" && band.action)
+  if (band.question) items.push({ tab, text: band.text, first: true });
+  else if (band.tone === "needs" && band.action)
     items.push({ tab: band.action.tab, text: band.text, first: true });
   else if (band.tone === "blocked" && band.action)
     items.push({ tab: band.action.tab, text: band.text, blocked: true });

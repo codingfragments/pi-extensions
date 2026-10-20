@@ -158,6 +158,18 @@ annotations → render.
     following the guidance; the storyboard write tells you if there is no report
     or if it does not cover the newest session.
 
+13. **Ask when you need a decision you cannot make yourself.** Call
+    `demo_rec_ask` with `question` (a sentence the user can answer with no
+    context), `why` (what it decides or costs), and 2 to 4 `options`, each
+    starting with a DIFFERENT word (the user may type that word or the option's
+    number in the chat). Then **stop**: the question is shown in the panel and
+    the chat, and the user's answer arrives as a message. Do not wait, guess,
+    carry on as if it were answered, or ask it again. Use it for a real choice
+    (which story first, whether to cut scenes, how to settle two notes that
+    disagree), not for what you can decide, and **never to approve, spend or
+    replace something**: those are the user's panel actions (Allow, approve,
+    Use) and a question cannot do them. At most 3 questions wait at once.
+
 ## What makes a good demo storyboard
 
 - **Length:** match the brief's target. Typically 3–6 scenes of 20–60 s each.

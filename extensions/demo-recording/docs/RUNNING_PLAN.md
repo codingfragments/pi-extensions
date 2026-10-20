@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 12 (P5, small options).
+`main`.** The next piece of work is item 13, run 3 (your time: a full run on a second app); after it, items 14 to 16 need a real app that asks for a login.
 
 ## 2. Done
 
@@ -26,6 +26,7 @@ them, and a second real run (run 2) accepted P1 and produced 12 more findings, w
 | **P1c The fix loop** | the Director's work visible (band, strip, Activity); flag findings, ask for suggested fixes, decide, rethink; apply as ONE new draft at the earliest stage with pending fixes for later stages; the stage writers read and settle them; **timing hints `[@mark +300ms]`**; the render overrides retired | #99 to #104, #108 |
 | **Panel work from the first use** | "Quality check" is not "Render"; the Render preview two fifths wide and pinned; the fix loop as a window; structured Director answers | #105, #106, #107 |
 | **Run 2** | the run guide, P1d re-scoped, 12 findings collected, the grill | #109, #110 |
+| **P5 Small options** | the Logo bug option of a render says what it does (and is disabled when no look shows one); the zoom limit is two settings, zooms per minute and per scene | 12a, 12b |
 | **P4 The Director in the open** | the Director asks a question and stops; you answer it once in the panel or by typing its number or word in the chat; the Allow for a spend is such a question; every message carries its role | #130, #131, #132, 11c |
 
 ## 3. The plan, in order
@@ -46,8 +47,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | done | 5 | 31 |
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | done | 12 | 43 |
 | 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | done | 7 | 50 |
-| 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | **next** | 4 | 54 |
-| 13 | **Run 3** | a full run on a different app, every screen at 1400 and 900 px | | you | 2 | 56 |
+| 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | done | 4 | 54 |
+| 13 | **Run 3** | a full run on a different app, every screen at 1400 and 900 px (your time) | | **next** | 2 | 56 |
 | 14 | **S7 Login and sessions** | required for v1, with the session checks | F4 | later | 8 | 64 |
 | 15 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 70 |
 | 16 | **S8 Native capture** | optional | | later | | |
@@ -248,7 +249,12 @@ Allow, and can feed the fix window.
   logo; `GET /api/render` carries it per brand; New render explains it under the checkbox for the chosen looks (what it does and in which corner, or "Nothing to show:
   neutral has it turned off", with a link to Config › Brands), and the checkbox is disabled and unchecked when no chosen look shows one. When disabled the render still
   sends the default (`true`), so the variant names never say "no logo" for something that was never there. **Tests:** `test/logo-bug.test.ts` (3, one in the browser).
-- **12b, zoom limits (F21, next).** The fixed "at most 2 zooms per demo" becomes two settings, zooms per minute and zooms per scene, with a project override.
+- **12b, zoom limits (F21, done).** The fixed "at most 2 zooms per demo" is two settings, `annotations.zoomsPerMinute` (default 1.5, 0 to 20) and `annotations.zoomsPerScene`
+  (default 1, whole, 0 to 5), global with a project override like every setting; 0 = no zooms. `src/annotations/zoom-limits.ts` is the one place that decides (total = per minute × the
+  demo's length, rounded up, at least 1; an 80 s demo still gets 2, a 6 minute demo 9), used by the designer's selection and import, the panel's toggle and reset rules
+  (refused with the limit that stops it and the setting to raise), the input pack's "Caps" line and the budget meter ("zooms 1 of 2", with the limit as the tooltip). A stored version
+  keeps only a sanity cap of 12, so lowering a setting never makes an old version unreadable. **Tests:** `test/zoom-limits.test.ts` (8); two old tests moved to the new rules.
+  **Not verified:** the per-scene default of 1 against a real designer run; no panel control for the setting (it is in Config).
 
 ## 5. The later phases in outline
 

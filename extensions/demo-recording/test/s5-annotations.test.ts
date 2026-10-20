@@ -208,9 +208,16 @@ test("validation: structure, caps and path-precise errors", () => {
     [{ ...item({ id: "a", type: "callout", text: "x" }), anchor: { word: 3 } }],
     /anchor must be/,
   );
+  // the zoom limit is a setting (zoom-limits.ts), so a stored file only has a sanity cap: 3 zooms are fine here, 13 are not
+  assert.ok(
+    validateAnnotations({
+      ...ok,
+      items: ["a", "b", "c"].map((id) => item({ id, type: "zoom", target: { step: 0 } })),
+    }),
+  );
   bad(
-    ["a", "b", "c"].map((id) => item({ id, type: "zoom", target: { step: 0 } })),
-    /3 enabled zooms — at most 2/,
+    Array.from({ length: 13 }, (_, i) => item({ id: `z${i}`, type: "zoom", target: { step: 0 } })),
+    /13 enabled zooms — at most 12 in a file/,
   );
   // disabled zooms don't count
   assert.ok(

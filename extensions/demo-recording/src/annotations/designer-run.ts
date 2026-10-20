@@ -22,6 +22,7 @@ import { annotationContext } from "./context.ts";
 import { type DesignReport, type Suggestion, suggestAnnotations } from "./design.ts";
 import { toSuggestion } from "./suggestion.ts";
 import { ANNOTATION_TYPES } from "./types.ts";
+import type { ZoomLimits } from "./zoom-limits.ts";
 
 export const DESIGNER_TIMEOUT_MS = 180_000;
 const MAX_TOKENS = 8000;
@@ -157,6 +158,7 @@ export interface DesignerRunOptions {
   timelineVersion: number;
   base?: number;
   instructions?: string;
+  zoomLimits?: ZoomLimits;
   access: ModelAccess;
   models: string[];
   signal?: AbortSignal;
@@ -217,6 +219,7 @@ export async function runDesigner(o: DesignerRunOptions): Promise<DesignerRunRes
     timelineVersion: o.timelineVersion,
     ...(o.base !== undefined ? { base: o.base } : {}),
     ...(o.instructions ? { instructions: o.instructions } : {}),
+    ...(o.zoomLimits ? { zoomLimits: o.zoomLimits } : {}),
   });
   const user = `${pack}\n\nReply with the JSON array of suggestions.`;
   const place = (suggestions: Suggestion[], dryRun: boolean) =>
@@ -228,6 +231,7 @@ export async function runDesigner(o: DesignerRunOptions): Promise<DesignerRunRes
       ...(o.instructions ? { instructions: o.instructions } : {}),
       by: "annotation-designer (separate run)",
       dryRun,
+      ...(o.zoomLimits ? { zoomLimits: o.zoomLimits } : {}),
     });
   const errors: string[] = [];
   const tried: string[] = [];

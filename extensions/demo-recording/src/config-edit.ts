@@ -82,6 +82,10 @@ export const CONFIG_DOCS: Record<string, string> = {
     "Brand package for rendering: built-in 'neutral' or a user brand in <root>/brands/ (see /demo brand list).",
   "annotations.autoSuggest":
     "Suggest annotations automatically after each sync edit (an agent turn). Off: use Re-suggest in the Annotations tab.",
+  "annotations.zoomsPerMinute":
+    "How many zooms a demo may have per minute of its length (0 to 20, 0 = no zooms): 1.5 gives 2 for an 80 s demo and 3 for 2 minutes. Zoom is the loudest annotation, so it is limited.",
+  "annotations.zoomsPerScene":
+    "How many zooms one scene may have (0 to 5, whole number, 0 = no zooms). Both limits must hold.",
   "render.keepDrafts":
     "How many draft renders keep their video files; older drafts keep only their record (finals are never pruned).",
   "budgets.discoveryScreens": "Max screenshots per discovery session.",

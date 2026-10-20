@@ -8,8 +8,10 @@
  *   budget  enabled noise vs. the optimum: balanced within ±25 %
  */
 
+import type { ZoomGuard } from "./draft.ts";
 import type { ResolvedAnnotation } from "./resolve.ts";
-import { type AnnotationItem, type AnnotationType, DEFAULT_DURATION, MAX_ZOOMS } from "./types.ts";
+import { type AnnotationItem, type AnnotationType, DEFAULT_DURATION } from "./types.ts";
+import { DEFAULT_ZOOM_LIMITS, zoomTotal } from "./zoom-limits.ts";
 
 export const BASE_NOISE: Record<AnnotationType, number> = {
   callout: 1.0,
@@ -118,7 +120,7 @@ const overlaps = (a: ResolvedAnnotation, b: ResolvedAnnotation) => {
 
 /**
  * The recommended (pre-enabled) set: about half of the counted suggestions,
- * best value per noise first, never two zooms beyond the cap, never two items
+ * best value per noise first, never more zooms than the limits allow (zoom-limits.ts), never two items
  * on the same region at the same time; spotlight only at value 5.
  */
 export function recommend(
@@ -126,7 +128,11 @@ export function recommend(
   resolved: ResolvedAnnotation[],
   /** Items whose state the user decided (kept on re-suggest): on = pre-picked, off = never picked. */
   fixed: { on: Set<string>; off: Set<string> } = { on: new Set(), off: new Set() },
+  zoom: ZoomGuard = {},
 ): Set<string> {
+  const limits = zoom.limits ?? DEFAULT_ZOOM_LIMITS;
+  const total = zoomTotal(limits, zoom.durationMs);
+  const zoomsIn = new Map<string, number>();
   const byId = new Map(resolved.map((r) => [r.id, r]));
   const picked: ResolvedAnnotation[] = [];
   const out = new Set<string>();
@@ -136,7 +142,10 @@ export function recommend(
       out.add(it.id);
       const r = byId.get(it.id);
       if (r) picked.push(r);
-      if (it.type === "zoom") zooms++;
+      if (it.type === "zoom") {
+        zooms++;
+        zoomsIn.set(it.scene, (zoomsIn.get(it.scene) ?? 0) + 1);
+      }
     }
   const cands = items
     .filter(
@@ -155,11 +164,15 @@ export function recommend(
   for (const it of cands) {
     if (out.size >= target) break;
     const r = byId.get(it.id) as ResolvedAnnotation;
-    if (it.type === "zoom" && zooms >= MAX_ZOOMS) continue;
+    if (it.type === "zoom" && (zooms >= total || (zoomsIn.get(it.scene) ?? 0) >= limits.perScene))
+      continue;
     if (picked.some((p) => overlaps(p, r))) continue;
     picked.push(r);
     out.add(it.id);
-    if (it.type === "zoom") zooms++;
+    if (it.type === "zoom") {
+      zooms++;
+      zoomsIn.set(it.scene, (zoomsIn.get(it.scene) ?? 0) + 1);
+    }
   }
   return out;
 }

@@ -29,7 +29,6 @@ import {
   type AnnotationItem,
   type AnnotationTarget,
   type AnnotationType,
-  MAX_ZOOMS,
   userTouched,
 } from "./types.ts";
 import {
@@ -41,6 +40,7 @@ import {
   recommend,
   valueBonus,
 } from "./weights.ts";
+import { DEFAULT_ZOOM_LIMITS, type ZoomLimits, trimZooms } from "./zoom-limits.ts";
 
 /** What the agent submits per suggestion. */
 export interface Suggestion {
@@ -240,6 +240,8 @@ export function suggestAnnotations(o: {
   by?: string;
   /** Evaluate and report (placed / dropped / enabled) without storing a version. */
   dryRun?: boolean;
+  /** The zoom limits in force (annotations.zoomsPerMinute / zoomsPerScene); the defaults when omitted. */
+  zoomLimits?: ZoomLimits;
 }): DesignReport {
   const warnings: string[] = [];
   const dropped: { id: string; why: string }[] = [];
@@ -332,7 +334,10 @@ export function suggestAnnotations(o: {
     off: new Set(kept.filter((k) => !k.enabled).map((k) => k.id)),
   };
   const resolved = probe.items.filter((r) => ok.has(r.id));
-  const rec = recommend(items, resolved, fixed);
+  const rec = recommend(items, resolved, fixed, {
+    limits: o.zoomLimits ?? DEFAULT_ZOOM_LIMITS,
+    durationMs: o.timeline.totals.fullMs,
+  });
   const optimum =
     Math.round(
       items
@@ -341,9 +346,7 @@ export function suggestAnnotations(o: {
     ) / 100;
   for (const it of placed) it.enabled = rec.has(it.id) && counted(it.type);
   // Never more than the zoom cap, even if the user kept two and a third came in enabled.
-  let zooms = 0;
-  for (const it of items)
-    if (it.enabled && it.type === "zoom" && ++zooms > MAX_ZOOMS) it.enabled = false;
+  trimZooms(items, o.zoomLimits ?? DEFAULT_ZOOM_LIMITS, o.timeline.totals.fullMs);
 
   const stored = o.dryRun
     ? { version: (annotationVersions(o.projectDir).at(-1) ?? 0) + 1 }
@@ -407,6 +410,7 @@ export function importAnnotations(o: {
   projectDir: string;
   timeline: Timeline;
   from: number;
+  zoomLimits?: ZoomLimits;
 }): ImportReport {
   const old = readAnnotations(o.projectDir, o.from);
   if (!old) throw new Error(`annotations v${o.from} do not exist`);
@@ -428,9 +432,7 @@ export function importAnnotations(o: {
     .filter((c) => !ok.has(c.id))
     .map((c) => ({ id: c.id, why: probe.why.get(c.id) ?? "not placeable" }));
   const carried = candidates.filter((c) => ok.has(c.id));
-  let zooms = 0;
-  for (const it of carried)
-    if (it.enabled && it.type === "zoom" && ++zooms > MAX_ZOOMS) it.enabled = false;
+  trimZooms(carried, o.zoomLimits ?? DEFAULT_ZOOM_LIMITS, o.timeline.totals.fullMs);
   const stored = writeAnnotations(o.projectDir, {
     basedOn: { vo: o.timeline.voVersion },
     take: o.timeline.take,

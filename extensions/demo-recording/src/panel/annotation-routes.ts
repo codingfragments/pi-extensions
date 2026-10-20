@@ -13,6 +13,7 @@ import { previewAnnotation, previewScene } from "../annotations/preview.ts";
 import { resolveAnnotations } from "../annotations/resolve.ts";
 import type { AnnotationFile } from "../annotations/types.ts";
 import { budgetOf } from "../annotations/weights.ts";
+import { zoomLimitsOf, zoomUse } from "../annotations/zoom-limits.ts";
 import { annotationBase, annotationConfidence } from "../confidence/annotations.ts";
 import type { DemoRecConfig } from "../config.ts";
 import {
@@ -29,7 +30,7 @@ import { DraftConflict } from "../drafts/store.ts";
 import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { PANEL_PREFIX } from "../roles.ts";
-import { logInstructions, timelineFor } from "../tools/annotations.ts";
+import { logInstructions, timelineFor, zoomGuardFor } from "../tools/annotations.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
 import { isAccepted } from "../workdir/stages.ts";
@@ -152,6 +153,8 @@ export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?
     scenes,
     timelineVersion: t?.version ?? null,
     budget: budgetOf(file.items, file.budget?.optimumNoise ?? 0),
+    /** How many zooms are on, against the limit for this demo (annotations.zoomsPerMinute / zoomsPerScene). */
+    zooms: zoomUse(file.items, zoomLimitsOf(cfg), t?.timeline.totals.fullMs),
     confidence: annotationConfidence(file, resolved, baseOf(p.dir, file, versions)),
     stale: !t ? `the edit for VO v${file.basedOn.vo} is missing` : null,
   };
@@ -262,7 +265,16 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
         };
         for (const k of ["version", "revision", "author"]) Reflect.deleteProperty(op, k);
         try {
-          const d = editAnnotationDraft(p.dir, version, op, { expected, author });
+          const vo = readAnnotations(p.dir, version)?.basedOn.vo;
+          const guard = vo === undefined ? undefined : zoomGuardFor(deps.getConfig(), p.dir, vo);
+          const d = editAnnotationDraft(
+            p.dir,
+            version,
+            op,
+            { expected, author },
+            new Date(),
+            guard,
+          );
           if (d) {
             const item = d.file.items.find((x) => x.id === op.id);
             const what = describeOp(op, item);

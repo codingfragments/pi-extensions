@@ -1,6 +1,6 @@
 /**
  * Read, validate and version annotation files (`annotations/vN.json`).
- * Validation is strict about structure and the hard caps (≤ 2 zooms per demo,
+ * Validation is strict about structure and the hard caps (the zoom sanity cap (the real limit is a setting),
  * zoom ≤ 1.8×, texts ≤ 60 chars, no overlapping zooms); everything that
  * depends on the recording (marks, targets) is checked when resolving.
  */
@@ -14,9 +14,9 @@ import {
   type AnnotationItem,
   type AnnotationType,
   MAX_TEXT,
-  MAX_ZOOMS,
   MAX_ZOOM_FACTOR,
 } from "./types.ts";
+import { HARD_MAX_ZOOMS } from "./zoom-limits.ts";
 
 export const annotationsDir = (projectDir: string) => path.join(projectDir, "annotations");
 
@@ -116,11 +116,9 @@ export function validateAnnotations(raw: unknown): AnnotationFile {
     return it as unknown as AnnotationItem;
   });
   const zooms = items.filter((x) => x.enabled && x.type === "zoom");
-  if (zooms.length > MAX_ZOOMS)
-    fail(
-      "items",
-      `has ${zooms.length} enabled zooms — at most ${MAX_ZOOMS} per demo (they lose their effect)`,
-    );
+  // only a sanity cap: the real limit is a setting (zoom-limits.ts) and lowering it must not make an old version unreadable
+  if (zooms.length > HARD_MAX_ZOOMS)
+    fail("items", `has ${zooms.length} enabled zooms — at most ${HARD_MAX_ZOOMS} in a file`);
   return {
     version: typeof raw.version === "number" ? raw.version : 0,
     basedOn: { vo: (raw.basedOn as { vo: number }).vo },

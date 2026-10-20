@@ -13,8 +13,8 @@ import {
   type AnnotationTarget,
   DEFAULT_DURATION,
   MAX_TEXT,
-  MAX_ZOOMS,
 } from "./types.ts";
+import { DEFAULT_ZOOM_LIMITS, type ZoomLimits, zoomRefusal } from "./zoom-limits.ts";
 
 export type DraftOp =
   | { op: "toggle"; id: string; enabled?: boolean }
@@ -30,6 +30,12 @@ const sameTarget = (a: AnnotationTarget, b: AnnotationTarget) =>
   JSON.stringify(a) === JSON.stringify(b);
 
 /** Can this item be reset: it was suggested, and the user changed it. */
+/** The zoom limits in force and the length of the demo (ms) they are measured against; both optional (the defaults, an 80 s demo). */
+export interface ZoomGuard {
+  limits?: ZoomLimits;
+  durationMs?: number;
+}
+
 export function canReset(it: AnnotationItem): boolean {
   return (
     it.origin !== "manual" &&
@@ -42,7 +48,13 @@ export function canReset(it: AnnotationItem): boolean {
  * Apply one edit to `file` in place (the caller passes a copy). Returns false when it changed nothing.
  * Throws, leaving `file` valid, when the edit is not allowed.
  */
-export function applyDraftOp(file: AnnotationFile, op: DraftOp, now = new Date()): boolean {
+export function applyDraftOp(
+  file: AnnotationFile,
+  op: DraftOp,
+  now = new Date(),
+  guard: ZoomGuard = {},
+): boolean {
+  const limits = guard.limits ?? DEFAULT_ZOOM_LIMITS;
   const it = file.items.find((x) => x.id === op.id);
   if (!it) throw new Error(`annotation ${op.id} is not in this version`);
   const before = JSON.stringify(it);
@@ -52,12 +64,10 @@ export function applyDraftOp(file: AnnotationFile, op: DraftOp, now = new Date()
   if (op.op === "toggle") {
     const next = op.enabled ?? !it.enabled;
     if (next === it.enabled) return false;
-    if (
-      next &&
-      it.type === "zoom" &&
-      file.items.filter((x) => x.enabled && x.type === "zoom").length >= MAX_ZOOMS
-    )
-      throw new Error(`at most ${MAX_ZOOMS} zooms per demo — turn another zoom off first`);
+    if (next && it.type === "zoom") {
+      const why = zoomRefusal(file.items, it, limits, guard.durationMs);
+      if (why) throw new Error(why);
+    }
     edit("enabled", it.enabled);
     it.enabled = next;
   } else if (op.op === "text") {
@@ -113,13 +123,10 @@ export function applyDraftOp(file: AnnotationFile, op: DraftOp, now = new Date()
     const duration = first("duration");
     const target = first("target");
     if (enabled) {
-      if (
-        enabled.from === true &&
-        it.type === "zoom" &&
-        !it.enabled &&
-        file.items.filter((x) => x.enabled && x.type === "zoom").length >= MAX_ZOOMS
-      )
-        throw new Error(`at most ${MAX_ZOOMS} zooms per demo — turn another zoom off first`);
+      if (enabled.from === true && it.type === "zoom" && !it.enabled) {
+        const why = zoomRefusal(file.items, it, limits, guard.durationMs);
+        if (why) throw new Error(why);
+      }
       it.enabled = enabled.from === true;
     }
     if (text) it.text = text.from as string;

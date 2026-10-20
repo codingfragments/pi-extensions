@@ -106,7 +106,7 @@ yet (config `annotations.autoSuggest`, default on, D53), when you press
 2. It submits **about 2× as many suggestions as should be on**
    (`action=suggest`), each with a value 1–5 and a one-line reason, following
    the skill's rules: the callout names *what*, the voice says *why*; nothing
-   while typing; never two things on the same region at once; ≤ 2 zooms.
+   while typing; never two things on the same region at once; zooms within the limits (zooms per minute and per scene).
 3. The **engine** does everything deterministic: validates and places every
    suggestion (unplaceable ones go back to the agent with the reason, e.g.
    `mark "nope" is not in 01-dashboard`), adds the privacy scan's redactions,
@@ -141,7 +141,7 @@ Every suggestion carries a **value** and a **noise** cost (Q7):
 
 The **recommended set** (what gets switched on): about half of the counted
 suggestions — the must-haves (value 5) first, then the best value per noise —
-never more than 2 zooms, never two items on the same region at the same time,
+never more zooms than the limits allow, never two items on the same region at the same time,
 spotlight only at value 5, chapters and redactions off. Its noise is the
 **optimum**. The tab's **budget meter** compares the enabled noise with it:
 **balanced** within ±25 %, otherwise *too quiet* or *too busy*; plus how much
@@ -382,7 +382,7 @@ for every scene.
 - Eased in so it is complete *at* the anchor; held; eased out.
 - The cursor and page-space annotations (highlight, spotlight, redaction) zoom
   with the page; callouts and chapters don't.
-- **Limits:** at most 2 enabled zooms per demo; 1.1–1.8×; overlapping zooms in a
+- **Limits:** zooms are limited by two settings (**zooms per minute** of the demo, default 1.5, and **zooms per scene**, default 1: an 80 s demo gets 2, a 2 minute demo 3; `annotations.zoomsPerMinute` and `annotations.zoomsPerScene`, global with a project override, 0 = no zooms); 1.1–1.8×; overlapping zooms in a
   scene: the later one is dropped; needs at least 1.4 s (in + out + a hold).
 
 ### Highlight
@@ -522,7 +522,7 @@ figures, tokens. Privacy, not emphasis — outside the noise budget; part 8's
 
 | Rule | Why |
 |---|---|
-| ≤ 2 enabled zooms per demo | Zooms lose their effect when overused (D26, D35). |
+| zooms per minute and per scene (defaults 1.5 and 1) | Zooms lose their effect when overused (D26, D35). One function (`zoom-limits.ts`) decides; a stored version keeps only a sanity cap of 12, so lowering the setting never makes an old version unreadable. |
 | zoom factor 1.1–1.8 | Sharp up to 1.8× at dpr 2 (spike Q3). |
 | no overlapping zooms in a scene (later one dropped) | One camera. |
 | texts ≤ 60 characters | Callouts and chapters mark; the voice narrates. |

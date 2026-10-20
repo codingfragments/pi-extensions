@@ -27,6 +27,7 @@ import {
   importAnnotations,
   suggestAnnotations,
 } from "../annotations/design.ts";
+import type { ZoomGuard } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations, writeAnnotations } from "../annotations/file.ts";
 import { previewAnnotation } from "../annotations/preview.ts";
 import { toSuggestion } from "../annotations/suggestion.ts";
@@ -37,6 +38,7 @@ import {
   type AnnotationTarget,
 } from "../annotations/types.ts";
 import { budgetOf, formatBudget } from "../annotations/weights.ts";
+import { zoomLimitsOf } from "../annotations/zoom-limits.ts";
 import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { pendingBlock, pendingReminder } from "../qa/apply.ts";
@@ -66,6 +68,20 @@ export function timelineFor(
       ? "no edit yet — run the sync edit (demo_rec_edit) first"
       : `no edit for VO v${vo} yet — run demo_rec_edit first`,
   );
+}
+
+/** The zoom limits in force and the length of the edit they are measured against (the edit of that voice-over, if there is one). */
+export function zoomGuardFor(
+  cfg: Parameters<typeof zoomLimitsOf>[0],
+  projectDir: string,
+  voVersion: number,
+): ZoomGuard {
+  const limits = zoomLimitsOf(cfg);
+  try {
+    return { limits, durationMs: timelineFor(projectDir, voVersion).timeline.totals.fullMs };
+  } catch {
+    return { limits }; // no edit yet: the limits count for a typical demo length
+  }
 }
 
 /** Compact listing of a version for the agent. */
@@ -208,6 +224,7 @@ export function runSuggest(
     suggestions: o.suggestions,
     ...(o.base !== undefined ? { base: o.base } : {}),
     ...(o.instructions ? { instructions: o.instructions } : {}),
+    zoomLimits: zoomLimitsOf(rt.getConfig()),
   });
   publishSuggested(rt, p.slug, r, o, "agent");
   return formatDesignReport(r);
@@ -263,6 +280,7 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
                 timelineVersion: version,
                 ...(params.base !== undefined ? { base: params.base } : {}),
                 ...(params.instructions ? { instructions: params.instructions } : {}),
+                zoomLimits: zoomLimitsOf(rt.getConfig()),
               }),
               ...pendingBlock(p.dir, "annotations"),
             ].join("\n"),
@@ -317,7 +335,12 @@ export function registerAnnotationsTool(pi: ExtensionAPI, rt: Runtime): void {
               `import needs from (versions: ${annotationVersions(p.dir).join(", ") || "none"})`,
             );
           const { timeline } = timelineFor(p.dir);
-          const r = importAnnotations({ projectDir: p.dir, timeline, from: params.from });
+          const r = importAnnotations({
+            projectDir: p.dir,
+            timeline,
+            from: params.from,
+            zoomLimits: zoomLimitsOf(rt.getConfig()),
+          });
           rt.bus.publish(
             "annotations.updated",
             {

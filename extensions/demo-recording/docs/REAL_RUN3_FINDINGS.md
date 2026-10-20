@@ -50,3 +50,16 @@ R3-3 [ux, idea] (before the run) Recording tab · keys: `<` and `>` move one fin
    elsewhere on this tab, but Up / Down and Home / End already walk lists, so they stay as they are. (5) The browser's own 5 s arrow step on a focused video would be taken
    over (prevented) so the step is one thing, 10 s, wherever the focus is. (6) The key list in the "?" sheet, the hint under the player and `shortcuts.js` change with it; and
    the same keys on the Annotations tab (where `[` `]` are previous / next annotation) should be decided in the same go so the tabs stay alike.
+
+R3-4 [ux] (before the run) Recording tab · the "Request a new take" box with its notes at the BOTTOM of the page, like the review box of the Storyboard tab, not at the top ·
+   wanted: read and review the takes first, then ask for the next one at the end.
+   Context when noted: raised after R3-3. Today the box is the first card under the stage summary (`section.card.review-head` in `Recording`, `src/panel/public/recording.js`):
+   a one-line field "notes for the next take (optional)", the primary button "Request a new take", the cost hint, "N open notes will go with it" and a paragraph about approving
+   takes and "Use for next steps". The takes, the review workspace (chapters, player, notes) come after it. The Storyboard tab ends with its review card (`card review-foot
+   ds-inflow`: a text box for the overall notes, "N/M scenes marked", the "Send review to agent" button), in the page flow, not pinned.
+   Assessment (not decided): points to settle with you. (1) The same card shape as the storyboard's (a larger text box, the count and the button on one row under it) or
+   today's one-line field moved down? (2) The paragraph about approving takes and "Use for next steps" is guidance for the takes above it: it may belong with the take rows, not
+   with the request box. (3) With the notes from the review (work package 7c) the order becomes natural: write timestamped notes in the workspace, then see "N open notes will
+   go with it" next to the button at the end. (4) A long page with several takes puts the button far down: fine, the same as the storyboard, or should "Request a new take" also
+   be reachable from the top (a link that scrolls to it)? (5) The tests that find the box by its label or class (`recording-notes`, `recording-review`, `s5-dialogs-costs`) change
+   with the move; decide together with R3-2 (no pinned blocks) since neither pins anything.

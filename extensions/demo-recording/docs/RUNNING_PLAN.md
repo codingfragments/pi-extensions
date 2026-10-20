@@ -245,6 +245,7 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
     tail); "based on" for a storyboard is by time, not recorded at write; not tried on the real project.
 - **P4 The Director in the open (11):** A4 a pending question owned by the engine and answered in chat or panel (L), A5 role labels in the chat
   (S to M). The docked drawer (L3) moved to item 4.
+  **The spike is done** ([spikes/P4-message-hooks.md](spikes/P4-message-hooks.md), `test/p4-spike-hooks.test.ts`, a real pi session with a scripted model): a typed reply is an `input` with `source: "interactive"` (our own bridge is `"extension"`, the model's text is never an `input`); an `input` handler can resolve a tool that waits and swallow the reply (also while the run streams); aborting aborts the waiting tool; `message_end` can store a role prefix (the model then sees it); a custom message can show a question in the chat. So A4 needs no pi change; the open points are the rule for what counts as an answer in the chat, a time limit, and whether the model's own text gets a stored label. The design grill is next.
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.
 - **Run 3 (13):** a full run on a different app, no login yet, every screen at 1400 and 900 px; its findings feed S7, S6 and S8.
 - **S7 (14):** `/demo login`, a login probe, re-login on expiry, session checks before discovery and recording; needs the real app. **S6 (15):**

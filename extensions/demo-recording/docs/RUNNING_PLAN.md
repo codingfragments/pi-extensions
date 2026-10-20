@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 10 (P3 Discovery).
+`main`.** The next piece of work is item 11 (P4, the Director in the open).
 
 ## 2. Done
 
@@ -43,8 +43,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 7 | **Recording review (R0 + R1)** | chapters with snapshots as navigation, a smaller pinned player, goal and findings above it, timestamped notes | R2-4, F10 | done | 8 | 22 |
 | 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | done | 4 | 26 |
 | 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | done | 5 | 31 |
-| 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | **next** | 12 | 43 |
-| 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | later | 7 | 50 |
+| 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | done | 12 | 43 |
+| 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | **next** | 7 | 50 |
 | 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | later | 4 | 54 |
 | 13 | **Run 3** | a full run on a different app, every screen at 1400 and 900 px | | you | 2 | 56 |
 | 14 | **S7 Login and sessions** | required for v1, with the session checks | F4 | later | 8 | 64 |
@@ -206,19 +206,43 @@ Allow, and can feed the fix window.
 ## 5. The later phases in outline
 
 Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the shape is here.
-- **P3 Discovery (10):** D1 start and enhance from the Project page with a budget chooser, D2 a discovery report with guidance for the storyboard,
-  D3 measured progress per area, D4 an enlarged live preview. The estimate of 12 days is the original 15 without the discovery checks; it has not
-  been re-checked slice by slice. **D4 is done** (the drawer's preview is a button that opens a larger window rendering the same source, the newest
-  discovery screen or the polled live frame of a take, so it keeps updating; Escape closes it and the focus goes back; tested with two real screens
-  arriving while it is open; the recording case uses the same component and is not tested separately). **D3 is done** (`src/discovery/measure.ts`: every look and action in the session's log is attributed to an area, by the **route hints** of the plan (the longest route that prefixes the page's path; `/#/x` for hash routes; `/` is only home), else the area in hand (the first not done or dropped), else "unassigned"; what happened before the plan is attributed by route when the plan arrives. Per area: looks, actions, state (seen and done, marked done with nothing seen, in hand, seen, not yet, left out with its reason). The bar is by that: a flag alone moves nothing, "marked done, nothing seen" is dashed and says so in words, a dropped area is struck and says so, the budget is still a floor. `demo_rec_browser plan` takes `routes`, `drop` + `why`; `demo_rec_storyboard write` is **refused** while a declared area of the latest session was never seen and not dropped (it names them; `skipAreas: [{ area, why }]` leaves them out with a reason, kept in the log; a storyboard written since the session began ends the asking; sessions without a plan are left alone). The panel: Project → Discovery has an **Areas** table (state, looks, actions, routes, why dropped, pages nobody claimed) and a "Not seen yet" notice; the drawer's Running section shows **"No activity for 2 min"** after 90 s without a look, action or plan change, or "The Director has stopped, but the session is still open" 15 s after its run ended with the session open; icon and words, never an error. **Decided with you:** route hints with the current area as fallback; refuse until covered or dropped with a reason. **Not done / uncertain:** the 90 s and 15 s are guesses; "about done" for the area in hand is 12 looks plus actions (a guess, drawn as a bar, never a claim); a Director that gives no routes gets everything counted for the area in hand; the first look before the plan is unassigned unless a route claims it; never run with a real Director; not tried on the real project.) **D1 is done** (Project → **Discovery**: where discovery stands (not started / running / done / budget used / cut off), the sessions with what each used against
-  its budget and how it ended, **Start discovery**, **Enhance…** and **Extend the budget…** (twice what the last session had) in one window: notes, areas,
-  a budget choice (quick = half, standard = Config, deep = double, or three numbers, 1 up to 200 screens / 800 actions / 120 minutes), and for an enhance which session it
-  builds on. It is a request stored in the project (`discovery-requests.json`, one waiting at a time, "Take it back"), sent to the Director with the notes, the areas and
-  what to build on and not repeat; `demo_rec_browser open` takes the request's budget instead of Config's and a session writes `session.json` when it opens and closes (its
-  budgets, what it used, whether the budget ran out), which is how the page says why it stopped; older sessions are read from their action log without budgets. Costs model
-  tokens and browser time, no money; refused while a session runs. **Not done / uncertain:** the "sources" part of Enhance is the existing Sources & context group (not a
-  field in the window); the progress inside a session is still the Director's declared plan (D3); never run against a real Director session through the panel (the tests send
-  the request and open a real session separately); not tried on the real project. **D3 is done** (measured progress, see below); D2 is still to do.
+- **P3 Discovery (10), done (D4, D1, D3, D2).** The estimate of 12 days held (D4 half a day, D1 about 2.5, D3 and D2 about 4 each, as re-checked slice by slice).
+  - **D4, the enlarged live preview.** The drawer's preview is a button that opens a larger window rendering the same source (the newest discovery screen
+    or the polled live frame of a take), so it keeps updating; Escape closes it and the focus goes back. Tested with two real screens arriving while it is
+    open; the recording case uses the same component and is not tested separately.
+  - **D1, Project → Discovery.** Where discovery stands (not started, running, done, budget used, cut off), the sessions with what each used against its
+    budget and how it ended, and **Start discovery**, **Enhance…** and **Extend the budget…** (twice what the last session had) in one window: notes, areas,
+    a budget choice (quick = half, standard = Config, deep = double, or three numbers up to 200 screens / 800 actions / 120 minutes), and for an enhance
+    which session it builds on. It is a request stored in the project (`discovery-requests.json`, one waiting at a time, "Take it back") sent to the
+    Director with the notes, the areas and what to build on and not repeat; `demo_rec_browser open` takes the request's budget instead of Config's and a
+    session writes `session.json` when it opens and closes (budgets, usage, whether the budget ran out), which is how the page says why it stopped; older
+    sessions are read from their action log without budgets. Costs model tokens and browser time, no money; refused while a session runs. **Not done:**
+    "sources" are the existing Sources & context group, not a field in the window.
+  - **D3, measured progress** (`src/discovery/measure.ts`). Every look and action in the session's log is attributed to an area by the **route hints** of
+    the plan (the longest route that prefixes the page's path; `/#/x` for hash routes; `/` is only home), else the area in hand, else "unassigned"; what
+    happened before the plan is attributed by route when the plan arrives. Per area: looks, actions, and a state (seen and done, marked done with nothing
+    seen, in hand, seen, not yet, left out with its reason). The bar is by that: a flag alone moves nothing, "marked done, nothing seen" is dashed and says so
+    in words, a dropped area is struck and says so, the budget is still a floor. `demo_rec_browser plan` takes `routes`, `drop` + `why`;
+    `demo_rec_storyboard write` is **refused** while a declared area of the latest session was never seen and not dropped (it names them; `skipAreas:
+    [{ area, why }]` leaves them out with a reason kept in the log; a storyboard written since the session began ends the asking; sessions without a plan
+    are left alone). The panel: an **Areas** table (state, looks, actions, routes, why dropped, pages nobody claimed), a "Not seen yet" notice, and in the
+    drawer **"No activity for 2 min"** after 90 s without a look, action or plan change, or "The Director has stopped, but the session is still open" 15 s
+    after its run ended with the session open: icon and words, never an error. **Decided with you:** route hints with the current area as fallback; refuse
+    until covered or dropped with a reason. **Guesses:** the 90 s and 15 s; "about done" for the area in hand is 12 looks plus actions; a Director that gives
+    no routes gets everything counted for the area in hand.
+  - **D2, the discovery report** (`src/discovery/report.ts`, the tool `demo_rec_discovery`: context, report, get). A project artifact, versioned and immutable
+    (`discovery-report/report.vN.json`), written by the Director at the end of every discovery (after an Enhance too, as a new version) and when you ask
+    ("Ask the Director to write / update the report"; a Director turn, model tokens only). Structured: a summary; what it **found** about the app (2 to 12
+    items, each citing findings `f-…` or screens `<session>/s…`); what the project's **sources** added (each citing `file:`, `ref:` or `input:`; required
+    when the project has sources, and it must be empty when it has none: nothing is invented); and the **guidance**: use cases (1 to 6), must show, risks,
+    avoid, each a title, a why and evidence. The tool **refuses**, listing every problem, a claim with no evidence, an id that does not exist (the valid kinds
+    are named), a finding cited where a source belongs and the other way round, and the length limits. The **coverage is the engine's**: it is filled from what
+    was measured per area (D3), whatever the Director says. The project context carries the report's summary and guidance, the storyboard write says
+    whether there is a report or whether it misses the newest session (a warning, **no gate**: decided with you, D3 already gates the areas), and the
+    storyboard screen says "Based on discovery report vN" (the newest stored before that version was written). Project → Discovery shows the report with its
+    versions, every claim with its evidence as chips (a screen opens its picture, a source its file or link, a finding the findings), a notice when sessions ran
+    after it, and the coverage line. **Not done / uncertain:** never run with a real Director; the report is not searched or compared (compare is the long
+    tail); "based on" for a storyboard is by time, not recorded at write; not tried on the real project.
 - **P4 The Director in the open (11):** A4 a pending question owned by the engine and answered in chat or panel (L), A5 role labels in the chat
   (S to M). The docked drawer (L3) moved to item 4.
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.

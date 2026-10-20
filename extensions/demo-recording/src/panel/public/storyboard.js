@@ -13,6 +13,7 @@ import {
   ReviewControl,
   STATE_WORD,
 } from "./inspector.js";
+import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
 function targetLabel(t) {
@@ -148,7 +149,13 @@ export function Review({ events }) {
   return html`
     <${StageSummary} events=${events} stage="storyboard" row=${row} rows=${hist.data?.rows}
       viewed=${data.version} onUse=${(v) => runVersionAction({ stage: "storyboard", version: v, intent: "use" }).then(reload)}
-      meta=${readOnly ? html`<span>older version: read-only</span>` : null} />
+      meta=${html`${readOnly ? html`<span>older version: read-only</span>` : null}${
+        data.report
+          ? html`<span>Based on <a href=${formatRoute({ screen: "project", query: { group: "discovery" } })} data-act="open-report">discovery report v${data.report.version}</a></span>`
+          : data.reports
+            ? html`<span>Written before the first <a href=${formatRoute({ screen: "project", query: { group: "discovery" } })} data-act="open-report">discovery report</a></span>`
+            : null
+      }`} />
     <section class="card review-head">
       <div class="row">
         <${VersionActions} stage="storyboard" row=${row} events=${events} onDone=${reload} />

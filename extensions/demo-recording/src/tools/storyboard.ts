@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence, writeStoryboardChecks } from "../confidence/storyboard.ts";
 import { coverageMessage, coverageProblem, dropInLog } from "../discovery/coverage.ts";
+import { readReport } from "../discovery/report.ts";
 import { listSessions } from "../discovery/state.ts";
 import { pendingBlock, pendingReminder } from "../qa/apply.ts";
 import { unsafeResumeScenes } from "../recorder/replay-guard.ts";
@@ -114,6 +115,20 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
       for (const f of uncoveredUseFindings(findings, written.storyboard.scenes))
         warnings.push(
           `${f.id} is marked USE ("${f.text.slice(0, 80)}") but no scene lists it in findings: — it must appear in the recording and the narration`,
+        );
+      // the storyboard follows the discovery report's guidance (D2): say which one it is based on, or that there is none
+      const sessionsNow = listSessions(appDirOf(p.dir, p.app.slug));
+      const report = readReport(p.dir);
+      if (sessionsNow.length && !report)
+        warnings.push(
+          "no discovery report yet: write it with demo_rec_discovery report (what discovery found, and the guidance this storyboard should follow); the user reads it on the Project page",
+        );
+      else if (
+        report &&
+        sessionsNow.some((s) => !report.coverage.sessions.some((x) => x.id === s.id))
+      )
+        warnings.push(
+          `the discovery report v${report.version} does not cover the newest discovery session: update it (demo_rec_discovery context, then report)`,
         );
       const known = new Set(findings.map((f) => f.id));
       for (const scene of written.storyboard.scenes)

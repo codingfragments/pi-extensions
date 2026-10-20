@@ -43,6 +43,8 @@ export const STEPS = {
   "discovery.act": { class: "progress" },
   "discovery.cancelled": { class: "quiet" },
   "discovery.closed": { class: "run-and-tell", tab: "project" },
+  "discovery.report-asked": { class: "quiet" },
+  "discovery.reported": { class: "run-and-tell", tab: "project", when: notMine },
   "discovery.look": { class: "progress" },
   "discovery.opened": { class: "progress" },
   "discovery.progress": { class: "progress" },

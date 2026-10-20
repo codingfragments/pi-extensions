@@ -6,10 +6,13 @@
  *   POST /api/discovery-start     start or enhance: store your request (notes, areas, budget) and send it to the Director
  *                                 (starts a Director turn: model tokens and browser time, no money)
  *   POST /api/discovery-cancel    take back a request the Director has not picked up
+ *   GET  /api/discovery-report    the discovery report (the newest, or ?version=N) with its versions, and whether newer sessions came after it
+ *   POST /api/discovery-report-ask  ask the Director to write or update the report (starts a Director turn: model tokens only)
  */
 
 import { measureSession } from "../discovery/coverage.ts";
 import { uncoveredAreas } from "../discovery/measure.ts";
+import { coverageOf, readReport, reportVersions } from "../discovery/report.ts";
 import {
   PRESETS,
   addRequest,
@@ -40,6 +43,28 @@ export function discoveryRoutes(rt: Runtime): {
   };
   return {
     get: {
+      "discovery-report": (q) => {
+        const { p, app } = ctx();
+        const versions = reportVersions(p.dir);
+        const asked = q.get("version") ? Number(q.get("version")) : undefined;
+        const report = readReport(p.dir, asked) ?? null;
+        const sessions = listSessions(app);
+        const last = report?.coverage.sessions.at(-1)?.id;
+        return {
+          versions,
+          report,
+          // sessions that ran after the newest report was written: it does not know about them
+          newer:
+            report && !asked
+              ? sessions
+                  .filter((s) => !report.coverage.sessions.some((x) => x.id === s.id))
+                  .map((s) => s.id)
+              : [],
+          basedOn: last ?? null,
+          now: coverageOf(p.dir, app),
+          canAsk: sessions.length > 0,
+        };
+      },
       discovery: () => {
         const { p, cfg, app } = ctx();
         const sessions = listSessions(app);
@@ -122,6 +147,37 @@ export function discoveryRoutes(rt: Runtime): {
           ),
         );
         return { request: req };
+      },
+      "discovery-report-ask": () => {
+        const { p, app } = ctx();
+        const sessions = listSessions(app);
+        if (!sessions.length)
+          throw new Error("there is no discovery to report on yet: start one first");
+        if (rt.discovery && !rt.discovery.isClosed)
+          throw new Error("a discovery session is running: the report comes when it has finished");
+        const had = readReport(p.dir);
+        recordInput(p.dir, {
+          stage: "discovery",
+          source: "panel",
+          kind: "direction",
+          text: had
+            ? `update the discovery report (v${had.version} is the latest)`
+            : "write the discovery report",
+        });
+        rt.bus.publish(
+          "discovery.report-asked",
+          {
+            by: "panel",
+            message: had
+              ? `asked the Director to update the discovery report (latest v${had.version})`
+              : "asked the Director to write the discovery report",
+          },
+          p.slug,
+        );
+        rt.notifyAgent(
+          `${PANEL_PREFIX} The user asks you to ${had ? `UPDATE the discovery report of "${p.slug}" (the latest is v${had.version}${sessions.length > had.coverage.sessions.length ? `; there are ${sessions.length - had.coverage.sessions.length} newer session(s) it does not cover` : ""})` : `WRITE the discovery report of "${p.slug}"`}. Call demo_rec_discovery context (what you may cite and the rules), then demo_rec_discovery report; every item must cite evidence that exists. Do not write the storyboard; stop after report.`,
+        );
+        return { asked: true, latest: had?.version ?? null };
       },
       "discovery-cancel": () => {
         const { p } = ctx();

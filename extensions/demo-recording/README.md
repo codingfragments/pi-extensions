@@ -25,7 +25,7 @@ Automated PoC and demo video recorder for web apps (SPAs, read-mostly):
 ## Workflow in pi (S2)
 
 1. `/demo new <project> <app-url> [app name]`: creates the project, opens the panel, and starts the **demo-brief** skill (it drafts `brief.md` with you).
-2. `/demo discover [notes]`, or **Start discovery** / **Enhance…** / **Extend the budget…** on the Project page (notes, areas to cover, a quick / standard / deep budget): the **demo-recording** skill explores the app with `demo_rec_browser`. You can watch it live in the panel: current screen, budget, and a safety feed.
+2. `/demo discover [notes]`, or **Start discovery** / **Enhance…** / **Extend the budget…** on the Project page (notes, areas to cover, a quick / standard / deep budget): the **demo-recording** skill explores the app with `demo_rec_browser` and writes a **discovery report** at the end (what it found, what your sources added, the guidance for the storyboard, every claim with evidence). You can watch it live in the panel: current screen, budget, and a safety feed.
 3. The agent writes a storyboard (`demo_rec_storyboard`). The panel **Storyboard** tab shows scene cards. Mark each scene *Approve / Request changes / Re-run*, add notes, then **Send review to agent**. You get one consolidated `[demo-panel]` message, and the agent writes the next version, with a diff shown.
 4. **Approve vN** in the panel. This is the only way to approve; the agent cannot.
 5. Ask the agent to record: `demo_rec_record` starts a **background** take of the approved version. The panel shows a per-scene progress bar with ETA, and pi's footer shows the current step. The agent gets a `[demo-recording]` message with the result.

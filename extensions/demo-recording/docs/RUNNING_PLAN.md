@@ -203,6 +203,24 @@ diffs; the Director answers through a validated tool that refuses an answer with
 number) and a recommendation; the note is stored in the project, linked to both versions, a visible Director turn that costs tokens and needs no
 Allow, and can feed the fix window.
 
+**11. P4, the Director in the open** (D140 to D144, grilled with you after the spike [spikes/P4-message-hooks.md](spikes/P4-message-hooks.md)). Three PRs:
+- **11a, the question.** The engine's **pending question** (`questions.json` in the project: id, the role that asks, what, the options with their words and
+  numbers, the cost, status, who answered and where). A Director tool `demo_rec_ask` creates one and **returns at once** ("asked q-3: stop; the answer
+  arrives as a message"). A panel route resolves it; the answer is sent to the Director as a new message whichever place it came from (D143). The panel
+  shows it in the band ("Needs you") and as a dialog, and it is an Activity entry. One resolution only; a second answer is told "already answered by
+  <place>".
+- **11b, the chat.** The question is a labelled chat message (a custom message with its own renderer: the role, the question, the options with numbers). An
+  `input` handler resolves a pending question from your reply **only** when the source is `"interactive"` and the reply is exactly an option's number or
+  word, and then swallows it (D141); anything else is normal chat. The Allow for a take or a voice (today a panel click or `/demo allow`) becomes a pending
+  question too, so "1" or "allow" in the chat allows it and a click answers it in the chat; the one-use, 15-minute grant is unchanged. No timeout (D142); aborting
+  the run cancels what is pending.
+- **11c, the roles.** Every message the extension sends gets its role as a prefix (the `[demo-*]` messages, job results, QA, the questions); the same role
+  names in Activity and in the Director-working state; a rule in each skill for the model's own text ("start a block with your role once"). Nothing is
+  written into the model's history (D144).
+- **Not changed:** approvals, Use, "replace a verdict", discovery start and the other gates stay panel actions (D140). **Risks:** the exact-option rule is
+  strict on purpose and may feel stiff; the model's own labels depend on it obeying; a question asked in one session and answered after a restart reaches a
+  fresh Director that must be told what it was about (the message carries it).
+
 ## 5. The later phases in outline
 
 Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the shape is here.

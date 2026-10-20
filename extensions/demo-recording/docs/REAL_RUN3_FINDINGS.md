@@ -66,7 +66,8 @@ R3-4 [ux] (before the run) Recording tab · the "Request a new take" box with it
 
 R3-5 [bug, ux] (before the run) Voice over tab · the scroll wheel scrolls the page only over the list at the side, not over the main area (the selected section) · wanted: the wheel
    works the same over the main area, so it scrolls the page there too.
-   Context when noted: raised after R3-4. Cause (read in the code, not yet reproduced in a browser): on a wide workspace the selected section is the pinned block
+   Context when noted: raised after R3-4. **Reproduced** in a browser (1400 x 900, a long list, the section pinned): ten wheel notches over the main area leave the page where it was (scroll 900 before and after); the same
+   notches with `overscroll-behavior: auto` scroll it to 2900. Cause: on a wide workspace the selected section is the pinned block
    (`.ds-detail-pin`, work package 3). Its inspector is its own scroll area (`.ds-detail-pin > .ds-inspector { overflow: auto; overscroll-behavior: contain }` in
    `src/panel/public/ds/components.css`). `contain` stops a wheel that reaches the end of that area from carrying on to the page, so over the main area the page
    never scrolls (the area scrolls if the section is taller than the window, and does nothing if it is not), while over the list, which is plain page content, the

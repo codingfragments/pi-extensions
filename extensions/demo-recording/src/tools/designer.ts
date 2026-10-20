@@ -7,6 +7,7 @@
 
 import { annotationContext } from "../annotations/context.ts";
 import { type DesignerRunResult, runDesigner } from "../annotations/designer-run.ts";
+import { zoomLimitsOf } from "../annotations/zoom-limits.ts";
 import type { Job } from "../jobs.ts";
 import { reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
@@ -56,6 +57,7 @@ export function startDesigner(
         timeline,
         timelineVersion: version,
         ...(o.base !== undefined ? { base: o.base } : {}),
+        zoomLimits: zoomLimitsOf(rt.getConfig()),
       });
       pack = `, about ${Math.round(text.length / 4).toLocaleString("en-US")} tokens in, one call`;
     } catch {
@@ -81,6 +83,7 @@ export function startDesigner(
         timelineVersion: version,
         ...(o.base !== undefined ? { base: o.base } : {}),
         ...(o.instructions ? { instructions: o.instructions } : {}),
+        zoomLimits: zoomLimitsOf(rt.getConfig()),
         access,
         models: avail.models,
         signal,

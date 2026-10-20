@@ -15,7 +15,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { type DraftOp, applyDraftOp } from "../annotations/draft.ts";
+import { type DraftOp, type ZoomGuard, applyDraftOp } from "../annotations/draft.ts";
 import {
   annotationVersions,
   annotationsDir,
@@ -153,6 +153,7 @@ export function editAnnotationDraft(
   op: DraftOp,
   input: { expected: number | null; author: string },
   now = new Date(),
+  guard?: ZoomGuard,
 ): AnnotationWorkingDraft | undefined {
   const current = readAnnotationDraft(projectDir, base);
   const expected = input.expected || null;
@@ -161,7 +162,7 @@ export function editAnnotationDraft(
   const startFile = current?.file ?? readAnnotations(projectDir, base);
   if (!startFile) throw new Error(`annotations v${base} do not exist`);
   const file = structuredClone(startFile);
-  const changed = applyDraftOp(file, op, now);
+  const changed = applyDraftOp(file, op, now, guard);
   if (!changed) return current; // nothing differs: no new revision, and no draft if there was none
   const state = readState(projectDir);
   const at = now.toISOString();

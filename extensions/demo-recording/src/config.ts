@@ -67,7 +67,8 @@ export interface DemoRecConfig {
   /** Brand package used for rendering (S5): built-in `neutral` or a user brand in <root>/brands/. */
   brand: string;
   /** Annotations stage (S5 part 8): suggest automatically after the sync edit (D53). */
-  annotations: { autoSuggest: boolean };
+  /** Annotations: auto-suggest after the sync edit, and the zoom limits (zooms per minute of the demo and per scene; item 12b). */
+  annotations: { autoSuggest: boolean; zoomsPerMinute: number; zoomsPerScene: number };
   /** Render stage (S5 part 9): how many drafts keep their video files (D64). */
   render: { keepDrafts: number };
   /** Discovery budgets (S2). */
@@ -171,7 +172,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     },
     align: { model: "base.en" },
     brand: "neutral",
-    annotations: { autoSuggest: true },
+    annotations: { autoSuggest: true, zoomsPerMinute: 1.5, zoomsPerScene: 1 },
     render: { keepDrafts: 3 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     sources: ["defaults"],
@@ -369,6 +370,24 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       if (typeof an.autoSuggest !== "boolean")
         throw new Error('demo-recording config: "annotations.autoSuggest" must be true or false');
       cfg.annotations.autoSuggest = an.autoSuggest;
+    }
+    for (const [key, max, whole] of [
+      ["zoomsPerMinute", 20, false],
+      ["zoomsPerScene", 5, true],
+    ] as const) {
+      const v = an[key];
+      if (v === undefined) continue;
+      if (
+        typeof v !== "number" ||
+        !Number.isFinite(v) ||
+        v < 0 ||
+        v > max ||
+        (whole && !Number.isInteger(v))
+      )
+        throw new Error(
+          `demo-recording config: "annotations.${key}" must be ${whole ? "a whole number" : "a number"} from 0 to ${max} (0 = no zooms)`,
+        );
+      cfg.annotations[key] = v;
     }
   }
   const rd = raw.render as Record<string, unknown> | undefined;

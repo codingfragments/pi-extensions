@@ -148,6 +148,18 @@ test("recommended set: best value per noise, half of the counted, caps, spotligh
     mk("s1", "spotlight", 4, 40000, { x: 90, y: 90, w: 10, h: 10 }),
     mk("ch", "chapter", 2, 0),
   ];
+  // the zooms are in different scenes: the per-scene limit (1) is not what limits them here, the total for a typical demo (2) is
+  for (const [x, scene] of [
+    [xs[0], "a"],
+    [xs[1], "b"],
+    [xs[2], "c"],
+    [xs[3], "a"], // h1 sits on z1: same scene, region and time
+  ] as const) {
+    if (x) {
+      x.item.scene = scene;
+      x.res.scene = scene;
+    }
+  }
   const rec = recommend(
     xs.map((x) => x.item),
     xs.map((x) => x.res),

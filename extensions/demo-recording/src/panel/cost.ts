@@ -16,6 +16,7 @@
  */
 
 import { annotationContext } from "../annotations/context.ts";
+import { zoomLimitsOf } from "../annotations/zoom-limits.ts";
 import { improviseModelStatus, roleModelStatus } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard } from "../storyboard/store.ts";
@@ -268,6 +269,7 @@ export async function estimate(
         ...(typeof body.instructions === "string" && body.instructions.trim()
           ? { instructions: body.instructions }
           : {}),
+        zoomLimits: zoomLimitsOf(rt.getConfig()),
       });
       pack = `≈ ${Math.round(text.length / 4).toLocaleString("en-US")} tokens in, one call (+ at most one repair call)`;
     } catch {

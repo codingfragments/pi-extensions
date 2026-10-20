@@ -8,6 +8,7 @@ import { IgnoredList, ignoreFinding, openChecks } from "./checks.js";
 import { api, media, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 import { confirmAsk, errorToast } from "./dialog.js";
 import { FixesPanel, FlagChips, FlagToolbar, useFixes } from "./fixes.js";
+import { logoBugNote } from "./logo-bug-core.js";
 import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
@@ -39,6 +40,7 @@ function NewRender({ data, events, onStarted }) {
   const [logoBug, setLogoBug] = useState(true);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
+  const bugNote = logoBugNote(data.brands, brands);
   const progress = events.filter((e) => e.type === "render.progress").at(-1);
   const running = data.job?.status === "running";
   const versions = data.annotationVersions;
@@ -83,7 +85,12 @@ function NewRender({ data, events, onStarted }) {
             ? { annotations: null }
             : { annotations: Number(ann) }),
         brands,
-        options: { annotationTypes: all ? "all" : selected, subtitles, logoBug },
+        // when no chosen brand shows a logo bug the option does nothing: it stays at its default, so the variant names do not claim "no logo" for it
+        options: {
+          annotationTypes: all ? "all" : selected,
+          subtitles,
+          logoBug: bugNote.disabled ? true : logoBug,
+        },
         ...(leavesRedactions ? { confirmUnredacted: true } : {}),
       });
       setFlash(`${kind} render started — progress below and in the Activity drawer`);
@@ -162,7 +169,8 @@ function NewRender({ data, events, onStarted }) {
         <div class="type-chips">${data.brands.map((b) => html`<label class="ds-check"><input type="checkbox" checked=${brands.includes(b.name)} onChange=${() => toggleBrand(b.name)} /> ${b.name}</label>`)}</div>
         <label class="ds-check"><input type="checkbox" checked=${subtitles} onChange=${(e) => setSubtitles(e.target.checked)} /> Burn in subtitles</label>
         <p class="muted small-text hint">Writes extra *.subtitled.mp4 files; the clean ones stay. Transcripts (VTT) are always written.</p>
-        <label class="ds-check"><input type="checkbox" checked=${logoBug} onChange=${(e) => setLogoBug(e.target.checked)} /> Logo bug</label>
+        <label class="ds-check"><input type="checkbox" checked=${!bugNote.disabled && logoBug} disabled=${bugNote.disabled} aria-describedby="logo-bug-note" onChange=${(e) => setLogoBug(e.target.checked)} /> Logo bug</label>
+        <p id="logo-bug-note" class="muted small-text hint" data-logo-bug=${bugNote.disabled ? "off" : "on"}>${bugNote.text}${bugNote.fix ? html` <a href="#/config?view=brands">Set it in Brands</a>.` : null}</p>
       </fieldset>
     </div>
     </details>

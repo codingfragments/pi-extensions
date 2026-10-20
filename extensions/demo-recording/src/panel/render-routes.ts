@@ -9,7 +9,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { annotationVersions, readAnnotations, writeAnnotations } from "../annotations/file.ts";
-import { listBrands } from "../brand/brand.ts";
+import { logoBugStatus } from "../brand/assets.ts";
+import { listBrands, loadBrandDir } from "../brand/brand.ts";
 import { listAnnotationDrafts, preferredAnnotationDraft } from "../drafts/annotations.ts";
 import { findingsFor } from "../qa/findings.ts";
 import { addIgnore, listIgnores, removeIgnore } from "../qa/ignores.ts";
@@ -53,7 +54,11 @@ export function rendersView(rt: Runtime) {
     },
     brands: listBrands(cfg.root)
       .filter((b) => !b.error)
-      .map((b) => ({ name: b.name, builtin: b.builtin })),
+      .map((b) => ({
+        name: b.name,
+        builtin: b.builtin,
+        logoBug: logoBugStatus(loadBrandDir(b.dir, b.builtin)),
+      })),
     annotationVersions: annotationVersions(p.dir)
       .reverse()
       .map((v) => {

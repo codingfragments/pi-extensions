@@ -69,7 +69,7 @@ voice talks about it?* Then:
 
 | Type | Use for | Value guide |
 |---|---|---|
-| **zoom** | the scene's key number or element, when it is small in the frame | 5 for the demo's main moment, 4 for a key moment; max 2 enabled per demo, so suggest 3–4 candidates across the demo |
+| **zoom** | the scene's key number or element, when it is small in the frame | 5 for the demo's main moment, 4 for a key moment; the number of enabled zooms is limited (the input pack's "Caps" line says how many for this demo: per minute and per scene), so suggest a few more candidates than that across the demo, in different scenes |
 | **highlight** | the element the voice names ("this KPI", "the export button") | 3–4; quiet, can be used often |
 | **callout** | naming *what* to look at in 2–6 words ("Grouped by region, first try") | 3–4 |
 | **spotlight** | one row/element in a really busy screen | only enabled at value 5 — use rarely |

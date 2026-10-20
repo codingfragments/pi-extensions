@@ -90,8 +90,9 @@ again ("reused from v5").
 
 ### Logo bug
 
-On by default when the brand has one (`logoBug.enabled`); untick to leave it
-out of this render.
+On by default when the brand shows one: it has `logoBug.enabled` AND a logo file. Untick to leave it out of this render. The checkbox says what it does
+for the chosen looks; when none of them would show a logo bug (it is off, or on without a logo file) the checkbox is disabled, with the reason and a link to
+Config › Brands.
 
 ---
 

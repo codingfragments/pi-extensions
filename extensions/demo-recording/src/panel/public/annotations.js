@@ -60,7 +60,7 @@ function targetLabel(t) {
   return "";
 }
 
-function BudgetMeter({ budget }) {
+function BudgetMeter({ budget, zooms }) {
   if (!budget) return null;
   const max = Math.max(budget.optimum * 2, budget.noise * 1.1, 1);
   const pct = (v) => `${Math.min(100, (v / max) * 100)}%`;
@@ -70,7 +70,7 @@ function BudgetMeter({ budget }) {
       <div class="fill" style=${`width:${pct(budget.noise)}`}></div>
       <div class="opt" style=${`left:${pct(budget.optimum)}`}></div>
     </div>
-    <span class="budget-text"><b>${budget.status}</b> · noise ${budget.noise} / optimum ${budget.optimum} · value captured ${Math.round(budget.valueCaptured * 100)} % · ${budget.enabled}/${budget.suggested} on</span>
+    <span class="budget-text"><b>${budget.status}</b> · noise ${budget.noise} / optimum ${budget.optimum} · value captured ${Math.round(budget.valueCaptured * 100)} % · ${budget.enabled}/${budget.suggested} on${zooms ? html` · <span data-zooms title=${`${zooms.words}. Change it in Config: annotations.zoomsPerMinute and zoomsPerScene.`}>zooms ${zooms.used} of ${zooms.total}</span>` : null}</span>
   </div>`;
 }
 
@@ -707,7 +707,7 @@ export function Annotations({ events }) {
       </div>
       ${f.instructions ? html`<p class="small-text muted">Instructions for this version: “${f.instructions}”</p>` : null}
       ${d.stale ? html`<p class="small-text error">⚠ ${d.stale} — previews are unavailable.</p>` : null}
-      <${BudgetMeter} budget=${d.budget} />
+      <${BudgetMeter} budget=${d.budget} zooms=${d.zooms} />
       <div class="filters row">
         ${TYPES.filter(count).map((t) => html`<button class="ds-chip" aria-pressed=${types.has(t)} onClick=${() => toggleType(t)}>${ICON[t]} ${LABEL[t]} <span class="muted">${count(t)}</span></button>`)}
         <span class="grow"></span>

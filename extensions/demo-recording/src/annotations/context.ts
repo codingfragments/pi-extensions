@@ -23,8 +23,9 @@ import { readTakeStoryboardVersion, readVoText } from "./design.ts";
 import { readAnnotations } from "./file.ts";
 import { detect, mask, scanPrivacy } from "./privacy.ts";
 import { takeToSceneMs } from "./resolve.ts";
-import { MAX_TEXT, MAX_ZOOMS, MAX_ZOOM_FACTOR, userTouched } from "./types.ts";
+import { MAX_TEXT, MAX_ZOOM_FACTOR, userTouched } from "./types.ts";
 import { BASE_NOISE } from "./weights.ts";
+import { DEFAULT_ZOOM_LIMITS, type ZoomLimits, zoomLimitWords } from "./zoom-limits.ts";
 
 const PRIORITY: Record<string, number> = {
   heading: 0,
@@ -81,6 +82,8 @@ export function annotationContext(o: {
   /** Re-suggest base: the user's kept items are listed. */
   base?: number;
   instructions?: string;
+  /** The zoom limits in force; the defaults when omitted. */
+  zoomLimits?: ZoomLimits;
 }): string {
   const t = o.timeline;
   const takeDir = path.join(o.projectDir, "takes", t.take);
@@ -95,7 +98,7 @@ export function annotationContext(o: {
   const L: string[] = [];
   L.push(`Annotation input pack — edit v${o.timelineVersion} (${t.take}, VO v${t.voVersion}).`);
   L.push(
-    `Caps: ≤ ${MAX_ZOOMS} zooms per demo (1.1–${MAX_ZOOM_FACTOR}×, default 1.5), callout/chapter text ≤ ${MAX_TEXT} chars, one callout at a time, no two annotations on the same region at the same time.`,
+    `Caps: zooms: ${zoomLimitWords(o.zoomLimits ?? DEFAULT_ZOOM_LIMITS, t.totals.fullMs)} (a zoom beyond it is switched off; 1.1–${MAX_ZOOM_FACTOR}×, default 1.5), callout/chapter text ≤ ${MAX_TEXT} chars, one callout at a time, no two annotations on the same region at the same time.`,
   );
   L.push(
     `Noise per type: callout ${BASE_NOISE.callout}, highlight ${BASE_NOISE.highlight}, zoom ${BASE_NOISE.zoom}, spotlight ${BASE_NOISE.spotlight}; chapter and redact 0 (outside the budget, off by default). Spotlight is only enabled at value 5.`,

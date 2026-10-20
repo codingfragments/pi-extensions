@@ -34,6 +34,7 @@ import {
   discoveryProgress,
   formatDiscoveryProgress,
 } from "./progress.ts";
+import { readSessionRecord, writeSessionRecord } from "./state.ts";
 
 export interface DiscoveryBudgets {
   discoveryScreens: number;
@@ -52,6 +53,8 @@ export interface DiscoveryOptions {
   storageState?: string;
   bus?: EventBus;
   project?: string;
+  /** The Project-page request this session takes (item 10, D1): written to session.json. */
+  request?: string;
   /** Max characters of aria digest returned per look. */
   digestChars?: number;
   now?: () => Date;
@@ -248,6 +251,12 @@ export class DiscoverySession {
       await session.close();
       throw err;
     }
+    writeSessionRecord(appDir(opts.root, opts.app.slug), {
+      id,
+      startedAt: new Date().toISOString(),
+      budgets: opts.budgets,
+      ...(opts.request ? { request: opts.request } : {}),
+    });
     ds.emit("discovery.opened", {
       session: id,
       url: session.page.url(),
@@ -359,7 +368,7 @@ export class DiscoverySession {
     if (over) {
       const bud = this.budget();
       throw new BudgetExhaustedError(
-        `discovery budget exhausted (screens ${bud.screens}, actions ${bud.actions}, minutes ${bud.minutes}) — write the storyboard with what you have, or ask the user to raise budgets.discovery* in the config`,
+        `discovery budget exhausted (screens ${bud.screens}, actions ${bud.actions}, minutes ${bud.minutes}) — write the storyboard with what you have, or ask the user to extend the budget (Project → Discovery → Extend the budget, or budgets.discovery* in the config)`,
       );
     }
   }
@@ -659,6 +668,21 @@ export class DiscoverySession {
     this.closed = true;
     this.writeSitemap();
     await this.session.close();
+    const bud = this.budget();
+    const prior = readSessionRecord(appDir(this.opts.root, this.appSlug), this.id);
+    writeSessionRecord(appDir(this.opts.root, this.appSlug), {
+      id: this.id,
+      startedAt: prior?.startedAt ?? new Date(this.startedAt).toISOString(),
+      budgets: this.opts.budgets,
+      ...(this.opts.request ? { request: this.opts.request } : {}),
+      closedAt: new Date().toISOString(),
+      usage: {
+        screens: this.screens,
+        actions: this.actions,
+        minutes: +((Date.now() - this.startedAt) / 60000).toFixed(1),
+      },
+      exhausted: bud.exhausted,
+    });
     this.emit("discovery.closed", {
       session: this.id,
       screens: this.screens,

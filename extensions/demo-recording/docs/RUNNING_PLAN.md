@@ -210,7 +210,15 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
   D3 measured progress per area, D4 an enlarged live preview. The estimate of 12 days is the original 15 without the discovery checks; it has not
   been re-checked slice by slice. **D4 is done** (the drawer's preview is a button that opens a larger window rendering the same source, the newest
   discovery screen or the polled live frame of a take, so it keeps updating; Escape closes it and the focus goes back; tested with two real screens
-  arriving while it is open; the recording case uses the same component and is not tested separately). D1, D3 and D2 are still to do, in that order.
+  arriving while it is open; the recording case uses the same component and is not tested separately). **D1 is done** (Project → **Discovery**: where discovery stands (not started / running / done / budget used / cut off), the sessions with what each used against
+  its budget and how it ended, **Start discovery**, **Enhance…** and **Extend the budget…** (twice what the last session had) in one window: notes, areas,
+  a budget choice (quick = half, standard = Config, deep = double, or three numbers, 1 up to 200 screens / 800 actions / 120 minutes), and for an enhance which session it
+  builds on. It is a request stored in the project (`discovery-requests.json`, one waiting at a time, "Take it back"), sent to the Director with the notes, the areas and
+  what to build on and not repeat; `demo_rec_browser open` takes the request's budget instead of Config's and a session writes `session.json` when it opens and closes (its
+  budgets, what it used, whether the budget ran out), which is how the page says why it stopped; older sessions are read from their action log without budgets. Costs model
+  tokens and browser time, no money; refused while a session runs. **Not done / uncertain:** the "sources" part of Enhance is the existing Sources & context group (not a
+  field in the window); the progress inside a session is still the Director's declared plan (D3); never run against a real Director session through the panel (the tests send
+  the request and open a real session separately); not tried on the real project. D3 and D2 are still to do, in that order.
 - **P4 The Director in the open (11):** A4 a pending question owned by the engine and answered in chat or panel (L), A5 role labels in the chat
   (S to M). The docked drawer (L3) moved to item 4.
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.

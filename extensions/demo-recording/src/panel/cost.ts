@@ -43,6 +43,8 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "brand-save": ["none"],
   "brand-use": ["none"],
   "compare-ask": ["turn"],
+  "discovery-cancel": ["none"],
+  "discovery-start": ["turn"],
   "compare-cancel": ["none"],
   "config-batch": ["none"],
   "config-open": ["none"],

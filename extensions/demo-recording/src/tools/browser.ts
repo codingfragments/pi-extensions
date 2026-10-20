@@ -10,6 +10,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { formatDiscoveryProgress } from "../discovery/progress.ts";
+import { pendingRequest, startRequest } from "../discovery/requests.ts";
 import { type ActParams, DiscoverySession, type LookResult } from "../discovery/session.ts";
 import { contextWarning, visionWarning } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
@@ -97,16 +98,31 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
           await rt.closeDiscovery();
           const cfg = rt.getConfig();
           const statePath = path.join(appDir(cfg.root, p.app.slug), "auth", "state.json");
+          // a request from the Project page (Start / Enhance) brings the budget the user chose; otherwise Config's
+          const asked = pendingRequest(p.dir);
           rt.discovery = await DiscoverySession.open({
             root: cfg.root,
             app: p.app,
             viewport: { width: cfg.viewport.width, height: cfg.viewport.height },
-            budgets: cfg.budgets,
+            budgets: asked?.budget ?? cfg.budgets,
+            ...(asked ? { request: asked.id } : {}),
             bus: rt.bus,
             project: p.slug,
             ...(params.headed ? { headed: true } : {}),
             ...(fs.existsSync(statePath) ? { storageState: statePath } : {}),
           });
+          if (asked) {
+            startRequest(p.dir, asked.id, rt.discovery.id);
+            rt.bus.publish(
+              "discovery.request-taken",
+              {
+                request: asked.id,
+                session: rt.discovery.id,
+                message: `the session took request ${asked.id}: ${asked.budget.discoveryScreens} screens, ${asked.budget.discoveryActions} actions, ${asked.budget.discoveryMinutes} minutes`,
+              },
+              p.slug,
+            );
+          }
           if (p.state.phase === "brief") setPhase(p.dir, "discovery");
           await rt.ensurePanel();
           const look = await rt.discovery.look();

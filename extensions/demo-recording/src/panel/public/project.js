@@ -7,6 +7,7 @@ import { CostHint } from "./cost.js";
 // input log with mark outdated / restore, sources, working line).
 // Tool configuration — also project-scope overrides — lives in ⚙ Config.
 import { askText, confirmAsk, errorToast } from "./dialog.js";
+import { Discovery } from "./discovery.js";
 import { VoiceInput } from "./voices.js";
 
 const PROJECT_EVENTS =
@@ -413,6 +414,7 @@ function Memory({ events, part }) {
 
 const GROUPS = [
   ["brief", "Brief"],
+  ["discovery", "Discovery"],
   ["sources", "Sources & context"],
   ["findings", "Findings"],
   ["history", "Project history"],
@@ -472,7 +474,7 @@ function Summary({ data, openGroup, ask, asked }) {
                   <button class="ds-btn" type="button" data-act="fill-missing" onClick=${() => openGroup("brief", FIELD_OF[first?.key ?? "persona"])}>Fill them in</button>
                   <button class="ds-btn ds-btn--ghost" type="button" data-act="ask-director" disabled=${asked} onClick=${ask}>${asked ? "Asked the Director" : "Ask the Director to help"}</button><${CostHint} />
                 </span></div></div>`
-          : html`<p class="ds-small ds-muted" data-ready>The brief is complete. The Director can start discovery (<code>/demo discover</code>).</p>`
+          : html`<p class="ds-small ds-muted" data-ready>The brief is complete. <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="open-discovery" onClick=${() => openGroup("discovery")}>Open Discovery</button> to start it from here, or use <code>/demo discover</code>.</p>`
     }
   </section>`;
 }
@@ -512,6 +514,7 @@ export function Project({ events }) {
         html`<button class="ds-chip" aria-pressed=${group === id} type="button" key=${id} data-group=${id} onClick=${() => openGroup(group === id ? null : id)}>${label}${count[id] !== undefined && count[id] !== null ? html` <span class="muted">${count[id]}</span>` : null}</button>`,
     )}</div>
     ${group === "brief" ? html`<${Facts} events=${events} focus=${field} />` : null}
+    ${group === "discovery" ? html`<${Discovery} events=${events} />` : null}
     ${group === "sources" ? html`<${Memory} events=${events} part="sources" />` : null}
     ${group === "findings" ? html`<${Findings} events=${events} />` : null}
     ${group === "history" ? html`<${Memory} events=${events} part="history" />` : null}

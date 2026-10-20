@@ -20,6 +20,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { resolveConfig } from "../src/config.ts";
+import { answerFor } from "../src/question-flow.ts";
+import { pendingQuestions } from "../src/questions.ts";
 import { Runtime } from "../src/runtime.ts";
 import { askFirst } from "../src/tools/spend.ts";
 import { seedPanelProject } from "../test/helpers/panel-seed.ts";
@@ -388,7 +390,9 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
           }
           pages[`${screen}|${theme}|${width}`] = audit;
           await page.close();
-          for (const r of rt?.grants.pending() ?? []) rt?.grants.deny(r.id);
+          // the Allow it asked is a question too: answer it (Deny), so it does not stay in the band of the next screen
+          for (const q of rt && seed ? pendingQuestions((seed as { dir: string }).dir) : [])
+            if (rt) answerFor(rt, q.id, "deny", "panel");
           if (screen === "director-working")
             rt?.bus.publish(
               "director.settled",

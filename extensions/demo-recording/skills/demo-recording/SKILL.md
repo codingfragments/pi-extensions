@@ -279,7 +279,7 @@ target in discovery, add a `deep_link`).
 
 **The user is asked before money and long jobs.** `demo_rec_tts start` and `demo_rec_record start` are
 **refused until the user allows them**: the tool answers "NOT STARTED", files a request with the estimate, and
-the panel shows *Allow / Not now* (they can also type `/demo allow`). Say what you are waiting for in one line,
+the panel and the chat show the question *Allow / Deny* (they answer it there, or type `/demo allow`). Say what you are waiting for in one line,
 **stop, and do not retry or ask again**: a `[demo-recording] The user ALLOWED …` message arrives when they
 answer (a `did NOT allow` note means don't try again unless they ask). The permission is for exactly that
 version, for 15 minutes, once. When the user asks in the panel to compare two versions, a `[demo-panel]` message names the pair: call `demo_rec_compare context` (the facts are counted for you), then `demo_rec_compare answer` — be honest, not kind; the tool refuses invented evidence, a better/worse verdict without a measured fact, a missing `against` (your strongest argument against your own recommendation) and a recommendation that contradicts the verdict. You change no version. In the panel, *Request a new take* (its message may carry "Notes on earlier takes": one line per note, `take moment · scene: what the user noticed`; read each, fix what it asks in the next take or say why not, and answer it in your report), a separate designer run and *Generate voice

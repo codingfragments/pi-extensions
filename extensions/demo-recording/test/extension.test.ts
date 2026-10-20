@@ -302,16 +302,16 @@ test(
       );
       assert.match(textOf(await record.execute("5", { action: "status" })), /record-1: running/);
 
+      // the only other message is the Allow question, shown in the chat (a display message that starts no turn)
+      const completions = () => messages.filter((m) => m.options?.triggerTurn === true);
       const deadline = Date.now() + 90_000;
-      while (!messages.length && Date.now() < deadline)
+      while (!completions().length && Date.now() < deadline)
         await new Promise((r) => setTimeout(r, 200));
-      assert.equal(messages.length, 1, "exactly one completion message");
-      assert.match(
-        messages[0]?.text ?? "",
-        /^\[demo-recording\] Recorded take-001 of storyboard v1/,
-      );
-      assert.match(messages[0]?.text ?? "", /hovered @ /);
-      assert.deepEqual(messages[0]?.options, { triggerTurn: true, deliverAs: "followUp" });
+      assert.equal(completions().length, 1, "exactly one completion message");
+      const done = completions()[0];
+      assert.match(done?.text ?? "", /^\[demo-recording\] Recorded take-001 of storyboard v1/);
+      assert.match(done?.text ?? "", /hovered @ /);
+      assert.deepEqual(done?.options, { triggerTurn: true, deliverAs: "followUp" });
       assert.ok(
         statuses.some((s) => s?.startsWith("🎬")),
         "footer showed recording progress",

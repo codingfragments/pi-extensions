@@ -22,7 +22,7 @@ You stay in charge in four ways:
   for you: it has no tool that does (a test keeps it that way). When it thinks a take is ready it can only *suggest* it, and the
   Recording step gets a "new" badge.
 - **You are asked before anything costs money or takes long.** A new take and the voice are never started by the Director on its own:
-  it asks, the panel shows **The Director asks to synthesize voice-over v3 (…) / Allow / Not now** (or you type `/demo allow` in
+  it asks, the panel shows **The Director asks: Allow the Director to synthesize voice-over v3 (…)? / Allow / Deny** (or you type `1`, `allow` or `/demo allow` in
   chat), and only your answer lets it go on. The separate annotation designer starts by itself after the voice step, but says so,
   with its models and input size, in Activity (turn it off with `annotations.autoSuggest`).
 - **Nothing is ever overwritten.** Every change is a new numbered version, so you can compare, go back, or try a second idea

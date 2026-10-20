@@ -6,13 +6,8 @@
  *   POST /api/question-cancel         { id }: dismiss one without choosing (a quiet note to the Director)
  */
 
-import {
-  answerQuestion,
-  answeredMessage,
-  cancelQuestion,
-  dismissedMessage,
-  readQuestions,
-} from "../questions.ts";
+import { answerFor } from "../question-flow.ts";
+import { cancelQuestion, dismissedMessage, readQuestions } from "../questions.ts";
 import type { Runtime } from "../runtime.ts";
 import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
@@ -38,7 +33,7 @@ export function questionRoutes(rt: Runtime): {
       "question-answer": (body) => {
         const p = project();
         const id = String(body.id ?? "");
-        const r = answerQuestion(p.dir, id, String(body.option ?? ""), "panel");
+        const r = answerFor(rt, id, String(body.option ?? ""), "panel");
         if (!r.ok) {
           if (r.reason === "unknown") throw new Error(`there is no question ${id}`);
           if (r.reason === "no-such-option")
@@ -53,17 +48,6 @@ export function questionRoutes(rt: Runtime): {
           );
         }
         const q = r.question;
-        rt.bus.publish(
-          "question.answered",
-          {
-            id: q.id,
-            option: q.answer?.key,
-            by: "panel",
-            message: `answered ${q.id} with ${q.answer?.key} · ${q.answer?.label}`,
-          },
-          p.slug,
-        );
-        rt.notifyAgent(answeredMessage(PANEL_PREFIX, q));
         return { question: q };
       },
       "question-cancel": (body) => {

@@ -119,15 +119,18 @@ A list of sections (an intro, one per scene, an outro) and one in detail.
 | **Generate voice, edit and a draft to watch…** | the cost dialog, then the voice and the edit (no agent). Only for an approved version in the production line |
 
 **The Director asks.** When the Director wants to spend (a voice synthesis, a new take) and you have not allowed it, nothing starts: a bar
-appears on every screen, above the content: *The Director asks to … / Allow / Not now*. Allow lets that one thing go (for 15 minutes,
-once); Not now tells the Director not to try again unless you ask. In chat the same is `/demo allow [id | all]` and `/demo deny [id | all]`.
+appears on every screen, above the content: *Allow the Director to … ? / 1 Allow / 2 Deny*, the same question the chat shows. Allow lets that one thing go (for 15 minutes,
+once); Deny tells the Director not to try again unless you ask. Answer with a button, by typing `1`, `2`, `allow` or `deny` in the chat, or with
+`/demo allow [id | all]` and `/demo deny [id | all]`: whichever you use, the question is answered once and the others disappear.
 
 **The Director asks you a question.** When it needs a decision it cannot make (which story first, whether to cut scenes), it asks with 2 to 4 options and
 **stops**: the question appears in the same bar on every screen (who asks, the question, why it matters, a button per option with its number, and
 Dismiss), in the next-step band ("The Director asks", before anything else that needs you) and in Suggestions. Answer with a button; your answer wakes the
 Director with a message that carries the question, your choice and where you answered. A question is resolved **once**: a second answer is told who got there first.
-It never approves, spends or replaces anything: those stay the actions you take in the panel. It waits for you, with no timeout. (Answering by typing the option's
-number or word in the chat arrives with the next step of this work.)
+It never approves, spends or replaces anything: those stay the actions you take in the panel. It waits for you, with no timeout. **In the chat** the question
+appears as a message of its own (who asks, what, the options with their numbers). Type exactly an option's number or word (`1`, `cut`) to answer it: it counts only
+when it is your own typing and fits exactly one waiting question; anything else (`hmm, what does that cost?`, a `1` when two questions both have a 1) is
+normal chat and the question keeps waiting. If you stop the Director's run, the questions it asked in that run and nobody answered are cancelled.
 
 If a newer version exists than the one a draft was started on, the draft is flagged ("v2 exists") and **Compare with v2** shows both;
 a draft is never rebased or dropped for you.

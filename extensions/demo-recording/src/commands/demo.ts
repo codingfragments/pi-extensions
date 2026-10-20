@@ -23,6 +23,7 @@ import {
 import { formatDoctor, runDoctor } from "../doctor.ts";
 import { envNotice } from "../env-overrides.ts";
 import { allowedMessage, deniedMessage } from "../grants.ts";
+import { settleGrantQuestion } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
 import { startRender } from "../tools/render.ts";
@@ -402,6 +403,7 @@ export function cmdAnswer(
   for (const r of targets) {
     if (verb === "allow") {
       rt.grants.allow(r.id, "chat");
+      settleGrantQuestion(rt, { request: r.id }, "allow", "chat");
       rt.bus.publish(
         "confirm.granted",
         { kind: r.kind, target: r.target, by: "chat", message: `allowed: ${r.kind} ${r.target}` },
@@ -409,6 +411,7 @@ export function cmdAnswer(
       );
     } else {
       rt.grants.deny(r.id);
+      settleGrantQuestion(rt, { request: r.id }, "deny", "chat");
       rt.bus.publish(
         "confirm.denied",
         {

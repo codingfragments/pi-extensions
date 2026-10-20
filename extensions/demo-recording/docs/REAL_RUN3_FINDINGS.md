@@ -63,3 +63,17 @@ R3-4 [ux] (before the run) Recording tab · the "Request a new take" box with it
    go with it" next to the button at the end. (4) A long page with several takes puts the button far down: fine, the same as the storyboard, or should "Request a new take" also
    be reachable from the top (a link that scrolls to it)? (5) The tests that find the box by its label or class (`recording-notes`, `recording-review`, `s5-dialogs-costs`) change
    with the move; decide together with R3-2 (no pinned blocks) since neither pins anything.
+
+R3-5 [bug, ux] (before the run) Voice over tab · the scroll wheel scrolls the page only over the list at the side, not over the main area (the selected section) · wanted: the wheel
+   works the same over the main area, so it scrolls the page there too.
+   Context when noted: raised after R3-4. Cause (read in the code, not yet reproduced in a browser): on a wide workspace the selected section is the pinned block
+   (`.ds-detail-pin`, work package 3). Its inspector is its own scroll area (`.ds-detail-pin > .ds-inspector { overflow: auto; overscroll-behavior: contain }` in
+   `src/panel/public/ds/components.css`). `contain` stops a wheel that reaches the end of that area from carrying on to the page, so over the main area the page
+   never scrolls (the area scrolls if the section is taller than the window, and does nothing if it is not), while over the list, which is plain page content, the
+   wheel scrolls the page. Annotations and the Storyboard use the same block, so they have the same behaviour (R3-2 asks to take the pin off the storyboard altogether).
+   Assessment (not decided): the smallest fix is to drop `overscroll-behavior: contain` so a wheel at the end of the inner area scrolls the page (the usual behaviour of a
+   nested scroll area). Points to settle with you: (1) does that satisfy you, or should the main area not scroll on its own at all, on Voice over and Annotations too (R3-2 asks
+   that for the storyboard only; the pin was asked for on Voice over, R2-5)? (2) with the pin kept, a wheel over the main area moves its inner scroll first, then the page:
+   acceptable, or should the wheel always move the page and the inner area only be reached by dragging its bar or the keyboard? (3) A test: wheel over the main area at the end of the
+   inner scroll moves the page (and over the list as it does today), on the three screens. This is the one item of the run 3 list that is a plain bug, so it could be fixed
+   before the grill if you want.

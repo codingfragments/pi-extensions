@@ -35,3 +35,18 @@ R3-2 [ux] (before the run) Storyboard · the selected scene must not scroll on i
    scene LIST: should it stay at its natural height or also not stick? (3) together with R3-1 (the picture on the left of the text): the picture is the one thing that
    could be pinned while the steps scroll, which is the opposite of this note, so decide R3-1 and R3-2 together. (4) The test `p1c`/`ux3` layout tests that assert the
    pin on the storyboard would change.
+
+R3-3 [ux, idea] (before the run) Recording tab · keys: `<` and `>` move one finding back or forward, the left and right arrow keys move the video by 10 seconds, and every key
+   works on the whole tab, not only while the focus is on the player · wanted: review a take from the keyboard without first clicking into the player.
+   Context when noted: raised after R3-2. Today (work package 7): `[` and `]` go to the previous / next CHAPTER and `N` or `+` starts a note, and both only fire while the
+   keyboard focus is inside the review workspace (`.ds-rv`, `TakeWorkspace.onKeyDown` in `src/panel/public/recording.js`); focus on the "Request a new take" box, the take
+   rows or the page itself gets nothing. The left and right arrows do nothing of ours: a focused `<video controls>` seeks by the browser's own step (about 5 seconds in Chrome),
+   and only while the video itself has the focus. The "?" sheet lists `[ · ]` and `N · +` ("focus inside the review").
+   Assessment (not decided): points to settle with you. (1) **What is a "finding" here?** Two readings: (a) a CHAPTER of the take (what `[` `]` do today; then `<` `>` would
+   replace or duplicate them), or (b) a discovery FINDING of the current scene (the "findings of this scene" shown above the player, R2-4), which has no timestamp, so
+   "move to the previous finding" would mean jump to the scene it belongs to, or to a moment in the scene: say which. (2) **Keep `[` `]`?** If `<` `>` are the new keys, do
+   `[` `]` stay as chapter keys, or go? (3) **10 seconds**: a fixed step (hold the key to repeat), and what does Shift do (a smaller step, or a frame)? (4) **The whole tab**:
+   the keys must still not fire while you type in a note, the "notes for the next take" box or a dialog (the same rule as the "?" sheet); and the left / right arrows are free
+   elsewhere on this tab, but Up / Down and Home / End already walk lists, so they stay as they are. (5) The browser's own 5 s arrow step on a focused video would be taken
+   over (prevented) so the step is one thing, 10 s, wherever the focus is. (6) The key list in the "?" sheet, the hint under the player and `shortcuts.js` change with it; and
+   the same keys on the Annotations tab (where `[` `]` are previous / next annotation) should be decided in the same go so the tabs stay alike.

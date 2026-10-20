@@ -20,7 +20,7 @@ R3-1 [ux, idea] (before the run) Storyboard · the scene's picture on the LEFT o
    would sit above the text again (900 px is the narrowest supported). (4) A scene without a screenshot ("No screenshot for this scene") leaves the left side
    empty: say so in one line or let the text use the width.
 
-R3-2 [ux] (before the run) Storyboard · the selected scene must not scroll on its own: the whole page scrolls, nothing is pinned here · wanted: on the storyboard
+R3-2 [ux] (**addressed by 12c, D145, pending your review**) (before the run) Storyboard · the selected scene must not scroll on its own: the whole page scrolls, nothing is pinned here · wanted: on the storyboard
    page the main area (the selected scene) grows with its content and the page scrolls as one; no inner scroll area, no pinned block.
    Context when noted: raised right after R3-1. Today the storyboard uses the same pinned detail as Voice over and Annotations (`.ds-detail-pin`, work package 3,
    D-R2-6): on a wide workspace (over 52rem) the scene block is sticky just under the header and is at most one window high, and the scene (`.ds-inspector`)
@@ -64,7 +64,7 @@ R3-4 [ux] (before the run) Recording tab · the "Request a new take" box with it
    be reachable from the top (a link that scrolls to it)? (5) The tests that find the box by its label or class (`recording-notes`, `recording-review`, `s5-dialogs-costs`) change
    with the move; decide together with R3-2 (no pinned blocks) since neither pins anything.
 
-R3-5 [bug, ux] (before the run) Voice over tab · the scroll wheel scrolls the page only over the list at the side, not over the main area (the selected section) · wanted: the wheel
+R3-5 [bug, ux] (**addressed by 12c, D145, pending your review**) (before the run) Voice over tab · the scroll wheel scrolls the page only over the list at the side, not over the main area (the selected section) · wanted: the wheel
    works the same over the main area, so it scrolls the page there too.
    Context when noted: raised after R3-4. **Reproduced** in a browser (1400 x 900, a long list, the section pinned): ten wheel notches over the main area leave the page where it was (scroll 900 before and after); the same
    notches with `overscroll-behavior: auto` scroll it to 2900. Cause: on a wide workspace the selected section is the pinned block
@@ -78,3 +78,17 @@ R3-5 [bug, ux] (before the run) Voice over tab · the scroll wheel scrolls the p
    acceptable, or should the wheel always move the page and the inner area only be reached by dragging its bar or the keyboard? (3) A test: wheel over the main area at the end of the
    inner scroll moves the page (and over the list as it does today), on the three screens. This is the one item of the run 3 list that is a plain bug, so it could be fixed
    before the grill if you want.
+
+R3-6 [ux] (before the run) Voice over · the buttons do not say what happens when you accept: there are two actions to advance, and the accept does three things ·
+   wanted: names that describe what happens, or a popup, because this is the only tab that needs two actions to move on.
+   Context when noted: raised after R3-5. Today the Voice over header shows **Approve & use v2** and **Approve only** (the shared version buttons, `version-ui.js`) and, next
+   to them, **Generate voice, edit and a draft to watch…** (`voice.js`). Approving a voice-over script only unlocks voice synthesis (it does not start it, it costs nothing); the
+   voice is made by the second button (it asks Allow / Deny first because it uses TTS credits), and it goes on by itself to the sync edit and a draft render, and after the
+   edit the annotation designer may start by itself (`annotations.autoSuggest`, run-and-tell). So advancing is: approve the script, then generate. The three things you list
+   (the voice, then the approval, then the annotations) are in a different order than the buttons: the approval comes first, then the voice, then the edit and the annotations.
+   Assessment (not decided): points to settle with you. (1) Is the order right (approve the script, then generate) or should one button do both (approve and generate, with
+   the cost shown in one dialog)? Approve is a gate for the SCRIPT; the voice costs money, so the two clicks are deliberate (P1a), but they could be one click with one
+   confirmation that lists what follows. (2) Names: "Approve & use v2" says nothing about what comes next; "Approve script v2" plus "Make the voice (uses credits)…"
+   would say what each does. (3) A short "What happens next" under the buttons (approve, then the voice with its cost, then the sync edit and a draft, then the annotation
+   designer starts by itself), or a popup when you press Approve with the same list. (4) The same question applies to the other stages where an approval starts work (a
+   storyboard approval unlocks recording and then asks Allow / Deny): Voice over is the only one with a second manual action, so it may only need a better order and names.

@@ -259,7 +259,7 @@ const browserType = await chromium();
 const skip = (!browserType || !hasBinary("ffmpeg")) && "needs Playwright Chromium + ffmpeg";
 
 test(
-  "in the browser: chapters beside a smaller pinned player, the scene's goal and findings above it, chapter bar, [ and ], one take at a time",
+  "in the browser: chapters beside a smaller player on the one scrolling page, the scene's goal and findings above it, chapter bar, [ and ], one take at a time",
   { skip, timeout: 150_000 },
   async () => {
     process.env.DEMO_REC_NO_OPEN = "1";
@@ -372,17 +372,34 @@ test(
         "[ ] typed",
         "typing keeps its brackets",
       );
-      // the player stays in view while the page scrolls (pinned below the header block)
-      const hw = (await page.evaluate(
-        "parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hwrap-h'))",
-      )) as number;
+      // one scroll, the page's (D145): the player scrolls with the page, nothing in the review scrolls on its own, and the wheel over the player moves the page
+      const docTop = async () =>
+        ((await page.evaluate(rect(".ds-rv-pane"))) as { top: number }).top +
+        ((await page.evaluate("scrollY")) as number);
+      const top0 = await docTop();
       await page.evaluate("window.scrollTo(0, 600)");
       await wait(150);
-      const pane = (await page.evaluate(rect(".ds-rv-pane"))) as { top: number };
       assert.ok(
-        Math.abs(pane.top - (hw + 8)) < 3,
-        `the pane is pinned at ${pane.top}, header block ${hw}`,
+        Math.abs((await docTop()) - top0) <= 2,
+        "the pane moves with the page, it is not pinned",
       );
+      const inner = await page.evaluate(`[...document.querySelectorAll('.ds-rv, .ds-rv *')]
+        .filter((e) => !/^(TEXTAREA|SELECT|INPUT|VIDEO)$/.test(e.tagName) && /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1)
+        .map((e) => e.className || e.tagName)`);
+      assert.deepEqual(inner, [], "nothing in the review scrolls on its own");
+      const sticky = await page.evaluate(`[...document.querySelectorAll('.ds-rv, .ds-rv *')]
+        .filter((e) => getComputedStyle(e).position === 'sticky').map((e) => e.className || e.tagName)`);
+      assert.deepEqual(sticky, [], "nothing in the review is pinned");
+      await page.evaluate("window.scrollTo(0, 100)");
+      const paneBox = (await page.evaluate(rect(".ds-rv-pane"))) as {
+        left: number;
+        top: number;
+        width: number;
+      };
+      const y0 = (await page.evaluate("scrollY")) as number;
+      await page.mouse.move(paneBox.left + 40, Math.min(Math.max(paneBox.top + 60, 300), 450));
+      for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 150);
+      await page.waitForFunction(`scrollY > ${y0} + 200`);
       await page.evaluate("window.scrollTo(0, 0)");
       // the other take: one click, the workspace follows
       await page.click("#take-2 [data-act=review-take]");
@@ -399,16 +416,12 @@ test(
       const two = (await page.evaluate(rect(".ds-rv-pane"))) as { left: number };
       const list2 = (await page.evaluate(rect(".ds-rv-chapters"))) as { right: number };
       assert.ok(two.left >= list2.right, "side by side at 900 px");
-      // below that the columns stack: the player first, and unpinned so the chapters stay reachable
+      // below that the columns stack: the player first, so the chapters stay reachable
       await page.setViewportSize({ width: 800, height: 520 });
       await wait(200);
       const narrowPane = (await page.evaluate(rect(".ds-rv-pane"))) as { bottom: number };
       const narrowList = (await page.evaluate(rect(".ds-rv-chapters"))) as { top: number };
       assert.ok(narrowPane.bottom <= narrowList.top + 1, "stacked: the player above the chapters");
-      assert.equal(
-        await page.evaluate("getComputedStyle(document.querySelector('.ds-rv-pane')).position"),
-        "static",
-      );
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

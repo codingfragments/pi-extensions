@@ -268,9 +268,10 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
   ![The light theme](images/guide/18-light.jpg)
 
 - **Long lists** (Voice over sections, Storyboard scenes, Annotations): the list is 22 rem wide, a row's text **wraps** (up to three lines, the whole
-  text on hover) and never runs into the detail, and the **detail stays pinned just below the header while the list scrolls**, until the list
-  ends. The pinned block holds the selected item's inspector, which scrolls inside it when it is tall, and the screen's action bar (Save new
-  version) at its bottom, always in view. The Brands editor shares the layout but is not pinned (its list is short).
+  text on hover) and never runs into the detail. **The page is the only scroll** (D145): the detail is plain content next to the list, nothing is pinned and nothing
+  scrolls inside, so the wheel works the same over the list and over the main area. The screen's action bar (Save new version) sticks to the bottom
+  of the window while the list is on screen and ends with it. The Recording review works the same: the player, the chapters and the notes are
+  columns of the page. Render keeps its pinned player.
 - **Small windows:** the layout follows the width of the workspace, not the window. Below about 52 rem the list becomes a select above
   the detail, secondary columns of a table fold away, and the header drops the stepper's labels.
 

@@ -1,7 +1,8 @@
 /**
  * The list + inspector screens (Voice over, Storyboard, Annotations; the Brands editor shares the layout): the list is 22rem wide, a row's text wraps
- * and never runs into the detail, and the detail column stays pinned just below the header while a long list scrolls, until the list ends
- * (D-R2-6, R2-5, R2-9). Measured with 40 rows of long text at 1400 and 900 px; below the narrow threshold the list is a select and nothing is pinned.
+ * and never runs into the detail, and the page is the ONLY scroll: nothing is pinned and nothing scrolls on its own, a wheel over the detail
+ * scrolls the page like over the list (D145, which replaces D-R2-6; R3-2, R3-5). The action bar sticks to the bottom of the window. Measured with 40 rows of
+ * long text at 1400 and 900 px; below the narrow threshold the list is a select.
  */
 
 import assert from "node:assert/strict";
@@ -79,7 +80,7 @@ const SCREENS = [
 ] as const;
 
 test(
-  "list screens: 22rem list, wrapping text that never reaches the detail, the detail pinned while 40 rows scroll and released after the last",
+  "list screens: 22rem list, wrapping text that never reaches the detail, one scroll: the detail moves with the page, the wheel works over it, the action bar sticks",
   { skip: !browserType && "needs Playwright Chromium", timeout: 240_000 },
   async () => {
     process.env.DEMO_REC_NO_OPEN = "1";
@@ -135,48 +136,60 @@ test(
             `${where}: long titles wrap to 2 or 3 lines (${out.maxLines})`,
           );
 
-          // pinned while the list scrolls
-          const pin = s.inspector;
-          const natural = await box(pin);
-          assert.ok(natural.top >= head, `${where}: the detail starts below the header`);
-          let pinnedAt = 0;
+          // one scroll, the page's (D145): the detail is plain content, it moves with the page, and no part of the screen scrolls on its own
+          const inner = (await page.evaluate(`(() => [...document.querySelectorAll('.ds-split *')]
+            .filter((e) => !/^(TEXTAREA|SELECT|INPUT)$/.test(e.tagName) && /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1)
+            .map((e) => e.className || e.tagName).slice(0, 5))()`)) as string[];
+          assert.deepEqual(inner, [], `${where}: nothing in the split scrolls on its own`);
+          const stickyKids =
+            (await page.evaluate(`(() => [...document.querySelectorAll('.ds-split-detail, .ds-split-detail *')]
+            .filter((e) => getComputedStyle(e).position === 'sticky' && !e.classList.contains('ds-actionbar') && !e.closest('.ds-actionbar'))
+            .map((e) => e.className || e.tagName).slice(0, 5))()`)) as string[];
+          assert.deepEqual(
+            stickyKids,
+            [],
+            `${where}: nothing in the detail is pinned (the action bar aside)`,
+          );
+          const detail = ".ds-split-detail .ds-inspector";
           const splitTop =
             ((await box(".ds-split")).top as number) + ((await page.evaluate("scrollY")) as number);
+          const docTop = async () =>
+            (await box(detail)).top + ((await page.evaluate("scrollY")) as number);
+          const at0 = await docTop();
           for (const y of [splitTop + 100, splitTop + 900, splitTop + 1900]) {
             await page.evaluate(`window.scrollTo(0, ${y})`);
-            const r = await box(pin);
-            const listBottom = (await box(".ds-split-list")).bottom;
             assert.ok(
-              r.top >= head + 8 - 3,
-              `${where} at scroll ${y}: the detail (top ${r.top}) is never under the header (${head})`,
-            );
-            if (listBottom > r.bottom + 60) {
-              assert.ok(
-                Math.abs(r.top - (head + 8)) <= 3,
-                `${where} at scroll ${y}: pinned at ${r.top}, the pin line is ${head + 8}`,
-              );
-              pinnedAt++;
-            }
-            // it never grows past the window: header, the detail, and room for the strip (and the action bar where there is one)
-            assert.ok(
-              r.bottom <= 800 - 40,
-              `${where} at scroll ${y}: the detail reaches ${r.bottom}, below the strip`,
+              Math.abs((await docTop()) - at0) <= 2,
+              `${where} at scroll ${y}: the detail moves with the page, it does not follow it`,
             );
           }
-          assert.ok(
-            pinnedAt >= 2,
-            `${where}: the detail was pinned at ${pinnedAt} of the scroll positions`,
-          );
-          // released at the end of the list
+          // the wheel over the main area scrolls the page, like over the list (R3-5): it was swallowed by the pinned block's own scroll
+          await page.evaluate(`window.scrollTo(0, ${splitTop + 100})`);
+          const mid = await box(".ds-split-detail");
+          const y0 = (await page.evaluate("scrollY")) as number;
+          await page.mouse.move(mid.right - 60, Math.min(Math.max(mid.top + 200, head + 120), 600));
+          for (let i = 0; i < 5; i++) await page.mouse.wheel(0, 200);
+          await page.waitForFunction(`scrollY > ${y0} + 400`);
+          // the action bar sticks to the bottom of the window across the whole height of the list, and ends with it
+          if (s.name !== "storyboard") {
+            await page.evaluate(`window.scrollTo(0, ${splitTop + 300})`);
+            const bar = await box(".ds-split-detail .ds-actionbar");
+            assert.ok(
+              bar.bottom <= 800 && bar.bottom >= 800 - 90,
+              `${where}: the action bar is at the bottom of the window (${bar.bottom})`,
+            );
+          }
           await page.evaluate(
             "document.documentElement.scrollTo(0, document.documentElement.scrollHeight)",
           );
-          const end = await box(pin);
           const split = await box(".ds-split");
-          assert.ok(
-            end.bottom <= split.bottom + 1,
-            `${where}: the detail ends with the list (${end.bottom} vs ${split.bottom})`,
-          );
+          const endBar =
+            s.name === "storyboard" ? null : await box(".ds-split-detail .ds-actionbar");
+          if (endBar)
+            assert.ok(
+              endBar.bottom <= split.bottom + 1,
+              `${where}: the action bar ends with the list (${endBar.bottom} vs ${split.bottom})`,
+            );
           if (process.env.P3_SHOTS && s.name === "annotations" && width === 1400) {
             await page.evaluate("window.scrollTo(0, 900)");
             await page.screenshot({ path: `${process.env.P3_SHOTS}-${s.name}-${width}.png` });
@@ -184,18 +197,11 @@ test(
           await page.close();
         }
       }
-      // narrow: the list is a select, and nothing is pinned
+      // narrow: the list is a select, and the detail is the page
       const narrow = await browser.newPage({ viewport: { width: 700, height: 800 } });
       await narrow.goto(`${panel.url}#/voice/v9`);
       await narrow.waitForSelector(".ds-split-bar select");
       assert.equal(await narrow.locator(".ds-split-list").isVisible(), false);
-      assert.equal(
-        await narrow.evaluate(
-          "getComputedStyle(document.querySelector('.ds-detail-pin')).position",
-        ),
-        "static",
-        "below the narrow threshold the detail is the page, not pinned",
-      );
       await narrow.close();
     } finally {
       await browser.close();

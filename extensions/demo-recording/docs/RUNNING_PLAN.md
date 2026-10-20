@@ -242,6 +242,14 @@ Allow, and can feed the fix window.
   strict on purpose and may feel stiff; the model's own labels depend on it obeying; a question asked in one session and answered after a restart reaches a
   fresh Director that must be told what it was about (the message carries it).
 
+**Item 12, P5 small options (two PRs).**
+
+- **12a, the logo bug (F28, done).** `logoBugStatus(brand)` says if a brand shows the logo bug (turned on AND a logo file), has it off, or turned it on without a
+  logo; `GET /api/render` carries it per brand; New render explains it under the checkbox for the chosen looks (what it does and in which corner, or "Nothing to show:
+  neutral has it turned off", with a link to Config › Brands), and the checkbox is disabled and unchecked when no chosen look shows one. When disabled the render still
+  sends the default (`true`), so the variant names never say "no logo" for something that was never there. **Tests:** `test/logo-bug.test.ts` (3, one in the browser).
+- **12b, zoom limits (F21, next).** The fixed "at most 2 zooms per demo" becomes two settings, zooms per minute and zooms per scene, with a project override.
+
 ## 5. The later phases in outline
 
 Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the shape is here.

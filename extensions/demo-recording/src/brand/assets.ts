@@ -217,6 +217,21 @@ ${info.subtitle ? `<div class="subtitle">${esc(info.subtitle)}</div>` : ""}
 <div class="date">${esc(info.date)}</div></div></body></html>`;
 }
 
+/**
+ * What the "Logo bug" option of a render does for this brand (F28): the small logo in a corner of the full video appears only when the brand has the
+ * logo bug turned on AND a logo file. The panel says which, so the checkbox is never a mystery.
+ */
+export type LogoBugStatus =
+  | { state: "shows"; position: Brand["logoBug"]["position"] }
+  | { state: "off" }
+  | { state: "no-logo" };
+
+export function logoBugStatus(l: LoadedBrand): LogoBugStatus {
+  if (!l.brand.logoBug.enabled) return { state: "off" };
+  if (!logoFor(l, true)) return { state: "no-logo" };
+  return { state: "shows", position: l.brand.logoBug.position };
+}
+
 export function logoBugHtml(l: LoadedBrand, heightPx: number): string | undefined {
   const logo = logoFor(l, true);
   if (!logo) return undefined;

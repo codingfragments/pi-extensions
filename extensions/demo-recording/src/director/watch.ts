@@ -21,5 +21,10 @@ export function registerDirectorWatch(pi: ExtensionAPI, rt: Runtime): void {
   watch("before_agent_start", (e: Parameters<typeof d.onRunStart>[0]) => d.onRunStart(e));
   watch("tool_execution_start", (e: Parameters<typeof d.onToolStart>[0]) => d.onToolStart(e));
   watch("tool_execution_end", (e: Parameters<typeof d.onToolEnd>[0]) => d.onToolEnd(e));
-  watch("agent_settled", (e: Parameters<typeof d.onSettled>[0]) => d.onSettled(e));
+  watch("agent_settled", (e: Parameters<typeof d.onSettled>[0]) => {
+    const since = d.snapshot().since;
+    d.onSettled(e);
+    // you stopped the run: what it asked in that run and nobody answered goes with it (D142)
+    if (e?.aborted && since !== undefined) rt.cancelRunQuestions(since);
+  });
 }

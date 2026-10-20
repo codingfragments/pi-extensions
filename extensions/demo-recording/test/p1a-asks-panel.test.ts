@@ -1,4 +1,4 @@
-/** P1a PR 3: "The Director asks" in the panel: Allow and Not now answer what the Director wanted to spend. */
+/** P1a PR 3: "The Director asks" in the panel: Allow and Deny answer what the Director wanted to spend. */
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -48,9 +48,14 @@ test("Allow and Not now answer the Director's request", { skip, timeout: 90_000 
     await page.waitForSelector(".asks .ds-notice");
     assert.match(
       await page.locator(".asks").innerText(),
-      /The Director asks to synthesize voice-over v1 .*It waits for you\. Or type\s+\/demo allow [0-9a-f]+\s+in chat/s,
+      /Allow the Director to synthesize voice-over v1 .*It waits for you\. In the chat type\s+1\s+\(\s*allow\s*\)\s+or\s+2\s+\(\s*deny\s*\)/s,
     );
-    assert.equal(await page.getByRole("alert").filter({ hasText: "The Director asks" }).count(), 1);
+    assert.equal(await page.locator("[data-question]").count(), 1, "one bar for it, not two");
+    assert.equal(
+      await page.getByRole("alert").count(),
+      0,
+      "the old request block is not shown next to it",
+    );
     if (process.env.P1A_SHOTS) await page.screenshot({ path: `${process.env.P1A_SHOTS}-asks.png` });
 
     await page.getByRole("button", { name: "Allow" }).click();
@@ -60,7 +65,7 @@ test("Allow and Not now answer the Director's request", { skip, timeout: 90_000 
 
     askFirst(rt, "take", "storyboard:1", "record a new take of storyboard v1");
     await page.waitForSelector(".asks .ds-notice");
-    await page.getByRole("button", { name: "Not now" }).click();
+    await page.getByRole("button", { name: /Deny/ }).click();
     await page.waitForSelector(".asks", { state: "detached" });
     assert.equal(rt.grants.has("take", seed.slug, "storyboard:1"), false);
     assert.match(told.at(-1) ?? "", /did NOT allow/);

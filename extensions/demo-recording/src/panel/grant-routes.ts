@@ -1,5 +1,5 @@
 /**
- * Spending grants over HTTP (P1a): the panel's "Allow / Not now" and the dialogs the user already
+ * Spending grants over HTTP (P1a): the panel's old "Allow / Not now" and the dialogs the user already
  * confirmed. See `../grants.ts`.
  *
  *   GET  /api/confirmations           open requests of the active project (the Director asked)
@@ -9,6 +9,7 @@
  */
 
 import { type SpendKind, allowedMessage, deniedMessage } from "../grants.ts";
+import { settleGrantQuestion } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
@@ -41,6 +42,7 @@ export function grantRoutes(rt: Runtime): {
             },
             project,
           );
+          settleGrantQuestion(rt, { request: body.request }, "allow", "panel");
           rt.notifyAgent(allowedMessage(summary ?? `${g.kind} ${g.target}`));
           return { granted: { kind: g.kind, target: g.target } };
         }
@@ -48,6 +50,7 @@ export function grantRoutes(rt: Runtime): {
         if (!KINDS.includes(kind) || typeof body.target !== "string" || !body.target)
           throw new Error('"request", or "kind" and "target", is required');
         const g = rt.grants.issue(kind, project, body.target, "panel");
+        settleGrantQuestion(rt, { kind, target: body.target }, "allow", "panel");
         rt.bus.publish(
           "confirm.granted",
           { kind, target: g.target, by: "panel", message: `allowed: ${kind} ${g.target}` },
@@ -69,6 +72,7 @@ export function grantRoutes(rt: Runtime): {
           },
           slug(),
         );
+        settleGrantQuestion(rt, { request: body.request }, "deny", "panel");
         rt.tellAgent(deniedMessage(r.summary));
         return { denied: { kind: r.kind, target: r.target } };
       },

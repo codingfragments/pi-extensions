@@ -217,11 +217,18 @@ Allow, and can feed the fix window.
   why, a button per option with its number, Dismiss, and the line that says what to type in the chat), in the band ("The Director asks": it outranks what else
   needs you and the Director working, not a block; it is never hidden) and in the header's Suggestions. The events are class "ask". **Not yet:** the chat
   (11b) and the roles (11c); the answer is the panel's only until 11b.
-- **11b, the chat.** The question is a labelled chat message (a custom message with its own renderer: the role, the question, the options with numbers). An
+- **11b, the chat (done).** The question is a labelled chat message (a custom message with its own renderer: the role, the question, the options with numbers). An
   `input` handler resolves a pending question from your reply **only** when the source is `"interactive"` and the reply is exactly an option's number or
   word, and then swallows it (D141); anything else is normal chat. The Allow for a take or a voice (today a panel click or `/demo allow`) becomes a pending
   question too, so "1" or "allow" in the chat allows it and a click answers it in the chat; the one-use, 15-minute grant is unchanged. No timeout (D142); aborting
-  the run cancels what is pending.
+  the run cancels what is pending. **Built:** `src/question-chat.ts` (the `input` hook: your own typing only, exactly one option of exactly one waiting question, then
+  swallowed and answered; a fit with several is ambiguous and stays chat; a message renderer for the question), `src/question-flow.ts` (`answerFor`: one resolution for the
+  panel and the chat, the grant issued or refused for a spend question, the Director woken; `settleGrantQuestion`: the old Allow / `/demo allow` answer the question too),
+  `Runtime.publishQuestion` (the labelled chat message, no turn), the Allow for a take or voice filed by `askFirst` as a question (Allow / Deny, one per request, not counted
+  against the 3-question limit, still answerable after a restart because the question carries the kind and target), the old request block hidden while its question shows,
+  and an aborted run cancelling the questions it asked (`cancelRunQuestions`; the Allow stays). **Tests:** `test/question-chat.test.ts`, 7 tests, including a real pi session
+  with a scripted model for the reply rule. **Not verified:** how the question message looks in a real TUI (the renderer is only registered, not seen); a real model's
+  behaviour after the answer.
 - **11c, the roles.** Every message the extension sends gets its role as a prefix (the `[demo-*]` messages, job results, QA, the questions); the same role
   names in Activity and in the Director-working state; a rule in each skill for the model's own text ("start a block with your role once"). Nothing is
   written into the model's history (D144).

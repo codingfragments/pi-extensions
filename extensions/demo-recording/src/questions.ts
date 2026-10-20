@@ -51,6 +51,8 @@ export interface Question {
   status: "pending" | "answered" | "cancelled";
   answer?: { key: string; word: string; label: string; by: "panel" | "chat"; at: string };
   cancelled?: { why: string; at: string };
+  /** The question is the Allow for a spend (11b): answering it grants or refuses that request, so the old Allow / `/demo allow` and this are one thing. */
+  grant?: { kind: "tts" | "take"; target: string; request: string; summary: string };
 }
 
 const file = (projectDir: string) => path.join(projectDir, "questions.json");
@@ -81,7 +83,14 @@ const text = (x: unknown) => (typeof x === "string" ? x.trim() : "");
 /** Ask: validate, number the options, store. Throws with every problem at once. */
 export function askQuestion(
   projectDir: string,
-  q: { role?: unknown; what?: unknown; why?: unknown; options?: unknown },
+  q: {
+    role?: unknown;
+    what?: unknown;
+    why?: unknown;
+    options?: unknown;
+    /** Engine only (the tool never passes it): this is the Allow for a spend. Not counted against the limit of waiting questions. */
+    grant?: Question["grant"];
+  },
   now = new Date(),
 ): Question {
   const problems: string[] = [];
@@ -123,7 +132,7 @@ export function askQuestion(
   });
   const list = readQuestions(projectDir);
   const waiting = list.filter((x) => x.status === "pending");
-  if (waiting.length >= LIMITS.pending)
+  if (!q.grant && waiting.length >= LIMITS.pending)
     problems.push(
       `${waiting.length} questions are still waiting for the user (${waiting.map((x) => x.id).join(", ")}): wait for them`,
     );
@@ -140,6 +149,7 @@ export function askQuestion(
     ...(why ? { why } : {}),
     options: labels.map((label, i) => ({ key: String(i + 1), word: words[i] as string, label })),
     status: "pending",
+    ...(q.grant ? { grant: q.grant } : {}),
   };
   save(projectDir, [...list, question]);
   return question;
@@ -193,6 +203,49 @@ export function cancelQuestion(
   q.cancelled = { why, at: now.toISOString() };
   save(projectDir, list);
   return q;
+}
+
+/** Which pending question, and which option, a typed reply answers. Only an exact number or word of one question's option counts; when it would fit
+ * several waiting questions (two of them have a "1"), it is ambiguous: not an answer, so it stays normal chat. */
+export function matchReply(
+  pending: Question[],
+  reply: string,
+): { question: Question; option: QuestionOption } | "ambiguous" | undefined {
+  const hits = pending.flatMap((question) => {
+    const option = pickOption(question, reply);
+    return option ? [{ question, option }] : [];
+  });
+  if (!hits.length) return undefined;
+  return hits.length === 1 ? (hits[0] as (typeof hits)[number]) : "ambiguous";
+}
+
+/** The question as the chat shows it (a labelled message, 11b): who asks, what, why, and what to type. */
+export function questionText(q: Question): string {
+  return [
+    `${q.role} asks (${q.id}): ${q.what}`,
+    ...(q.why ? [q.why] : []),
+    ...q.options.map((o) => `  ${o.key}  ${o.label}`),
+    `Type ${q.options.map((o) => `${o.key} (${o.word})`).join(" or ")}, or answer in the panel. It waits for you.`,
+  ].join("\n");
+}
+
+/** You stopped the run: what it asked and nobody answered is gone with it. Returns what was cancelled. */
+export function cancelAskedSince(
+  projectDir: string,
+  sinceMs: number,
+  why: string,
+  now = new Date(),
+): Question[] {
+  const list = readQuestions(projectDir);
+  const gone = list.filter(
+    (q) => q.status === "pending" && !q.grant && Date.parse(q.at) >= sinceMs,
+  );
+  for (const q of gone) {
+    q.status = "cancelled";
+    q.cancelled = { why, at: now.toISOString() };
+  }
+  if (gone.length) save(projectDir, list);
+  return gone;
 }
 
 /** What the Director is told when you answered: the question, the option, and what to do. */

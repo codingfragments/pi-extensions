@@ -73,17 +73,7 @@ export function registerAskTool(pi: ExtensionAPI, rt: Runtime): void {
         why: params.why,
         options: params.options,
       });
-      rt.bus.publish(
-        "question.asked",
-        {
-          id: q.id,
-          role: q.role,
-          by: "agent",
-          options: q.options.length,
-          message: `${q.role} asks: ${q.what}`,
-        },
-        p.slug,
-      );
+      rt.publishQuestion(q);
       return result(
         `Asked ${q.id}: "${q.what}" (${q.options.map((o) => `${o.key} ${o.label}`).join(" · ")}). The user answers in the panel; the answer arrives as a message. STOP now: do not wait, guess or ask again.`,
         { id: q.id },

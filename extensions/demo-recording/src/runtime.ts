@@ -41,6 +41,7 @@ import { versionRoutes } from "./panel/version-routes.ts";
 import { voiceListRoutes } from "./panel/voice-list-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
 import { linkFixDraft } from "./qa/apply.ts";
+import { type Question, cancelAskedSince, questionText } from "./questions.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
 import { startDesigner } from "./tools/designer.ts";
 import { readManifest } from "./tts/synthesize.ts";
@@ -57,6 +58,9 @@ export interface AgentBridge {
     options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
   ) => void;
 }
+
+/** The custom message type of a question in the chat (rendered with the role, the question and the options). */
+export const QUESTION_MESSAGE = "demo-recording-question";
 
 /** Footer status sink (ctx.ui), captured from the latest tool/command context. */
 export interface StatusSink {
@@ -315,6 +319,50 @@ export class Runtime {
     } catch (err) {
       this.bus.publish("agent.notify-failed", failedEvent(err, text), this.activeSlug);
     }
+  }
+
+  /**
+   * A question was asked (D140): tell the panel, and put it into the chat as a labelled message of its own (it starts no turn: the Director is
+   * stopping anyway, D143). The chat's reply is read by the `input` hook in index.ts.
+   */
+  publishQuestion(q: Question): void {
+    this.bus.publish(
+      "question.asked",
+      {
+        id: q.id,
+        role: q.role,
+        by: "agent",
+        options: q.options.length,
+        message: `${q.role} asks: ${q.what}`,
+      },
+      this.activeSlug,
+    );
+    if (!this.agent?.sendMessage) return;
+    try {
+      this.agent.sendMessage(
+        {
+          customType: QUESTION_MESSAGE,
+          content: questionText(q),
+          display: true,
+          details: { id: q.id, role: q.role },
+        },
+        { triggerTurn: false },
+      );
+    } catch (err) {
+      this.bus.publish("agent.notify-failed", failedEvent(err, q.what), this.activeSlug);
+    }
+  }
+
+  /** You stopped the Director's run: the questions it asked during that run and nobody answered are cancelled. The Allow for a spend is not. */
+  cancelRunQuestions(sinceMs: number): void {
+    const p = this.activeProject();
+    if (!p) return;
+    for (const q of cancelAskedSince(p.dir, sinceMs, "you stopped the run that asked it"))
+      this.bus.publish(
+        "question.cancelled",
+        { id: q.id, by: "abort", message: `cancelled ${q.id}: you stopped the run` },
+        p.slug,
+      );
   }
 
   notifyAgent(text: string): void {

@@ -23,7 +23,7 @@ function Questions({ pending }) {
         <div><span class="ds-badge" data-tone="neutral" data-role>${q.role}</span> <b data-part="what">${q.what}</b></div>
         ${q.why ? html`<div class="ds-small ds-muted">${q.why}</div>` : null}
         <div class="ds-row-flex">${q.options.map((o) => html`<button class="ds-btn ds-btn--sm" type="button" data-act="answer-question" data-option=${o.key} key=${o.key} onClick=${() => call("/api/question-answer", { id: q.id, option: o.key })}><span class="ds-kbd" aria-hidden="true">${o.key}</span> ${o.label}</button>`)}
-          <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="dismiss-question" onClick=${() => call("/api/question-cancel", { id: q.id })}>Dismiss</button></div>
+          ${q.grant ? null : html`<button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="dismiss-question" onClick=${() => call("/api/question-cancel", { id: q.id })}>Dismiss</button>`}</div>
         <div class="ds-hint">It waits for you. In the chat type ${q.options.map((o, i) => html`${i ? " or " : ""}<code>${o.key}</code> (<code>${o.word}</code>)`)}; anything else is normal chat.</div>
       </div>
     </div>`,
@@ -44,13 +44,15 @@ export function DirectorAsks({ events }) {
   };
   return html`<section class="ds-root asks" aria-label="The Director asks">
     <${Questions} pending=${questions} />
-    ${requests.map(
-      (r) => html`<div class="ds-notice" data-tone="warn" role="alert" key=${r.id}>
+    ${requests
+      .filter((r) => !questions.some((q) => q.grant?.request === r.id))
+      .map(
+        (r) => html`<div class="ds-notice" data-tone="warn" role="alert" key=${r.id}>
         <span class="ds-status" data-tone="warn" aria-hidden="true">!</span>
         <div class="ds-grow"><b>The Director asks to ${r.summary}.</b> <span class="ds-hint">It waits for you. Or type <code>/demo allow ${r.id}</code> in chat.</span></div>
         <button class="ds-btn ds-btn--primary ds-btn--sm" type="button" onClick=${() => answer("/api/grant", r.id)}>Allow</button>
         <button class="ds-btn ds-btn--sm" type="button" onClick=${() => answer("/api/grant-deny", r.id)}>Not now</button>
       </div>`,
-    )}
+      )}
   </section>`;
 }

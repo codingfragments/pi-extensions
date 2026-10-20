@@ -149,8 +149,8 @@ revision is a new storyboard version with a diff. **Costs:** model turns.
 
 ### B3. Record
 
-**Do:** after you approve the storyboard the Director is told recording is unlocked. It asks to record: a bar says **The Director asks
-to record a new take of storyboard v1 …** with **Allow** and **Not now** (or type `/demo allow` in chat). Allow it. A cost dialog may
+**Do:** after you approve the storyboard the Director is told recording is unlocked. It asks to record: a bar says **The Director asks: Allow the Director
+to record a new take of storyboard v1 …?** with **Allow** and **Deny** (or type `1` or `allow` in chat). Allow it. A cost dialog may
 appear for improvised inputs when you press **Request a new take** yourself, and that click is the permission.
 **See:** the strip shows a percentage and the current scene; the **Recording** step gets a take with a keyframe per scene.
 **Do:** watch the take, then **Approve & use** it (or **Request a new take** with a note).

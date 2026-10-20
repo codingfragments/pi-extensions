@@ -1,9 +1,13 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Box, Text } from "@earendil-works/pi-tui";
 import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
 import { registerDirectorWatch } from "./src/director/watch.ts";
-import { Runtime } from "./src/runtime.ts";
+import { registerQuestionChat } from "./src/question-chat.ts";
+import { answerFor } from "./src/question-flow.ts";
+import { matchReply, pendingQuestions } from "./src/questions.ts";
+import { QUESTION_MESSAGE, Runtime } from "./src/runtime.ts";
 import { registerAnnotationsTool } from "./src/tools/annotations.ts";
 import { registerAskTool } from "./src/tools/ask.ts";
 import { registerBrandTool } from "./src/tools/brand.ts";
@@ -59,6 +63,9 @@ export default function (pi: ExtensionAPI) {
       rt.primeContext();
     }
   });
+
+  // A question in the chat, and a typed reply that answers it (D141)
+  registerQuestionChat(pi, rt);
 
   pi.on("model_select", async (event, ctx) => {
     rt.bindSessionModel((event as { model?: unknown }).model ?? (ctx as { model?: unknown }).model);

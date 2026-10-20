@@ -165,6 +165,9 @@ const TOOL: Record<string, (a: Record<string, unknown>) => { label: string; stag
   demo_rec_discovery: (a) => ({
     label: a.action === "report" ? "Writing the discovery report" : "Reading what discovery found",
   }),
+  demo_rec_ask: (a) => ({
+    label: a.action === "ask" ? "Asking you a question" : "Checking its questions",
+  }),
   demo_rec_config: () => ({ label: "Checking the settings" }),
   demo_rec_brand: () => ({ label: "Working on the brand" }),
 };

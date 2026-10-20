@@ -164,6 +164,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
   const { tools, events, ctx } = await load();
   assert.deepEqual([...tools.keys()].sort(), [
     "demo_rec_annotations",
+    "demo_rec_ask",
     "demo_rec_brand",
     "demo_rec_browser",
     "demo_rec_compare",

@@ -170,9 +170,12 @@ export function App() {
     () => stepStates({ stages, jobs, discovery, director }),
     [stages, jobs, discovery, director],
   );
+  // what the Director asked you and waits for (D140): it outranks everything but a block, in the band and in "Suggestions"
+  const questions = useApi("/api/questions", events, /^question\./);
+  const asked = useMemo(() => questions.data?.pending ?? [], [questions.data]);
   const band = useMemo(
-    () => nextBand({ stages, states, jobs, director, now }),
-    [stages, states, jobs, director, now],
+    () => nextBand({ stages, states, jobs, director, now, questions: asked }),
+    [stages, states, jobs, director, now, asked],
   );
   const strip = useMemo(
     () => stripState({ jobs, rows, status, dismissed, director }),

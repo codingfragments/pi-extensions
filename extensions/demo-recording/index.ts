@@ -5,6 +5,7 @@ import { ACTIVE_ENTRY, registerDemoCommand } from "./src/commands/demo.ts";
 import { registerDirectorWatch } from "./src/director/watch.ts";
 import { Runtime } from "./src/runtime.ts";
 import { registerAnnotationsTool } from "./src/tools/annotations.ts";
+import { registerAskTool } from "./src/tools/ask.ts";
 import { registerBrandTool } from "./src/tools/brand.ts";
 import { registerBrowserTool } from "./src/tools/browser.ts";
 import { registerCompareTool } from "./src/tools/compare.ts";
@@ -87,4 +88,5 @@ export default function (pi: ExtensionAPI) {
   registerQaTool(pi, rt);
   registerCompareTool(pi, rt);
   registerDiscoveryReportTool(pi, rt);
+  registerAskTool(pi, rt);
 }

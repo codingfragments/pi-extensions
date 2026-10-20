@@ -204,11 +204,19 @@ number) and a recommendation; the note is stored in the project, linked to both 
 Allow, and can feed the fix window.
 
 **11. P4, the Director in the open** (D140 to D144, grilled with you after the spike [spikes/P4-message-hooks.md](spikes/P4-message-hooks.md)). Three PRs:
-- **11a, the question.** The engine's **pending question** (`questions.json` in the project: id, the role that asks, what, the options with their words and
+- **11a, the question (done).** The engine's **pending question** (`questions.json` in the project: id, the role that asks, what, the options with their words and
   numbers, the cost, status, who answered and where). A Director tool `demo_rec_ask` creates one and **returns at once** ("asked q-3: stop; the answer
   arrives as a message"). A panel route resolves it; the answer is sent to the Director as a new message whichever place it came from (D143). The panel
   shows it in the band ("Needs you") and as a dialog, and it is an Activity entry. One resolution only; a second answer is told "already answered by
-  <place>".
+  <place>". **Built:** `src/questions.ts` (2 to 4 options, a number and the first word of the label each, the words must differ and may not be numbers, at
+  most 3 waiting, no duplicate waiting, `wordOf`, `pickOption`, `answerQuestion` once with the first answer standing, `cancelQuestion`), the tool
+  `demo_rec_ask` (ask, pending; classified "proposal" and "free" in the ratchet; it returns at once and tells the Director to stop), `GET /api/questions`,
+  `POST /api/question-answer` (wakes the Director with a message that carries the question, the option and the place; a wrong option, an unknown id and a
+  second answer are refused with the reason, the second one naming who answered first) and `question-cancel` (a quiet note); the project context lists what waits
+  and the last answers, so a fresh Director after a restart knows. In the panel: the question sits in the "The Director asks" bar (the role, the question,
+  why, a button per option with its number, Dismiss, and the line that says what to type in the chat), in the band ("The Director asks": it outranks what else
+  needs you and the Director working, not a block; it is never hidden) and in the header's Suggestions. The events are class "ask". **Not yet:** the chat
+  (11b) and the roles (11c); the answer is the panel's only until 11b.
 - **11b, the chat.** The question is a labelled chat message (a custom message with its own renderer: the role, the question, the options with numbers). An
   `input` handler resolves a pending question from your reply **only** when the source is `"interactive"` and the reply is exactly an option's number or
   word, and then swallows it (D141); anything else is normal chat. The Allow for a take or a voice (today a panel click or `/demo allow`) becomes a pending

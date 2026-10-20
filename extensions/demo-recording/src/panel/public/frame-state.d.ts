@@ -50,6 +50,8 @@ export interface Band {
   /** Graph node to show in the map (a blocked step). */
   map?: string;
   more: { tab: string; text: string }[];
+  /** A question the Director asked you (D140): the band has no page to go to. */
+  question?: boolean;
 }
 /** What the Director is doing now (src/director/state.ts). */
 export interface DirectorView {
@@ -85,6 +87,8 @@ export function nextBand(o: {
   jobs: JobData[] | undefined;
   director?: DirectorView;
   now?: number;
+  /** The questions the Director asked you and waits for. */
+  questions?: { id: string; role: string; what: string }[];
 }): Band | null;
 export function stripState(o: {
   jobs: JobData[] | undefined;

@@ -9,6 +9,7 @@ import { formatReport, readReport } from "../discovery/report.ts";
 import { formatPending } from "../qa/apply.ts";
 import { formatFixSets } from "../qa/fixes.ts";
 import { formatIgnores } from "../qa/ignores.ts";
+import { questionsContext } from "../questions.ts";
 import { DEPTH_DEFAULTS, effectiveFacts, formatLength } from "./brief.ts";
 import { formatFindings, listFindings } from "./findings.ts";
 import { formatInputs, readInputs } from "./inputs.ts";
@@ -98,6 +99,7 @@ export function projectContext(projectDir: string, slug: string): string {
     `## Findings (${findings.length}; from discovery, recordings and the engine)`,
     formatFindings(findings),
     ...discoveryReport(projectDir),
+    ...questionsContext(projectDir),
     ...qaDecisions(projectDir),
     ...qaFixes(projectDir),
     ...pendingFixes(projectDir),

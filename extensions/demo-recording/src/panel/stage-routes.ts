@@ -21,6 +21,7 @@ import {
   readNotes,
   restoreNote,
 } from "../recording/notes.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { listTakes } from "../tools/take.ts";
 import { listFindings } from "../workdir/findings.ts";
@@ -44,7 +45,6 @@ import {
   versionLabel,
 } from "../workdir/stages.ts";
 import { readState, selectStage, unacceptStage } from "../workdir/state.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export interface StageRouteDeps {

@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 11 (P4, the Director in the open).
+`main`.** The next piece of work is item 12 (P5, small options).
 
 ## 2. Done
 
@@ -26,6 +26,7 @@ them, and a second real run (run 2) accepted P1 and produced 12 more findings, w
 | **P1c The fix loop** | the Director's work visible (band, strip, Activity); flag findings, ask for suggested fixes, decide, rethink; apply as ONE new draft at the earliest stage with pending fixes for later stages; the stage writers read and settle them; **timing hints `[@mark +300ms]`**; the render overrides retired | #99 to #104, #108 |
 | **Panel work from the first use** | "Quality check" is not "Render"; the Render preview two fifths wide and pinned; the fix loop as a window; structured Director answers | #105, #106, #107 |
 | **Run 2** | the run guide, P1d re-scoped, 12 findings collected, the grill | #109, #110 |
+| **P4 The Director in the open** | the Director asks a question and stops; you answer it once in the panel or by typing its number or word in the chat; the Allow for a spend is such a question; every message carries its role | #130, #131, #132, 11c |
 
 ## 3. The plan, in order
 
@@ -44,8 +45,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 8 | **Voice-over filmstrip + step through annotations (R2, L2)** | all the scene's frames under the narration, used and "not mentioned"; Previous / Next on annotations | F16, F19 | done | 4 | 26 |
 | 9 | **Compare versions (narrowed L6)** | Advanced, compare two versions, an honest verdict naming its evidence; storyboard and voice-over first | R2-3, F14 | done | 5 | 31 |
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | done | 12 | 43 |
-| 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | **next** | 7 | 50 |
-| 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | later | 4 | 54 |
+| 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | done | 7 | 50 |
+| 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | **next** | 4 | 54 |
 | 13 | **Run 3** | a full run on a different app, every screen at 1400 and 900 px | | you | 2 | 56 |
 | 14 | **S7 Login and sessions** | required for v1, with the session checks | F4 | later | 8 | 64 |
 | 15 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 70 |
@@ -229,9 +230,14 @@ Allow, and can feed the fix window.
   and an aborted run cancelling the questions it asked (`cancelRunQuestions`; the Allow stays). **Tests:** `test/question-chat.test.ts`, 7 tests, including a real pi session
   with a scripted model for the reply rule. **Not verified:** how the question message looks in a real TUI (the renderer is only registered, not seen); a real model's
   behaviour after the answer.
-- **11c, the roles.** Every message the extension sends gets its role as a prefix (the `[demo-*]` messages, job results, QA, the questions); the same role
+- **11c, the roles (done).** Every message the extension sends gets its role as a prefix (the `[demo-*]` messages, job results, QA, the questions); the same role
   names in Activity and in the Director-working state; a rule in each skill for the model's own text ("start a block with your role once"). Nothing is
-  written into the model's history (D144).
+  written into the model's history (D144). **Built:** `src/roles.ts` (the cast, `reportAs(role)` → `[demo-recording · Cutter]`, `PANEL_PREFIX` = `[demo-panel · You]`, `roleOfTool`,
+  `PREFIX_SOURCE` that reads both the old and the new form); every report now names who speaks (record → Operator, voice synthesis → Voice writer, edit and render → Cutter, QA →
+  QA reviewer, the designer → Annotation designer, what you did in the panel or the chat → You); the Director's steps carry the role (`director.step`, the band "… · Voice writer:
+  Writing the voice-over", "The Director as Voice writer is …", Activity); each of the six skills has the rule "start a block with your role once"; nothing hooks the model's
+  messages. **Tests:** `test/roles.test.ts` (7, including a scan that no source line still starts a message with a bare tag). **Not verified:** whether a real model obeys the skill
+  rule (it is a request, not enforced); the project context message stays unlabelled (it is hidden).
 - **Not changed:** approvals, Use, "replace a verdict", discovery start and the other gates stay panel actions (D140). **Risks:** the exact-option rule is
   strict on purpose and may feel stiff; the model's own labels depend on it obeying; a question asked in one session and answered after a restart reaches a
   fresh Director that must be told what it was about (the message carries it).

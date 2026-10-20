@@ -24,11 +24,11 @@ import {
   requestMessage,
 } from "../discovery/requests.ts";
 import { discoveryStatus, listSessions } from "../discovery/state.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { listFindings } from "../workdir/findings.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import { appDir } from "../workdir/layout.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export function discoveryRoutes(rt: Runtime): {

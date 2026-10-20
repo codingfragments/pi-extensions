@@ -8,6 +8,7 @@
 import { annotationContext } from "../annotations/context.ts";
 import { type DesignerRunResult, runDesigner } from "../annotations/designer-run.ts";
 import type { Job } from "../jobs.ts";
+import { reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { publishSuggested, timelineFor } from "./annotations.ts";
@@ -116,7 +117,7 @@ export function startDesigner(
           p.slug,
         );
         rt.tellAgent(
-          `[demo-recording] Annotations v${r.report.version} were suggested by the separate Annotation designer (${r.model}${r.repaired ? ", after one repair round" : ""}): ${r.report.added} placed, ${r.report.enabled} on${r.report.dropped.length ? `, ${r.report.dropped.length} not placed (${r.report.dropped.map((d) => d.id).join(", ")})` : ""}. The user reviews them in the Annotations tab — nothing to do unless they ask for changes.`,
+          `${reportAs("Annotation designer")} Annotations v${r.report.version} were suggested by the separate Annotation designer (${r.model}${r.repaired ? ", after one repair round" : ""}): ${r.report.added} placed, ${r.report.enabled} on${r.report.dropped.length ? `, ${r.report.dropped.length} not placed (${r.report.dropped.map((d) => d.id).join(", ")})` : ""}. The user reviews them in the Annotations tab — nothing to do unless they ask for changes.`,
         );
         return;
       }

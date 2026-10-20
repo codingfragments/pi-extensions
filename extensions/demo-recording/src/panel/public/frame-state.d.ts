@@ -59,7 +59,7 @@ export interface DirectorView {
   task?: string;
   by?: "you" | "panel" | "report";
   since?: number;
-  step?: { tool: string; label: string; stage?: string };
+  step?: { tool: string; label: string; role?: string; stage?: string };
   lastAt?: number;
   last?: { task: string; aborted: boolean; ms: number; at: number };
 }
@@ -71,6 +71,8 @@ export interface Strip {
   failure: JobData | null;
 }
 export const vLabel: (stage: string, n: number) => string;
+export const stepWords: (step: { label: string; role?: string }) => string;
+export const directorAs: (step?: { role?: string }) => string;
 export const stepOfStage: (stage: string) => Step | undefined;
 export function pendingDrafts(s: StageView | undefined): number[];
 export function failedJobs(jobs: JobData[] | undefined): JobData[];

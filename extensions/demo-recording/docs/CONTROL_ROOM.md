@@ -132,6 +132,11 @@ appears as a message of its own (who asks, what, the options with their numbers)
 when it is your own typing and fits exactly one waiting question; anything else (`hmm, what does that cost?`, a `1` when two questions both have a 1) is
 normal chat and the question keeps waiting. If you stop the Director's run, the questions it asked in that run and nobody answered are cancelled.
 
+**Who is speaking.** Every report the engine puts into the chat names its role: `[demo-recording · Cutter]` for an edit or a render, `· Operator` for a
+recording, `· Voice writer` for the voice, `· QA reviewer` for the quality check, `· Annotation designer`, and `[demo-panel · You]` for what you did in the
+panel. The band and Activity use the same names for what the Director is doing ("Revising the voice-over · Voice writer: Writing the voice-over"). The
+Director's own text starts with its role once per block because each skill asks it to; that one is a request, not something the engine enforces.
+
 If a newer version exists than the one a draft was started on, the draft is flagged ("v2 exists") and **Compare with v2** shows both;
 a draft is never rebased or dropped for you.
 

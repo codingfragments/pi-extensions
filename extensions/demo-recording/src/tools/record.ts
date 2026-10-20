@@ -14,6 +14,7 @@ import type { Job } from "../jobs.ts";
 import { createImproviser, modelAccessFrom } from "../recorder/improvise.ts";
 import { formatProgress } from "../recorder/progress.ts";
 import { type TakeResult, recordTake } from "../recorder/runner.ts";
+import { reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { firstLine, jobFacts, secs } from "../util/events.ts";
@@ -219,10 +220,11 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
             },
             p.slug,
           );
-          if (j.result) rt.reportToAgent(`[demo-recording] ${takeSummary(j.result, version)}`);
+          if (j.result)
+            rt.reportToAgent(`${reportAs("Operator")} ${takeSummary(j.result, version)}`);
           else
             rt.reportToAgent(
-              `[demo-recording] Recording ${j.status}: ${j.error ?? "unknown error"}. Evidence: takes/ (take.json, attempts.jsonl).`,
+              `${reportAs("Operator")} Recording ${j.status}: ${j.error ?? "unknown error"}. Evidence: takes/ (take.json, attempts.jsonl).`,
             );
         },
       );

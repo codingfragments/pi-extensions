@@ -263,7 +263,7 @@ test("voReviewMessage: consolidated, keeps approved verbatim", () => {
       _intro: { status: "approved", at: "" },
     },
   });
-  assert.match(msg, /^\[demo-panel\] Voice-over v3 review for project "p":/);
+  assert.match(msg, /^\[demo-panel · You\] Voice-over v3 review for project "p":/);
   assert.match(msg, /- 01-dash: CHANGES — "punchier"/);
   assert.match(msg, /not reviewed: 02-search/);
   assert.match(msg, /write v4 with demo_rec_vo/);

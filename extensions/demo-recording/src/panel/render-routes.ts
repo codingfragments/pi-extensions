@@ -25,6 +25,7 @@ import {
   variantPresent,
   variantZip,
 } from "../render/store.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { startQa, startRender } from "../tools/render.ts";
 import { openInBrowser } from "../util/open.ts";
@@ -32,7 +33,6 @@ import { recordInput } from "../workdir/inputs.ts";
 import { STAGES, type Stage } from "../workdir/stages.ts";
 import { isUsable } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export function rendersView(rt: Runtime) {

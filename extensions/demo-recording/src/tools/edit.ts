@@ -15,6 +15,7 @@ import type { Job } from "../jobs.ts";
 import { renderEvent } from "../qa/run.ts";
 import { formatRender, runRender } from "../render/run.ts";
 import type { RenderRecord } from "../render/store.ts";
+import { reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { latestVersion } from "../workdir/versioning.ts";
@@ -227,14 +228,15 @@ export function startEdit(
             voVersion: edit.timeline.voVersion,
             onFallback: (errors) =>
               rt.reportToAgent(
-                `[demo-recording] The separate Annotation designer couldn't suggest (${errors.join("; ")}), so it is yours now.${note()}`,
+                `${reportAs("Annotation designer")} The separate Annotation designer couldn't suggest (${errors.join("; ")}), so it is yours now.${note()}`,
               ),
           });
           if (started.job)
             tail = `\n\nNext — Annotations: the separate Annotation designer (roles.annotationDesigner → ${rt.getConfig().roles.annotationDesigner?.model.join(" → ")}) is suggesting them now. Don't start it yourself; you'll get a note when the version is ready.`;
         }
-        rt.reportToAgent(`[demo-recording] ${editJobSummary(edit)}${tail}`);
-      } else rt.reportToAgent(`[demo-recording] Edit ${j.status}: ${j.error ?? "unknown error"}`);
+        rt.reportToAgent(`${reportAs("Cutter")} ${editJobSummary(edit)}${tail}`);
+      } else
+        rt.reportToAgent(`${reportAs("Cutter")} Edit ${j.status}: ${j.error ?? "unknown error"}`);
     },
   );
 }

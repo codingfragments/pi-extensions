@@ -11,6 +11,7 @@ import { Type } from "typebox";
 import { formatFits } from "../edit/fit.ts";
 import { voiceFit } from "../edit/pipeline.ts";
 import type { Job } from "../jobs.ts";
+import { reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { listElevenLabsVoices, sortVoices } from "../tts/engines.ts";
 import { formatEstimate, voiceEstimate } from "../tts/estimate.ts";
@@ -249,10 +250,13 @@ export function startTts(
         const fits = voiceFit(p.dir, version, cfg);
         const warn = fits?.filter((f) => f.level === "warn") ?? [];
         tell(
-          `[demo-recording] ${opts.by === "panel" ? "(started from the panel) " : ""}${voiceSummary(j.result)}${fits ? `\n\nFit of the real voice to the footage:\n${formatFits(fits)}` : ""}` +
+          `${reportAs("Voice writer")} ${opts.by === "panel" ? "(started from the panel) " : ""}${voiceSummary(j.result)}${fits ? `\n\nFit of the real voice to the footage:\n${formatFits(fits)}` : ""}` +
             `${warn.length ? `\n${warn.length} scene(s) need attention before rendering — shorten those sections (new VO version) or accept.` : ""}`,
         );
-      } else tell(`[demo-recording] Voice synthesis ${j.status}: ${j.error ?? "unknown error"}`);
+      } else
+        tell(
+          `${reportAs("Voice writer")} Voice synthesis ${j.status}: ${j.error ?? "unknown error"}`,
+        );
       opts.afterDone?.(j);
     },
   );

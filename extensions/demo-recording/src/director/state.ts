@@ -9,11 +9,14 @@
  * log, the Activity list, the panel and a reload all see the same thing. Handlers must be cheap and must never throw.
  */
 
+import { type Speaker, roleOfTool } from "../roles.ts";
 import { stepLabel, taskLabel } from "./labels.ts";
 
 export interface DirectorStep {
   tool: string;
   label: string;
+  /** The role the Director plays while it runs this tool (docs/ACTORS.md): "Voice writer", "Cutter", … */
+  role: Speaker;
   stage?: string;
   since: number;
 }
@@ -104,16 +107,24 @@ export class DirectorTracker {
     if (!this.state.working) return;
     const t = this.now();
     const { label, stage } = stepLabel(e.toolName, e.args);
-    const step: DirectorStep = { tool: e.toolName, label, ...(stage ? { stage } : {}), since: t };
+    const role = roleOfTool(e.toolName, (e.args ?? {}) as Record<string, unknown>);
+    const step: DirectorStep = {
+      tool: e.toolName,
+      label,
+      role,
+      ...(stage ? { stage } : {}),
+      since: t,
+    };
     this.inFlight.push({ id: e.toolCallId ?? `${e.toolName}@${t}`, step });
     this.state.step = step;
     this.touch();
     this.publish("director.step", {
       tool: e.toolName,
       label,
+      role,
       ...(stage ? { stage } : {}),
       since: t,
-      message: `Director: ${label}`,
+      message: `${role}: ${label}`,
     });
   }
 
@@ -130,9 +141,10 @@ export class DirectorTracker {
     this.publish("director.step", {
       tool: next?.tool ?? null,
       label: next?.label ?? "Thinking",
+      ...(next?.role ? { role: next.role } : {}),
       ...(next?.stage ? { stage: next.stage } : {}),
       since: next?.since ?? this.now(),
-      message: `Director: ${next?.label ?? "thinking"}`,
+      message: `${next?.role ?? "Director"}: ${next?.label ?? "thinking"}`,
     });
   }
 

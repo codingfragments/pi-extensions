@@ -5,6 +5,10 @@ description: Drafts and refines the brief (brief.md) for a demo-recording projec
 
 # Demo brief
 
+**Say who is speaking (D144).** Start a block of your own text with your role once, e.g. `Director:`, so the user can tell the
+cast apart in the chat. Once per block, not on every line, and never inside an artifact you write (a storyboard, a script, a brief).
+Messages from the engine arrive already labelled: `[demo-recording · Cutter]` is a report, `[demo-panel · You]` is the user acting in the panel.
+
 The brief drives everything downstream: which use cases discovery hunts for,
 the order and length of scenes, and the stance and density of the
 voice-over. A vague brief produces a generic demo. Your job is to get to a

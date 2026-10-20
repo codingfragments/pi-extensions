@@ -4,10 +4,11 @@
  * the director. Message formatting is pure (unit-tested).
  */
 
+import { PANEL_PREFIX } from "../roles.ts";
 import type { Storyboard } from "../storyboard/types.ts";
 import type { StoryboardReview } from "../workdir/state.ts";
 
-export const PANEL_PREFIX = "[demo-panel]";
+export { PANEL_PREFIX };
 
 const LABEL = { approved: "APPROVED", changes: "CHANGES", rerun: "RE-RUN" } as const;
 

@@ -8,8 +8,8 @@
 
 import { answerFor } from "../question-flow.ts";
 import { cancelQuestion, dismissedMessage, readQuestions } from "../questions.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export function questionRoutes(rt: Runtime): {

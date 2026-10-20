@@ -307,9 +307,9 @@ Who passes what to whom, and how.
 |---|---|---|
 | You → Director | a goal, a correction, a decision | pi chat |
 | You → engine | an approval, review marks, a direction, an instruction, a config change | panel POST; the engine records it, **then** reports it |
-| Panel → Director | "review sent", "APPROVED", "re-suggest", "voice direction" | `[demo-panel]` user message (starts a turn) |
+| Panel → Director | "review sent", "APPROVED", "re-suggest", "voice direction" | `[demo-panel · You]` user message (starts a turn) |
 | Director → engine | write an artifact, start a job, read a report | `demo_rec_*` tool call |
-| Engine → Director | a job result, a validation error, the confidence listing | tool result, or a `[demo-recording]` report (a turn) |
+| Engine → Director | a job result, a validation error, the confidence listing | tool result, or a `[demo-recording · <role>]` report (a turn): the role is the one that produced it (Operator, Voice writer, Cutter, QA reviewer, Annotation designer) |
 | Engine → Director, quiet | "voice started from the panel", "annotations vN suggested by model X" | a note for the next turn (**no turn**) |
 | Engine → script | a command with inputs | process spawn with explicit arguments |
 | Script → engine | a file, an exit code | the file system |

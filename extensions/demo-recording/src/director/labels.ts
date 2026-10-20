@@ -3,12 +3,13 @@
  * label from the tool in flight. Pure, so the panel and the log say the same thing and a test can pin them.
  */
 
+import { PREFIX_SOURCE } from "../roles.ts";
 import type { Stage } from "../workdir/stages.ts";
 
 /** Strip a known prefix and keep the first sentence, short. */
 function gist(text: string, max = 90): string {
   const t = (text.split("\n").find((line) => line.trim()) ?? "")
-    .replace(/^\[(demo-panel|demo-recording)\]\s*/, "")
+    .replace(new RegExp(`^${PREFIX_SOURCE}\\s*`), "")
     .replace(/\s+/g, " ")
     .trim();
   const first = t.split(/(?<=[.!?])\s/)[0] ?? t;
@@ -48,9 +49,9 @@ export function taskLabel(o: { input?: string; prompt?: string; custom?: string 
               : "Working on the demo";
     return { label, by: "you" };
   }
-  const panel = /^\[(demo-panel|demo-recording)\]\s*(.*)$/s.exec(text);
+  const panel = new RegExp(`^${PREFIX_SOURCE}\\s*(.*)$`, "s").exec(text);
   if (panel) {
-    const body = panel[2] ?? "";
+    const body = panel[3] ?? "";
     const storyboardReview = /^Storyboard v(\d+) review/.exec(body);
     if (storyboardReview)
       return {

@@ -309,7 +309,10 @@ test(
         await new Promise((r) => setTimeout(r, 200));
       assert.equal(completions().length, 1, "exactly one completion message");
       const done = completions()[0];
-      assert.match(done?.text ?? "", /^\[demo-recording\] Recorded take-001 of storyboard v1/);
+      assert.match(
+        done?.text ?? "",
+        /^\[demo-recording · Operator\] Recorded take-001 of storyboard v1/,
+      );
       assert.match(done?.text ?? "", /hovered @ /);
       assert.deepEqual(done?.options, { triggerTurn: true, deliverAs: "followUp" });
       assert.ok(

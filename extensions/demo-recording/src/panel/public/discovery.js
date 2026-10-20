@@ -1,5 +1,5 @@
 import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
-import { Modal, post, useApi } from "./core.js";
+import { Modal, media, post, screenUrl, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
 import { errorToast, toast } from "./dialog.js";
 import { AREA_WORDS, stallOf, stallWords } from "./discovery-core.js";
@@ -193,5 +193,76 @@ export function Discovery({ events }) {
     ${data.uncovered?.length && !running ? html`<div class="ds-notice" data-tone="warn" role="note" data-uncovered><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div><strong>Not seen yet:</strong> ${data.uncovered.join(", ")}. The storyboard is not written over these until the Director explores them or leaves them out on purpose with a reason.</div></div>` : null}
     <${Sessions} sessions=${data.sessions} running=${data.running} />
     ${ask ? html`<${AskModal} mode=${ask.mode} extend=${ask.extend} data=${data} onClose=${() => setAsk(null)} />` : null}
+  </section>
+  <${Report} events=${events} sessions=${data.sessions} running=${running} canAsk=${data.sessions.length > 0} />`;
+}
+
+const GUIDE = [
+  ["useCases", "Use cases"],
+  ["mustShow", "Must show"],
+  ["risks", "Risks"],
+  ["avoid", "Avoid"],
+];
+
+/** An evidence id as a link where there is somewhere to go: a screen opens its picture, a source its file or link. */
+function Evidence({ id }) {
+  const link = (href, label, title) =>
+    html`<a class="ds-chip ds-evidence" href=${href} target="_blank" rel="noopener noreferrer" title=${title} data-evidence=${id}>${label}</a>`;
+  if (/^f-\d+$/.test(id))
+    return html`<a class="ds-chip ds-evidence" href=${"#/project?group=findings"} title="open the findings" data-evidence=${id}>${id}</a>`;
+  if (/^[\w-]+\/s\d+$/.test(id)) return link(screenUrl(id), id, "open the screen discovery saw");
+  if (id.startsWith("file:"))
+    return link(media("project", id.slice(5)), id.slice(5), "open the source file");
+  if (id.startsWith("ref:"))
+    return link(id.slice(4), id.slice(4).replace(/^https?:\/\//, ""), "open the link");
+  return html`<span class="ds-chip ds-evidence" data-evidence=${id}>${id}</span>`;
+}
+
+const Chips = ({ ids }) =>
+  html`<span class="ds-evidence-list">${ids.map((e) => html`<${Evidence} id=${e} key=${e} />`)}</span>`;
+
+/** The discovery report (D2, F2): what it found, what the sources added, the guidance for the storyboard. Every claim carries its evidence. */
+function Report({ events, sessions, running, canAsk }) {
+  const [version, setVersion] = useState(null);
+  const { data, reload } = useApi(
+    `/api/discovery-report${version ? `?version=${version}` : ""}`,
+    events,
+    /^discovery\./,
+  );
+  const [busy, setBusy] = useState(false);
+  if (!data) return null;
+  const r = data.report;
+  const ask = async () => {
+    setBusy(true);
+    try {
+      await post("/api/discovery-report-ask", {});
+      toast("Asked the Director to write the report. It appears here when it is done.", {
+        kind: "info",
+      });
+      reload();
+    } catch (e) {
+      errorToast(e, "report");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const asking = html`<div class="ds-row-flex"><button class="ds-btn ${r ? "" : "ds-btn--primary"}" type="button" data-act="ask-report" disabled=${busy || !canAsk || running} onClick=${ask}>${r ? "Ask the Director to update the report" : "Ask the Director to write the report"}</button><${CostHint} />${!canAsk ? html`<span class="ds-why">Run a discovery first.</span>` : running ? html`<span class="ds-why">A session is running: the report comes when it has finished.</span>` : null}</div>`;
+  if (!r)
+    return html`<section class="card ds-report" aria-label="Discovery report" data-report="none"><h2>Report</h2>
+      <p class="ds-muted">No report yet. At the end of a discovery the Director writes one: what it found about the app, what your sources added, and the guidance for the storyboard, each claim with its evidence.</p>${asking}</section>`;
+  const last = r.coverage.sessions.at(-1);
+  return html`<section class="card ds-report" aria-label="Discovery report" data-report=${r.version}>
+    <div class="ds-row-flex"><h2>Report v${r.version}</h2>
+      ${data.versions.length > 1 ? html`<label class="ds-small"><span class="ds-sr-only">Version</span><select class="ds-select" aria-label="Report version" data-field="report-version" value=${r.version} onChange=${(e) => setVersion(Number(e.target.value))}>${[...data.versions].reverse().map((v) => html`<option value=${v} key=${v}>v${v}${v === data.versions.at(-1) ? " (newest)" : ""}</option>`)}</select></label>` : null}
+      <span class="ds-muted ds-small">${new Date(r.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span></div>
+    ${data.newer.length ? html`<div class="ds-notice" data-tone="warn" role="note" data-newer><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${data.newer.length} discovery session${data.newer.length === 1 ? "" : "s"} ran after this report (${data.newer.join(", ")}): it does not know about ${data.newer.length === 1 ? "it" : "them"}. Ask the Director to update it.</div></div>` : null}
+    <p data-part="summary">${r.summary}</p>
+    <h3>What it found about the app</h3>
+    <ul class="ds-report-list" data-part="found">${r.found.map((x, i) => html`<li key=${i}>${x.text} <${Chips} ids=${x.evidence} /></li>`)}</ul>
+    ${r.research.length ? html`<h3>What your sources added</h3><ul class="ds-report-list" data-part="research">${r.research.map((x, i) => html`<li key=${i}>${x.text} <${Chips} ids=${x.evidence} /></li>`)}</ul>` : null}
+    <h3>Guidance for the storyboard</h3>
+    ${GUIDE.filter(([k]) => r.guidance[k].length).map(([k, label]) => html`<div class="ds-report-group" data-guide=${k} key=${k}><h4>${label}</h4><ul class="ds-report-list">${r.guidance[k].map((x, i) => html`<li key=${i}><strong>${x.title}</strong> <span class="ds-muted">${x.why}</span> <${Chips} ids=${x.evidence} /></li>`)}</ul></div>`)}
+    ${last ? html`<p class="ds-small ds-muted" data-part="coverage"><strong>Coverage, counted by the engine:</strong> ${last.areas.filter((a) => a.looks > 0).length} of ${last.areas.length} areas seen in session ${last.id}${last.areas.some((a) => a.status === "dropped") ? `, ${last.areas.filter((a) => a.status === "dropped").length} left out on purpose` : ""} · ${r.coverage.findings} finding${r.coverage.findings === 1 ? "" : "s"} · ${r.coverage.sources.files + r.coverage.sources.refs} source${r.coverage.sources.files + r.coverage.sources.refs === 1 ? "" : "s"}.</p>` : null}
+    ${asking}
   </section>`;
 }

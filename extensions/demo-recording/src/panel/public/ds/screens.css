@@ -2849,3 +2849,49 @@ ol[data-next-steps] {
 .seg.dropped span {
   text-decoration: line-through;
 }
+
+/* ---- the discovery report (item 10, D2) ---- */
+.ds-report {
+  display: grid;
+  gap: var(--space-3);
+}
+.ds-report h2,
+.ds-report h3,
+.ds-report h4,
+.ds-report p {
+  margin: 0;
+}
+.ds-report h3 {
+  font-size: var(--text-md);
+}
+.ds-report h4 {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ds-report-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-report-list li {
+  overflow-wrap: anywhere;
+}
+.ds-report-group {
+  display: grid;
+  gap: var(--space-2);
+}
+.ds-evidence-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  vertical-align: baseline;
+}
+.ds-evidence {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}

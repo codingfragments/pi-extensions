@@ -9,6 +9,7 @@ import { registerBrandTool } from "./src/tools/brand.ts";
 import { registerBrowserTool } from "./src/tools/browser.ts";
 import { registerCompareTool } from "./src/tools/compare.ts";
 import { registerConfigTool } from "./src/tools/config.ts";
+import { registerDiscoveryReportTool } from "./src/tools/discovery-report.ts";
 import { registerEditTool } from "./src/tools/edit.ts";
 import { registerProjectTool } from "./src/tools/project.ts";
 import { registerQaTool } from "./src/tools/qa.ts";
@@ -85,4 +86,5 @@ export default function (pi: ExtensionAPI) {
   registerRenderTool(pi, rt);
   registerQaTool(pi, rt);
   registerCompareTool(pi, rt);
+  registerDiscoveryReportTool(pi, rt);
 }

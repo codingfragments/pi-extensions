@@ -144,6 +144,19 @@ annotations → render.
       warns about uncovered *use* findings.
     - **auto:** your call.
     - **ignore:** never bring it up.
+12. **Write the discovery report** when you have finished exploring (also after
+    an Enhance, and when the user asks to update it): `demo_rec_discovery
+    context` (what you may cite, what the engine measured per area, the rules),
+    then `demo_rec_discovery report`: a summary; what you **found** about the app
+    (each item cites findings `f-…` or screens `<session>/s…`); what the
+    project's **sources** added (cite `file:`/`ref:`/`input:` ids; none if the
+    project has no sources); and the **guidance** for the storyboard: use cases
+    (the scenes to build), must show, risks (what could go wrong on camera) and
+    what to avoid, each with a why and its evidence. A claim without evidence, or
+    an id that does not exist, is refused with the reason. Do not claim coverage:
+    the engine fills it from what it measured. Then write the storyboard
+    following the guidance; the storyboard write tells you if there is no report
+    or if it does not cover the newest session.
 
 ## What makes a good demo storyboard
 

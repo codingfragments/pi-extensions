@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { formatReport, readReport } from "../discovery/report.ts";
 import { formatPending } from "../qa/apply.ts";
 import { formatFixSets } from "../qa/fixes.ts";
 import { formatIgnores } from "../qa/ignores.ts";
@@ -96,10 +97,22 @@ export function projectContext(projectDir: string, slug: string): string {
     "",
     `## Findings (${findings.length}; from discovery, recordings and the engine)`,
     formatFindings(findings),
+    ...discoveryReport(projectDir),
     ...qaDecisions(projectDir),
     ...qaFixes(projectDir),
     ...pendingFixes(projectDir),
     "",
     "Follow the active inputs unless the user now says otherwise. Outdated inputs were withdrawn by the user — ignore them.",
   ].join("\n");
+}
+
+/** The latest discovery report in brief (D2): the storyboard follows its guidance; the whole text is demo_rec_discovery get. */
+function discoveryReport(projectDir: string): string[] {
+  const r = readReport(projectDir);
+  if (!r) return [];
+  return [
+    "",
+    "## Discovery report (follow its guidance when writing the storyboard; demo_rec_discovery get for the evidence)",
+    formatReport(r),
+  ];
 }

@@ -11,6 +11,7 @@ import type { EventBus } from "../bus.ts";
 import { type ConfidenceSummary, formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence } from "../confidence/storyboard.ts";
 import { normText, voBase, voConfidence } from "../confidence/vo.ts";
+import { reportFor, reportVersions } from "../discovery/report.ts";
 import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
@@ -133,6 +134,12 @@ export function panelRoutes(deps: RouteDeps): {
           review: getReview(state, current.version),
           diff: prev ? diffStoryboards(prev.storyboard, current.storyboard) : null,
           confidence: safeConfidence(() => storyboardConfidence(p.dir, current.version)),
+          // the discovery report that was current when this version was written (D2), or none
+          report: (() => {
+            const r = reportFor(p.dir, current.file);
+            return r ? { version: r.version, at: r.at } : null;
+          })(),
+          reports: reportVersions(p.dir).length,
         };
       },
       vo: (q) => {

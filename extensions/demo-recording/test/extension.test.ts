@@ -168,6 +168,7 @@ test("S2 tools: registered; storyboard tool cannot approve; record refuses witho
     "demo_rec_browser",
     "demo_rec_compare",
     "demo_rec_config",
+    "demo_rec_discovery",
     "demo_rec_edit",
     "demo_rec_project",
     "demo_rec_qa",

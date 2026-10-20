@@ -2,7 +2,15 @@ import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { Modal, media, post, screenUrl, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
 import { errorToast, toast } from "./dialog.js";
-import { AREA_WORDS, stallOf, stallWords } from "./discovery-core.js";
+import {
+  AREA_WORDS,
+  KIND_ICON,
+  citedBy,
+  findingsAtScreen,
+  stallOf,
+  stallWords,
+} from "./discovery-core.js";
+import { formatRoute } from "./route.js";
 // demo-recording panel — Project → Discovery (item 10, D1; F1, F5): where discovery stands, how each session ended, and the way to
 // start it, enhance it, or extend its budget without leaving the page. Discovery itself is the Director's work (it explores the app in
 // a browser): Start and Enhance send it your notes, the areas you want covered and the budget you chose.
@@ -204,13 +212,17 @@ const GUIDE = [
   ["avoid", "Avoid"],
 ];
 
-/** An evidence id as a link where there is somewhere to go: a screen opens its picture, a source its file or link. */
-function Evidence({ id }) {
+/**
+ * An evidence id. A finding or a screen opens a popup first (what it is, how the report uses it) with a way on to the real finding or the
+ * full picture; a source goes straight to its file or link.
+ */
+function Evidence({ id, onOpen }) {
   const link = (href, label, title) =>
     html`<a class="ds-chip ds-evidence" href=${href} target="_blank" rel="noopener noreferrer" title=${title} data-evidence=${id}>${label}</a>`;
   if (/^f-\d+$/.test(id))
-    return html`<a class="ds-chip ds-evidence" href=${"#/project?group=findings"} title="open the findings" data-evidence=${id}>${id}</a>`;
-  if (/^[\w-]+\/s\d+$/.test(id)) return link(screenUrl(id), id, "open the screen discovery saw");
+    return html`<button class="ds-chip ds-evidence" type="button" data-evidence=${id} title="Look at this finding" onClick=${() => onOpen({ kind: "finding", id })}>${id}</button>`;
+  if (/^[\w-]+\/s\d+$/.test(id))
+    return html`<button class="ds-chip ds-evidence" type="button" data-evidence=${id} title="Look at this screen" onClick=${() => onOpen({ kind: "screen", id })}>${id}</button>`;
   if (id.startsWith("file:"))
     return link(media("project", id.slice(5)), id.slice(5), "open the source file");
   if (id.startsWith("ref:"))
@@ -218,8 +230,62 @@ function Evidence({ id }) {
   return html`<span class="ds-chip ds-evidence" data-evidence=${id}>${id}</span>`;
 }
 
-const Chips = ({ ids }) =>
-  html`<span class="ds-evidence-list">${ids.map((e) => html`<${Evidence} id=${e} key=${e} />`)}</span>`;
+function CitedBy({ cites }) {
+  if (!cites.length) return null;
+  return html`<div class="ds-stack" data-part="cited-by"><strong class="ds-small">How the report uses it</strong>
+    <ul class="ds-report-list">${cites.map((c, i) => html`<li key=${i}><span class="ds-muted ds-small">${c.part}</span> ${c.text}</li>`)}</ul></div>`;
+}
+
+const STATE_WORD = {
+  use: "use: must be in the recording",
+  auto: "auto: the Director decides",
+  ignore: "ignore: never brought up",
+};
+
+/** What a finding is, before you leave the report: its words, its marks, its own evidence, and the way on to the real one. */
+function FindingPopup({ id, findings, report, onClose }) {
+  const f = findings.find((x) => x.id === id);
+  const go = () => {
+    onClose();
+    location.hash = formatRoute({ screen: "project", query: { group: "findings", finding: id } });
+  };
+  const footer = html`<button class="ds-btn" type="button" onClick=${onClose}>Close</button>${f ? html`<button class="ds-btn ds-btn--primary" type="button" data-act="go-to-finding" onClick=${go}>Go to this finding</button>` : null}`;
+  return html`<${Modal} title=${`Finding ${id}`} size="medium" onClose=${onClose} footer=${footer}>
+    <div class="ds-stack ds-evidence-popup" data-popup="finding" data-finding=${id}>
+      ${
+        f
+          ? html`<div class="ds-row-flex"><span class="ds-badge" data-tone="neutral"><span class="ds-badge-ico" aria-hidden="true">${KIND_ICON[f.kind] ?? "•"}</span>${f.kind}</span><span class="ds-badge" data-tone=${f.state === "use" ? "accent" : "neutral"}>${f.state}</span><span class="ds-muted ds-small">${f.source} · ${f.stage}${f.scene ? ` · ${f.scene}` : ""}</span></div>
+            <p class="ds-popup-text"><strong>${f.text}</strong></p>
+            ${f.suggestion ? html`<p class="ds-small">→ ${f.suggestion}</p>` : null}
+            <p class="ds-small ds-muted">${STATE_WORD[f.state]}</p>
+            ${f.media?.length ? html`<div class="f-media" data-part="finding-media">${f.media.map((m) => html`<img loading="lazy" src=${media(m.kind, m.path)} alt="evidence of ${id}" />`)}</div>` : null}`
+          : html`<p class="ds-muted">This finding is not in the project's list any more.</p>`
+      }
+      <${CitedBy} cites=${citedBy(report, id)} />
+    </div>
+  <//>`;
+}
+
+/** A screen discovery saw, large, with the findings that cite it and the way on to the full-size picture. */
+function ScreenPopup({ id, findings, report, onClose, onOpen }) {
+  const here = findingsAtScreen(findings, id);
+  const footer = html`<button class="ds-btn" type="button" onClick=${onClose}>Close</button><a class="ds-btn ds-btn--primary" href=${screenUrl(id)} target="_blank" rel="noopener noreferrer" data-act="open-full-screen">Open full size</a>`;
+  return html`<${Modal} title=${`Screen ${id}`} size="large" onClose=${onClose} footer=${footer}>
+    <div class="ds-stack ds-evidence-popup" data-popup="screen" data-screen=${id}>
+      <figure class="frame frame--big"><img src=${screenUrl(id)} alt=${`The screen ${id} as discovery saw it`} /><figcaption class="mono">${id}</figcaption></figure>
+      ${
+        here.length
+          ? html`<div class="ds-stack" data-part="screen-findings"><strong class="ds-small">Findings that cite this screen</strong>
+              <ul class="ds-report-list">${here.map((f) => html`<li key=${f.id}><button class="ds-chip ds-evidence" type="button" data-act="open-finding" data-evidence=${f.id} onClick=${() => onOpen({ kind: "finding", id: f.id })}>${f.id}</button> ${f.text}</li>`)}</ul></div>`
+          : null
+      }
+      <${CitedBy} cites=${citedBy(report, id)} />
+    </div>
+  <//>`;
+}
+
+const Chips = ({ ids, onOpen }) =>
+  html`<span class="ds-evidence-list">${ids.map((e) => html`<${Evidence} id=${e} key=${e} onOpen=${onOpen} />`)}</span>`;
 
 /** The discovery report (D2, F2): what it found, what the sources added, the guidance for the storyboard. Every claim carries its evidence. */
 function Report({ events, sessions, running, canAsk }) {
@@ -230,6 +296,9 @@ function Report({ events, sessions, running, canAsk }) {
     /^discovery\./,
   );
   const [busy, setBusy] = useState(false);
+  const [popup, setPopup] = useState(null);
+  // the findings with their own evidence pictures, for the popups (one request, refreshed as findings change)
+  const findings = useApi("/api/findings", events, /^finding\./);
   if (!data) return null;
   const r = data.report;
   const ask = async () => {
@@ -258,11 +327,13 @@ function Report({ events, sessions, running, canAsk }) {
     ${data.newer.length ? html`<div class="ds-notice" data-tone="warn" role="note" data-newer><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><div>${data.newer.length} discovery session${data.newer.length === 1 ? "" : "s"} ran after this report (${data.newer.join(", ")}): it does not know about ${data.newer.length === 1 ? "it" : "them"}. Ask the Director to update it.</div></div>` : null}
     <p data-part="summary">${r.summary}</p>
     <h3>What it found about the app</h3>
-    <ul class="ds-report-list" data-part="found">${r.found.map((x, i) => html`<li key=${i}>${x.text} <${Chips} ids=${x.evidence} /></li>`)}</ul>
-    ${r.research.length ? html`<h3>What your sources added</h3><ul class="ds-report-list" data-part="research">${r.research.map((x, i) => html`<li key=${i}>${x.text} <${Chips} ids=${x.evidence} /></li>`)}</ul>` : null}
+    <ul class="ds-report-list" data-part="found">${r.found.map((x, i) => html`<li key=${i}>${x.text} <${Chips} ids=${x.evidence} onOpen=${setPopup} /></li>`)}</ul>
+    ${r.research.length ? html`<h3>What your sources added</h3><ul class="ds-report-list" data-part="research">${r.research.map((x, i) => html`<li key=${i}>${x.text} <${Chips} ids=${x.evidence} onOpen=${setPopup} /></li>`)}</ul>` : null}
     <h3>Guidance for the storyboard</h3>
-    ${GUIDE.filter(([k]) => r.guidance[k].length).map(([k, label]) => html`<div class="ds-report-group" data-guide=${k} key=${k}><h4>${label}</h4><ul class="ds-report-list">${r.guidance[k].map((x, i) => html`<li key=${i}><strong>${x.title}</strong> <span class="ds-muted">${x.why}</span> <${Chips} ids=${x.evidence} /></li>`)}</ul></div>`)}
+    ${GUIDE.filter(([k]) => r.guidance[k].length).map(([k, label]) => html`<div class="ds-report-group" data-guide=${k} key=${k}><h4>${label}</h4><ul class="ds-report-list">${r.guidance[k].map((x, i) => html`<li key=${i}><strong>${x.title}</strong> <span class="ds-muted">${x.why}</span> <${Chips} ids=${x.evidence} onOpen=${setPopup} /></li>`)}</ul></div>`)}
     ${last ? html`<p class="ds-small ds-muted" data-part="coverage"><strong>Coverage, counted by the engine:</strong> ${last.areas.filter((a) => a.looks > 0).length} of ${last.areas.length} areas seen in session ${last.id}${last.areas.some((a) => a.status === "dropped") ? `, ${last.areas.filter((a) => a.status === "dropped").length} left out on purpose` : ""} · ${r.coverage.findings} finding${r.coverage.findings === 1 ? "" : "s"} · ${r.coverage.sources.files + r.coverage.sources.refs} source${r.coverage.sources.files + r.coverage.sources.refs === 1 ? "" : "s"}.</p>` : null}
     ${asking}
+    ${popup?.kind === "finding" ? html`<${FindingPopup} id=${popup.id} findings=${findings.data?.findings ?? []} report=${r} onClose=${() => setPopup(null)} />` : null}
+    ${popup?.kind === "screen" ? html`<${ScreenPopup} id=${popup.id} findings=${findings.data?.findings ?? []} report=${r} onClose=${() => setPopup(null)} onOpen=${setPopup} />` : null}
   </section>`;
 }

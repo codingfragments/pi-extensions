@@ -93,3 +93,42 @@ export function areaSegment(a, weight) {
       return { ...base, label: a.name, done: 0, state: "todo" };
   }
 }
+
+/** The mark of a finding's kind (the Findings list and the evidence popup show the same one). */
+export const KIND_ICON = {
+  strength: "＋",
+  weakness: "−",
+  friction: "≈",
+  value: "#",
+  "use-case": "◆",
+  length: "⏱",
+  other: "•",
+  error: "▲",
+  fallback: "↺",
+  retry: "⟳",
+  "dead-time": "⌛",
+  blocked: "⛔",
+  "state-change": "✎",
+};
+
+/** Where in the report an evidence id is cited: [{ part, text }] for the found, research and guidance items that name it. */
+export function citedBy(report, id) {
+  if (!report) return [];
+  const out = [];
+  report.found.forEach(
+    (x, i) => x.evidence.includes(id) && out.push({ part: `found ${i + 1}`, text: x.text }),
+  );
+  report.research.forEach(
+    (x, i) => x.evidence.includes(id) && out.push({ part: `research ${i + 1}`, text: x.text }),
+  );
+  const words = { useCases: "use case", mustShow: "must show", risks: "risk", avoid: "avoid" };
+  for (const [k, w] of Object.entries(words))
+    (report.guidance[k] ?? []).forEach(
+      (x, i) => x.evidence.includes(id) && out.push({ part: `${w} ${i + 1}`, text: x.title }),
+    );
+  return out;
+}
+
+/** The findings that cite a screen id (`<session>/sNNN`) as evidence. */
+export const findingsAtScreen = (findings, id) =>
+  findings.filter((f) => f.evidence.some((e) => e.type === "screen" && e.id === id));

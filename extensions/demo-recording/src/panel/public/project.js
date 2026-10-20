@@ -7,6 +7,7 @@ import { CostHint } from "./cost.js";
 // input log with mark outdated / restore, sources, working line).
 // Tool configuration — also project-scope overrides — lives in ⚙ Config.
 import { askText, confirmAsk, errorToast } from "./dialog.js";
+import { KIND_ICON } from "./discovery-core.js";
 import { Discovery } from "./discovery.js";
 import { VoiceInput } from "./voices.js";
 
@@ -264,22 +265,6 @@ function Facts({ events, focus }) {
   </section>`;
 }
 
-const KIND_ICON = {
-  strength: "＋",
-  weakness: "−",
-  friction: "≈",
-  value: "#",
-  "use-case": "◆",
-  length: "⏱",
-  other: "•",
-  error: "▲",
-  fallback: "↺",
-  retry: "⟳",
-  "dead-time": "⌛",
-  blocked: "⛔",
-  "state-change": "✎",
-};
-
 function evidenceLabel(e) {
   if (e.type === "screen") return `screen ${e.id}`;
   if (e.type === "take") return `${e.take} @${(e.t / 1000).toFixed(1)}s`;
@@ -291,6 +276,18 @@ function Findings({ events }) {
   const { data, error, reload } = useApi("/api/findings", events, PROJECT_EVENTS);
   const [state, setState] = useState("all");
   const [source, setSource] = useState("all");
+  // arriving from a discovery report's popup (#/project?group=findings&finding=f-0004): show that one, scrolled into view
+  const [route] = useHashRoute();
+  const focus = route?.query?.finding ?? null;
+  const total = data?.findings.length ?? 0;
+  useEffect(() => {
+    if (!focus || !total) return;
+    setState("all");
+    setSource("all");
+    requestAnimationFrame(() =>
+      document.getElementById(`finding-${focus}`)?.scrollIntoView({ block: "center" }),
+    );
+  }, [focus, total]);
   if (error) return html`<section class="card error">${error}</section>`;
   if (!data) return html`<section class="card muted">loading…</section>`;
   if (!data.project) return null;
@@ -319,7 +316,9 @@ function Findings({ events }) {
     ${
       list.length
         ? html`<ul class="findings">${list.map(
-            (f) => html`<li class=${`finding ${f.state}`} key=${f.id}>
+            (
+              f,
+            ) => html`<li class=${`finding ${f.state}`} key=${f.id} id=${`finding-${f.id}`} data-focused=${f.id === focus ? "true" : undefined}>
               <span class="f-icon" title=${f.kind}>${KIND_ICON[f.kind] ?? "•"}</span>
               <div class="f-body">
                 <div><b>${f.text}</b></div>

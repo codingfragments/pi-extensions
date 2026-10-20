@@ -115,7 +115,7 @@ test("GET project carries the summary; brief-draft asks the Director (one turn) 
     assert.equal(turns.length, 1);
     assert.match(
       turns[0] ?? "",
-      /^\[demo-panel\] The user asks you to draft the brief for project "demo" with them \(their note: "a 2-minute tour for CTOs"\)/,
+      /^\[demo-panel · You\] The user asks you to draft the brief for project "demo" with them \(their note: "a 2-minute tour for CTOs"\)/,
     );
     assert.match(turns[0] ?? "", /demo-brief skill[\s\S]*ask only for the gaps[\s\S]*write_brief/);
     assert.deepEqual(notes, []);

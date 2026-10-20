@@ -27,6 +27,7 @@ import {
   readRender,
   saveRecord,
 } from "../render/store.ts";
+import { reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { firstLine, jobFacts } from "../util/events.ts";
 import { readState } from "../workdir/state.ts";
@@ -74,8 +75,8 @@ export function startRender(rt: Runtime, request: RenderRequest): Job<RenderReco
       rt.setStatus(undefined, true);
       const q = rec?.qa ? readQa(p.dir, rec.version) : undefined;
       const text = rec
-        ? `[demo-recording] ${formatRender(rec)}${q && rec.qa ? `\n${formatQa(q, rec.qa)}` : ""}${request.kind === "final" ? `\n${rec.qa?.status === "blocked" ? "QA blocks accepting it: the user fixes (Apply fixes) or confirms each blocking item in the Render tab." : "The user can accept it as the deliverable in the Render tab."}` : ""}`
-        : `[demo-recording] Render ${j.status}: ${j.error ?? "unknown error"}`;
+        ? `${rec?.qa ? reportAs("QA reviewer") : reportAs("Cutter")} ${formatRender(rec)}${q && rec.qa ? `\n${formatQa(q, rec.qa)}` : ""}${request.kind === "final" ? `\n${rec.qa?.status === "blocked" ? "QA blocks accepting it: the user fixes (Apply fixes) or confirms each blocking item in the Render tab." : "The user can accept it as the deliverable in the Render tab."}` : ""}`
+        : `${reportAs("Cutter")} Render ${j.status}: ${j.error ?? "unknown error"}`;
       // The agent asked → it gets the report as a turn; the panel asked → a quiet note (D63).
       if (request.by === "agent") rt.reportToAgent(text);
       else rt.tellAgent(text);
@@ -126,8 +127,8 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
       const q = r ? readQa(p.dir, version) : undefined;
       const text =
         r?.qa && q
-          ? `[demo-recording] ${formatQa(q, r.qa)}`
-          : `[demo-recording] QA of render v${version} ${j.status}: ${j.error ?? ""}`;
+          ? `${reportAs("QA reviewer")} ${formatQa(q, r.qa)}`
+          : `${reportAs("QA reviewer")} QA of render v${version} ${j.status}: ${j.error ?? ""}`;
       if (by === "agent") rt.reportToAgent(text);
       else rt.tellAgent(text);
     },

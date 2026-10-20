@@ -12,6 +12,7 @@
  */
 
 import { randomBytes } from "node:crypto";
+import { reportAs } from "./roles.ts";
 
 /** What a grant can pay for. The auto designer is run-and-tell, not gated (P1a decision). */
 export type SpendKind = "tts" | "take";
@@ -42,11 +43,11 @@ export interface SpendRequest {
 
 /** What the Director is told when the user allows a request (starts its turn). */
 export const allowedMessage = (what: string): string =>
-  `[demo-recording] The user ALLOWED: ${what}. Go on with exactly that (the permission is valid for 15 minutes and for one start).`;
+  `${reportAs("You")} The user ALLOWED: ${what}. Go on with exactly that (the permission is valid for 15 minutes and for one start).`;
 
 /** What the Director is told when the user refuses a request (a quiet note). */
 export const deniedMessage = (what: string): string =>
-  `[demo-recording] The user did NOT allow: ${what}. Do not try again unless they ask you to.`;
+  `${reportAs("You")} The user did NOT allow: ${what}. Do not try again unless they ask you to.`;
 
 export class GrantStore {
   private grants: Grant[] = [];

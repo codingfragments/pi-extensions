@@ -284,7 +284,7 @@ test("review: per-scene drafts, notes, submit, messages", () => {
   const { review: submitted } = submitReview(p.dir, 1);
   assert.ok(submitted.submittedAt);
   const msg = reviewMessage(p.slug, sb, submitted);
-  assert.match(msg, /^\[demo-panel\] Storyboard v1 review for project "churn-poc":/);
+  assert.match(msg, /^\[demo-panel · You\] Storyboard v1 review for project "churn-poc":/);
   assert.match(msg, /- 02-b \(B\): RE-RUN — "the answer was cut off"/);
   assert.match(msg, /not reviewed: 01-a/);
   assert.match(msg, /Overall note: "swap the order"/);

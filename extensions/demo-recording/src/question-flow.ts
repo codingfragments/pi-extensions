@@ -9,7 +9,6 @@
  */
 
 import { allowedMessage, deniedMessage } from "./grants.ts";
-import { PANEL_PREFIX } from "./panel/bridge.ts";
 import {
   type AnswerResult,
   type Question,
@@ -18,10 +17,11 @@ import {
   askQuestion,
   readQuestions,
 } from "./questions.ts";
+import { PANEL_PREFIX, reportAs } from "./roles.ts";
 import type { Runtime } from "./runtime.ts";
 
 /** The prefix of a message to the Director for an answer given in the chat. */
-export const CHAT_PREFIX = "[demo-recording]";
+export const CHAT_PREFIX = reportAs("You");
 
 /** Show a new question in the chat (a labelled message, no turn) and tell the panel. */
 export function announceQuestion(rt: Runtime, q: Question): void {

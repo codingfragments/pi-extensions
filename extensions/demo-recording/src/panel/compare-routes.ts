@@ -7,8 +7,8 @@
  */
 
 import { askVerdict, cancelVerdict, listVerdicts, readVerdict } from "../compare/verdict.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 const WORD = { storyboard: "storyboard", vo: "voice-over" } as const;

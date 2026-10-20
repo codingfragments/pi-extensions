@@ -336,11 +336,11 @@ test("panel route: re-suggest goes to the separate designer when it starts, to t
     fallback?.(["a/one: overloaded"]);
     assert.match(
       sent.at(-1) ?? "",
-      /^\(The separate Annotation designer couldn't do it: a\/one: overloaded\.\) \[demo-panel\] Suggest annotations/,
+      /^\(The separate Annotation designer couldn't do it: a\/one: overloaded\.\) \[demo-panel · You\] Suggest annotations/,
     );
     const b = post(mk(() => false));
     assert.equal(b.separate, false);
-    assert.match(sent.at(-1) ?? "", /^\[demo-panel\] Suggest annotations .* "calmer"/);
+    assert.match(sent.at(-1) ?? "", /^\[demo-panel · You\] Suggest annotations .* "calmer"/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

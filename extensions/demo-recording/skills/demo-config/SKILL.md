@@ -5,6 +5,10 @@ description: Shows, explains and changes demo-recording settings — voice (Elev
 
 # Demo config
 
+**Say who is speaking (D144).** Start a block of your own text with your role once, e.g. `Director:`, so the user can tell the
+cast apart in the chat. Once per block, not on every line, and never inside an artifact you write (a storyboard, a script, a brief).
+Messages from the engine arrive already labelled: `[demo-recording · Cutter]` is a report, `[demo-panel · You]` is the user acting in the panel.
+
 Settings come in layers, lowest to highest:
 
 1. built-in defaults

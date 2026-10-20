@@ -162,7 +162,12 @@ function directorRow(events) {
       at: ev.seq,
     };
   const started = last(events, ["director.started"]);
-  const step = ev.type === "director.step" && ev.data.tool ? ev.data.label : "thinking";
+  const step =
+    ev.type === "director.step" && ev.data.tool
+      ? ev.data.role && ev.data.role !== "Director"
+        ? `${ev.data.role}: ${ev.data.label}`
+        : ev.data.label
+      : "thinking";
   return {
     key: "director",
     title: "Director",

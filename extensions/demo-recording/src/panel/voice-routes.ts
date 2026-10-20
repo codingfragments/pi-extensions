@@ -14,6 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { formatConfidence } from "../confidence/level.ts";
 import { voConfidence } from "../confidence/vo.ts";
+import { reportAs } from "../roles.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { startEdit } from "../tools/edit.ts";
 import { startTts } from "../tools/tts.ts";
@@ -25,7 +27,6 @@ import { STANCES, briefFieldValue, setBriefFacts } from "../workdir/brief.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import { readState, requireSelected } from "../workdir/state.ts";
 import { writeNextVersion } from "../workdir/versioning.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { PostRoute } from "./server.ts";
 
 export const TONES = ["calm", "energetic", "conversational", "crisp"] as const;
@@ -210,7 +211,7 @@ export function voiceRoutes(rt: Runtime): { post: Record<string, PostRoute> } {
                 p.slug,
               );
               rt.tellAgent(
-                `[demo-recording] The panel's edit after voice v${version} couldn't start: ${(err as Error).message}`,
+                `${reportAs("Cutter")} The panel's edit after voice v${version} couldn't start: ${(err as Error).message}`,
               );
             }
           },

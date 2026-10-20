@@ -28,12 +28,12 @@ import {
 import { DraftConflict } from "../drafts/store.ts";
 import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import { logInstructions, timelineFor } from "../tools/annotations.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
 import { isAccepted } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export interface AnnotationRouteDeps {

@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { lineDiff } from "../config-edit.ts";
+import { PANEL_PREFIX } from "../roles.ts";
 import {
   BRIEF_FIELDS,
   DEPTH_DEFAULTS,
@@ -32,7 +33,6 @@ import type { ProjectHandle } from "../workdir/layout.ts";
 import { formatLine } from "../workdir/stages.ts";
 import { readState } from "../workdir/state.ts";
 import { listVersions, writeNextVersion } from "../workdir/versioning.ts";
-import { PANEL_PREFIX } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 import { localize } from "./stage-routes.ts";
 
@@ -272,7 +272,7 @@ export function projectRoutes(deps: ProjectRouteDeps): {
           p.slug,
         );
         deps.tellAgent(
-          `[demo-panel] The user edited the project facts of "${p.slug}" (${changed}); brief.md is now v${v.version}. Re-read it (demo_rec_project context) before the next step.`,
+          `${PANEL_PREFIX} The user edited the project facts of "${p.slug}" (${changed}); brief.md is now v${v.version}. Re-read it (demo_rec_project context) before the next step.`,
         );
         return { saved: true, version: v.version };
       },
@@ -313,7 +313,7 @@ export function projectRoutes(deps: ProjectRouteDeps): {
         );
         if (state !== "auto")
           deps.tellAgent(
-            `[demo-panel] The user marked finding ${f.id} ("${f.text.slice(0, 80)}") as ${state.toUpperCase()}${state === "use" ? " — it must appear in the recording and the narration (list it in a scene's findings:)" : " — never bring it up"}.`,
+            `${PANEL_PREFIX} The user marked finding ${f.id} ("${f.text.slice(0, 80)}") as ${state.toUpperCase()}${state === "use" ? " — it must appear in the recording and the narration (list it in a scene's findings:)" : " — never bring it up"}.`,
           );
         return { finding: f };
       },

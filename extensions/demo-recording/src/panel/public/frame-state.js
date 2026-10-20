@@ -37,6 +37,13 @@ export const JOB_TITLE = {
 
 /** What a job is called: its own label when it has one (a quality check runs in the render slot), else its kind's title. */
 export const jobTitle = (j) => j?.label ?? JOB_TITLE[j?.kind] ?? j?.kind;
+/** What a step reads like with its role: "Voice writer: Writing the voice-over" (the Director's own steps stay as they are). */
+export const stepWords = (step) =>
+  step.role && step.role !== "Director" ? `${step.role}: ${step.label}` : step.label;
+/** Who is doing it: "The Director" or "The Director as Voice writer". */
+export const directorAs = (step) =>
+  step?.role && step.role !== "Director" ? `The Director as ${step.role}` : "The Director";
+
 export const stepOfStage = (stage) => STEPS.find((s) => s.stage === stage);
 export const vLabel = (stage, n) =>
   stage === "recording" ? `take-${String(n).padStart(3, "0")}` : `v${n}`;
@@ -110,7 +117,7 @@ export function stepStates({ stages, jobs, discovery = false, director }) {
     const busy = director?.working && director.step?.stage === step.stage;
     if (busy && state !== "blocked" && state !== "running") {
       state = "running";
-      why = `The Director is ${director.step.label.charAt(0).toLowerCase()}${director.step.label.slice(1)}`;
+      why = `${directorAs(director.step)} is ${director.step.label.charAt(0).toLowerCase()}${director.step.label.slice(1)}`;
     }
     // the newest draft was written from accepted QA fixes: say where it comes from (P1c Q4, D-QA-8)
     const link = s?.fixLinks?.find((l) => l.version === pending.at(-1));
@@ -170,7 +177,7 @@ export function nextBand({ stages, states, jobs, director, now = Date.now(), que
     return {
       tone: "working",
       label: "Director working",
-      text: `${director.task}${director.step ? ` · ${director.step.label}` : " · thinking"}${quiet >= 5 ? ` (no news for ${quiet} min)` : ""}`,
+      text: `${director.task}${director.step ? ` · ${stepWords(director.step)}` : " · thinking"}${quiet >= 5 ? ` (no news for ${quiet} min)` : ""}`,
       action: null,
       more: needing.map((t) => ({ tab: t, text: states[t].why })),
       moreWord: "wait for you",
@@ -296,7 +303,7 @@ export function stripState({ jobs, rows, status, dismissed = new Set(), director
   if (director?.working)
     return {
       tone: "running",
-      text: `Director: ${director.task}${director.step ? ` · ${director.step.label}` : ""}`,
+      text: `Director: ${director.task}${director.step ? ` · ${stepWords(director.step)}` : ""}`,
       progress: null,
       running: [],
       failure,
@@ -321,7 +328,7 @@ export function directorNow(state, events = []) {
         ...d,
         lastAt: at,
         step: e.data.tool
-          ? { tool: e.data.tool, label: e.data.label, stage: e.data.stage }
+          ? { tool: e.data.tool, label: e.data.label, role: e.data.role, stage: e.data.stage }
           : undefined,
       };
     else if (e.type === "director.settled")

@@ -13,6 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { PANEL_PREFIX } from "../roles.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
 import {
   PARENT,
@@ -23,7 +24,7 @@ import {
   versionLabel,
 } from "../workdir/stages.ts";
 import { PHASES, type ProjectState, readState, setPhase, updateState } from "../workdir/state.ts";
-import { PANEL_PREFIX, approvalMessage } from "./bridge.ts";
+import { approvalMessage } from "./bridge.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 import {
   INTENTS,

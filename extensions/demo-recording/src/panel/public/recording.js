@@ -225,10 +225,10 @@ function TakeWorkspace({ t, reload }) {
       <${SceneContext} scene=${scenes[current]} onSeek=${t.video ? seek : () => undefined} />
       ${
         t.video
-          ? html`<video class="ds-rv-video" ref=${video} controls preload="metadata" aria-label=${`Raw recording ${t.id}`} src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>
+          ? html`<div class="ds-rv-player"><video class="ds-rv-video" ref=${video} controls preload="metadata" aria-label=${`Raw recording ${t.id}`} src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>
             <${ChapterBar} scenes=${scenes} durationMs=${t.durationMs ?? 0} time=${time} current=${current} onSeek=${seek} />
             <div class="ds-row-flex"><button class="ds-btn ds-btn--sm" type="button" data-act="add-note" onClick=${startNote}>Add note at ${clock(time ?? 0)}${scenes[current] ? ` · ${scenes[current].id}` : ""}</button>
-              <span class="ds-small ds-muted"><kbd class="ds-kbd">N</kbd> adds a note, <kbd class="ds-kbd">[</kbd> / <kbd class="ds-kbd">]</kbd> change chapter (focus inside)</span></div>`
+              <span class="ds-small ds-muted"><kbd class="ds-kbd">N</kbd> adds a note, <kbd class="ds-kbd">[</kbd> / <kbd class="ds-kbd">]</kbd> change chapter (focus inside)</span></div></div>`
           : html`<p class="ds-notice" role="note">This take has no raw video on disk, so the chapters cannot play.</p>`
       }
     </div>

@@ -2515,33 +2515,36 @@ ol[data-next-steps] {
 .ds-rv-notes {
   grid-area: notes;
 }
-/* room for a third column: the notes sit beside the player, pinned like it */
+/* room for a third column: the notes sit beside the player (nothing is pinned: the page scrolls, D145) */
 @container (min-width: 72rem) {
   .ds-rv {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 2fr);
     grid-template-areas: "chapters pane notes";
     grid-template-rows: auto;
   }
-  .ds-rv-notes {
-    position: sticky;
-    inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
-    max-block-size: calc(100vh - var(--hwrap-h, 7rem) - var(--strip-h, 3rem) - var(--space-4));
-    overflow: auto;
-  }
 }
 .ds-rv-pane {
-  position: sticky;
-  inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
-  display: grid;
+  /* a column that is as tall as the row (the chapters and the notes beside it), so the player inside can stick for the whole row */
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
   gap: var(--space-3);
-  max-block-size: calc(100vh - var(--hwrap-h, 7rem) - var(--strip-h, 3rem) - var(--space-4));
-  overflow: auto;
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-panel);
 }
-/* narrow (as the list screens): the columns stack, the player comes first and nothing is pinned, so the chapters stay reachable */
+/* The ONE thing that stays in view (D145): the player with its chapter bar and the note button, while you read the chapters and write notes. It is small
+   (the video is at most 40vh), has no scroll of its own, and releases at the end of the row. */
+.ds-rv-player {
+  position: sticky;
+  inset-block-start: calc(var(--hwrap-h, 7rem) + var(--space-2));
+  display: grid;
+  gap: var(--space-3);
+  padding-block-end: var(--space-2);
+  background: var(--surface-panel);
+}
+/* narrow (as the list screens): the columns stack, the player comes first, so the chapters stay reachable */
 @container (max-width: 52rem) {
   .ds-rv {
     grid-template-columns: minmax(0, 1fr);
@@ -2551,9 +2554,8 @@ ol[data-next-steps] {
       "chapters";
     grid-template-rows: auto;
   }
-  .ds-rv-pane {
+  .ds-rv-player {
     position: static;
-    max-block-size: none;
   }
 }
 .ds-rv-video {
@@ -2566,8 +2568,6 @@ ol[data-next-steps] {
 .ds-rv-context {
   display: grid;
   gap: var(--space-2);
-  max-block-size: 30vh;
-  overflow: auto;
 }
 .ds-rv-context h3 {
   margin: 0;

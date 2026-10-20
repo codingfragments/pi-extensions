@@ -249,6 +249,10 @@ Allow, and can feed the fix window.
   logo; `GET /api/render` carries it per brand; New render explains it under the checkbox for the chosen looks (what it does and in which corner, or "Nothing to show:
   neutral has it turned off", with a link to Config › Brands), and the checkbox is disabled and unchecked when no chosen look shows one. When disabled the render still
   sends the default (`true`), so the variant names never say "no logo" for something that was never there. **Tests:** `test/logo-bug.test.ts` (3, one in the browser).
+- **12c, one scroll (R3-2, R3-5; added after run 3 prep, not in the day estimate; spike [L1-global-scroll.md](spikes/L1-global-scroll.md), D145).** The pinned detail
+  of Storyboard, Voice over and Annotations and the pinned player and notes of Recording are gone: the page is the only scroll, the wheel works over the main area,
+  the action bar sticks to the bottom of the window, Render is untouched. Built as the plain version first and reviewed by you; the second part (decided: "agree" with the recommendation) keeps ONE small sticky block, the
+  Recording player, and nothing else. `test/list-screens.test.ts` and `test/recording-review.test.ts` assert it.
 - **12b, zoom limits (F21, done).** The fixed "at most 2 zooms per demo" is two settings, `annotations.zoomsPerMinute` (default 1.5, 0 to 20) and `annotations.zoomsPerScene`
   (default 1, whole, 0 to 5), global with a project override like every setting; 0 = no zooms. `src/annotations/zoom-limits.ts` is the one place that decides (total = per minute × the
   demo's length, rounded up, at least 1; an 80 s demo still gets 2, a 6 minute demo 9), used by the designer's selection and import, the panel's toggle and reset rules

@@ -270,8 +270,9 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
 - **Long lists** (Voice over sections, Storyboard scenes, Annotations): the list is 22 rem wide, a row's text **wraps** (up to three lines, the whole
   text on hover) and never runs into the detail. **The page is the only scroll** (D145): the detail is plain content next to the list, nothing is pinned and nothing
   scrolls inside, so the wheel works the same over the list and over the main area. The screen's action bar (Save new version) sticks to the bottom
-  of the window while the list is on screen and ends with it. The Recording review works the same: the player, the chapters and the notes are
-  columns of the page. Render keeps its pinned player.
+  of the window while the list is on screen and ends with it. The Recording review works the same, with one exception: the player (video, chapter bar, Add note) sticks just
+  under the header while you read the chapters and write notes, and is released at the end; the chapters and the notes are columns of the page.
+  Render keeps its pinned player.
 - **Small windows:** the layout follows the width of the workspace, not the window. Below about 52 rem the list becomes a select above
   the detail, secondary columns of a table fold away, and the header drops the stepper's labels.
 

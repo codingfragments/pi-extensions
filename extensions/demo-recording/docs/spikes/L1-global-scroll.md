@@ -42,6 +42,15 @@ without a second scroll area are listed at the end, to decide after you have tri
 My recommendation after you have tried A is **B for the Recording player only** (it is the one place where something you act on, the video, has to
 stay visible while you write a note), and nothing elsewhere.
 
+## After the review: the second part (decided with you: "agree")
+
+You tried the plain version and agreed with the recommendation: **option B for the Recording player only, nothing elsewhere.** The player (the video, its chapter bar
+and the "Add note" button) is one small block, `.ds-rv-player`, that sticks just under the header while you read the chapters and write notes, and is released at
+the end of the row. It has no scroll of its own and no `max-block-size` beyond the video's 40vh, so a wheel over it scrolls the page. The scene's goal and findings stay
+above it in the page. The pane is a flex column as tall as its row (a sticky child of a grid item may only move inside its own track, in a column it moves inside the
+whole pane). Below about 52 rem the review stacks and the player is not sticky. **Voice over, Storyboard and Annotations stay with the plain page scroll.**
+`recording-review` asserts: only `ds-rv-player` is sticky, nothing in the review scrolls on its own, the player sits at the header line at scroll 600, and a wheel over it moves the page.
+
 ## Try it
 
 - `node extensions/demo-recording/scripts/panel-seed.ts /tmp/demo-try --port 4748` and open Voice over, Annotations, Storyboard, Recording at 1400 and 900 px.

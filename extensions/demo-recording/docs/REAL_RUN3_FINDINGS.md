@@ -20,7 +20,7 @@ R3-1 [ux, idea] (before the run) Storyboard · the scene's picture on the LEFT o
    would sit above the text again (900 px is the narrowest supported). (4) A scene without a screenshot ("No screenshot for this scene") leaves the left side
    empty: say so in one line or let the text use the width.
 
-R3-2 [ux] (**addressed by 12c, D145, pending your review**) (before the run) Storyboard · the selected scene must not scroll on its own: the whole page scrolls, nothing is pinned here · wanted: on the storyboard
+R3-2 [ux] (**addressed by 12c, D145**) (before the run) Storyboard · the selected scene must not scroll on its own: the whole page scrolls, nothing is pinned here · wanted: on the storyboard
    page the main area (the selected scene) grows with its content and the page scrolls as one; no inner scroll area, no pinned block.
    Context when noted: raised right after R3-1. Today the storyboard uses the same pinned detail as Voice over and Annotations (`.ds-detail-pin`, work package 3,
    D-R2-6): on a wide workspace (over 52rem) the scene block is sticky just under the header and is at most one window high, and the scene (`.ds-inspector`)
@@ -64,7 +64,7 @@ R3-4 [ux] (before the run) Recording tab · the "Request a new take" box with it
    be reachable from the top (a link that scrolls to it)? (5) The tests that find the box by its label or class (`recording-notes`, `recording-review`, `s5-dialogs-costs`) change
    with the move; decide together with R3-2 (no pinned blocks) since neither pins anything.
 
-R3-5 [bug, ux] (**addressed by 12c, D145, pending your review**) (before the run) Voice over tab · the scroll wheel scrolls the page only over the list at the side, not over the main area (the selected section) · wanted: the wheel
+R3-5 [bug, ux] (**addressed by 12c, D145**) (before the run) Voice over tab · the scroll wheel scrolls the page only over the list at the side, not over the main area (the selected section) · wanted: the wheel
    works the same over the main area, so it scrolls the page there too.
    Context when noted: raised after R3-4. **Reproduced** in a browser (1400 x 900, a long list, the section pinned): ten wheel notches over the main area leave the page where it was (scroll 900 before and after); the same
    notches with `overscroll-behavior: auto` scroll it to 2900. Cause: on a wide workspace the selected section is the pinned block

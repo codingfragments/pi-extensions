@@ -55,6 +55,7 @@ function world(opts: { sources?: boolean } = {}) {
     stage: "discovery",
     kind: "weakness",
     text: "The concierge mirrors the question instead of answering",
+    evidence: [{ type: "screen", id: `${SESSION}/s001` }],
   });
   const f2 = recordFinding(seed.dir, {
     stage: "discovery",
@@ -620,14 +621,7 @@ test(
         t,
         /Coverage, counted by the engine: 2 of 3 areas seen in session 20261019-090000, 1 left out on purpose · 2 findings · 2 sources/,
       );
-      // the evidence: a screen opens its picture, a source its file or link, a finding the findings
-      assert.match(
-        (await page
-          .locator("[data-evidence='20261019-090000/s001']")
-          .first()
-          .getAttribute("href")) ?? "",
-        /\/media\/app\/discovery\/20261019-090000\/screens\/s001\.jpg/,
-      );
+      // the evidence: a source goes straight to its file or link; a finding and a screen open a popup first
       assert.match(
         (await page
           .locator("[data-evidence='file:context/pricing.pdf']")
@@ -642,9 +636,17 @@ test(
           .getAttribute("href"),
         "https://k.example/pricing",
       );
-      assert.match(
-        (await page.locator("[data-evidence='f-0001']").first().getAttribute("href")) ?? "",
-        /#\/project\?group=findings/,
+      assert.equal(
+        await page.evaluate("document.querySelector(\"[data-evidence='f-0001']\").tagName"),
+        "BUTTON",
+        "a finding is looked at first",
+      );
+      assert.equal(
+        await page.evaluate(
+          "document.querySelector(\"[data-evidence='20261019-090000/s001']\").tagName",
+        ),
+        "BUTTON",
+        "and so is a screen",
       );
       assert.equal(await page.locator("[data-newer]").count(), 0);
       // a second version and a session after the first: versions, the notice, asking again
@@ -700,6 +702,98 @@ test(
       await page.waitForSelector("[data-report]");
       assert.match(await page.evaluate("location.hash"), /group=discovery/);
       dlg.stop();
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser.close();
+      await w.done();
+    }
+  },
+);
+
+test(
+  "in the browser: a finding or a screen chip opens a popup first, with the way on to the real finding or the full picture",
+  { skip: !browserType && "needs Playwright Chromium", timeout: 120_000 },
+  async () => {
+    const w = world({ sources: true });
+    const browser = await (browserType as NonNullable<typeof browserType>).launch();
+    try {
+      writeReport(w.seed.dir, w.app, good(w, true));
+      const panel = await w.rt.ensurePanel();
+      const page = await browser.newPage({ viewport: { width: 1400, height: 1400 } });
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.goto(`${panel.url}#/project?group=discovery`);
+      await page.waitForSelector("[data-report='1']");
+      // a finding chip: the finding itself, its marks, its own picture, and how the report uses it
+      await page.click("[data-report='1'] [data-evidence='f-0001']");
+      await page.waitForSelector("[data-popup=finding]");
+      const t = await page.locator("[data-popup=finding]").innerText();
+      assert.match(t, /weakness/);
+      assert.match(t, /The concierge mirrors the question instead of answering/);
+      assert.match(t, /auto: the Director decides/);
+      assert.match(
+        t,
+        /How the report uses it[\s\S]*found 1[\s\S]*use case 1[\s\S]*Ask the concierge about a product[\s\S]*risk 1/,
+      );
+      assert.equal(
+        await page.locator("[data-part=finding-media] img").count(),
+        1,
+        "the finding's own screen",
+      );
+      assert.equal(await page.locator("[data-act=go-to-finding]").count(), 1);
+      await page.keyboard.press("Escape");
+      await page.waitForSelector("[data-popup]", { state: "detached" });
+      // the way on: the real finding, scrolled to and marked, whatever the filters were
+      await page.click("[data-report='1'] [data-evidence='f-0001']");
+      await page.waitForSelector("[data-act=go-to-finding]");
+      await page.click("[data-act=go-to-finding]");
+      await page.waitForSelector("[data-popup]", { state: "detached" });
+      await page.waitForSelector("#finding-f-0001[data-focused=true]");
+      assert.match(
+        await page.evaluate("location.hash"),
+        /group=findings&finding=f-0001|finding=f-0001&group=findings/,
+      );
+      assert.equal(await page.locator("[data-focused=true]").count(), 1, "only that one is marked");
+      assert.equal(await page.locator("#finding-f-0002[data-focused]").count(), 0);
+      // a filter that would hide it does not, when you arrive from the report
+      await page.goto(`${panel.url}#/project?group=findings`);
+      await page.waitForSelector(".findings");
+      await page.click(".ds-chip:text-is('ignore')");
+      await page.waitForFunction("document.querySelectorAll('.findings li').length === 0");
+      await page.evaluate("location.hash = '#/project?group=findings&finding=f-0002'");
+      await page.waitForSelector("#finding-f-0002[data-focused=true]");
+      await page.goto(`${panel.url}#/project?group=discovery`);
+      await page.waitForSelector("[data-report='1']");
+      // a screen chip: the picture large, the findings that cite it, a way to the full-size picture
+      await page.click("[data-report='1'] [data-evidence='20261019-090000/s001']");
+      await page.waitForSelector("[data-popup=screen]");
+      assert.match(
+        (await page.locator("[data-popup=screen] img").first().getAttribute("src")) ?? "",
+        /\/media\/app\/discovery\/20261019-090000\/screens\/s001\.jpg/,
+      );
+      assert.match(
+        await page.locator("[data-part=screen-findings]").innerText(),
+        /Findings that cite this screen[\s\S]*f-0001[\s\S]*The concierge mirrors/,
+      );
+      assert.match(await page.locator("[data-part=cited-by]").innerText(), /found 1/);
+      assert.match(
+        (await page.locator("[data-act=open-full-screen]").getAttribute("href")) ?? "",
+        /screens\/s001\.jpg/,
+      );
+      assert.equal(
+        await page.locator("[data-act=open-full-screen]").getAttribute("target"),
+        "_blank",
+      );
+      // from the screen to a finding that cites it
+      await page.click("[data-popup=screen] [data-act=open-finding]");
+      await page.waitForSelector("[data-popup=finding]");
+      assert.equal(
+        await page.locator("[data-popup=screen]").count(),
+        0,
+        "the screen popup gave way",
+      );
+      await page.click("[data-act=go-to-finding]");
+      await page.waitForSelector("#finding-f-0001[data-focused=true]");
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

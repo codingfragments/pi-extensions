@@ -2895,3 +2895,40 @@ ol[data-next-steps] {
   font-size: var(--text-xs);
   text-decoration: none;
 }
+
+/* the popups behind a discovery report's evidence chips (a finding, a screen) */
+.ds-evidence-popup {
+  min-inline-size: 0;
+}
+.ds-evidence-popup p {
+  margin: 0;
+}
+.ds-popup-text {
+  overflow-wrap: anywhere;
+}
+.ds-evidence-popup .f-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ds-evidence-popup .f-media img {
+  max-inline-size: 100%;
+  max-block-size: 18rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+button.ds-evidence {
+  cursor: pointer;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-control);
+  color: var(--text-body);
+}
+.finding[data-focused="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+/* in the popup the picture shares the window with the findings that cite it */
+.ds-evidence-popup .frame--big img {
+  max-block-size: 50vh;
+}

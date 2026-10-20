@@ -18,3 +18,19 @@ export function areaSegment(
   state: string;
   restarted?: boolean;
 };
+export const KIND_ICON: Record<string, string>;
+export function citedBy(
+  report:
+    | {
+        found: { text: string; evidence: string[] }[];
+        research: { text: string; evidence: string[] }[];
+        guidance: Record<string, { title: string; evidence: string[] }[]>;
+      }
+    | null
+    | undefined,
+  id: string,
+): { part: string; text: string }[];
+export function findingsAtScreen<T extends { evidence: { type: string; id?: string }[] }>(
+  findings: T[],
+  id: string,
+): T[];

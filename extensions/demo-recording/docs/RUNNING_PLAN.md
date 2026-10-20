@@ -240,7 +240,7 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
     was measured per area (D3), whatever the Director says. The project context carries the report's summary and guidance, the storyboard write says
     whether there is a report or whether it misses the newest session (a warning, **no gate**: decided with you, D3 already gates the areas), and the
     storyboard screen says "Based on discovery report vN" (the newest stored before that version was written). Project → Discovery shows the report with its
-    versions, every claim with its evidence as chips (a screen opens its picture, a source its file or link, a finding the findings), a notice when sessions ran
+    versions, every claim with its evidence as chips (a finding or a screen opens a **popup first**: the finding with its marks, its own picture and where the report uses it, the screen large with the findings that cite it, each with a way on: **Go to this finding** in the Findings list, scrolled to and marked whatever its filters, or **Open full size**; a source goes straight to its file or link; added after your first look at it), a notice when sessions ran
     after it, and the coverage line. **Not done / uncertain:** never run with a real Director; the report is not searched or compared (compare is the long
     tail); "based on" for a storyboard is by time, not recorded at write; not tried on the real project.
 - **P4 The Director in the open (11):** A4 a pending question owned by the engine and answered in chat or panel (L), A5 role labels in the chat

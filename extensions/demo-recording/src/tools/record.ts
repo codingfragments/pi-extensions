@@ -10,6 +10,7 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { checkBeforeStart } from "../auth/session.ts";
 import type { Job } from "../jobs.ts";
 import { createImproviser, modelAccessFrom } from "../recorder/improvise.ts";
 import { formatProgress } from "../recorder/progress.ts";
@@ -125,6 +126,12 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
       }
       await rt.closeDiscovery(); // discovery and recording never share a browser
       const statePath = path.join(appDir(cfg.root, p.app.slug), "auth", "state.json");
+      // a saved login that has expired stops the start, with what to do (S7)
+      const login = await checkBeforeStart({ root: cfg.root, app: p.app });
+      if (!login.ok) {
+        rt.bus.publish("auth.expired", { app: p.app.slug, message: login.message }, p.slug);
+        throw new Error(login.message);
+      }
       const registry = (
         ctx as { modelRegistry?: Parameters<typeof modelAccessFrom>[0] } | undefined
       )?.modelRegistry;

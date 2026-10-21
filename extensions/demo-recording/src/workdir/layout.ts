@@ -31,11 +31,22 @@ export const projectDir = (root: string, project: string) => path.join(projectsD
 const PROJECT_SUBDIRS = ["context", "storyboard", "takes", "vo", "edit", "out", "jobs"] as const;
 const APP_SUBDIRS = ["auth", "discovery"] as const;
 
+/** The app's own proof that you are logged in, for apps where the plain rule (a login-looking address, a password field) is wrong (S7, D147). */
+export interface LoginRule {
+  /** The page to open for the check (default: the app's start page). */
+  url?: string;
+  /** A text that is visible only when you are logged in. */
+  expectText?: string;
+  /** A CSS selector that is visible only when you are logged in. */
+  expectSelector?: string;
+}
+
 export interface AppInfo {
   slug: string;
   name: string;
   baseUrl: string;
   createdAt: string;
+  login?: LoginRule;
 }
 
 export function readApp(root: string, app: string): AppInfo | undefined {

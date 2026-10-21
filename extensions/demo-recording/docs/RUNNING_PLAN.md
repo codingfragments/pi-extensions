@@ -248,9 +248,13 @@ Allow, and can feed the fix window.
 **Item 15, S7 login and sessions (D147; four small PRs; spike [S7-login.md](spikes/S7-login.md)).**
 
 - **7a, spike and decision (this PR).** What a saved state keeps and what an expired session looks like (real Chromium, a fixture with a cookie, localStorage, sessionStorage and IndexedDB login).
-- **7b, the engine and `/demo login`.** `src/auth/`: the saved state (`apps/<app>/auth/state.json`, `0600`) and its meta (when, the probe's result), `loginSession` (a headed window, you log
+- **7b, the engine and `/demo login` (done).** `src/auth/`: the saved state (`apps/<app>/auth/state.json`, `0600`) and its meta (when, the probe's result), `loginSession` (a headed window, you log
   in, "I'm logged in", save with `indexedDB: true`, a fresh headless check), `probeSession` (the plain rule plus the optional per-app rule in `app.json`), `/demo login`, `/demo logout`,
-  `/demo session` (state), a check before discovery opens and before a recording starts (refused with "log in: /demo login").
+  `/demo session` (state), a check before discovery opens and before a recording starts (refused with "log in: /demo login"). **Built** as written: `src/auth/session.ts` (`looksLoggedOut`, `probeSession`,
+  `loginSession`, `forgetSession`, `setLoginRule`, `checkBeforeStart`), `app.json` gets an optional `login` rule (`url`, `expectText`, `expectSelector`), the session record `auth/meta.json` holds
+  when and the result, never the content; a state that a fresh browser cannot use (a sessionStorage login) is **not saved** and the previous one stays. **Tests:** `test/s7-login.test.ts` (7, real
+  Chromium against a fixture app that needs a login). **Not verified:** the headed window on your screen (the engine takes a headless switch for tests); a real app; the Director's behaviour on the refusal
+  (the skill tells it to stop and ask you).
 - **7c, expiry inside a take.** The recorder checks after every navigation; a session that expired stops the take at that scene as "session expired" (not failed), a pending question asks you
   to log in, and the recording resumes from that scene after the login.
 - **7d, the Login card.** On the Project page: the state (none, valid since, expired, unknown), Log in, Check now, Forget, and the optional rule; the answer to the question.

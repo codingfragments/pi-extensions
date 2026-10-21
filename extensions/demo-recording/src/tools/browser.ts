@@ -9,6 +9,7 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { checkBeforeStart } from "../auth/session.ts";
 import { formatDiscoveryProgress } from "../discovery/progress.ts";
 import { pendingRequest, startRequest } from "../discovery/requests.ts";
 import { type ActParams, DiscoverySession, type LookResult } from "../discovery/session.ts";
@@ -114,6 +115,12 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
           await rt.closeDiscovery();
           const cfg = rt.getConfig();
           const statePath = path.join(appDir(cfg.root, p.app.slug), "auth", "state.json");
+          // a saved login that has expired stops the start, with what to do (S7)
+          const login = await checkBeforeStart({ root: cfg.root, app: p.app });
+          if (!login.ok) {
+            rt.bus.publish("auth.expired", { app: p.app.slug, message: login.message }, p.slug);
+            throw new Error(login.message);
+          }
           // a request from the Project page (Start / Enhance) brings the budget the user chose; otherwise Config's
           const asked = pendingRequest(p.dir);
           rt.discovery = await DiscoverySession.open({

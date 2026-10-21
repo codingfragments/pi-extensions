@@ -13,6 +13,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { withBrowser } from "../browser/bounded.ts";
 import type { Brand, LoadedBrand } from "./brand.ts";
 import type { Rim } from "./rim.ts";
 
@@ -299,48 +300,48 @@ export async function renderBrandAssets(
     (wantBug && !fs.existsSync(files.bugMeta));
   if (need) {
     fs.mkdirSync(dir, { recursive: true });
-    const { chromium } = await import("playwright");
-    const browser = await chromium.launch();
-    try {
-      const shot = async (
-        html: string,
-        w: number,
-        h: number,
-        file: string,
-        transparent = false,
-      ) => {
-        const page = await browser.newPage({
-          viewport: { width: w, height: h },
-          deviceScaleFactor: 1,
-        });
-        await page.setContent(html, { waitUntil: "load" });
-        await page.evaluate("document.fonts && document.fonts.ready");
-        await page.screenshot({ path: file, omitBackground: transparent, type: "png" });
-        await page.close();
-      };
-      if (inset) {
-        await shot(backdropHtml(l, size, box, opts.rim), size.width, size.height, files.backdrop);
-        await shot(maskHtml(l, box), box.w, box.h, files.mask);
-      }
-      if (wantTitle && opts.title)
-        await shot(titleHtml(l, size, opts.title), size.width, size.height, files.title);
-      if (wantBug) {
-        const html = logoBugHtml(l, bugHeight) as string;
-        const page = await browser.newPage({
-          viewport: { width: 800, height: 200 },
-          deviceScaleFactor: 1,
-        });
-        await page.setContent(html, { waitUntil: "load" });
-        const bb = await page.locator("img").boundingBox();
-        const w = Math.max(2, Math.round(bb?.width ?? 100));
-        const h = Math.max(2, Math.round(bb?.height ?? l.brand.logoBug.heightPx));
-        await page.locator("img").screenshot({ path: files.bug, omitBackground: true });
-        await page.close();
-        fs.writeFileSync(files.bugMeta, JSON.stringify({ w, h }));
-      }
-    } finally {
-      await browser.close();
-    }
+    await withBrowser(
+      "brand assets",
+      async (browser) => {
+        const shot = async (
+          html: string,
+          w: number,
+          h: number,
+          file: string,
+          transparent = false,
+        ) => {
+          const page = await browser.newPage({
+            viewport: { width: w, height: h },
+            deviceScaleFactor: 1,
+          });
+          await page.setContent(html, { waitUntil: "load" });
+          await page.evaluate("document.fonts && document.fonts.ready");
+          await page.screenshot({ path: file, omitBackground: transparent, type: "png" });
+          await page.close();
+        };
+        if (inset) {
+          await shot(backdropHtml(l, size, box, opts.rim), size.width, size.height, files.backdrop);
+          await shot(maskHtml(l, box), box.w, box.h, files.mask);
+        }
+        if (wantTitle && opts.title)
+          await shot(titleHtml(l, size, opts.title), size.width, size.height, files.title);
+        if (wantBug) {
+          const html = logoBugHtml(l, bugHeight) as string;
+          const page = await browser.newPage({
+            viewport: { width: 800, height: 200 },
+            deviceScaleFactor: 1,
+          });
+          await page.setContent(html, { waitUntil: "load" });
+          const bb = await page.locator("img").boundingBox();
+          const w = Math.max(2, Math.round(bb?.width ?? 100));
+          const h = Math.max(2, Math.round(bb?.height ?? l.brand.logoBug.heightPx));
+          await page.locator("img").screenshot({ path: files.bug, omitBackground: true });
+          await page.close();
+          fs.writeFileSync(files.bugMeta, JSON.stringify({ w, h }));
+        }
+      },
+      { deadlineMs: 180000 },
+    );
   }
   if (inset) {
     out.backdrop = files.backdrop;

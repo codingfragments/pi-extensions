@@ -86,6 +86,10 @@ the app and reuses it for discovery and recordings. It never stores a password a
   recording"), you log in again (the card or `/demo login`), and the recording goes on from that scene as a new segment. A scene that legitimately shows a password field does not stop it (the saved login is
   confirmed in a fresh browser first).
 
+## When something does not answer
+
+Nothing the engine starts waits for ever. A browser call in **discovery** and a step in **recording** have deadlines, and a frozen browser is diagnosed, killed and replaced (see Discovery and Recording above). The rest is bounded too: **ffmpeg and uv (Python) commands** (encoding, the edit, the render, the voice, the word alignment, the checks) run under a deadline (`media.toolTimeoutMin`, 30 minutes; ffprobe 60 s, say 10 minutes; 0 = never), and the **short-lived browsers** (the login probe and the login window, brand previews, overlay rendering) carry a process marker, close with a bound and are killed if they will not close; the overlay and brand jobs also have a deadline. A command or browser that does not finish is **written down first** in `<working folder>/diagnostics/process-<time>-<name>.txt` (the command, how long it ran, its process tree with state and CPU, the last of its output and, on a Mac, `sample` stacks next to it), then killed with everything it started, and the error the job shows names that file.
+
 ## Projects
 
 **Projects** (`#/projects`; click the project's name in the header, or "All projects" on the Project page) lists every project of the working folder: its name, app, phase, size on

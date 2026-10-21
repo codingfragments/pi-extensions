@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { withBrowser } from "../browser/bounded.ts";
 import { lineDiff } from "../config-edit.ts";
 import { type BrandAssets, type TitleInfo, insetBox, renderBrandAssets } from "./assets.ts";
 import {
@@ -50,7 +51,7 @@ export function materializeSource(source: string): string {
   if (fs.statSync(abs).isDirectory()) return abs;
   if (!/\.zip$/i.test(abs)) throw new Error("brand source must be a folder or a .zip file");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "demo-rec-brand-"));
-  execFileSync("unzip", ["-q", "-o", abs, "-d", dir]);
+  execFileSync("unzip", ["-q", "-o", abs, "-d", dir], { timeout: 120_000 });
   return dir;
 }
 
@@ -109,20 +110,20 @@ export async function inspectSource(source: string, previewDir: string): Promise
   const previews: Inventory["previews"] = [];
   if (candidates.length) {
     fs.mkdirSync(previewDir, { recursive: true });
-    const { chromium } = await import("playwright");
-    const browser = await chromium.launch();
-    try {
-      for (const [i, f] of candidates.entries()) {
-        const abs = path.join(root, f.rel);
-        const mime = f.rel.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "image/png";
-        const page = await browser.newPage({ viewport: { width: 640, height: 260 } });
-        await page.setContent(
-          `<html><body style="margin:0;display:flex;align-items:center;justify-content:center;width:640px;height:260px;
+    await withBrowser(
+      "brand source previews",
+      async (browser) => {
+        for (const [i, f] of candidates.entries()) {
+          const abs = path.join(root, f.rel);
+          const mime = f.rel.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "image/png";
+          const page = await browser.newPage({ viewport: { width: 640, height: 260 } });
+          await page.setContent(
+            `<html><body style="margin:0;display:flex;align-items:center;justify-content:center;width:640px;height:260px;
           background:repeating-conic-gradient(#888 0 25%,#bbb 0 50%) 0 0/24px 24px">
           <img id="i" style="max-width:560px;max-height:200px" src="data:${mime};base64,${fs.readFileSync(abs).toString("base64")}"></body></html>`,
-          { waitUntil: "load" },
-        );
-        const stats = (await page.evaluate(`(() => {
+            { waitUntil: "load" },
+          );
+          const stats = (await page.evaluate(`(() => {
           const img = document.getElementById("i");
           const c = document.createElement("canvas"); c.width = img.naturalWidth || 200; c.height = img.naturalHeight || 80;
           const g = c.getContext("2d"); g.drawImage(img, 0, 0, c.width, c.height);
@@ -130,16 +131,16 @@ export async function inspectSource(source: string, previewDir: string): Promise
           for (let k = 0; k < d.length; k += 16) { if (d[k + 3] > 64) { sum += (0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2]) / 255; n++; } }
           return { w: img.naturalWidth, h: img.naturalHeight, lum: n ? sum / n : null };
         })()`)) as { w: number; h: number; lum: number | null };
-        if (stats.w) f.size = { w: stats.w, h: stats.h };
-        if (stats.lum !== null) f.luminance = +stats.lum.toFixed(2);
-        const png = path.join(previewDir, `candidate-${i + 1}.png`);
-        await page.screenshot({ path: png });
-        previews.push({ rel: f.rel, png });
-        await page.close();
-      }
-    } finally {
-      await browser.close();
-    }
+          if (stats.w) f.size = { w: stats.w, h: stats.h };
+          if (stats.lum !== null) f.luminance = +stats.lum.toFixed(2);
+          const png = path.join(previewDir, `candidate-${i + 1}.png`);
+          await page.screenshot({ path: png });
+          previews.push({ rel: f.rel, png });
+          await page.close();
+        }
+      },
+      { deadlineMs: 120000 },
+    );
   }
   return { root, files, colors: extractColors(texts), previews };
 }
@@ -365,15 +366,15 @@ ${assets.logoBug ? `<img src="${uri(assets.logoBug.file)}" style="position:absol
 </body></html>`;
   fs.mkdirSync(opts.outDir, { recursive: true });
   const framed = path.join(opts.outDir, `${loaded.brand.name}-framed.png`);
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({ viewport: opts.size });
-    await page.setContent(html, { waitUntil: "load" });
-    await page.screenshot({ path: framed });
-  } finally {
-    await browser.close();
-  }
+  await withBrowser(
+    "brand preview",
+    async (browser) => {
+      const page = await browser.newPage({ viewport: opts.size });
+      await page.setContent(html, { waitUntil: "load" });
+      await page.screenshot({ path: framed });
+    },
+    { deadlineMs: 120000 },
+  );
   let title: string | undefined;
   if (assets.title) {
     title = path.join(opts.outDir, `${loaded.brand.name}-title.png`);

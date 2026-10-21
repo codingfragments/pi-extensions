@@ -9,6 +9,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { defaultTimeoutMs, guardChild } from "../util/bounded.ts";
 
 export const ENV_HZ = 100; // 10 ms frames
 
@@ -37,12 +38,23 @@ export function envelope(file: string): Promise<number[]> {
     );
     const chunks: Buffer[] = [];
     let stderr = "";
+    const stopWatch = guardChild(child, {
+      label: "ffmpeg (envelope)",
+      cmd: "ffmpeg",
+      args: ["-i", file],
+      timeoutMs: defaultTimeoutMs("ffmpeg"),
+      stderrTail: () => stderr,
+    });
     child.stdout.on("data", (c: Buffer) => chunks.push(c));
     child.stderr.on("data", (c) => {
       stderr += c;
     });
-    child.on("error", reject);
+    child.on("error", (err) => {
+      stopWatch();
+      reject(err);
+    });
     child.on("close", (code) => {
+      stopWatch();
       if (code !== 0)
         return reject(new Error(`ffmpeg envelope failed: ${stderr.trim().split("\n").at(-1)}`));
       const pcm = Buffer.concat(chunks);

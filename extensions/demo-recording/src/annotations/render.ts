@@ -18,6 +18,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { LoadedBrand } from "../brand/brand.ts";
+import { withBrowser } from "../browser/bounded.ts";
 import type { Box, ResolvedAnnotation } from "./resolve.ts";
 import { type AnnotationType, MOTION, ZOOM_IN_MS, ZOOM_OUT_MS } from "./types.ts";
 
@@ -144,45 +145,46 @@ export async function renderPngs(
     else todo.push(j);
   }
   if (!todo.length) return out;
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch();
-  try {
-    for (const j of todo) {
-      const page = await browser.newPage({
-        viewport: { width: j.w, height: j.h },
-        deviceScaleFactor: 1,
-      });
-      await page.setContent(j.html, { waitUntil: "load" });
-      await page.evaluate("document.fonts && document.fonts.ready");
-      const file = path.join(
-        cacheDir,
-        `${hash([j.html, j.w, j.h, j.clipSelector ?? "", j.clipPad ?? 0])}.png`,
-      );
-      let w = j.w;
-      let h = j.h;
-      if (j.clipSelector) {
-        const bb = await page.locator(j.clipSelector).boundingBox();
-        if (!bb) throw new Error(`overlay ${j.key}: nothing to render`);
-        const pad = j.clipPad ?? 0;
-        const clip = {
-          x: Math.floor(bb.x) - pad,
-          y: Math.floor(bb.y) - pad,
-          width: Math.ceil(bb.width) + 1 + 2 * pad,
-          height: Math.ceil(bb.height) + 1 + 2 * pad,
-        };
-        if (clip.x < 0 || clip.y < 0)
-          throw new Error(`overlay ${j.key}: the shadow margin doesn't fit the page`);
-        await page.screenshot({ path: file, omitBackground: true, clip });
-        w = clip.width;
-        h = clip.height;
-      } else await page.screenshot({ path: file, omitBackground: true });
-      fs.writeFileSync(`${file}.json`, JSON.stringify({ w, h }));
-      out.set(j.key, { file, w, h, pad: j.clipPad ?? 0 });
-      await page.close();
-    }
-  } finally {
-    await browser.close();
-  }
+  // one browser for all the overlays, under a deadline: a frozen one is diagnosed and killed instead of holding the render
+  await withBrowser(
+    "overlay rendering",
+    async (browser) => {
+      for (const j of todo) {
+        const page = await browser.newPage({
+          viewport: { width: j.w, height: j.h },
+          deviceScaleFactor: 1,
+        });
+        await page.setContent(j.html, { waitUntil: "load" });
+        await page.evaluate("document.fonts && document.fonts.ready");
+        const file = path.join(
+          cacheDir,
+          `${hash([j.html, j.w, j.h, j.clipSelector ?? "", j.clipPad ?? 0])}.png`,
+        );
+        let w = j.w;
+        let h = j.h;
+        if (j.clipSelector) {
+          const bb = await page.locator(j.clipSelector).boundingBox();
+          if (!bb) throw new Error(`overlay ${j.key}: nothing to render`);
+          const pad = j.clipPad ?? 0;
+          const clip = {
+            x: Math.floor(bb.x) - pad,
+            y: Math.floor(bb.y) - pad,
+            width: Math.ceil(bb.width) + 1 + 2 * pad,
+            height: Math.ceil(bb.height) + 1 + 2 * pad,
+          };
+          if (clip.x < 0 || clip.y < 0)
+            throw new Error(`overlay ${j.key}: the shadow margin doesn't fit the page`);
+          await page.screenshot({ path: file, omitBackground: true, clip });
+          w = clip.width;
+          h = clip.height;
+        } else await page.screenshot({ path: file, omitBackground: true });
+        fs.writeFileSync(`${file}.json`, JSON.stringify({ w, h }));
+        out.set(j.key, { file, w, h, pad: j.clipPad ?? 0 });
+        await page.close();
+      }
+    },
+    { deadlineMs: Math.max(120_000, todo.length * 20_000) },
+  );
   return out;
 }
 

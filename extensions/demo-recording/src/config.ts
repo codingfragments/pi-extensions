@@ -81,6 +81,8 @@ export interface DemoRecConfig {
   annotations: { autoSuggest: boolean; zoomsPerMinute: number; zoomsPerScene: number };
   /** Render stage (S5 part 9): how many drafts keep their video files (D64). */
   render: { keepDrafts: number };
+  /** Child tools (ffmpeg, uv/Python): how long one command may run before it is diagnosed and killed, in minutes (0 = never). */
+  media: { toolTimeoutMin: number };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /**
@@ -204,6 +206,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     annotations: { autoSuggest: true, zoomsPerMinute: 1.5, zoomsPerScene: 1 },
     render: { keepDrafts: 3 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
+    media: { toolTimeoutMin: 30 },
     discovery: {
       heartbeatSec: 30,
       callTimeoutSec: 25,
@@ -457,6 +460,15 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       cfg.budgets.discoveryActions = positiveInt(b.discoveryActions, "budgets.discoveryActions");
     if (b.discoveryMinutes !== undefined)
       cfg.budgets.discoveryMinutes = positiveInt(b.discoveryMinutes, "budgets.discoveryMinutes");
+  }
+  const md = raw.media as Record<string, unknown> | undefined;
+  if (md !== undefined && md.toolTimeoutMin !== undefined) {
+    const v = md.toolTimeoutMin;
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > 600)
+      throw new Error(
+        'demo-recording config: "media.toolTimeoutMin" must be a whole number of minutes from 0 to 600 (0 = never)',
+      );
+    cfg.media.toolTimeoutMin = v;
   }
   const dc = raw.discovery as Record<string, unknown> | undefined;
   if (dc !== undefined) {

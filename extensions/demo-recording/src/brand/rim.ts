@@ -46,6 +46,7 @@ export function edgeLuminance(frames: string[]): number | undefined {
       ],
       {
         maxBuffer: 1 << 20,
+        timeout: 30_000,
       },
     );
     if (r.status !== 0 || r.stdout.length < W * H) continue;

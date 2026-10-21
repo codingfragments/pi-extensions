@@ -4,6 +4,8 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import path from "node:path";
+import { BoundedRunError, defaultTimeoutMs, guardChild } from "../util/bounded.ts";
 
 export interface RunResult {
   stdout: string;
@@ -11,12 +13,30 @@ export interface RunResult {
   ms: number;
 }
 
-export function run(cmd: string, args: string[], opts: { cwd?: string } = {}): Promise<RunResult> {
+export interface RunOptions {
+  cwd?: string;
+  /** Kill the command after this long, in ms (default: by command, see util/bounded.ts; 0 = never). */
+  timeoutMs?: number;
+  /** Kill the command when this aborts. */
+  signal?: AbortSignal;
+}
+
+export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     const child = spawn(cmd, args, { cwd: opts.cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
+    // a command that does not finish is diagnosed and killed with everything it started (util/bounded.ts), and the error says so
+    const stopWatch = guardChild(child, {
+      label: path.basename(cmd),
+      cmd,
+      args,
+      ...(opts.cwd ? { cwd: opts.cwd } : {}),
+      timeoutMs: opts.timeoutMs ?? defaultTimeoutMs(cmd),
+      ...(opts.signal ? { signal: opts.signal } : {}),
+      stderrTail: () => stderr,
+    });
     child.stdout.on("data", (c) => {
       stdout += c;
     });
@@ -24,8 +44,12 @@ export function run(cmd: string, args: string[], opts: { cwd?: string } = {}): P
       stderr += c;
       if (stderr.length > 200_000) stderr = stderr.slice(-100_000);
     });
-    child.on("error", (err) => reject(new Error(`${cmd}: ${err.message}`)));
+    child.on("error", (err) => {
+      stopWatch();
+      reject(err instanceof BoundedRunError ? err : new Error(`${cmd}: ${err.message}`));
+    });
     child.on("close", (code) => {
+      stopWatch();
       if (code === 0) resolve({ stdout, stderr, ms: Date.now() - started });
       else {
         const tail = stderr.trim().split("\n").slice(-12).join("\n");
@@ -35,7 +59,7 @@ export function run(cmd: string, args: string[], opts: { cwd?: string } = {}): P
   });
 }
 
-export function ffmpeg(args: string[], opts: { cwd?: string } = {}): Promise<RunResult> {
+export function ffmpeg(args: string[], opts: RunOptions = {}): Promise<RunResult> {
   return run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...args], opts);
 }
 

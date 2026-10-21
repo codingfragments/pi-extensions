@@ -11,6 +11,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { defaultTimeoutMs, guardChild } from "../util/bounded.ts";
 
 export const MOTION_W = 320;
 export const MOTION_H = 180;
@@ -130,6 +131,13 @@ export function computeMotion(
     const scores: number[] = [];
     const boxes: ([number, number, number, number] | null)[] = [];
     let stderr = "";
+    const stopWatch = guardChild(child, {
+      label: "ffmpeg (motion)",
+      cmd: "ffmpeg",
+      args: ["-i", video],
+      timeoutMs: defaultTimeoutMs("ffmpeg"),
+      stderrTail: () => stderr,
+    });
     child.stderr.on("data", (c) => {
       stderr += c;
     });
@@ -161,8 +169,12 @@ export function computeMotion(
         prev = Buffer.from(frame);
       }
     });
-    child.on("error", reject);
+    child.on("error", (err) => {
+      stopWatch();
+      reject(err);
+    });
     child.on("close", (code) => {
+      stopWatch();
       if (code !== 0)
         return reject(
           new Error(`ffmpeg motion decode failed: ${stderr.trim().split("\n").at(-1)}`),

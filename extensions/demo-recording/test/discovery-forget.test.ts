@@ -237,11 +237,13 @@ test(
       await page.goto(`${panel.url}#/project?group=discovery`);
       await page.waitForSelector("[data-act=forget-discovery]");
       await page.click("[data-act=forget-discovery]");
-      await page.waitForFunction(
-        "document.body.innerText.includes('Forget the discovery so far?')",
+      for (let i = 0; i < 100 && !dlg.seen.some(Boolean); i++)
+        await new Promise((r) => setTimeout(r, 50));
+      assert.match(
+        dlg.seen.find(Boolean) ?? "",
+        /sets aside 2 sessions, 1 finding, the report \(1 version\)/,
       );
-      assert.match(dlg.seen[0] ?? "", /sets aside 2 sessions, 1 finding, the report \(1 version\)/);
-      assert.match(dlg.seen[0] ?? "", /Nothing is deleted/);
+      assert.match(dlg.seen.find(Boolean) ?? "", /Nothing is deleted/);
       assert.equal((await get()).sessions.length, 2, "cancelled: nothing happened");
       dlg.answer.accept = true;
       await page.click("[data-act=forget-discovery]");

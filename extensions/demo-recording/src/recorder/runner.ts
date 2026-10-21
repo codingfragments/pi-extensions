@@ -29,16 +29,26 @@ import {
 import { Cursor, type Point, aimPoint } from "../browser/cursor/motion.ts";
 import { typeHuman } from "../browser/cursor/typing.ts";
 import { installObservers } from "../browser/observers.ts";
+import { killMarker, newMarker } from "../browser/processes.ts";
 import { waitForDomQuiet } from "../browser/quiet.ts";
 import { type BrowserSession, openSession } from "../browser/session.ts";
+import { CallStalledError, withDeadline } from "../discovery/watchdog.ts";
 import type { Scene, Step, Storyboard, Target } from "../storyboard/types.ts";
 import { sleep } from "../util/duration.ts";
 import { type Rng, createRng, randomSeed } from "../util/rng.ts";
 import { createNextNumberedDir } from "../workdir/versioning.ts";
+import { type DiagInfo, type DiagKind, collectDiagnostics } from "./diagnostics.ts";
 import { EventLog, type TakeEvent } from "./events.ts";
 import type { Improviser } from "./improvise.ts";
 import { LayoutRecorder, captureLayout } from "./layout.ts";
-import { DEFAULT_DWELL, type ProgressSnapshot, ProgressTracker } from "./progress.ts";
+import {
+  DEFAULT_DWELL,
+  LEAD_IN_MS,
+  type ProgressSnapshot,
+  ProgressTracker,
+  TAIL_MS,
+  estimateStepMs,
+} from "./progress.ts";
 import { replayHazards } from "./replay-guard.ts";
 import { describeTarget, locate, resolveBox } from "./targets.ts";
 
@@ -47,8 +57,8 @@ export interface FaultInjection {
   step: number;
   /** Attempt numbers (1-based) on which to fail. Default [1]. */
   attempts?: number[];
-  /** error: throw; crash: close the browser (simulates a renderer crash). */
-  kind?: "error" | "crash";
+  /** error: throw; crash: close the browser (simulates a renderer crash); freeze: stop every browser process (a wedged Chromium: nothing answers, nothing fails). */
+  kind?: "error" | "crash" | "freeze";
 }
 
 /**
@@ -108,6 +118,23 @@ export interface RecordOptions {
   allowUnsafeReplay?: boolean;
   /** Keep the raw JPEG frames after a successful encode (default false: raw.mp4 is the master). */
   keepFrames?: boolean;
+  /** The least a step may run before the browser is judged frozen, in ms (default 60000; 0 = no deadline). See `stepDeadlineMs`. */
+  stepDeadlineMinMs?: number;
+  /** Added to three times a step's estimate to get its allowance, in ms (default 30000; tests use less). */
+  stepDeadlineSlackMs?: number;
+  /** Frozen browsers a take survives (each is diagnosed, killed and replaced; the scene is shot again) before it fails (default 3). A stall does not use up the scene's retries. */
+  maxStalls?: number;
+  /** Cap for one page's JavaScript heap in MB (0 or unset = Chromium's own). */
+  browserMemoryMb?: number;
+  /** Told after a stall, an interrupt or a failed scene has been diagnosed. */
+  onDiagnosis?: (d: {
+    kind: DiagKind;
+    scene?: string;
+    step?: number;
+    dir: string;
+    verdict: string;
+    message: string;
+  }) => void;
   /** Test hook. */
   faultInjection?: FaultInjection;
 }
@@ -141,10 +168,25 @@ export interface TakeResult {
   durationMs: number;
 }
 
-const LEAD_IN_MS = 700;
-const TAIL_MS = 900;
-
 class CancelledError extends Error {}
+
+/** A step did not finish in the time it was allowed: the browser is frozen. Cut like a failed scene, but it does not use up the scene's retries. */
+class StepStalledError extends Error {
+  scene: string;
+  step: number;
+  constructor(scene: string, step: number, message: string) {
+    super(message);
+    this.scene = scene;
+    this.step = step;
+  }
+}
+
+/** How long a step may run before the browser is judged frozen: three times what it should take plus 30 s, an explicit wait timeout plus 15 s, never less than `minMs`. */
+export function stepDeadlineMs(step: Step, minMs: number, slackMs = 30_000): number {
+  if (!(minMs > 0)) return 0;
+  const own = step.do === "wait" && step.timeout ? step.timeout + 15_000 : 0;
+  return Math.max(minMs, estimateStepMs(step) * 3 + slackMs, own);
+}
 
 function boxOf(
   bb: { x: number; y: number; width: number; height: number } | null,
@@ -552,6 +594,8 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   const log = new EventLog(path.join(takeDir, "events.jsonl"), opts.onEvent);
   const attemptsFile = path.join(takeDir, "attempts.jsonl");
   const maxRetries = opts.maxRetriesPerScene ?? 2;
+  const maxStalls = opts.maxStalls ?? 3;
+  const stepDeadlineMinMs = opts.stepDeadlineMinMs ?? 60_000;
   const takeMeta: Record<string, unknown> = {
     schema: 2,
     take: takeId,
@@ -576,7 +620,16 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   };
 
   let session: BrowserSession | undefined;
+  /** Marks the processes of the current browser, so a frozen one can be found and killed. */
+  let marker = newMarker();
   let capturing = false;
+  let stalls = 0;
+  let retriesUsed = 0;
+  const diagnostics: string[] = [];
+  const diagCounts: Record<DiagKind, number> = { stalled: 0, interrupted: 0, failed: 0 };
+  let stepRun:
+    | { scene: number; step: number; startedAt: number; expectedMs: number; allowedMs: number }
+    | undefined;
   let currentScene: string | undefined;
   const segments: Segment[] = [];
   const runner = new StepRunner(opts);
@@ -590,8 +643,11 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
 
   /** (Re)open the browser with the cursor overlay and observers wired to the log. */
   const openBrowser = async (): Promise<BrowserSession> => {
+    marker = newMarker();
     const s = await openSession({
       viewport: opts.viewport,
+      marker,
+      ...(opts.browserMemoryMb ? { memoryMb: opts.browserMemoryMb } : {}),
       ...(opts.headed ? { headed: true } : {}),
       ...(opts.storageState ? { storageState: opts.storageState } : {}),
     });
@@ -640,6 +696,87 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
       if (toTake(f.ts) >= end) fs.rmSync(path.join(takeDir, "frames", f.file), { force: true });
   };
 
+  /** Write down everything about a step that did not finish, a take that was interrupted or a scene that failed (recorder/diagnostics.ts). */
+  const diagnose = async (
+    kind: DiagKind,
+    where: { scene: number; step?: number },
+    error?: string,
+  ): Promise<{ dir: string; verdict: string }> => {
+    const scene = opts.storyboard.scenes[where.scene];
+    const step = where.step !== undefined ? scene?.steps[where.step] : undefined;
+    const info: DiagInfo = {
+      kind,
+      n: ++diagCounts[kind],
+      takeDir,
+      takeId,
+      storyboardVersion: opts.storyboardVersion,
+      attempt: progress.snapshot().attempt,
+      stallsSoFar: stalls,
+      retriesSoFar: retriesUsed,
+      takeTimeMs: log.toTake(Date.now()),
+      headed: !!opts.headed,
+      settings: {
+        viewport: opts.viewport,
+        fps: opts.fps,
+        capture: opts.capture ?? {},
+        seed,
+        maxRetries,
+        maxStalls,
+        stepDeadlineMinMs,
+        browserMemoryMb: opts.browserMemoryMb ?? 0,
+        baseUrl: opts.baseUrl,
+        loginSaved: !!opts.storageState,
+      },
+      events: log.events,
+      progress: progress.snapshot(),
+      segments: segments.map((g) => ({ index: g.index, offset: g.offset })),
+      marker,
+      ...(error ? { error } : {}),
+      ...(session ? { session } : {}),
+      ...(cursor ? { cursor: cursor.pos } : {}),
+    };
+    const lastFrame = segments.at(-1)?.screencast.lastFrameFile();
+    if (lastFrame) info.lastFrame = lastFrame;
+    if (scene)
+      info.scene = {
+        id: scene.id,
+        title: scene.title,
+        index: where.scene + 1,
+        total: opts.storyboard.scenes.length,
+      };
+    if (step && where.step !== undefined) {
+      const ran =
+        stepRun && stepRun.scene === where.scene && stepRun.step === where.step
+          ? stepRun
+          : undefined;
+      info.step = {
+        index: where.step,
+        total: scene?.steps.length ?? 0,
+        definition: step,
+        expectedMs: ran?.expectedMs ?? estimateStepMs(step),
+        allowedMs:
+          ran?.allowedMs ?? stepDeadlineMs(step, stepDeadlineMinMs, opts.stepDeadlineSlackMs),
+        ranMs: ran ? Date.now() - ran.startedAt : 0,
+      };
+    }
+    const out = await collectDiagnostics(info);
+    diagnostics.push(out.dir);
+    log.log(`diagnosis-${kind}`, {
+      ...(scene ? { scene: scene.id } : {}),
+      ...(where.step !== undefined ? { step: where.step } : {}),
+      data: { dir: out.dir, verdict: out.verdict },
+    });
+    opts.onDiagnosis?.({
+      kind,
+      ...(scene ? { scene: scene.id } : {}),
+      ...(where.step !== undefined ? { step: where.step } : {}),
+      dir: out.dir,
+      verdict: out.verdict,
+      message: `${kind}${scene ? ` · ${scene.id}` : ""}${where.step !== undefined ? ` step ${where.step + 1}` : ""}: ${out.verdict} (${out.dir})`,
+    });
+    return out;
+  };
+
   const settle = async (page: Page) => {
     await page.waitForLoadState("load").catch(() => {});
     await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
@@ -675,6 +812,12 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     await sleep(300);
   };
 
+  /** The step number a "scene X, step N (do): …" message names (the runner's own wording), if it names one. */
+  const failedStep = (message: string): number | undefined => {
+    const m = /^scene \S+, step (\d+) \(/.exec(message);
+    return m ? Number(m[1]) : undefined;
+  };
+  let faultReached = 0;
   const clearedUrls = new Set<string>();
   let failure: Error | undefined;
   try {
@@ -716,22 +859,51 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
             progress.startStep(k, i);
             report();
             const f = opts.faultInjection;
-            if (
-              f &&
-              f.scene === scene.id &&
-              f.step === i &&
-              (f.attempts ?? [1]).includes(attempt)
-            ) {
+            // "attempts" counts the times this step was reached: a retry reaches it again, and so does a scene shot again after a stall
+            const reached = f && f.scene === scene.id && f.step === i ? ++faultReached : 0;
+            if (f && reached > 0 && (f.attempts ?? [1]).includes(reached)) {
               if (f.kind === "crash") await (session as BrowserSession).browser.close();
-              else throw new Error("injected fault");
+              else if (f.kind === "freeze") {
+                // a wedged browser: every process stopped, nothing fails and nothing answers
+                const { processesOf } = await import("../browser/processes.ts");
+                for (const r of processesOf(marker)) process.kill(r.pid, "SIGSTOP");
+              } else throw new Error("injected fault");
             }
+            const allowedMs = stepDeadlineMs(step, stepDeadlineMinMs, opts.stepDeadlineSlackMs);
+            stepRun = {
+              scene: k,
+              step: i,
+              startedAt: Date.now(),
+              expectedMs: estimateStepMs(step),
+              allowedMs,
+            };
             try {
-              await runner.run(c, step, scene.id, i);
+              await withDeadline(
+                `scene ${scene.id} step ${i + 1} (${step.do})`,
+                allowedMs,
+                () => runner.run(c, step, scene.id, i),
+                opts.signal,
+              );
             } catch (err) {
+              if (err instanceof CallStalledError) {
+                if (err.aborted) {
+                  // interrupted while a step ran: write down where it was, then stop as a cancel
+                  await diagnose("interrupted", { scene: k, step: i }, err.message);
+                  throw new CancelledError("recording cancelled");
+                }
+                const out = await diagnose("stalled", { scene: k, step: i }, err.message);
+                killMarker(marker);
+                throw new StepStalledError(
+                  scene.id,
+                  i,
+                  `scene ${scene.id}, step ${i + 1} (${step.do}) did not finish in ${Math.round(err.afterMs / 1000)} s: the browser is frozen (${out.verdict}); see ${out.dir}`,
+                );
+              }
               throw new Error(
                 `scene ${scene.id}, step ${i} (${step.do}): ${(err as Error).message}`,
               );
             }
+            stepRun = undefined;
             // a saved login that has expired shows as a login page: look after every step, confirm only when it does
             if (opts.sessionGuard) {
               const url = c.page.url();
@@ -753,6 +925,19 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
         } catch (err) {
           if (err instanceof CancelledError) throw err;
           const message = (err as Error).message;
+          const stalled = err instanceof StepStalledError;
+          // a scene that failed for any other reason is written down too (the browser still answers, so this is quick)
+          if (!stalled && !(err instanceof SessionExpiredError))
+            await diagnose(
+              "failed",
+              {
+                scene: k,
+                ...(failedStep(message) !== undefined
+                  ? { step: failedStep(message) as number }
+                  : {}),
+              },
+              message,
+            );
           // Cut the failed attempt out of the take at its scene-start.
           const cut = startEvent.t;
           await runner.flush();
@@ -764,7 +949,14 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
             `${JSON.stringify({ scene: scene.id, attempt, error: message, events: dropped })}\n`,
           );
           const expired = err instanceof SessionExpiredError;
-          if (!expired && attempt > maxRetries)
+          if (stalled) {
+            stalls++;
+            if (stalls > maxStalls)
+              throw new Error(
+                `${message} (the browser froze ${stalls} times: more than the ${maxStalls} a take survives)`,
+              );
+          } else if (!expired) retriesUsed++;
+          if (!expired && !stalled && attempt > maxRetries)
             throw new Error(`${message} (after ${attempt} attempt${attempt > 1 ? "s" : ""})`);
           const hazards = opts.allowUnsafeReplay ? [] : replayHazards(opts.storyboard.scenes, k);
           if (hazards.length) {
@@ -801,6 +993,16 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
             });
             continue;
           }
+          if (stalled) {
+            // the frozen browser is already killed: a fresh one, the same scene again (a stall does not use up a retry)
+            await restoreTo(k, scenePos, true);
+            await startSegment(cut, { scene: scene.id, attempt, error: message });
+            log.log("stitch", {
+              scene: scene.id,
+              data: { attempt, after: message, stalled: true },
+            });
+            continue;
+          }
           attempt++;
           await restoreTo(k, scenePos);
           await startSegment(cut, { scene: scene.id, attempt: attempt - 1, error: message });
@@ -812,7 +1014,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     await runner.flush();
     log.log("take-end");
     await endSegment();
-    await Promise.all(runner.snapshots);
+    await Promise.race([Promise.all(runner.snapshots), sleep(5000)]);
   } catch (err) {
     failure = err as Error;
     await endSegment().catch(() => {});
@@ -842,6 +1044,8 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     ...(s.resumedAfter ? { resumedAfter: s.resumedAfter } : {}),
   }));
   takeMeta.segments = segmentInfo;
+  takeMeta.stalls = stalls;
+  if (diagnostics.length) takeMeta.diagnostics = diagnostics;
   const durationMs = segmentInfo.at(-1)?.end ?? 0;
 
   if (failure) {
@@ -849,6 +1053,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     report();
     takeMeta.status = failure instanceof CancelledError ? "cancelled" : "failed";
     takeMeta.error = failure.message;
+    if (diagnostics.length) takeMeta.diagnostics = diagnostics;
     takeMeta.durationMs = durationMs;
     writeMeta();
     throw failure;

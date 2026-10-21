@@ -105,7 +105,7 @@ disk and when it last changed, with the active one marked.
 ## Storyboard
 
 The scenes the Director plans to record, as a list with one scene in detail: the steps, what each waits for, and the confidence of the
-Director in each (the doubtful ones come first with **riskiest first**).
+Director in each (the doubtful ones come first with **riskiest first**). Under the summary a line says **how long the storyboard takes to record** ("Projected recording 4 min 10 s · 21 steps in 5 scenes") and compares it with the **target length** of the brief (or the depth's default, which it says): short (under 70 % of the low end), within, or long (over 115 % of the high end). It is the recorder's own estimate (cursor moves, typing at human speed, dwells, waits for the app at 1.5 s, lead-in and tail), so it is the raw take; the finished video follows the voice-over, which is written from the take. Each scene shows its own projected time in the list and its title; once a take of this storyboard exists, the line says how long it actually ran.
 
 ![Storyboard: scenes on the left, a scene in detail](images/guide/03-storyboard.jpg)
 
@@ -123,7 +123,9 @@ below about 64 rem of width the picture comes first. Nothing is pinned: the page
 
 The takes of the selected storyboard, newest first, one line each (status, duration, analysis state, **Review**, and the approve / use actions);
 **Approve** each take that is good enough to build on. **Request a new take** (a card at the bottom of the page, like the storyboard's review, with an optional note) asks the Director for another one, and
-shows its cost first.
+shows its cost first. **Show the browser window while recording** (off by default) records in a real, visible browser: it sometimes shows what a hidden one hides; the choice reaches the take even if the Director does not pass it on.
+
+**A frozen browser does not cost the take.** Every step has a deadline (three times what it should take plus 30 s, at least `recording.stepDeadlineMinSec`, 60 s; a wait its timeout plus 15 s). A step that does not finish is **diagnosed, the browser killed and replaced, and the scene shot again**; this does not use up a retry, and a take survives `recording.maxStalls` (3) of them. Interrupting a take (Cancel) stops it at once, also in the middle of a step. A stalled step, an interrupt and any failed scene write down everything about it in the take's folder, **`diagnostics/<stalled|interrupted|failed>-N/`**: `README.txt` (what happened, in words, and the verdict), `context.json` (the scene, the step and its definition, how long it was expected to take, was allowed and had run, the take's time, attempt, segments, retries and stalls so far, the settings, the machine), `events-tail.jsonl` (the last 40 events), `probes.json` (which questions the browser still answered and how fast: nothing answering means the process itself is stuck; the browser answering but not the page means the page's renderer is stuck; and so on), `page.jpg` and `aria.yaml` (the page as far as it still answers), `last-frame.jpg` (the last frame the capture got), and for a stall `ps.txt` and `browser.<pid>.sample.txt` (processes and native stacks, macOS). The progress line says when a step has run far past what it should take. `recording.browserMemoryMb` caps a page's heap (4096).
 
 Below them is the **review workspace** of one take (the one you picked with *Review*, else the one you are viewing, else the one in the
 production line): the scenes as **chapters with their frames** (the start, each mark, notable moments, the end) beside a **smaller player that

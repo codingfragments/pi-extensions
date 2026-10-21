@@ -46,7 +46,37 @@ function stepLabel(s) {
 }
 
 /** The selected scene: what it shows, what it says, what will be recorded, and its review. */
-function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, conf }) {
+/** "4 min 10 s", "35 s". */
+const dur = (ms) => {
+  const s = Math.max(1, Math.round(ms / 1000));
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`;
+};
+const span = (t) => `${dur(t.lo * 1000)}–${dur(t.hi * 1000)}`;
+
+const VERDICT_WORDS = {
+  short: (p) =>
+    `well under the target (${p} % of its low end). The finished video follows the voice-over, so a storyboard this short usually means thin scenes: add scenes, or stay longer on what matters, or lower the target in the brief.`,
+  fits: () => "within the target. The edit absorbs the rest.",
+  long: () => "over the target. Trim scenes or steps, or raise the target in the brief.",
+};
+
+/** How long this storyboard takes to record, against the length the brief asks for. */
+function Timing({ timing }) {
+  if (!timing) return null;
+  const t = timing.target;
+  return html`<p class="ds-small" data-timing data-verdict=${timing.verdict}>
+    <strong>Projected recording ${dur(timing.totalMs)}</strong> · ${timing.steps} step${timing.steps === 1 ? "" : "s"} in ${timing.scenes.length} scene${timing.scenes.length === 1 ? "" : "s"}
+    ${timing.openWaits ? html` <span class="ds-muted">(${timing.openWaits} wait${timing.openWaits === 1 ? "" : "s"} for the app counted at 1.5 s: they may take longer)</span>` : null}
+    ${
+      t
+        ? html` · target <strong>${span(t)}</strong> ${t.fromDepth ? html`<span class="ds-muted">(the depth's default: set “Target length” in the brief)</span>` : html`<span class="ds-muted">(from the brief)</span>`}: ${VERDICT_WORDS[timing.verdict]?.(timing.percentOfTarget)}`
+        : html` · <span class="ds-muted">no target length in the brief</span>`
+    }
+    ${timing.lastTake ? html` · <span class="ds-muted">the last take of this storyboard (${timing.lastTake.id}) ran ${dur(timing.lastTake.ms)}</span>` : null}
+  </p>`;
+}
+
+function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, conf, ms }) {
   const r = review?.scenes?.[scene.id];
   const [note, setNote] = useState(r?.note ?? "");
   useEffect(() => setNote(r?.note ?? ""), [r?.note]);
@@ -57,6 +87,7 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
     <div class="ds-row-flex">
       <h2>${index + 1}. ${scene.title}</h2>
       <span class="ds-badge ds-mono" data-tone="neutral">${scene.id}</span>
+      ${ms ? html`<span class="ds-badge" data-tone="neutral" data-scene-time title="projected recording time of this scene">~${dur(ms)}</span>` : null}
       ${diffKind ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">${diffKind === "new" ? "+" : "~"}</span>${diffKind === "new" ? "New" : "Changed"}</span>` : null}
       <${ReviewBadge} status=${r?.status} />
       <${ConfPill} c=${conf} long />
@@ -148,6 +179,7 @@ export function Review({ events }) {
       { replace: true },
     );
   const row = hist.data?.rows?.find((r) => r.version === data.version);
+  const sceneMs = (id) => data.timing?.scenes?.find((s) => s.id === id)?.ms ?? 0;
 
   return html`
     <${StageSummary} events=${events} stage="storyboard" row=${row} rows=${hist.data?.rows}
@@ -164,6 +196,7 @@ export function Review({ events }) {
         <${VersionActions} stage="storyboard" row=${row} events=${events} onDone=${reload} />
       </div>
       ${data.storyboard.summary ? html`<p>${data.storyboard.summary}</p>` : null}
+      <${Timing} timing=${data.timing} />
       ${
         data.diff
           ? html`<p class="muted small-text">since v${data.diff.from}:
@@ -189,7 +222,7 @@ export function Review({ events }) {
               const c = confOf(data.confidence, s.id);
               const dk = diffKind(s.id);
               return html`<${ListRow} key=${s.id} itemKey=${s.id} title=${`${scenes.indexOf(s) + 1}. ${s.title}`} review=${rv} current=${scene?.id === s.id} onSelect=${select}
-                meta=${`${s.id} · ${rv ? STATE_WORD[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
+                meta=${`${s.id}${sceneMs(s.id) ? ` · ~${dur(sceneMs(s.id))}` : ""} · ${rv ? STATE_WORD[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
                 badges=${html`${dk ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">${dk === "new" ? "+" : "~"}</span>${dk === "new" ? "New" : "Changed"}</span>` : null}${c && c.level !== "high" ? html`<${ConfPill} c=${c} />` : null}`} />`;
             })}
           </ul>
@@ -199,7 +232,7 @@ export function Review({ events }) {
           ${
             scene
               ? html`<${SceneInspector} key=${`${data.version}-${scene.id}`} scene=${scene} index=${scenes.indexOf(scene)} review=${data.review}
-                  diffKind=${diffKind(scene.id)} readOnly=${readOnly} onReview=${onReview} conf=${confOf(data.confidence, scene.id)} />`
+                  diffKind=${diffKind(scene.id)} readOnly=${readOnly} onReview=${onReview} conf=${confOf(data.confidence, scene.id)} ms=${sceneMs(scene.id)} />`
               : null
           }
           </div>

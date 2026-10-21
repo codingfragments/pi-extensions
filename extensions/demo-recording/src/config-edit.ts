@@ -60,6 +60,12 @@ export const CONFIG_DOCS: Record<string, string> = {
   "improvise.timeoutMs": "Per-request timeout for improvise models.",
   "recording.maxRetriesPerScene": "Retries per failing scene (0..5).",
   "recording.typoRate": "Typo-and-correct probability per letter (0..0.1).",
+  "recording.stepDeadlineMinSec":
+    "The least a recording step may run before the browser is judged frozen, in seconds (0 to 3600, 0 = no deadline). A step's own allowance is three times what it should take plus 30 s (a wait: its timeout plus 15 s), never less than this. Past it the browser is diagnosed (diagnostics/stalled-N in the take), killed and replaced, and the scene is shot again.",
+  "recording.maxStalls":
+    "How many frozen browsers a take survives (0 to 10) before it fails. A stall does not use up the scene's retries; a page that always freezes the browser would otherwise loop for ever.",
+  "recording.browserMemoryMb":
+    "Cap for one page's JavaScript heap in the recording browser, in megabytes (0 to 65536, 0 = Chromium's own limit).",
   "recording.keepFrames": "Keep raw JPEG frames after encoding (raw.mp4 is the master).",
   "tts.elevenlabs.model": "ElevenLabs model (default eleven_v4).",
   "tts.elevenlabs.fallbackModel":

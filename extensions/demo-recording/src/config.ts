@@ -47,7 +47,17 @@ export interface DemoRecConfig {
   /** Live input generation for `improvise` steps (S3): model chain, hesitation budget. */
   improvise: { models: string[]; hesitateMs: number; timeoutMs: number };
   /** Recording behaviour (S3): retries per scene, typo rate (0 = none). */
-  recording: { maxRetriesPerScene: number; typoRate: number; keepFrames: boolean };
+  recording: {
+    maxRetriesPerScene: number;
+    typoRate: number;
+    keepFrames: boolean;
+    /** The least a step may run before the browser is judged frozen (seconds; 0 = no deadline). A step's own allowance is three times its estimate plus 30 s. */
+    stepDeadlineMinSec: number;
+    /** Frozen browsers a take survives before it fails. */
+    maxStalls: number;
+    /** Cap for one page's JavaScript heap in the recording browser, MB (0 = Chromium's own). */
+    browserMemoryMb: number;
+  };
   /** Voice engines (S4). The chain order is `ttsChain`; keys come from the environment. */
   tts: {
     elevenlabs: { model: string; fallbackModel: string; stability?: number; similarity?: number };
@@ -167,7 +177,14 @@ export function defaultConfig(home: string): DemoRecConfig {
       hesitateMs: 3000,
       timeoutMs: 6000,
     },
-    recording: { maxRetriesPerScene: 2, typoRate: 0, keepFrames: false },
+    recording: {
+      maxRetriesPerScene: 2,
+      typoRate: 0,
+      keepFrames: false,
+      stepDeadlineMinSec: 60,
+      maxStalls: 3,
+      browserMemoryMb: 4096,
+    },
     tts: {
       elevenlabs: { model: "eleven_v4", fallbackModel: "eleven_multilingual_v2" },
       openai: {
@@ -315,6 +332,19 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       cfg.recording.typoRate = r;
     }
     if (rec.keepFrames !== undefined) cfg.recording.keepFrames = rec.keepFrames === true;
+    for (const [key, min, max, unit] of [
+      ["stepDeadlineMinSec", 0, 3600, "seconds (0 = no deadline)"],
+      ["maxStalls", 0, 10, ""],
+      ["browserMemoryMb", 0, 65536, "megabytes (0 = Chromium's own limit)"],
+    ] as const) {
+      const v = rec[key];
+      if (v === undefined) continue;
+      if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max)
+        throw new Error(
+          `demo-recording config: "recording.${key}" must be a whole number${unit ? ` of ${unit}` : ""} from ${min} to ${max}`,
+        );
+      cfg.recording[key] = v;
+    }
   }
   const tts = raw.tts as Record<string, Record<string, unknown> | undefined> | undefined;
   if (tts !== undefined) {

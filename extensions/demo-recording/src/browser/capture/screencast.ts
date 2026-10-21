@@ -128,12 +128,20 @@ export class Screencast {
     return this.t0;
   }
 
-  async stop(): Promise<CaptureResult> {
+  /** The newest frame file written so far (for the diagnosis of a stalled step). */
+  lastFrameFile(): string | undefined {
+    return this.frames.at(-1)?.file;
+  }
+
+  /** `bounded`: a browser that does not answer must not hold the stop (and with it the whole take) for ever. */
+  async stop(bounded = true): Promise<CaptureResult> {
     const endTs = Date.now();
     this.running = false;
-    await this.cdp.send("Page.stopScreencast").catch(() => {});
+    const limit = <T>(p: Promise<T>) =>
+      bounded ? Promise.race([p, new Promise<void>((r) => setTimeout(r, 5000))]) : p;
+    await limit(this.cdp.send("Page.stopScreencast").catch(() => {}));
     this.cdp.off("Page.screencastFrame", this.onFrame);
-    await Promise.all(this.writes);
+    await limit(Promise.all(this.writes));
     // Frames can arrive marginally out of order; keep them sorted by timestamp.
     const frames = this.frames.filter((f) => f.ts <= endTs + 50).sort((a, b) => a.ts - b.ts);
     if (frames.length === 0) throw new Error("screencast produced no frames");

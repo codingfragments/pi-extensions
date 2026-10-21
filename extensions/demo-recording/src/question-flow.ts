@@ -88,6 +88,15 @@ export function answerFor(
       );
       rt.tellAgent(deniedMessage(g.summary));
     }
+  } else if (q.auth) {
+    // a recording is paused for a new login (S7): "stop" ends it, "login" only says you will log in; neither is news for the Director
+    if (a.word === "stop") {
+      const job = rt.jobs.running("record");
+      if (job) rt.jobs.cancel(job.id);
+      rt.tellAgent(
+        `${PANEL_PREFIX} The user stopped the recording that was waiting for a new login.`,
+      );
+    }
   } else rt.notifyAgent(answeredMessage(by === "chat" ? CHAT_PREFIX : PANEL_PREFIX, q));
   return r;
 }
@@ -125,4 +134,29 @@ export function settleGrantQuestion(
       },
       p.slug,
     );
+}
+
+/**
+ * A login was saved for an app (`/demo login`, the Login card): tell the panel, and answer the question of a recording that was waiting for it, so the bar and the chat
+ * stop asking. The recording itself carries on when it sees the event.
+ */
+export function loginSaved(rt: Runtime, appSlug: string, appName: string): void {
+  const p = rt.activeProject();
+  rt.bus.publish("auth.saved", { app: appSlug, message: `login saved for ${appName}` }, p?.slug);
+  if (!p) return;
+  for (const q of readQuestions(p.dir))
+    if (q.status === "pending" && q.auth?.app === appSlug) {
+      const r = answerQuestion(p.dir, q.id, "login", "chat");
+      if (r.ok)
+        rt.bus.publish(
+          "question.answered",
+          {
+            id: q.id,
+            option: r.question.answer?.key,
+            by: "chat",
+            message: `answered ${q.id}: you logged in again`,
+          },
+          p.slug,
+        );
+    }
 }

@@ -53,6 +53,8 @@ export interface Question {
   cancelled?: { why: string; at: string };
   /** The question is the Allow for a spend (11b): answering it grants or refuses that request, so the old Allow / `/demo allow` and this are one thing. */
   grant?: { kind: "tts" | "take"; target: string; request: string; summary: string };
+  /** The question is the pause of a recording whose saved login expired (S7): "login" carries on when you have logged in again, "stop" ends the recording. */
+  auth?: { app: string };
 }
 
 const file = (projectDir: string) => path.join(projectDir, "questions.json");
@@ -90,6 +92,8 @@ export function askQuestion(
     options?: unknown;
     /** Engine only (the tool never passes it): this is the Allow for a spend. Not counted against the limit of waiting questions. */
     grant?: Question["grant"];
+    /** Engine only: a recording waits for a new login. Not counted against the limit of waiting questions. */
+    auth?: Question["auth"];
   },
   now = new Date(),
 ): Question {
@@ -132,7 +136,7 @@ export function askQuestion(
   });
   const list = readQuestions(projectDir);
   const waiting = list.filter((x) => x.status === "pending");
-  if (!q.grant && waiting.length >= LIMITS.pending)
+  if (!q.grant && !q.auth && waiting.length >= LIMITS.pending)
     problems.push(
       `${waiting.length} questions are still waiting for the user (${waiting.map((x) => x.id).join(", ")}): wait for them`,
     );
@@ -150,6 +154,7 @@ export function askQuestion(
     options: labels.map((label, i) => ({ key: String(i + 1), word: words[i] as string, label })),
     status: "pending",
     ...(q.grant ? { grant: q.grant } : {}),
+    ...(q.auth ? { auth: q.auth } : {}),
   };
   save(projectDir, [...list, question]);
   return question;
@@ -238,7 +243,7 @@ export function cancelAskedSince(
 ): Question[] {
   const list = readQuestions(projectDir);
   const gone = list.filter(
-    (q) => q.status === "pending" && !q.grant && Date.parse(q.at) >= sinceMs,
+    (q) => q.status === "pending" && !q.grant && !q.auth && Date.parse(q.at) >= sinceMs,
   );
   for (const q of gone) {
     q.status = "cancelled";

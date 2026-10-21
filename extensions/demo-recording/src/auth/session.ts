@@ -84,7 +84,7 @@ export const probeUrl = (app: AppInfo): string => {
   }
 };
 
-async function factsOf(page: Page): Promise<PageFacts> {
+export async function factsOf(page: Page): Promise<PageFacts> {
   const hasPassword =
     (await page
       .locator("input[type=password]:visible")

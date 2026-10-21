@@ -179,7 +179,9 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             ...(asked ? { request: asked.id } : {}),
             bus: rt.bus,
             project: p.slug,
-            ...(params.headed ? { headed: true } : {}),
+            // the Start window's switch shows the window in front and keeps it open afterwards; the Director's own `headed` only shows it
+            ...(params.headed || asked?.headed ? { headed: true } : {}),
+            ...(asked?.headed ? { keepOpen: true } : {}),
             ...(fs.existsSync(statePath) ? { storageState: statePath } : {}),
           });
           if (asked) {

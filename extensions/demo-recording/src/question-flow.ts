@@ -8,7 +8,7 @@
  *    ones the Director always got for those, and the grant store stays the only thing that decides whether something may start.
  */
 
-import { pendingRequest } from "./discovery/requests.ts";
+import { pendingRequest, presetBudgets } from "./discovery/requests.ts";
 import { requestDiscovery } from "./discovery/start.ts";
 import { allowedMessage, deniedMessage } from "./grants.ts";
 import {
@@ -97,8 +97,8 @@ export function answerFor(
       try {
         const req = requestDiscovery(rt, {
           mode: "start",
-          budget: rt.getConfig().budgets,
-          preset: "standard",
+          budget: presetBudgets(rt.getConfig().budgets, "scout"),
+          preset: "scout",
           by,
         });
         rt.bus.publish(
@@ -214,13 +214,13 @@ export function offerDiscovery(rt: Runtime, appSlug: string): Question | undefin
   if (readQuestions(p.dir).some((q) => q.status === "pending" && q.discovery)) return undefined;
   const phase = (readState(p.dir) ?? p.state).phase;
   if (phase !== "brief" && phase !== "discovery") return undefined;
-  const b = rt.getConfig().budgets;
+  const b = presetBudgets(rt.getConfig().budgets, "scout");
   const q = askQuestion(p.dir, {
     role: "Director",
     what: `Your login for ${p.app.name} is saved and works. Start discovery now?`,
-    why: `Discovery explores the app in a browser with that login (${b.discoveryScreens} screens, ${b.discoveryActions} actions, ${b.discoveryMinutes} min at most): model tokens and browser time, no money. Nothing starts unless you say so.`,
+    why: `A scouting run: the engine surveys the app's navigation, then the Director looks closely at a few pages (${b.discoveryScreens} screens, ${b.discoveryActions} actions, ${b.discoveryMinutes} min at most): model tokens and browser time, no money. Nothing starts unless you say so.`,
     options: [
-      { label: "Start discovery now (standard budget)" },
+      { label: "Start discovery now (a quick scout)" },
       { label: "Choose areas or budget first" },
       { label: "Not now" },
     ],

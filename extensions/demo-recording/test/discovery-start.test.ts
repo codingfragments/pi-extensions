@@ -38,6 +38,11 @@ test("presets: quick is half, deep is double, within the caps; a budget is whole
     discoveryActions: 75,
     discoveryMinutes: 10,
   });
+  assert.deepEqual(presetBudgets(STD, "scout"), {
+    discoveryScreens: 16,
+    discoveryActions: 38,
+    discoveryMinutes: 8,
+  });
   assert.deepEqual(presetBudgets(STD, "standard"), STD);
   assert.deepEqual(presetBudgets(STD, "deep"), {
     discoveryScreens: 80,
@@ -66,6 +71,89 @@ test("presets: quick is half, deep is double, within the caps; a budget is whole
   assert.throws(() => checkBudget({ ...STD, discoveryMinutes: 121 }), /minutes is at most 120/);
   assert.throws(() => checkBudget({ ...STD, discoveryScreens: 201 }), /screens is at most 200/);
   assert.throws(() => checkBudget(undefined), /screens must be/);
+});
+
+test("what the Director is told: survey first, a scouting run says so, the watching switch, a draft brief", () => {
+  const p = { slug: "demo", name: "Acme", url: "https://acme.test" };
+  const mk = (o: Parameters<typeof addRequest>[1]) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "demo-rec-dmsg-"));
+    try {
+      return addRequest(root, o);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  };
+  const scout = requestMessage(
+    "[x]",
+    p,
+    mk({ mode: "start", budget: STD, preset: "scout", headed: true }),
+    { sessions: 0, findings: 0 },
+    { briefDraft: true },
+  );
+  assert.match(scout, /SCOUTING run: open, declare your plan, call demo_rec_browser survey ONCE/);
+  assert.match(scout, /the pages do not use the screen budget/);
+  assert.match(
+    scout,
+    /The user wants to WATCH: the browser window is shown in front and stays open/,
+  );
+  assert.match(
+    scout,
+    /The brief is still a draft \(fields marked TODO\)\. Do NOT stop to ask the user about it/,
+  );
+  const std = requestMessage("[x]", p, mk({ mode: "start", budget: STD, preset: "standard" }), {
+    sessions: 0,
+    findings: 0,
+  });
+  assert.match(std, /Start with demo_rec_browser survey right after the plan/);
+  assert.doesNotMatch(std, /SCOUTING|WATCH|draft/);
+  assert.equal(mk({ mode: "start", budget: STD, headed: true }).headed, true);
+  assert.equal("headed" in mk({ mode: "start", budget: STD }), false, "off is not stored");
+  assert.equal(
+    "headed" in mk({ mode: "start", budget: STD, headed: "yes" }),
+    false,
+    "only true counts",
+  );
+});
+
+test("a window kept open: the runtime closes it at the next open or at shutdown, and only the ones asked for", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "demo-rec-kept-"));
+  process.env.DEMO_REC_NO_OPEN = "1";
+  const rt = new Runtime(() => ({
+    ...resolveConfig({ env: { DEMO_REC_CONFIG: path.join(root, "none.json") } }),
+    root,
+    panelPort: 0,
+  }));
+  try {
+    const log: string[] = [];
+    const fake = (name: string, kept: boolean) =>
+      ({
+        isClosed: false,
+        windowKept: kept,
+        close: async () => {
+          log.push(`${name}:close`);
+        },
+        closeKept: async () => {
+          log.push(`${name}:closeKept`);
+        },
+      }) as never;
+    rt.discovery = fake("a", true);
+    await rt.closeDiscovery();
+    rt.discovery = fake("b", false);
+    await rt.closeDiscovery();
+    assert.deepEqual(
+      log,
+      ["a:close", "b:close"],
+      "nothing is closed twice, a kept window is left open",
+    );
+    await rt.closeKeptWindows();
+    assert.deepEqual(log, ["a:close", "b:close", "a:closeKept"], "only the kept one, and only now");
+    rt.discovery = fake("c", true);
+    await rt.closeDiscovery();
+    await rt.shutdown();
+    assert.ok(log.includes("c:closeKept"), "shutting down closes what was kept");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("requests: stored, one waiting at a time (a newer one replaces it), taken by a session, taken back; text limits", () => {
@@ -511,10 +599,23 @@ test(
       await page.click("[data-act=start-discovery]");
       await page.waitForSelector("[data-act=ask-discovery]");
       assert.equal(
+        await page.locator("[data-preset=scout]").getAttribute("aria-pressed"),
+        "true",
+        "a first look is a scout",
+      );
+      assert.equal(
+        await page.inputValue("[data-budget=discoveryScreens]"),
+        "16",
+        "0.4 of the standard",
+      );
+      await page.click("[data-preset=standard]");
+      assert.equal(
         await page.inputValue("[data-budget=discoveryScreens]"),
         "40",
         "standard is the Config value",
       );
+      // the switch to watch: off by default
+      assert.equal(await page.locator("[data-field=headed]").isChecked(), false);
       await page.click("[data-preset=quick]");
       assert.deepEqual(
         await page.evaluate(
@@ -525,6 +626,7 @@ test(
       await page.fill("[data-budget=discoveryActions]", "90");
       assert.equal(await page.locator("[data-preset=custom]").getAttribute("aria-pressed"), "true");
       assert.equal(await page.locator("[data-preset=quick]").getAttribute("aria-pressed"), "false");
+      await page.check("[data-field=headed]");
       await page.fill("[data-field=notes]", "focus on search");
       await page.fill("[data-field=areas]", "Search box\n\nCart and checkout");
       await page.click("[data-act=ask-discovery]");
@@ -532,6 +634,12 @@ test(
       assert.equal(told.length, 1);
       assert.match(told[0] ?? "", /20 screens, 90 actions, 10 minutes/);
       assert.match(told[0] ?? "", /Their notes: focus on search/);
+      assert.match(told[0] ?? "", /The user wants to WATCH/);
+      assert.equal(
+        pendingRequest(rt.requireProject().dir)?.headed,
+        true,
+        "the switch is in the request",
+      );
       assert.match(told[0] ?? "", /Areas they want covered[^\n]*Search box; Cart and checkout/);
       assert.match(
         await page.locator("[data-pending]").innerText(),

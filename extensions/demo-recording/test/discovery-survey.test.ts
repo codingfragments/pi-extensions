@@ -178,3 +178,42 @@ test(
     }
   },
 );
+
+test(
+  "a headed session with keepOpen leaves its window open when it closes, and closeKept closes it (needs a screen: DEMO_REC_TEST_HEADED=1)",
+  {
+    skip: !process.env.DEMO_REC_TEST_HEADED && "needs a screen: set DEMO_REC_TEST_HEADED=1",
+    timeout: 120_000,
+  },
+  async () => {
+    const { DiscoverySession } = await import("../src/discovery/session.ts");
+    const { ensureApp } = await import("../src/workdir/layout.ts");
+    const { processesOf } = await import("../src/browser/processes.ts");
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "demo-rec-kept-"));
+    try {
+      const app = ensureApp(root, "Kept", fixture.url);
+      const d = await DiscoverySession.open({
+        root,
+        app,
+        viewport: { width: 1000, height: 700 },
+        budgets: { discoveryScreens: 10, discoveryActions: 10, discoveryMinutes: 5 },
+        heartbeatSec: 0,
+        headed: true,
+        keepOpen: true,
+      });
+      const marker = (d as unknown as { marker: string }).marker;
+      await d.look();
+      await d.close();
+      assert.equal(d.isClosed, true);
+      assert.equal(d.windowKept, true);
+      assert.ok(processesOf(marker).length > 0, "the browser is still running");
+      assert.match(d.page.url(), /^http/, "and the page is still there");
+      await d.closeKept();
+      assert.equal(d.windowKept, false);
+      await new Promise((r) => setTimeout(r, 800));
+      assert.equal(processesOf(marker).length, 0, "now it is gone");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+);

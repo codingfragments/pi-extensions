@@ -36,7 +36,14 @@ const POLICY: Record<string, Record<string, Kind>> = {
     preview: "free",
     use: "free",
   },
-  demo_rec_browser: { open: "free", look: "free", act: "free", plan: "free", close: "free" },
+  demo_rec_browser: {
+    open: "free",
+    look: "free",
+    act: "free",
+    survey: "free",
+    plan: "free",
+    close: "free",
+  },
   // the Director gives a verdict on two versions; it cannot use, approve or change one
   demo_rec_compare: { context: "free", answer: "proposal" },
   // the discovery report is a project artifact the Director writes; every claim must cite evidence that exists

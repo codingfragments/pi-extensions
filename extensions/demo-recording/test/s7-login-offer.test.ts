@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { resolveConfig } from "../src/config.ts";
-import { pendingRequest, readRequests } from "../src/discovery/requests.ts";
+import { pendingRequest, presetBudgets, readRequests } from "../src/discovery/requests.ts";
 import { answerFor, loginSaved } from "../src/question-flow.ts";
 import { askQuestion, pendingQuestions, readQuestions } from "../src/questions.ts";
 import { Runtime } from "../src/runtime.ts";
@@ -64,7 +64,7 @@ test("a fresh login asks: start, choose first or not now; nothing starts by itse
     );
     assert.match(
       q?.why ?? "",
-      /model tokens and browser time, no money\. Nothing starts unless you say so/,
+      /scouting run: the engine surveys the app's navigation.*model tokens and browser time, no money\. Nothing starts unless you say so/,
     );
     assert.equal(q?.discovery?.app, p.app.slug);
     assert.ok(
@@ -81,7 +81,7 @@ test("a fresh login asks: start, choose first or not now; nothing starts by itse
   }
 });
 
-test("Start sends the request with Config's standard budget and wakes the Director; the history says who asked", async () => {
+test("Start sends a scouting request (0.4 of Config's screens and minutes) and wakes the Director; the history says who asked", async () => {
   const { rt, p, told, done } = setup();
   try {
     loginSaved(rt, p.app.slug, p.app.name);
@@ -90,8 +90,8 @@ test("Start sends the request with Config's standard budget and wakes the Direct
     assert.equal(r.ok, true);
     const req = pendingRequest(p.dir);
     assert.equal(req?.mode, "start");
-    assert.equal(req?.preset, "standard");
-    assert.deepEqual(req?.budget, rt.getConfig().budgets);
+    assert.equal(req?.preset, "scout");
+    assert.deepEqual(req?.budget, presetBudgets(rt.getConfig().budgets, "scout"));
     assert.equal(told.length, 1);
     assert.match(told[0] ?? "", /asks to start discovery of Fixture .* \(request dr-1\)/);
     assert.match(told[0] ?? "", /^\[demo-panel/);

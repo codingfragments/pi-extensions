@@ -25,7 +25,7 @@ import { formatDoctor, runDoctor } from "../doctor.ts";
 import { envNotice } from "../env-overrides.ts";
 import { allowedMessage, deniedMessage } from "../grants.ts";
 import { ACTIVE_ENTRY, archiveProject, deleteProject } from "../projects/manage.ts";
-import { settleGrantQuestion } from "../question-flow.ts";
+import { loginSaved, settleGrantQuestion } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
 import { startRender } from "../tools/render.ts";
@@ -551,11 +551,7 @@ export async function cmdLogin(
     else gaveUp(new Error("you cancelled the login"));
     const r = await run;
     if (r.saved) {
-      rt.bus.publish(
-        "auth.saved",
-        { app: p.app.slug, message: `login saved for ${p.app.name}` },
-        p.slug,
-      );
+      loginSaved(rt, p.app.slug, p.app.name);
       report(
         ctx,
         `saved the login for ${p.app.name} (owner-only, never in a zip). A fresh browser with it is logged in: ${r.probe.reason}.`,

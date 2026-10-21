@@ -8,9 +8,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { sessionGuardFor } from "../src/auth/guard.ts";
 import {
   authDir,
   checkBeforeStart,
+  factsOf,
   forgetSession,
   hasState,
   loginSession,
@@ -22,7 +24,12 @@ import {
 } from "../src/auth/session.ts";
 import { cmdLogin, cmdLogout, cmdSession } from "../src/commands/demo.ts";
 import { resolveConfig } from "../src/config.ts";
+import { answerFor, loginSaved } from "../src/question-flow.ts";
+import { pendingQuestions, readQuestions } from "../src/questions.ts";
+import { readEvents } from "../src/recorder/events.ts";
+import { recordTake } from "../src/recorder/runner.ts";
 import { Runtime } from "../src/runtime.ts";
+import { parseStoryboard } from "../src/storyboard/parse.ts";
 import { registerBrowserTool } from "../src/tools/browser.ts";
 import { ensureProject, readApp } from "../src/workdir/layout.ts";
 import { logInByHand, loginFixture } from "./helpers/login-fixture.ts";
@@ -362,6 +369,248 @@ test(
       assert.equal(readMeta(root, p.app.slug).state, "valid");
     } finally {
       await rt.shutdown();
+      await fx.close();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+// ---- 7c: a login that expires inside a take --------------------------------------------------------------------------------
+
+const ffmpegOk = (await import("../src/media/ffmpeg.ts")).hasBinary("ffmpeg");
+const skipTake = (!(await chromium()) || !ffmpegOk) && "needs Playwright Chromium + ffmpeg";
+
+function takeOpts(root: string, base: string, yaml: string, extra: Record<string, unknown> = {}) {
+  const projectDir = path.join(root, `proj${Math.random().toString(36).slice(2, 7)}`);
+  fs.mkdirSync(projectDir, { recursive: true });
+  return {
+    projectDir,
+    storyboard: parseStoryboard(yaml, { version: 1 }),
+    storyboardVersion: 1,
+    baseUrl: base,
+    viewport: { width: 800, height: 500, dpr: 1 },
+    fps: 10,
+    seed: 3,
+    encode: false,
+    ...extra,
+  } as Parameters<typeof recordTake>[0];
+}
+const SB = `start_url: /app
+scenes:
+  - id: one
+    title: Dashboard
+    steps:
+      - { do: pause, ms: 500 }
+  - id: two
+    title: Reports
+    deep_link: /app/two
+    steps:
+      - { do: goto, url: /app/two }
+      - { do: pause, ms: 500 }
+`;
+
+test(
+  "a login that expires between scenes pauses the take, asks, and goes on from that scene after a new login",
+  { skip: skipTake, timeout: 180_000 },
+  async () => {
+    const fx = await loginFixture();
+    const root = setup();
+    process.env.DEMO_REC_NO_OPEN = "1";
+    const rt = new Runtime(() => ({
+      ...resolveConfig({ env: { DEMO_REC_CONFIG: path.join(root, "none.json") } }),
+      root,
+      panelPort: 0,
+    }));
+    try {
+      const p = ensureProject(root, { project: "p", appName: "Fixture", appUrl: fx.base });
+      rt.setActiveProject(p.slug);
+      await loginSession({
+        root,
+        app: p.app,
+        headed: false,
+        waitForDone: Promise.resolve(),
+        afterOpen: (pg) => logInByHand(pg),
+      });
+      const events: { type: string; data?: Record<string, unknown> }[] = [];
+      rt.bus.subscribe((e) => events.push({ type: e.type, ...(e.data ? { data: e.data } : {}) }));
+      const ac = new AbortController();
+      const take = recordTake(
+        takeOpts(p.dir, fx.base, SB, {
+          storageState: statePath(root, p.app.slug),
+          sessionGuard: sessionGuardFor(rt, p, ac.signal),
+          signal: ac.signal,
+          // the server forgets the session as soon as scene one is done: the next page is a login page
+          onEvent: (e: { type: string; scene?: string }) => {
+            if (e.type === "scene-end" && e.scene === "one") fx.expire();
+          },
+        }),
+      );
+      // the take pauses: a question, an event, nothing finished
+      for (let i = 0; i < 200 && !pendingQuestions(p.dir).length; i++)
+        await new Promise((r) => setTimeout(r, 100));
+      const q = pendingQuestions(p.dir)[0];
+      assert.ok(q, "the take asks");
+      assert.deepEqual(
+        [q.role, q.auth?.app, q.options.map((o) => o.word)],
+        ["Operator", p.app.slug, ["login", "stop"]],
+      );
+      assert.match(q.what, /Your login for Fixture expired while recording \(scene two\)/);
+      assert.ok(
+        events.some(
+          (e) =>
+            e.type === "auth.expired" &&
+            /expired while recording \(scene two\)/.test(String(e.data?.message)),
+        ),
+      );
+      // you log in again (/demo login does exactly this) and the take goes on
+      const r = await loginSession({
+        root,
+        app: p.app,
+        headed: false,
+        waitForDone: Promise.resolve(),
+        afterOpen: (pg) => logInByHand(pg),
+      });
+      assert.equal(r.saved, true, r.problem);
+      loginSaved(rt, p.app.slug, p.app.name);
+      const result = await take;
+      assert.equal(result.segments.length, 2, "one segment before the pause and one after");
+      assert.match(
+        result.segments[1]?.resumedAfter?.error ?? "",
+        /the login expired; logged in again/,
+      );
+      assert.equal(result.segments[1]?.resumedAfter?.scene, "two");
+      assert.deepEqual(
+        result.scenes.map((s) => s.id),
+        ["one", "two"],
+        "both scenes are in the take, scene two once",
+      );
+      assert.ok(
+        readEvents(path.join(result.takeDir, "events.jsonl")).some((e) => e.type === "stitch"),
+      );
+      const attempts = fs.readFileSync(path.join(result.takeDir, "attempts.jsonl"), "utf8");
+      assert.match(attempts, /the login expired in scene two/);
+      // the question was answered by the login, not left behind
+      const all = readQuestions(p.dir);
+      assert.deepEqual([all[0]?.status, all[0]?.answer?.word], ["answered", "login"]);
+      assert.ok(events.some((e) => e.type === "auth.saved"));
+    } finally {
+      await rt.shutdown();
+      await fx.close();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "giving up on the pause (stop) ends the take as cancelled and leaves no question waiting",
+  { skip: skipTake, timeout: 180_000 },
+  async () => {
+    const fx = await loginFixture();
+    const root = setup();
+    process.env.DEMO_REC_NO_OPEN = "1";
+    const rt = new Runtime(() => ({
+      ...resolveConfig({ env: { DEMO_REC_CONFIG: path.join(root, "none.json") } }),
+      root,
+      panelPort: 0,
+    }));
+    try {
+      const p = ensureProject(root, { project: "p", appName: "Fixture", appUrl: fx.base });
+      rt.setActiveProject(p.slug);
+      await loginSession({
+        root,
+        app: p.app,
+        headed: false,
+        waitForDone: Promise.resolve(),
+        afterOpen: (pg) => logInByHand(pg),
+      });
+      const ac = new AbortController();
+      const take = recordTake(
+        takeOpts(p.dir, fx.base, SB, {
+          storageState: statePath(root, p.app.slug),
+          sessionGuard: sessionGuardFor(rt, p, ac.signal),
+          signal: ac.signal,
+          onEvent: (e: { type: string; scene?: string }) => {
+            if (e.type === "scene-end" && e.scene === "one") fx.expire();
+          },
+        }),
+      );
+      take.catch(() => undefined);
+      for (let i = 0; i < 200 && !pendingQuestions(p.dir).length; i++)
+        await new Promise((r) => setTimeout(r, 100));
+      const q = pendingQuestions(p.dir)[0];
+      assert.ok(q);
+      // "stop" from the panel or the chat: the engine cancels the recording job (here: the same abort)
+      const answered = answerFor(rt, q.id, "stop", "chat");
+      assert.ok(answered.ok);
+      ac.abort();
+      await assert.rejects(() => take, /recording cancelled/);
+      assert.equal(pendingQuestions(p.dir).length, 0);
+    } finally {
+      await rt.shutdown();
+      await fx.close();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "a page that looks like a login but is one you are still logged in to does not stop the take, and is not asked about twice",
+  { skip: skipTake, timeout: 180_000 },
+  async () => {
+    const fx = await loginFixture();
+    const root = setup();
+    try {
+      const p = ensureProject(root, { project: "p", appName: "Fixture", appUrl: fx.base });
+      await loginSession({
+        root,
+        app: p.app,
+        headed: false,
+        waitForDone: Promise.resolve(),
+        afterOpen: (pg) => logInByHand(pg),
+      });
+      let suspected = 0;
+      let confirmed = 0;
+      const guard = {
+        suspect: async (page: import("playwright").Page) => {
+          const v = looksLoggedOut(await factsOf(page));
+          if (v.out) suspected++;
+          return v.out ? v.reason : undefined;
+        },
+        confirm: async () => {
+          confirmed++;
+          return (await probeSession({ root, app: p.app })).state === "expired";
+        },
+        waitForLogin: async () => {
+          throw new Error("must not ask: the login is fine");
+        },
+      };
+      const yaml = `start_url: /app
+scenes:
+  - id: settings
+    title: Settings
+    steps:
+      - { do: goto, url: /app/settings }
+      - { do: pause, ms: 300 }
+      - { do: pause, ms: 300 }
+`;
+      const result = await recordTake(
+        takeOpts(p.dir, fx.base, yaml, {
+          storageState: statePath(root, p.app.slug),
+          sessionGuard: guard,
+        }),
+      );
+      assert.equal(result.segments.length, 1, "no pause, no new segment");
+      assert.equal(
+        suspected,
+        1,
+        "the password field is noticed once; the page is then cleared and not looked at again",
+      );
+      assert.equal(
+        confirmed,
+        1,
+        "the saved login was confirmed once, in a fresh browser, and found good",
+      );
+    } finally {
       await fx.close();
       fs.rmSync(root, { recursive: true, force: true });
     }

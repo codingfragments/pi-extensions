@@ -51,6 +51,30 @@ export interface FaultInjection {
   kind?: "error" | "crash";
 }
 
+/**
+ * A session that expires in the middle of a take (S7, D147). After every step the guard says whether the page looks like a login (`suspect`, cheap); only then is it
+ * confirmed in a fresh browser (`confirm`, so a scene that legitimately shows a password field does not stop the take). A confirmed expiry cuts the scene like a failed
+ * attempt (without counting against the retries), `waitForLogin` waits until you have logged in again (it rejects to give up), the browser is reopened with the new
+ * login, the app restored to the start of that scene, and the recording goes on as a new segment.
+ */
+export interface SessionGuard {
+  suspect: (page: Page) => Promise<string | undefined>;
+  confirm: () => Promise<boolean>;
+  waitForLogin: (info: { scene: string; step: number; reason: string }) => Promise<void>;
+}
+
+class SessionExpiredError extends Error {
+  scene: string;
+  step: number;
+  reason: string;
+  constructor(scene: string, step: number, reason: string) {
+    super(`the login expired in scene ${scene}, step ${step}: ${reason}`);
+    this.scene = scene;
+    this.step = step;
+    this.reason = reason;
+  }
+}
+
 export interface RecordOptions {
   projectDir: string;
   storyboard: Storyboard;
@@ -76,6 +100,8 @@ export interface RecordOptions {
   hesitateMs?: number;
   /** Retries per scene before the take fails (default 2). */
   maxRetriesPerScene?: number;
+  /** Expiry of the saved login inside the take (only given when the app has a saved login). */
+  sessionGuard?: SessionGuard;
   /** Typo-and-correct probability per letter (default 0). */
   typoRate?: number;
   /** Resume by replaying even when earlier scenes change state (default false). */
@@ -621,9 +647,9 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   };
 
   /** Restore the app to the start of scene k, off-camera. */
-  const restoreTo = async (k: number, pos: Point): Promise<void> => {
+  const restoreTo = async (k: number, pos: Point, freshBrowser = false): Promise<void> => {
     const scene = opts.storyboard.scenes[k] as Scene;
-    if (!session || !session.browser.isConnected() || session.page.isClosed()) {
+    if (freshBrowser || !session || !session.browser.isConnected() || session.page.isClosed()) {
       await session?.close();
       session = await openBrowser();
     }
@@ -649,6 +675,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     await sleep(300);
   };
 
+  const clearedUrls = new Set<string>();
   let failure: Error | undefined;
   try {
     session = await openBrowser();
@@ -705,6 +732,18 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
                 `scene ${scene.id}, step ${i} (${step.do}): ${(err as Error).message}`,
               );
             }
+            // a saved login that has expired shows as a login page: look after every step, confirm only when it does
+            if (opts.sessionGuard) {
+              const url = c.page.url();
+              const why = clearedUrls.has(url)
+                ? undefined
+                : await opts.sessionGuard.suspect(c.page);
+              if (why) {
+                if (await opts.sessionGuard.confirm())
+                  throw new SessionExpiredError(scene.id, i, why);
+                clearedUrls.add(url); // a page that looks like a login but is not: not asked again
+              }
+            }
             progress.finishStep(k, i);
           }
           await runner.flush();
@@ -724,7 +763,8 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
             attemptsFile,
             `${JSON.stringify({ scene: scene.id, attempt, error: message, events: dropped })}\n`,
           );
-          if (attempt > maxRetries)
+          const expired = err instanceof SessionExpiredError;
+          if (!expired && attempt > maxRetries)
             throw new Error(`${message} (after ${attempt} attempt${attempt > 1 ? "s" : ""})`);
           const hazards = opts.allowUnsafeReplay ? [] : replayHazards(opts.storyboard.scenes, k);
           if (hazards.length) {
@@ -736,6 +776,31 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
           }
           progress.restartScene(k);
           report();
+          if (err instanceof SessionExpiredError) {
+            // paused, nothing lost: wait for the new login, then the same scene again (not a retry)
+            try {
+              await (opts.sessionGuard as SessionGuard).waitForLogin({
+                scene: err.scene,
+                step: err.step,
+                reason: err.reason,
+              });
+            } catch (waitErr) {
+              if (opts.signal?.aborted) throw new CancelledError("recording cancelled");
+              throw waitErr;
+            }
+            checkCancel();
+            await restoreTo(k, scenePos, true);
+            await startSegment(cut, {
+              scene: scene.id,
+              attempt,
+              error: "the login expired; logged in again",
+            });
+            log.log("stitch", {
+              scene: scene.id,
+              data: { attempt, after: "the login expired; logged in again" },
+            });
+            continue;
+          }
           attempt++;
           await restoreTo(k, scenePos);
           await startSegment(cut, { scene: scene.id, attempt: attempt - 1, error: message });

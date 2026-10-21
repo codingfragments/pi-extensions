@@ -10,6 +10,7 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { sessionGuardFor } from "../auth/guard.ts";
 import { checkBeforeStart } from "../auth/session.ts";
 import type { Job } from "../jobs.ts";
 import { createImproviser, modelAccessFrom } from "../recorder/improvise.ts";
@@ -175,7 +176,9 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
             ...(context ? { improviseContext: context } : {}),
             ...(params.headed ? { headed: true } : {}),
             ...(params.seed !== undefined ? { seed: params.seed } : {}),
-            ...(fs.existsSync(statePath) ? { storageState: statePath } : {}),
+            ...(fs.existsSync(statePath)
+              ? { storageState: statePath, sessionGuard: sessionGuardFor(rt, p, signal) }
+              : {}),
             onEvent: (e) =>
               rt.bus.publish(
                 "take.event",

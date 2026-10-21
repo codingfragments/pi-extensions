@@ -255,8 +255,14 @@ Allow, and can feed the fix window.
   when and the result, never the content; a state that a fresh browser cannot use (a sessionStorage login) is **not saved** and the previous one stays. **Tests:** `test/s7-login.test.ts` (7, real
   Chromium against a fixture app that needs a login). **Not verified:** the headed window on your screen (the engine takes a headless switch for tests); a real app; the Director's behaviour on the refusal
   (the skill tells it to stop and ask you).
-- **7c, expiry inside a take.** The recorder checks after every navigation; a session that expired stops the take at that scene as "session expired" (not failed), a pending question asks you
-  to log in, and the recording resumes from that scene after the login.
+- **7c, expiry inside a take (done).** The recorder checks after every navigation; a session that expired stops the take at that scene as "session expired" (not failed), a pending question asks you
+  to log in, and the recording resumes from that scene after the login. **Built:** a `SessionGuard` for `recordTake` (given only when the app has a saved login): after every step the page is looked at
+  with the plain rule (`suspect`, cheap); only a suspicion is **confirmed in a fresh browser** with the saved login (so a scene that legitimately shows a password field does not stop the take, and a
+  cleared page is not asked about again); a confirmed expiry cuts the scene like a failed attempt without counting against the retries, an `auth.expired` event and a pending question from the Operator
+  ("Login: I will log in now" / "Stop the recording") appear, the take waits (no timeout, D142) until `auth.saved` (`/demo login`, the Login card) and then reopens the browser with the new login, restores
+  the scene (deep link or replay, with the same hazards check as a retry) and records on as a new segment (`resumedAfter: "the login expired; logged in again"`). "Stop" cancels the recording job; the
+  question is answered by the login or cancelled when the recording ends. **Tests:** three more in `test/s7-login.test.ts` (a take that pauses and goes on, a stop, a page that only looks like a login).
+  **Not verified:** an expiry in the middle of a long step (the check is after each step); an app whose login page has no password field and no login-looking address (set the app's own rule).
 - **7d, the Login card.** On the Project page: the state (none, valid since, expired, unknown), Log in, Check now, Forget, and the optional rule; the answer to the question.
 - **Real-app acceptance** is yours, on the app that needs the login: log in once, run discovery and a take. Not testable here; the fixture covers the engine.
 

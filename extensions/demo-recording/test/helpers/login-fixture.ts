@@ -53,6 +53,21 @@ export async function loginFixture(): Promise<LoginFixture> {
       }
       return res.end(html("<h1>Dashboard</h1><p>Welcome back</p>"));
     }
+    // more pages behind the login: Reports, and Settings, which legitimately shows a password field (to change it)
+    if (url.pathname === "/app/two" || url.pathname === "/app/settings") {
+      if (!cookie || !sessions.has(cookie)) {
+        res.statusCode = 302;
+        res.setHeader("location", "/login");
+        return res.end();
+      }
+      return res.end(
+        html(
+          url.pathname === "/app/two"
+            ? "<h1>Reports</h1><p>Quarterly</p>"
+            : "<h1>Settings</h1><label>New password <input type=password name=np></label>",
+        ),
+      );
+    }
     if (url.pathname === "/") {
       res.statusCode = 302;
       res.setHeader("location", "/app");

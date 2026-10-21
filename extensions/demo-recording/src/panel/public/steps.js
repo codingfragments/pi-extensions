@@ -48,6 +48,7 @@ export const STEPS = {
   "discovery.offer-failed": { class: "ask" },
   "discovery.offer-taken": { class: "quiet" },
   "discovery.reported": { class: "run-and-tell", tab: "project", when: notMine },
+  "discovery.forgotten": { class: "run-and-tell", tab: "project", when: notMine },
   "discovery.heartbeat": { class: "progress" },
   "discovery.page-event": { class: "alert" },
   "discovery.recover-failed": { class: "alert" },

@@ -6,6 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { discoveryCutoff } from "../workdir/discovery-cutoff.ts";
 import { pendingRequest } from "./requests.ts";
 
 export interface SessionRecord {
@@ -73,8 +74,17 @@ function fromLog(dir: string): { screens: number; actions: number; first?: strin
   return { screens, actions, ...(first ? { first } : {}), ...(last ? { last } : {}) };
 }
 
-/** Every session of the app, oldest first. */
-export function listSessions(appDir: string): SessionSummary[] {
+/**
+ * Every session of the app, oldest first. With `projectDir`, only the ones this project still remembers: those that began after its last "forget discovery"
+ * (discovery-cutoff.ts); the sessions themselves stay on disk, for the app's other projects.
+ */
+export function listSessions(appDir: string, projectDir?: string): SessionSummary[] {
+  const cutoff = projectDir ? discoveryCutoff(projectDir) : undefined;
+  const all = listAllSessions(appDir);
+  return cutoff ? all.filter((s) => s.startedAt >= cutoff) : all;
+}
+
+function listAllSessions(appDir: string): SessionSummary[] {
   const root = sessionsDir(appDir);
   if (!fs.existsSync(root)) return [];
   return fs

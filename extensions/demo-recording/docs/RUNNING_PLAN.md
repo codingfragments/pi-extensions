@@ -258,8 +258,13 @@ Allow, and can feed the fix window.
   Recording tab, a multi-line notes box, "N open notes will go with it" (or "No open notes on the takes"), the primary button and the cost hint; the guidance paragraph sits above the
   take rows (`.ds-take-guide`); the primary colour of a review card's one action is kept. **Tests:** `test/recording-request-card.test.ts` (browser: order on the page, the card, the
   note is sent once); `recording-notes` and `recording-review` find the box as a textarea. **Not verified:** 900 px and Latte.
-- **13c, Recording keys (R3-3).** `<` and `>` = previous / next finding of the take (what the scene is meant to cover and what the take found; the ones with a time jump to
+- **13c, Recording keys (R3-3; done).** `<` and `>` = previous / next finding of the take (what the scene is meant to cover and what the take found; the ones with a time jump to
   it, the others to their scene); `[` `]` stay chapters; Left / Right = minus / plus 10 s, Shift = 1 s; every key works on the whole Recording tab (never while typing or in a dialog).
+  **Built:** `recording-keys-core.js` (`keyAction`, `findingStops`, `stopFrom`, `clampSeek`) and one document-level key listener while a take's workspace is shown (it also takes the
+  arrows from a focused video, which would seek 5 s by itself); a line under the video says where a key took you ("Finding 2 of 2 · 0:03.0 · 02-search: …", "No further finding");
+  the hint under the player, the "?" sheet (13 rows) and CONTROL_ROOM say the same. A finding is what the storyboard meant the scene to show (at its scene's start) and what the
+  take found (at its time); one named by both is one stop; a second `<` right after arriving goes to the one before. **Tests:** `test/recording-keys.test.ts` (4 pure, 1 browser with
+  the focus on the page, in a text box and under a dialog). **Not verified:** a real take with many findings; Annotations keeps `[` `]` only, as decided.
 - **13d, Storyboard: the picture beside the text (R3-1).** Inside the detail column the scene picture is the left half and all text the right half; stacked below about 64rem of
   workspace; nothing sticky.
 - **14, Projects page and archive (E, R3-7).** `#/projects`, opened from the project name in the header: a row per project (name, app, phase, size, last change, active) with

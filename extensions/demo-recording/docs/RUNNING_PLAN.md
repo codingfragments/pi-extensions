@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 13, run 3 (your time: a full run on a second app); after it, items 14 to 16 need a real app that asks for a login.
+`main`.** The next pieces of work are items 13 and 14: the run-3 findings that were worth fixing before a real test (A to D), and a Projects page with archive (E). Run 3 moved behind S7: the real test is on a more complicated app that needs a login.
 
 ## 2. Done
 
@@ -48,10 +48,12 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | done | 12 | 43 |
 | 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | done | 7 | 50 |
 | 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | done | 4 | 54 |
-| 13 | **Run 3** | a full run on a different app, every screen at 1400 and 900 px (your time) | | **next** | 2 | 56 |
-| 14 | **S7 Login and sessions** | required for v1, with the session checks | F4 | later | 8 | 64 |
-| 15 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 70 |
-| 16 | **S8 Native capture** | optional | | later | | |
+| 13 | **Run-3 prep (A to D)** | Voice over buttons say what happens (A); the Recording request box at the bottom (B); Recording keys on the whole tab (C); the storyboard picture beside the text (D). Four small PRs | R3-6, R3-4, R3-3, R3-1 | **next** | 4 | 58 |
+| 14 | **Projects page and archive (E)** | list, switch, archive and delete projects in the panel (a delete is a verified zip first); `/demo archive` | R3-7 | planned | 3 | 61 |
+| 15 | **S7 Login and sessions** | required for v1, with the session checks | F4 | later | 8 | 69 |
+| 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | you | 2 | 71 |
+| 17 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 77 |
+| 18 | **S8 Native capture** | optional | | later | | |
 
 What moved on the way: L1, L3 and L6 are absorbed into items 3, 4 and 9; the early checks and the discovery checks left the plan (long tail,
 section 6); the filmstrip and step-through (8) follow the recording review (7) because they reuse its chapter and frame component.
@@ -243,6 +245,22 @@ Allow, and can feed the fix window.
   strict on purpose and may feel stiff; the model's own labels depend on it obeying; a question asked in one session and answered after a restart reaches a
   fresh Director that must be told what it was about (the message carries it).
 
+**Items 13 and 14 (run-3 prep, D146; separate small PRs, in this order).**
+
+- **13a, Voice over buttons (R3-6).** "Approve script vN" and "Make the voice (uses credits)" instead of "Approve & use" and "Generate voice, edit and a draft to watch"; a
+  "what happens next" line under them (approve, the voice with its cost, the sync edit and a draft, the annotations start by themselves); the approval toast says the same.
+  The credit gate stays a separate click.
+- **13b, Recording: the request box at the bottom (R3-4).** The card of the storyboard's review (a bigger notes box, "N open notes will go with it", the button, the cost
+  hint); the paragraph about approving and "Use for next steps" moves to the take rows.
+- **13c, Recording keys (R3-3).** `<` and `>` = previous / next finding of the take (what the scene is meant to cover and what the take found; the ones with a time jump to
+  it, the others to their scene); `[` `]` stay chapters; Left / Right = minus / plus 10 s, Shift = 1 s; every key works on the whole Recording tab (never while typing or in a dialog).
+- **13d, Storyboard: the picture beside the text (R3-1).** Inside the detail column the scene picture is the left half and all text the right half; stacked below about 64rem of
+  workspace; nothing sticky.
+- **14, Projects page and archive (E, R3-7).** `#/projects`, opened from the project name in the header: a row per project (name, app, phase, size, last change, active) with
+  Switch, Archive and Delete. Archive writes `<root>/archive/<project>-<date>.zip` (everything of the project and its app record, minus caches; over 4 GiB it refuses and says why).
+  Delete = zip, read the zip back, then remove the folder, only after you typed the project's name. `/demo archive <project> [--delete]` does the same from the chat. Switching
+  is refused while a job of the active project runs. No restore command (the zip unpacks into `<root>/projects`).
+
 **Item 12, P5 small options (two PRs).**
 
 - **12a, the logo bug (F28, done).** `logoBugStatus(brand)` says if a brand shows the logo bug (turned on AND a logo file), has it off, or turned it on without a
@@ -304,9 +322,10 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
   (S to M). The docked drawer (L3) moved to item 4.
   **The spike is done** ([spikes/P4-message-hooks.md](spikes/P4-message-hooks.md), `test/p4-spike-hooks.test.ts`, a real pi session with a scripted model): a typed reply is an `input` with `source: "interactive"` (our own bridge is `"extension"`, the model's text is never an `input`); an `input` handler can resolve a tool that waits and swallow the reply (also while the run streams); aborting aborts the waiting tool; `message_end` can store a role prefix (the model then sees it); a custom message can show a question in the chat. So A4 needs no pi change; the open points are the rule for what counts as an answer in the chat, a time limit, and whether the model's own text gets a stored label. The design grill is next.
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.
-- **Run 3 (13):** a full run on a different app, no login yet, every screen at 1400 and 900 px; its findings feed S7, S6 and S8.
-- **S7 (14):** `/demo login`, a login probe, re-login on expiry, session checks before discovery and recording; needs the real app. **S6 (15):**
-  parallel discovery lanes, opt-in, one bar per lane. **S8 (16):** native capture, optional.
+- **Run-3 prep (13) and E (14), decided with you (D146):** see section 4.
+- **S7 (15):** `/demo login`, a login probe, re-login on expiry, session checks before discovery and recording; needs the real app. **Run 3 (16):** a full run on that
+  more complicated app, every screen at 1400 and 900 px; its findings feed S6 and S8. **S6 (17):** parallel discovery lanes, opt-in, one bar per lane. **S8 (18):**
+  native capture, optional.
 
 ## 6. Long tail (not scheduled)
 

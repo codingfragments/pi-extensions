@@ -66,6 +66,21 @@ Below it, one group at a time (the chip that is open closes when you press it ag
 | **Findings** | what discovery and the recordings found (strengths, weaknesses, friction, values, use cases, length), each **auto**, **use** (always in the recording and the narration) or **ignore** |
 | **Project history** | the input log: every direction, review, edit and note; withdrawn ones are marked outdated, never deleted |
 
+## Login (apps that need one)
+
+The **Login card** on the Project page is for an app that asks for a login (a password, OAuth, an e-mail link, a one-time code). You log in **by hand, once**; the engine saves the session for
+the app and reuses it for discovery and recordings. It never stores a password and never shows the session to the Director or the panel.
+
+- **Log in…** opens a browser window on the app (the same as `/demo login`). Log in there, come back and press **I'm logged in** (or **Cancel**). The session is saved owner-only (never in a project's zip),
+  then **checked in a fresh browser**; if that browser is logged out (the app keeps its login in sessionStorage, which a saved login cannot keep) nothing is saved and the earlier login stays.
+- The card says where the login stands: **no saved login** (an app that needs none can ignore it), **logged in** (saved and checked when), **expired** (with the reason; discovery and recordings are refused
+  until you log in again) or **could not be checked** (the app was not reachable). **Check now** looks again; **Forget…** deletes the saved session.
+- **The app's own check** (optional): by default a session counts as gone when the app lands on a login-looking address (`/login`, `/sign_in`, `sso`, `auth`…) or shows a password field. If that is wrong for an app,
+  give a page to open and a text or a selector that is only there when you are logged in.
+- **During a recording** the page is looked at after every step. If the login has expired, the recording **pauses** (nothing is lost): a question from the Operator appears ("Login: I will log in now" / "Stop the
+  recording"), you log in again (the card or `/demo login`), and the recording goes on from that scene as a new segment. A scene that legitimately shows a password field does not stop it (the saved login is
+  confirmed in a fresh browser first).
+
 ## Projects
 
 **Projects** (`#/projects`; click the project's name in the header, or "All projects" on the Project page) lists every project of the working folder: its name, app, phase, size on

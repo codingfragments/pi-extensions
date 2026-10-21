@@ -25,7 +25,8 @@ const PRE_PASS = {
   Annotations: 102,
   "Voice over": 46,
   Config: 58,
-  Project: 30,
+  // 31: one more control on purpose (S7): "Log in…" on the Login card, which is how a saved login starts
+  Project: 31,
   Storyboard: 22,
   Recording: 5,
 } as const;

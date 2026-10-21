@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next piece of work is item 15, S7 (login and sessions), which needs the real app that asks for a login. Items 13 and 14 (the run-3 findings worth fixing before a real test, and a Projects page with archive) are done. Run 3 is item 16, behind S7.
+`main`.** The next piece of work is item 16, run 3 (yours): a full run on the more complicated app that needs a login, which is also the acceptance of S7 (item 15, built and tested on a fixture app only). Items 13 and 14 are done.
 
 ## 2. Done
 
@@ -50,8 +50,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | done | 4 | 54 |
 | 13 | **Run-3 prep (A to D)** | Voice over buttons say what happens (A); the Recording request box at the bottom (B); Recording keys on the whole tab (C); the storyboard picture beside the text (D). Four small PRs | R3-6, R3-4, R3-3, R3-1 | done | 4 | 58 |
 | 14 | **Projects page and archive (E)** | list, switch, archive and delete projects in the panel (a delete is a verified zip first); `/demo archive` | R3-7 | done | 3 | 61 |
-| 15 | **S7 Login and sessions** | required for v1, with the session checks (needs the real app that asks for a login) | F4 | **next** | 8 | 69 |
-| 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | you | 2 | 71 |
+| 15 | **S7 Login and sessions** | required for v1, with the session checks; the engine and the card are built, **your real app is the acceptance** | F4 | done | 8 | 69 |
+| 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | **next** | 2 | 71 |
 | 17 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 77 |
 | 18 | **S8 Native capture** | optional | | later | | |
 
@@ -263,7 +263,11 @@ Allow, and can feed the fix window.
   the scene (deep link or replay, with the same hazards check as a retry) and records on as a new segment (`resumedAfter: "the login expired; logged in again"`). "Stop" cancels the recording job; the
   question is answered by the login or cancelled when the recording ends. **Tests:** three more in `test/s7-login.test.ts` (a take that pauses and goes on, a stop, a page that only looks like a login).
   **Not verified:** an expiry in the middle of a long step (the check is after each step); an app whose login page has no password field and no login-looking address (set the app's own rule).
-- **7d, the Login card.** On the Project page: the state (none, valid since, expired, unknown), Log in, Check now, Forget, and the optional rule; the answer to the question.
+- **7d, the Login card (done).** On the Project page: the state (none, valid since, expired, unknown), Log in, Check now, Forget, and the optional rule; the answer to the question.
+  **Built:** `src/auth/login-flow.ts` (`startLogin`: one login at a time from the chat or the card, the same engine), routes `login`, `login-start`, `login-confirm`, `login-cancel`, `login-check`, `login-forget`,
+  `login-rule`, the Login card on the Project page (state with icon and words, the actions each state offers, the app's own check, the sessionStorage note), `loginView` (the words, pure). **Tests:**
+  `test/s7-login-card.test.ts` (the words; the card in a browser against the fixture: log in, cancel, check, expire, log in again, the app's own check, forget). **Not verified:** the headed window on a screen
+  (the card and `/demo login` use a headless one in tests); a real app.
 - **Real-app acceptance** is yours, on the app that needs the login: log in once, run discovery and a take. Not testable here; the fixture covers the engine.
 
 **Items 13 and 14 (run-3 prep, D146; separate small PRs, in this order).**

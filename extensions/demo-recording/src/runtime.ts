@@ -31,6 +31,7 @@ import { fixRoutes } from "./panel/fix-routes.ts";
 import { grantRoutes } from "./panel/grant-routes.ts";
 import { graphRoutes } from "./panel/graph-routes.ts";
 import { jobRoutes } from "./panel/job-routes.ts";
+import { loginRoutes } from "./panel/login-routes.ts";
 import { projectManageRoutes } from "./panel/project-manage-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
 import { questionRoutes } from "./panel/question-routes.ts";
@@ -116,8 +117,10 @@ export class Runtime {
   private configKey = "";
   private readonly agent: AgentBridge | undefined;
   discovery: DiscoverySession | undefined;
-  /** A login window is open (one at a time, S7). */
-  loginInProgress = false;
+  /** The login window that is open (one at a time, S7), from the chat or the Login card. */
+  login: import("./auth/login-flow.ts").LoginHandle | undefined;
+  /** Test seam: a headless login window and a script that acts as the user. */
+  loginSeam: import("./auth/login-flow.ts").LoginSeam = {};
   readonly jobs = new Jobs();
   /** What the user has allowed the Director to spend (P1a). */
   readonly grants = new GrantStore();
@@ -520,6 +523,7 @@ export class Runtime {
     const discover = discoveryRoutes(this);
     const questions = questionRoutes(this);
     const projectsManage = projectManageRoutes(this);
+    const loginR = loginRoutes(this);
     const jobs = jobRoutes(this);
     const graph = graphRoutes(this);
     const drafts = draftRoutes({
@@ -543,6 +547,7 @@ export class Runtime {
         ...discover.get,
         ...questions.get,
         ...projectsManage.get,
+        ...loginR.get,
         ...drafts.get,
         ...versions.get,
         ...brand.get,
@@ -571,6 +576,7 @@ export class Runtime {
         ...discover.post,
         ...questions.post,
         ...projectsManage.post,
+        ...loginR.post,
       },
     };
   }

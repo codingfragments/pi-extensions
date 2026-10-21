@@ -7,7 +7,7 @@ before the run started are marked "before the run".
 
 Kinds: bug, ux, idea, design, policy, cost, praise, question. "Not acted on" means exactly that.
 
-R3-1 [ux, idea] (before the run) Storyboard · the scene's picture on the LEFT of the main area, and everything written (the takeaway, the emphasis, the narration outline,
+R3-1 [ux, idea] (**addressed by 13d, D146**) (before the run) Storyboard · the scene's picture on the LEFT of the main area, and everything written (the takeaway, the emphasis, the narration outline,
    the steps, the review buttons and the notes) on the RIGHT · wanted: on the storyboard page, the frame picture (the scene's screenshot) to the left of the main area,
    and the answers, steps and all text to the right.
    Context when noted: raised after items 1 to 12 were built. Today the storyboard page is the shared two-column layout (work package 3): a scene LIST in the left
@@ -36,7 +36,7 @@ R3-2 [ux] (**addressed by 12c, D145**) (before the run) Storyboard · the select
    could be pinned while the steps scroll, which is the opposite of this note, so decide R3-1 and R3-2 together. (4) The test `p1c`/`ux3` layout tests that assert the
    pin on the storyboard would change.
 
-R3-3 [ux, idea] (before the run) Recording tab · keys: `<` and `>` move one finding back or forward, the left and right arrow keys move the video by 10 seconds, and every key
+R3-3 [ux, idea] (**addressed by 13c, D146**) (before the run) Recording tab · keys: `<` and `>` move one finding back or forward, the left and right arrow keys move the video by 10 seconds, and every key
    works on the whole tab, not only while the focus is on the player · wanted: review a take from the keyboard without first clicking into the player.
    Context when noted: raised after R3-2. Today (work package 7): `[` and `]` go to the previous / next CHAPTER and `N` or `+` starts a note, and both only fire while the
    keyboard focus is inside the review workspace (`.ds-rv`, `TakeWorkspace.onKeyDown` in `src/panel/public/recording.js`); focus on the "Request a new take" box, the take
@@ -51,7 +51,7 @@ R3-3 [ux, idea] (before the run) Recording tab · keys: `<` and `>` move one fin
    over (prevented) so the step is one thing, 10 s, wherever the focus is. (6) The key list in the "?" sheet, the hint under the player and `shortcuts.js` change with it; and
    the same keys on the Annotations tab (where `[` `]` are previous / next annotation) should be decided in the same go so the tabs stay alike.
 
-R3-4 [ux] (before the run) Recording tab · the "Request a new take" box with its notes at the BOTTOM of the page, like the review box of the Storyboard tab, not at the top ·
+R3-4 [ux] (**addressed by 13b, D146**) (before the run) Recording tab · the "Request a new take" box with its notes at the BOTTOM of the page, like the review box of the Storyboard tab, not at the top ·
    wanted: read and review the takes first, then ask for the next one at the end.
    Context when noted: raised after R3-3. Today the box is the first card under the stage summary (`section.card.review-head` in `Recording`, `src/panel/public/recording.js`):
    a one-line field "notes for the next take (optional)", the primary button "Request a new take", the cost hint, "N open notes will go with it" and a paragraph about approving
@@ -79,7 +79,7 @@ R3-5 [bug, ux] (**addressed by 12c, D145**) (before the run) Voice over tab · t
    inner scroll moves the page (and over the list as it does today), on the three screens. This is the one item of the run 3 list that is a plain bug, so it could be fixed
    before the grill if you want.
 
-R3-6 [ux] (before the run) Voice over · the buttons do not say what happens when you accept: there are two actions to advance, and the accept does three things ·
+R3-6 [ux] (**addressed by 13a, D146**) (before the run) Voice over · the buttons do not say what happens when you accept: there are two actions to advance, and the accept does three things ·
    wanted: names that describe what happens, or a popup, because this is the only tab that needs two actions to move on.
    Context when noted: raised after R3-5. Today the Voice over header shows **Approve & use v2** and **Approve only** (the shared version buttons, `version-ui.js`) and, next
    to them, **Generate voice, edit and a draft to watch…** (`voice.js`). Approving a voice-over script only unlocks voice synthesis (it does not start it, it costs nothing); the
@@ -92,3 +92,9 @@ R3-6 [ux] (before the run) Voice over · the buttons do not say what happens whe
    would say what each does. (3) A short "What happens next" under the buttons (approve, then the voice with its cost, then the sync edit and a draft, then the annotation
    designer starts by itself), or a popup when you press Approve with the same list. (4) The same question applies to the other stages where an approval starts work (a
    storyboard approval unlocks recording and then asks Allow / Deny): Voice over is the only one with a second manual action, so it may only need a better order and names.
+
+R3-7 [idea] (before the run) Projects · manage projects in the UI: list them, switch between them, delete them (archive into ONE zip for backup), and a `/demo archive` command ·
+   **addressed by 14, D146.** Context when noted: today a project is made with `/demo new` and opened with `/demo open` in the chat; the panel shows only the active one. A
+   project is a folder under `<root>/projects/<slug>` (plus its app record under `<root>/apps/`), 70 to 150 MB on the real ones here. Decided: a Projects page from the header's project name;
+   delete = zip, verify, remove, with the name typed; the zip holds everything of the project and its app record minus caches, refuses over 4 GiB (the zip writer has no ZIP64);
+   no restore command in this step.

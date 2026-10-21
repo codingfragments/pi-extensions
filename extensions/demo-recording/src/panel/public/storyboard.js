@@ -51,7 +51,9 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
   const [note, setNote] = useState(r?.note ?? "");
   useEffect(() => setNote(r?.note ?? ""), [r?.note]);
   const choose = (status) => onReview(scene.id, status, note);
-  return html`<div class="ds-stack ds-inspector">
+  return html`<div class="ds-inspector ds-sb-scene" data-pic=${scene.screen ? "yes" : "no"}>
+    ${scene.screen ? html`<div class="ds-sb-pic ds-shot"><img src=${screenUrl(scene.screen)} alt=${`Screenshot of ${scene.title}`} loading="lazy" /></div>` : null}
+    <div class="ds-stack ds-sb-text">
     <div class="ds-row-flex">
       <h2>${index + 1}. ${scene.title}</h2>
       <span class="ds-badge ds-mono" data-tone="neutral">${scene.id}</span>
@@ -61,7 +63,7 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
     </div>
     <${ConfReasons} c=${conf} />
     ${conf?.approvedIn !== undefined ? html`<p class="ds-small ds-muted carried">Unchanged since v${conf.approvedIn}, where you approved it.</p>` : null}
-    <div class="ds-shot">${scene.screen ? html`<img src=${screenUrl(scene.screen)} alt=${`Screenshot of ${scene.title}`} loading="lazy" />` : html`<p class="ds-muted ds-small">No screenshot for this scene.</p>`}</div>
+    ${scene.screen ? null : html`<p class="ds-muted ds-small">No screenshot for this scene.</p>`}
     ${scene.takeaway ? html`<p class="takeaway">${scene.takeaway}</p>` : null}
     ${scene.emphasis ? html`<p class="emphasis" title="the director's intent — annotations are chosen later, in the Annotations stage">✦ ${scene.emphasis}</p>` : null}
     ${scene.narration_outline?.length ? html`<ul class="outline">${scene.narration_outline.map((o) => html`<li>${o}</li>`)}</ul>` : null}
@@ -87,6 +89,7 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
             onBlur=${() => r && note !== (r.note ?? "") && onReview(scene.id, r.status, note)}></textarea>
         </div>`
     }
+    </div>
   </div>`;
 }
 

@@ -265,8 +265,11 @@ Allow, and can feed the fix window.
   the hint under the player, the "?" sheet (13 rows) and CONTROL_ROOM say the same. A finding is what the storyboard meant the scene to show (at its scene's start) and what the
   take found (at its time); one named by both is one stop; a second `<` right after arriving goes to the one before. **Tests:** `test/recording-keys.test.ts` (4 pure, 1 browser with
   the focus on the page, in a text box and under a dialog). **Not verified:** a real take with many findings; Annotations keeps `[` `]` only, as decided.
-- **13d, Storyboard: the picture beside the text (R3-1).** Inside the detail column the scene picture is the left half and all text the right half; stacked below about 64rem of
-  workspace; nothing sticky.
+- **13d, Storyboard: the picture beside the text (R3-1; done).** Inside the detail column the scene picture is the left half and all text the right half; stacked below about 64rem of
+  workspace; nothing sticky. **Built:** the scene is a two-column grid (`.ds-sb-scene`: the picture 2fr, the text 3fr) while the workspace is at least 64rem wide (its own width decides,
+  like the list screens), stacked with the picture first below that; the title, badges, confidence, takeaway, emphasis, outline, steps, review buttons and notes are all in the right
+  part; a scene without a screenshot is one column and says so. **Tests:** `test/storyboard-scene-layout.test.ts` (browser, 1400 and 1000 px, with and without a picture). **Not
+  verified:** Latte; a very tall picture next to a short text (the picture is not capped in height).
 - **14, Projects page and archive (E, R3-7).** `#/projects`, opened from the project name in the header: a row per project (name, app, phase, size, last change, active) with
   Switch, Archive and Delete. Archive writes `<root>/archive/<project>-<date>.zip` (everything of the project and its app record, minus caches; over 4 GiB it refuses and says why).
   Delete = zip, read the zip back, then remove the folder, only after you typed the project's name. `/demo archive <project> [--delete]` does the same from the chat. Switching

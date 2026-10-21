@@ -73,6 +73,9 @@ Director in each (the doubtful ones come first with **riskiest first**).
 
 ![Storyboard: scenes on the left, a scene in detail](images/guide/03-storyboard.jpg)
 
+In the detail, **the scene's picture is on the left and all the text on the right** (the title, the takeaway, the emphasis, the outline, the steps, your review and the notes);
+below about 64 rem of width the picture comes first. Nothing is pinned: the page scrolls as one (D145).
+
 - **Mark reviewed**, **Needs changes**, **Re-run** and a note per scene. A decision is a **state**: the one you choose becomes a highlighted "Reviewed" / "Needs changes" / "Re-run requested" with a **Revoke**, the other two stay available to switch, and the same state is a badge beside the title and the word in the list row. One line says what each does (Re-run: the Director redoes it from the take, or for a scene from the app, not just an edit; nothing happens until you send the review); **Mark high-confidence reviewed…** shows what it will mark
   before it does.
 - **Send review to agent** sends everything as one message (the button says it starts the Director); the next storyboard version comes

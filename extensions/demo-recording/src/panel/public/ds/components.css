@@ -1505,6 +1505,23 @@ dialog.ds-dialog::backdrop {
   border-radius: var(--radius-md);
 }
 
+/* The storyboard's scene (D146, R3-1): the picture on the left, all the text on the right, side by side while the workspace is wide enough for the list plus
+   both (the workspace's own width decides, like the rest of the list screens); below that the picture comes first. Nothing is sticky: the page scrolls as one. */
+.ds-sb-scene {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.ds-sb-text {
+  min-inline-size: 0;
+}
+@container (min-width: 64rem) {
+  .ds-sb-scene[data-pic="yes"] {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
 /* ---------- Annotation list (UX6b): grouped by scene, a switch in every row ---------- */
 .ds-list-group {
   padding: var(--space-3) var(--space-3) var(--space-1);

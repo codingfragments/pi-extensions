@@ -325,6 +325,13 @@ code,
   padding: var(--space-2) var(--space-2);
 }
 
+/* the one primary action of a review card keeps its colour (the rule above is for the plain buttons of the storyboard's and the voice-over's card) */
+.review-foot button.ds-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
 .review-foot button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

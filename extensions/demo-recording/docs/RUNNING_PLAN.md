@@ -253,8 +253,11 @@ Allow, and can feed the fix window.
   under them (`voiceSteps`: approve the script, make the voice, the sync edit and a draft, the annotations; the first not done is marked, state in words for a screen reader;
   the last step says if `annotations.autoSuggest` is off), the toast and the guide use the same words. **Tests:** `test/voice-steps.test.ts` (3, one in the browser); older strings
   moved. **Not verified:** the list at 900 px and in Latte; "voiced" is read from the fit or the audio files of the version.
-- **13b, Recording: the request box at the bottom (R3-4).** The card of the storyboard's review (a bigger notes box, "N open notes will go with it", the button, the cost
-  hint); the paragraph about approving and "Use for next steps" moves to the take rows.
+- **13b, Recording: the request box at the bottom (R3-4; done).** The card of the storyboard's review (a bigger notes box, "N open notes will go with it", the button, the cost
+  hint); the paragraph about approving and "Use for next steps" moves to the take rows. **Built:** the card (`section.review-foot[data-request-take]`) is the last thing on the
+  Recording tab, a multi-line notes box, "N open notes will go with it" (or "No open notes on the takes"), the primary button and the cost hint; the guidance paragraph sits above the
+  take rows (`.ds-take-guide`); the primary colour of a review card's one action is kept. **Tests:** `test/recording-request-card.test.ts` (browser: order on the page, the card, the
+  note is sent once); `recording-notes` and `recording-review` find the box as a textarea. **Not verified:** 900 px and Latte.
 - **13c, Recording keys (R3-3).** `<` and `>` = previous / next finding of the take (what the scene is meant to cover and what the take found; the ones with a time jump to
   it, the others to their scene); `[` `]` stay chapters; Left / Right = minus / plus 10 s, Shift = 1 s; every key works on the whole Recording tab (never while typing or in a dialog).
 - **13d, Storyboard: the picture beside the text (R3-1).** Inside the detail column the scene picture is the left half and all text the right half; stacked below about 64rem of

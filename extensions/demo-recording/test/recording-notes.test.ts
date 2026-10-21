@@ -351,9 +351,9 @@ test(
       await page.waitForSelector(".ds-note-box", { state: "detached" });
       assert.equal(await page.locator(".ds-note").count(), 1, "cancelled: nothing written");
       // a text field outside the workspace is not taken over
-      await page.fill("input[aria-label='notes for the next take']", "n");
+      await page.fill("textarea[aria-label='notes for the next take']", "n");
       assert.equal(await page.locator(".ds-note-box").count(), 0);
-      await page.fill("input[aria-label='notes for the next take']", "");
+      await page.fill("textarea[aria-label='notes for the next take']", "");
       // 3: edit in place
       await page.click(".ds-note[data-note=n-001] [data-act=note-edit]");
       await page.fill(".ds-note-box textarea", "cursor lingers too long");

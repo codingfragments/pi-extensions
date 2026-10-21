@@ -9,6 +9,7 @@ import { test } from "node:test";
 import {
   type JobData,
   type StagesData,
+  bandKey,
   failedJobs,
   newsTab,
   nextBand,
@@ -341,4 +342,26 @@ test("news: the events that mean a result arrived, and not the user's own edits"
   assert.equal(newsTab({ type: "annotations.updated", data: { by: "user" } }), null);
   assert.equal(newsTab({ type: "render.finished" }), "render");
   assert.equal(newsTab({ type: "log.line" }), null);
+});
+
+test("a closed band is remembered by its words when it is a suggestion or a block, by its kind when it is a status", () => {
+  const band = (tone: "needs" | "blocked" | "working" | "idle" | "done", text: string) =>
+    ({ tone, label: "L", text, action: null, more: [] }) as never;
+  assert.equal(bandKey(null), null);
+  assert.equal(
+    bandKey(band("needs", "Storyboard v2 is waiting for review")),
+    "needs|L|Storyboard v2 is waiting for review",
+  );
+  assert.notEqual(
+    bandKey(band("needs", "Storyboard v2 is waiting for review")),
+    bandKey(band("needs", "Voice over v2 is waiting for review")),
+    "another suggestion is a new message",
+  );
+  assert.equal(bandKey(band("blocked", "x")), "blocked|L|x");
+  assert.equal(
+    bandKey(band("working", "Director: writing the storyboard · looking")),
+    bandKey(band("working", "Director: writing the storyboard · clicking")),
+    "a status that changes its words with every step stays closed",
+  );
+  assert.notEqual(bandKey(band("working", "a")), bandKey(band("idle", "a")));
 });

@@ -230,6 +230,17 @@ export function bandHiddenAt(band, tab) {
 }
 
 /**
+ * What a closed band is remembered by. A suggestion or a block is the same message while its words are the same; a status ("Director working", "Running", "Done")
+ * changes its words with every step, so it is remembered by its kind alone: close it once and it stays closed until the band says something of another kind.
+ */
+export function bandKey(band) {
+  if (!band) return null;
+  return band.tone === "needs" || band.tone === "blocked"
+    ? `${band.tone}|${band.label}|${band.text}`
+    : `${band.tone}|${band.label}`;
+}
+
+/**
  * What waits for you, for the header's "Suggestions" entry: the current suggestion first, then the others, whether or not the band is showing.
  * `here` marks the one on the page you are on. Nothing is stored: this is the state of the project right now.
  */

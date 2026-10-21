@@ -25,8 +25,8 @@ const PRE_PASS = {
   Annotations: 102,
   "Voice over": 46,
   Config: 58,
-  // 31: one more control on purpose (S7): "Log in…" on the Login card, which is how a saved login starts
-  Project: 31,
+  // 32: two more controls on purpose: (S7) "Log in…" on the Login card, which is how a saved login starts; and "×" on the next-action band, to close a message
+  Project: 32,
   Storyboard: 22,
   Recording: 5,
 } as const;
@@ -59,8 +59,8 @@ test(
       total("Project") <= PRE_PASS.Project,
       `Project (the summary): ${total("Project")} (was ${PRE_PASS.Project})`,
     );
-    // 21: one more control on purpose: "Show the browser window while recording" on the request card
-    assert.ok(total("Recording") <= 21, `Recording: ${total("Recording")}`);
+    // 22: two more controls on purpose: "Show the browser window while recording" on the request card, and "×" on the next-action band
+    assert.ok(total("Recording") <= 22, `Recording: ${total("Recording")}`);
     assert.ok(
       by("Render").frame >= 10 && by("Render").frame <= 16,
       "the frame is about thirteen controls on every screen",

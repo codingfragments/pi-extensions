@@ -1,6 +1,6 @@
 import { html, useEffect, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
 import { DiscoveryStall } from "./discovery.js";
-import { STEPS, bandHiddenAt, jobTitle, suggestions } from "./frame-state.js";
+import { STEPS, bandHiddenAt, bandKey, jobTitle, suggestions } from "./frame-state.js";
 // The control room's frame (UX2, D98–D101): the header with the stepper, the next-action band,
 // the status strip and the Activity drawer. What they say is decided in frame-state.js; this file
 // draws it with the design-system components (ds/components.css).
@@ -42,7 +42,7 @@ const closeOnEscape = (e) => {
 };
 
 /** The next-action band: what needs you (or is blocked) and where to go. Navigation only, never an action. */
-export function NextBand({ band, hidden = false }) {
+export function NextBand({ band, hidden = false, onClose }) {
   if (!band) return null;
   const icon = { needs: "●", blocked: "!", done: "✓", idle: "○", working: "◔" }[band.tone];
   const iconTone = {
@@ -68,6 +68,7 @@ export function NextBand({ band, hidden = false }) {
     }
     ${band.map ? html`<a class="ds-btn ds-btn--ghost band-map" href=${formatRoute({ screen: "map", query: { sel: band.map, focus: "1" } })}>Show in map</a>` : null}
     ${band.action ? html`<a class="ds-btn ds-btn--primary" href=${formatRoute({ screen: band.action.tab })}>${band.action.label}</a>` : null}
+    ${onClose ? html`<button class="ds-btn ds-btn--ghost ds-btn--icon" type="button" data-act="close-band" aria-label="Close this message" title=${band.tone === "needs" || band.tone === "blocked" ? "Close this message: it stays under Suggestions" : "Close this message"} onClick=${onClose}>×</button>` : null}
   </div></div></div>`;
 }
 
@@ -96,8 +97,32 @@ function Suggestions({ band, tab }) {
   </details>`;
 }
 
+const CLOSED_KEY = "demo-rec-band-closed";
+const readClosed = () => {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(CLOSED_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
 /** Header: the project, the five production stages with their state, Config and the theme. */
 export function Header({ slug, tab, states, news, band }) {
+  // a message you closed stays closed (for this tab, also after a reload) until the band says something else; what needs you is still under Suggestions
+  const [closed, setClosed] = useState(readClosed);
+  const key = bandKey(band);
+  const isClosed = !!key && closed.includes(key);
+  const closeBand = () => {
+    if (!key) return;
+    const next = [...closed.filter((k) => k !== key), key].slice(-30);
+    setClosed(next);
+    try {
+      sessionStorage.setItem(CLOSED_KEY, JSON.stringify(next));
+    } catch {
+      // private mode: it stays closed until the page reloads
+    }
+  };
   // the height of the sticky header block (header + next-action band), for things that stick just below it
   const wrap = useRef(null);
   useLayoutEffect(() => {
@@ -143,7 +168,7 @@ export function Header({ slug, tab, states, news, band }) {
         <${ThemeToggle} />
       </span>
     </header>
-    <${NextBand} band=${band} hidden=${bandHiddenAt(band, tab)} />
+    <${NextBand} band=${band} hidden=${bandHiddenAt(band, tab) || isClosed} onClose=${closeBand} />
   </div>`;
 }
 

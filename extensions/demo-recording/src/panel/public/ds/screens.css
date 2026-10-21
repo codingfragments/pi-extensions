@@ -2932,3 +2932,18 @@ button.ds-evidence {
 .ds-evidence-popup .frame--big img {
   max-block-size: 50vh;
 }
+
+/* what happens next on Voice over (D146): four steps in order, the one you are at marked */
+.ds-vosteps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.ds-vosteps li[data-state="later"] {
+  color: var(--text-muted);
+}
+.ds-vosteps li[data-state="next"] {
+  color: var(--text-strong);
+}

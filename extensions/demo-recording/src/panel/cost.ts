@@ -174,7 +174,7 @@ export async function estimate(
     if (!Number.isInteger(version) || version < 1) throw new Error('"version" is required');
     const { estimate: e } = await voiceEstimate(rt, version);
     return base(action, ["tts"], {
-      title: `Generate voice, edit and a draft · VO v${version}`,
+      title: `Make the voice · VO v${version}`,
       confirmLabel: e.price > 0 ? `Generate (≈ ${e.currency}${e.cost.toFixed(2)})` : "Generate",
       what: formatEstimate(e),
       facts: [

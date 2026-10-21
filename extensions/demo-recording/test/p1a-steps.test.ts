@@ -96,7 +96,7 @@ test("what happens next is said for every stage; Approve & use returns it, Appro
   for (const stage of ["storyboard", "recording", "vo", "annotations", "render"] as const)
     assert.match(nextAfterApproval(stage), /^(Next|Done): /);
   assert.match(nextAfterApproval("storyboard"), /waits for your Allow/);
-  assert.match(nextAfterApproval("vo"), /estimate comes with the request/);
+  assert.match(nextAfterApproval("vo"), /the cost comes with the request/);
 
   const seed = seedPanelProject();
   const cfg = path.join(seed.root, "c.json");
@@ -117,7 +117,7 @@ test("what happens next is said for every stage; Approve & use returns it, Appro
     const only = await act("storyboard", 2, "approve-only");
     assert.equal(only.next, undefined, "approve only changes nothing that follows");
     const use = await act("vo", 2, "approve-use");
-    assert.match(use.next ?? "", /^Next: the Director asks to synthesize the voice/);
+    assert.match(use.next ?? "", /^Next: the Director asks to make the voice/);
   } finally {
     await rt.shutdown();
     fs.rmSync(seed.root, { recursive: true, force: true });

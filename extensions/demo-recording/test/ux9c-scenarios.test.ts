@@ -801,7 +801,7 @@ for (const theme of ["macchiato", "latte"] as const) {
           return seen;
         };
         for (const [route, must] of [
-          ["#/voice", [/Approve & use/, /Save new version/, /Versions/, /Mark reviewed/]],
+          ["#/voice", [/Approve script/, /Save new version/, /Versions/, /Mark reviewed/]],
           ["#/render/v1", [/New render/, /Approve final/, /Delete files/, /Re-run QA/]],
           ["#/config", [/Reload files/, /Settings/, /Scopes/]],
         ] as [string, RegExp[]][]) {

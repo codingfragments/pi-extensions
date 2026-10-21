@@ -168,7 +168,7 @@ an event. **Costs:** model turns.
 
 ### B5. Voice and edit
 
-**Do:** press **Generate voice, edit and a draft to watch…**, read the dialog (cached versus billed characters, credits and money), confirm. If the
+**Do:** press **Make the voice (uses credits)…**, read the dialog (cached versus billed characters, credits and money), confirm. If the
 Director asks first (**The Director asks to synthesize voice-over v1 (…)**), that bar shows the same numbers: **Allow** is your confirmation.
 **See:** progress in the strip; a draft render appears in **Render**.
 **Behind the scenes:** the voice (ElevenLabs first, then OpenAI, then the local Kokoro), then the take is edited to the voice. **Costs:

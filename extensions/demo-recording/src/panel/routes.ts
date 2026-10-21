@@ -61,6 +61,8 @@ export interface RouteDeps {
   audio?: (version: number) => unknown;
   /** Real-voice fit per scene for a VO version (after TTS). */
   fit?: (version: number) => unknown;
+  /** `annotations.autoSuggest`: the designer starts by itself after the edit (said in the Voice over steps). */
+  autoSuggest?: () => boolean;
   bus: EventBus;
   activeProject: () => ProjectHandle | undefined;
   /** Current discovery session dir + id, if one is open. */
@@ -245,6 +247,7 @@ export function panelRoutes(deps: RouteDeps): {
           review: getReview(state, current.version, "vo"),
           audio: deps.audio?.(current.version) ?? null,
           fit: deps.fit?.(current.version) ?? null,
+          autoSuggest: deps.autoSuggest?.() ?? true,
         };
       },
       discovery: () => {

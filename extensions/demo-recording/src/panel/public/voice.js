@@ -22,6 +22,7 @@ import {
 import { formatRoute } from "./route.js";
 import { stageOf } from "./stages.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
+import { voiceSteps } from "./voice-steps-core.js";
 
 const KIND_LABEL = {
   intro: "intro · full video",
@@ -285,6 +286,23 @@ function Filmstrip({ section, text, onInsert }) {
 }
 
 /** The selected section: the narration (editable, a working draft), its review and what the footage says. */
+/** What happens next, in order, with where you are: approving is free, the voice is its own step and costs, the rest follows by itself (D146). */
+function VoiceSteps({ approved, voiced, autoSuggest }) {
+  const steps = voiceSteps({ approved, voiced, autoSuggest });
+  const icon = { done: "✓", next: "▸", later: "○" };
+  const word = { done: "done", next: "next", later: "later" };
+  return html`<ol class="ds-vosteps ds-small" aria-label="What happens next" data-vosteps>
+    ${steps.map(
+      (
+        st,
+      ) => html`<li data-state=${st.state} key=${st.key} aria-current=${st.state === "next" ? "step" : undefined}>
+      <span class="ds-status" data-tone=${st.state === "done" ? "ok" : undefined} aria-hidden="true">${icon[st.state]}</span><span class="ds-sr-only">${word[st.state]}: </span>
+      <b>${st.title}</b> <span class="ds-muted">· ${st.detail}</span>
+    </li>`,
+    )}
+  </ol>`;
+}
+
 function SectionInspector({
   data,
   section,
@@ -469,6 +487,8 @@ export function Voice({ events, stages }) {
   const editedKeys = new Set(draft.changedKeys());
   const st = STATE_ICON[draft.state.status] ?? STATE_ICON.clean;
   const canSave = draft.changes > 0 && draft.state.status !== "conflict";
+  // a real voice exists for this version (the fit of the voice to the footage, or its audio files)
+  const voiced = (data.fit?.length ?? 0) > 0 || Object.keys(data.audio ?? {}).length > 0;
   return html`
     <${StageSummary} events=${events} stage="vo" row=${row} rows=${hist.data?.rows}
       viewed=${data.version} onUse=${(v) => runVersionAction({ stage: "vo", version: v, intent: "use" }).then(reload)}
@@ -478,8 +498,9 @@ export function Voice({ events, stages }) {
         <span class="muted small-text">for ${data.take} · ${data.fit ? `${data.fit.reduce((n, f) => n + (f.voiceSec ?? 0), 0).toFixed(0)}s voice (real)` : `~${totalSpeech.toFixed(0)}s speech (estimate)`} / ${totalFootage.toFixed(0)}s footage</span>
         ${data.fit?.some((f) => f.level === "warn") ? html`<span class="badge changed">${data.fit.filter((f) => f.level === "warn").length} fit warning(s)</span>` : null}
         <${VersionActions} stage="vo" row=${row} events=${events} onDone=${reload} />
-        ${data.canGenerate ? html`<button class="ds-btn ds-btn--primary" title="the voice first (you see the cost and press Allow), then the sync edit and a draft to watch: local, no model, no credits" onClick=${generate}>Generate voice, edit and a draft to watch…</button>` : null}
+        ${data.canGenerate ? html`<button class="ds-btn ds-btn--primary" title="uses voice credits: you see the cost and press Allow. Then the sync edit and a draft to watch follow by themselves (local, no model, no credits)" onClick=${generate}>Make the voice (uses credits)…</button>` : null}
       </div>
+      <${VoiceSteps} approved=${!!row?.approved} voiced=${voiced} autoSuggest=${data.autoSuggest !== false} />
       ${
         data.base !== null && data.base !== undefined
           ? html`<div class="row small-text vo-diff-head">

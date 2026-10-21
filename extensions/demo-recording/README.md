@@ -113,7 +113,7 @@ The first step, with three views:
 
 - **Decisions** (approve, withdraw an approval with the list of what becomes blocked, saving config or brands with a diff, deleting renders, discarding changes, naming a copy, giving a reason) are in-panel dialogs: Escape cancels, Enter confirms, a destructive one starts on *Cancel*. **Errors** are non-blocking toasts that stay until dismissed, with *Copy*. No native `alert` / `confirm` / `prompt` is used.
 - **The Director asks first** (P1a): a voice synthesis or a take that the Director starts is refused until you allow it (*Allow the Director to …? / Allow / Deny* in the panel and the chat: click, type `1` or `allow`, or `/demo allow`); an engine-held, one-use grant, not a token the model handles. The agent has no tool that approves, and a test enforces both.
-- **Ask first** before money and long jobs: *Generate voice, edit and a draft to watch* (cached vs billed characters, credits and money; never skippable), *Request a new take* (improvise steps, their models and whether those have credentials, the last take's length) and a *separate designer run* (the input pack in tokens and its models). The last two offer "Don't ask again this session".
+- **Ask first** before money and long jobs: *Make the voice* (cached vs billed characters, credits and money; never skippable), *Request a new take* (improvise steps, their models and whether those have credentials, the last take's length) and a *separate designer run* (the input pack in tokens and its models). The last two offer "Don't ask again this session".
 - **The Director's work is visible:** the band says "Director working: <task> · <step>" instead of "Needs you" while it works (from pi's events; it ends at `agent_settled`, not at a retry), the strip and the stepper follow, and Activity has a Director row ([docs/DIRECTOR_STATE.md](docs/DIRECTOR_STATE.md)).
 - **Hints:** buttons that start an agent turn say so ("starts the Director · claude-opus-4-5"); the cost of a turn can't be estimated, so no number is shown.
 - **`POST /api/estimate`** is the free dry run behind the dialogs, and every panel route has a cost class that a test enforces. `demo_rec_tts check` prints the voice cost for the production line too.
@@ -191,7 +191,7 @@ Full reference, with an example of every type: [docs/ANNOTATIONS.md](docs/ANNOTA
   - changes since the last version.
 
   The agent can add its own doubt, which only lowers a level. The tabs show "N need your eyes" (chips jump to the item), riskiest first, collapse high, and **Approve high-confidence…** (a popup lists what it approves and skips).
-- **Voice direction:** the Voice over tab's **Direction** box (stance, tone, length, focus, notes) asks the agent for a new complete version from the same take. You review a word diff against its base, then **Generate voice, edit and a draft to watch**, which shows the cost (cached sections are free, ElevenLabs credits, `tts.pricePer1kChars`) and then runs TTS, the edit and a draft render.
+- **Voice direction:** the Voice over tab's **Direction** box (stance, tone, length, focus, notes) asks the agent for a new complete version from the same take. You review a word diff against its base, then **Make the voice**, which shows the cost (cached sections are free, ElevenLabs credits, `tts.pricePer1kChars`) and then runs TTS, the edit and a draft render.
 
 Full reference: [docs/CONFIDENCE.md](docs/CONFIDENCE.md).
 

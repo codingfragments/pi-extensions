@@ -49,6 +49,7 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "login-confirm": ["none"],
   "login-cancel": ["none"],
   "login-check": ["none"],
+  "login-check-live": ["none"],
   "login-forget": ["none"],
   "login-rule": ["none"],
   "project-switch": ["none"],

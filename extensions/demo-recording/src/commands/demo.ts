@@ -10,7 +10,13 @@ import os from "node:os";
 import path from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { startLogin } from "../auth/login-flow.ts";
-import { forgetSession, hasState, probeSession, readMeta } from "../auth/session.ts";
+import {
+  type LoginResult,
+  forgetSession,
+  hasState,
+  probeSession,
+  readMeta,
+} from "../auth/session.ts";
 import { listBrands, resolveBrand } from "../brand/brand.ts";
 import {
   type Scope,
@@ -518,13 +524,28 @@ export async function cmdLogin(rt: Runtime, ctx: ExtensionCommandContext) {
   const h = startLogin(rt, p, rt.loginSeam);
   h.done.catch(() => undefined);
   await Promise.race([h.opened, h.done]);
-  const sure = await ctx.ui.confirm(
+  let sure = await ctx.ui.confirm(
     `Log in to ${p.app.name}`,
     `A browser window is open on ${p.app.baseUrl}. Log in by hand there (password, OAuth, e-mail link, one-time code), then press Yes. No cancels.`,
   );
-  if (sure) h.confirm();
-  else h.cancel();
-  const r = await h.done;
+  let r: LoginResult | undefined;
+  while (!r) {
+    if (!sure) {
+      h.cancel();
+      r = await h.done;
+      break;
+    }
+    const notYet = h.nextNotYet();
+    h.confirm();
+    const out = await Promise.race([h.done, notYet]);
+    if ("why" in out)
+      // the window is still open: say why and ask again
+      sure = await ctx.ui.confirm(
+        `Not logged in yet: ${p.app.name}`,
+        `${out.why}.\n\nThe window is still open. Press Yes when you are logged in, No to cancel.`,
+      );
+    else r = out;
+  }
   if (r.saved)
     report(
       ctx,

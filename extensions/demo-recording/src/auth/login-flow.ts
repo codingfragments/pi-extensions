@@ -8,7 +8,7 @@ import type { Page } from "playwright";
 import { loginSaved } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
-import { type LoginResult, loginSession } from "./session.ts";
+import { type LoginResult, type ProbeResult, loginSession } from "./session.ts";
 
 export interface LoginHandle {
   app: string;
@@ -17,6 +17,10 @@ export interface LoginHandle {
   confirm: () => void;
   cancel: () => void;
   done: Promise<LoginResult>;
+  /** Look at the open window now (never closes or saves anything). */
+  checkLive: () => Promise<ProbeResult>;
+  /** Resolves the next time "I'm logged in" was not good enough: the window stays open, and this says why (then confirm or cancel again). */
+  nextNotYet: () => Promise<{ why: string }>;
 }
 
 /** Test seam: a headless window and a script that acts as the user. A real login is headed and has none. */
@@ -28,13 +32,20 @@ export interface LoginSeam {
 export function startLogin(rt: Runtime, p: ProjectHandle, seam: LoginSeam = {}): LoginHandle {
   if (rt.login) throw new Error("a login window is already open");
   const cfg = rt.getConfig();
+  // one answer at a time; after a "not yet" the next one is a new promise (the window is kept)
   let confirmed!: () => void;
   let gaveUp!: (e: Error) => void;
-  const waitForDone = new Promise<void>((res, rej) => {
-    confirmed = res;
-    gaveUp = rej;
-  });
-  waitForDone.catch(() => undefined);
+  const arm = () => {
+    const w = new Promise<void>((res, rej) => {
+      confirmed = res;
+      gaveUp = rej;
+    });
+    w.catch(() => undefined);
+    return w;
+  };
+  const waitForDone = arm();
+  let live: (() => Promise<ProbeResult>) | undefined;
+  const notYetWaiters: ((x: { why: string }) => void)[] = [];
   let open!: () => void;
   const opened = new Promise<void>((r) => {
     open = r;
@@ -46,7 +57,18 @@ export function startLogin(rt: Runtime, p: ProjectHandle, seam: LoginSeam = {}):
     ...(seam.afterOpen ? { afterOpen: seam.afterOpen } : {}),
     viewport: { width: cfg.viewport.width, height: cfg.viewport.height },
     waitForDone,
-    onOpened: () => {
+    confirmAgain: (why) => {
+      rt.bus.publish(
+        "auth.not-yet",
+        { app: p.app.slug, message: `login not saved yet: ${why}` },
+        p.slug,
+      );
+      const next = arm();
+      for (const w of notYetWaiters.splice(0)) w({ why });
+      return next;
+    },
+    onOpened: (api) => {
+      live = api.check;
       rt.bus.publish(
         "auth.opened",
         {
@@ -78,6 +100,11 @@ export function startLogin(rt: Runtime, p: ProjectHandle, seam: LoginSeam = {}):
     confirm: () => confirmed(),
     cancel: () => gaveUp(new Error("you cancelled the login")),
     done,
+    checkLive: () => {
+      if (!live) throw new Error("the login window is not open yet");
+      return live();
+    },
+    nextNotYet: () => new Promise((res) => notYetWaiters.push(res)),
   };
   rt.login = handle;
   return handle;

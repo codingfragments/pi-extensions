@@ -3,7 +3,8 @@
  *
  *   GET  /api/login            the active app, its saved login's state (never its content), its own rule, whether a window is open
  *   POST /api/login-start      open the login window (headed) and wait until it is up
- *   POST /api/login-confirm    "I'm logged in": save the state, check it in a fresh browser, answer with the result
+ *   POST /api/login-confirm    "I'm logged in": check the open window, save the state, check it in a fresh browser, answer with the result; when it is not good enough yet the window stays open and the answer says why (notYet)
+ *   POST /api/login-check-live  look at the open login window now (nothing is closed or saved)
  *   POST /api/login-cancel     close the window without saving
  *   POST /api/login-check      look again now (a fresh headless browser with the saved login)
  *   POST /api/login-forget     forget the saved login
@@ -45,14 +46,22 @@ export function loginRoutes(rt: Runtime): {
       "login-confirm": async () => {
         const h = rt.login;
         if (!h) throw new Error("no login window is open");
+        const notYet = h.nextNotYet();
         h.confirm();
-        const r = await h.done;
+        const r = await Promise.race([h.done, notYet]);
+        if ("why" in r) return { saved: false, notYet: true, problem: r.why, ...view() };
         return {
           saved: r.saved,
           ...(r.problem ? { problem: r.problem } : {}),
           probe: r.probe,
           ...view(),
         };
+      },
+      "login-check-live": async () => {
+        const h = rt.login;
+        if (!h) throw new Error("no login window is open");
+        const probe = await h.checkLive();
+        return { probe, ...view() };
       },
       "login-cancel": async () => {
         const h = rt.login;

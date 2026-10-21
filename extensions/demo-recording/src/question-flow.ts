@@ -8,6 +8,8 @@
  *    ones the Director always got for those, and the grant store stays the only thing that decides whether something may start.
  */
 
+import { pendingRequest } from "./discovery/requests.ts";
+import { requestDiscovery } from "./discovery/start.ts";
 import { allowedMessage, deniedMessage } from "./grants.ts";
 import {
   type AnswerResult,
@@ -19,6 +21,7 @@ import {
 } from "./questions.ts";
 import { PANEL_PREFIX, reportAs } from "./roles.ts";
 import type { Runtime } from "./runtime.ts";
+import { readState } from "./workdir/state.ts";
 
 /** The prefix of a message to the Director for an answer given in the chat. */
 export const CHAT_PREFIX = reportAs("You");
@@ -88,6 +91,40 @@ export function answerFor(
       );
       rt.tellAgent(deniedMessage(g.summary));
     }
+  } else if (q.discovery) {
+    // the offer after a login: "start" asks the Director for a discovery with Config's standard budget; the others only close the question
+    if (a.word === "start") {
+      try {
+        const req = requestDiscovery(rt, {
+          mode: "start",
+          budget: rt.getConfig().budgets,
+          preset: "standard",
+          by,
+        });
+        rt.bus.publish(
+          "discovery.offer-taken",
+          {
+            request: req.id,
+            message: `discovery started from the offer after the login (${req.id})`,
+          },
+          p.slug,
+        );
+      } catch (err) {
+        rt.bus.publish(
+          "discovery.offer-failed",
+          { message: `discovery was not started: ${(err as Error).message}` },
+          p.slug,
+        );
+      }
+    } else if (a.word === "choose")
+      rt.bus.publish(
+        "discovery.offer-deferred",
+        {
+          message:
+            "choose the areas and the budget on the Project page: Discovery, Start discovery…",
+        },
+        p.slug,
+      );
   } else if (q.auth) {
     // a recording is paused for a new login (S7): "stop" ends it, "login" only says you will log in; neither is news for the Director
     if (a.word === "stop") {
@@ -144,8 +181,10 @@ export function loginSaved(rt: Runtime, appSlug: string, appName: string): void 
   const p = rt.activeProject();
   rt.bus.publish("auth.saved", { app: appSlug, message: `login saved for ${appName}` }, p?.slug);
   if (!p) return;
+  let resumed = false;
   for (const q of readQuestions(p.dir))
     if (q.status === "pending" && q.auth?.app === appSlug) {
+      resumed = true;
       const r = answerQuestion(p.dir, q.id, "login", "chat");
       if (r.ok)
         rt.bus.publish(
@@ -159,4 +198,34 @@ export function loginSaved(rt: Runtime, appSlug: string, appName: string): void 
           p.slug,
         );
     }
+  if (!resumed) offerDiscovery(rt, appSlug);
+}
+
+/**
+ * After a fresh login: the Director asks whether to start discovery (never starts it by itself: it costs model tokens and browser time). Not asked when it would be
+ * noise: a recording was waiting for this login, a session is open, a request is already waiting, the same question is waiting, the project is past discovery, or a take runs.
+ */
+export function offerDiscovery(rt: Runtime, appSlug: string): Question | undefined {
+  const p = rt.activeProject();
+  if (!p || p.app.slug !== appSlug) return undefined;
+  if (rt.discovery && !rt.discovery.isClosed) return undefined;
+  if (rt.jobs.running("record")) return undefined;
+  if (pendingRequest(p.dir)) return undefined;
+  if (readQuestions(p.dir).some((q) => q.status === "pending" && q.discovery)) return undefined;
+  const phase = (readState(p.dir) ?? p.state).phase;
+  if (phase !== "brief" && phase !== "discovery") return undefined;
+  const b = rt.getConfig().budgets;
+  const q = askQuestion(p.dir, {
+    role: "Director",
+    what: `Your login for ${p.app.name} is saved and works. Start discovery now?`,
+    why: `Discovery explores the app in a browser with that login (${b.discoveryScreens} screens, ${b.discoveryActions} actions, ${b.discoveryMinutes} min at most): model tokens and browser time, no money. Nothing starts unless you say so.`,
+    options: [
+      { label: "Start discovery now (standard budget)" },
+      { label: "Choose areas or budget first" },
+      { label: "Not now" },
+    ],
+    discovery: { app: appSlug },
+  });
+  announceQuestion(rt, q);
+  return q;
 }

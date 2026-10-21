@@ -34,11 +34,22 @@ export function LoginCard({ events }) {
     confirm: () =>
       run("confirm", async () => {
         const r = await post("/api/login-confirm", {});
-        if (r.saved)
+        if (r.notYet) toast(`not saved yet, the window stays open: ${r.problem}`, { kind: "info" });
+        else if (r.saved)
           toast(`login saved for ${v.app}: a fresh browser with it is logged in`, { kind: "ok" });
         else toast(`not saved: ${r.problem}`, { kind: "error" });
       }),
     cancel: () => run("cancel", () => post("/api/login-cancel", {})),
+    live: () =>
+      run("live", async () => {
+        const r = await post("/api/login-check-live", {});
+        toast(
+          `this window: ${r.probe.state === "valid" ? "logged in" : r.probe.state} (${r.probe.reason})`,
+          {
+            kind: r.probe.state === "valid" ? "ok" : "info",
+          },
+        );
+      }),
     check: () =>
       run("check", async () => {
         const r = await post("/api/login-check", {});

@@ -25,10 +25,13 @@ test("the card says what is going on: each state, its words and the actions it o
   assert.deepEqual([none?.title, none?.actions], ["No saved login", ["start"]]);
   assert.match(none?.text ?? "", /An app that needs no login can ignore this/);
   const win = loginView({ project: "p", app, session: { state: "none" }, windowOpen: true }, NOW);
-  assert.deepEqual([win?.title, win?.actions], ["A browser window is open", ["confirm", "cancel"]]);
+  assert.deepEqual(
+    [win?.title, win?.actions],
+    ["A browser window is open", ["confirm", "live", "cancel"]],
+  );
   assert.match(
     win?.text ?? "",
-    /Log in by hand in the window on http:\/\/app\.test .*press “I'm logged in”/,
+    /Log in by hand in the window on http:\/\/app\.test .*press “I'm logged in”: the window is checked first/,
   );
   const ok = loginView(
     {
@@ -121,6 +124,10 @@ test(
       assert.match(await card.innerText(), /A browser window is open/);
       assert.equal(await page.locator("[data-act=login-confirm]").count(), 1);
       assert.equal(await page.locator("[data-act=login-cancel]").count(), 1);
+      // "Check this window" looks at it and closes nothing
+      await page.click("[data-act=login-live]");
+      await page.waitForFunction("/this window: logged in/.test(document.body.innerText)");
+      assert.equal(await state(), "window");
       await page.click("[data-act=login-confirm]");
       await page.waitForSelector(".ds-login[data-login-state=valid]");
       assert.match(await card.innerText(), /Logged in/);

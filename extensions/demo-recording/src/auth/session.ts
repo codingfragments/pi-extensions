@@ -105,6 +105,51 @@ async function ruleHolds(page: Page, rule: LoginRule | undefined): Promise<boole
   );
 }
 
+/** Is this page logged in? The app's own rule when it has one, else the plain rule. Never navigates. */
+export async function judgePage(page: Page, rule: LoginRule | undefined): Promise<ProbeResult> {
+  const facts = await factsOf(page);
+  const held = await ruleHolds(page, rule);
+  if (held !== undefined)
+    return held
+      ? { state: "valid", reason: "the app's own check passed", url: facts.url }
+      : {
+          state: "expired",
+          reason: `the app's own check did not find ${rule?.expectSelector ?? `“${rule?.expectText}”`}`,
+          url: facts.url,
+        };
+  const v = looksLoggedOut(facts);
+  return v.out
+    ? { state: "expired", reason: v.reason, url: facts.url }
+    : { state: "valid", reason: v.reason, url: facts.url };
+}
+
+/**
+ * The same question asked of the window you are logging in with, without closing or saving anything. The page you are on is judged; when the app has its own check
+ * on another page (its `url`), that page is opened in a second tab of the same window, judged, and closed again.
+ */
+export async function probeLive(
+  context: import("playwright").BrowserContext,
+  page: Page,
+  app: AppInfo,
+): Promise<ProbeResult> {
+  try {
+    if (!app.login?.url) return await judgePage(page, app.login);
+    const tab = await context.newPage();
+    try {
+      await tab.goto(probeUrl(app), { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await tab.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => undefined);
+      return await judgePage(tab, app.login);
+    } finally {
+      await tab.close().catch(() => undefined);
+    }
+  } catch (err) {
+    return {
+      state: "unknown",
+      reason: `the window could not be checked: ${(err as Error).message.split("\n")[0]}`,
+    };
+  }
+}
+
 export interface ProbeOptions {
   root: string;
   app: AppInfo;
@@ -133,22 +178,7 @@ export async function probeSession(o: ProbeOptions): Promise<ProbeResult> {
     await page.goto(probeUrl(o.app), { waitUntil: "domcontentloaded", timeout: 20_000 });
     await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => undefined); // an SPA redirects after its script runs
     await page.waitForTimeout(300);
-    const facts = await factsOf(page);
-    const rule = await ruleHolds(page, o.app.login);
-    if (rule !== undefined)
-      result = rule
-        ? { state: "valid", reason: "the app's own check passed", url: facts.url }
-        : {
-            state: "expired",
-            reason: `the app's own check did not find ${o.app.login?.expectSelector ?? `“${o.app.login?.expectText}”`}`,
-            url: facts.url,
-          };
-    else {
-      const v = looksLoggedOut(facts);
-      result = v.out
-        ? { state: "expired", reason: v.reason, url: facts.url }
-        : { state: "valid", reason: v.reason, url: facts.url };
-    }
+    result = await judgePage(page, o.app.login);
   } catch (err) {
     result = {
       state: "unknown",
@@ -178,8 +208,13 @@ export interface LoginOptions {
   waitForDone: Promise<void>;
   /** Called with the page once the app is open (tests act as the user here). */
   afterOpen?: (page: Page) => Promise<void>;
-  /** Called when the window is open, so the caller can tell you to go and log in. */
-  onOpened?: () => void;
+  /** Called when the window is open, so the caller can tell you to go and log in. `live.check()` looks at the open window (never closes or saves anything). */
+  onOpened?: (live: { check: () => Promise<ProbeResult> }) => void;
+  /**
+   * When "I'm logged in" is not good enough yet (the window itself still looks logged out, or a fresh browser with what it holds is logged out), the window is KEPT and this is
+   * called with the reason; it returns when you say you are logged in again (it rejects when you give up). Without it the login ends there, as before: nothing saved.
+   */
+  confirmAgain?: (why: string) => Promise<void>;
 }
 
 export interface LoginResult {
@@ -201,6 +236,7 @@ export async function loginSession(o: LoginOptions): Promise<LoginResult> {
   fs.chmodSync(dir, 0o700);
   const file = statePath(o.root, o.app.slug);
   const tmp = path.join(dir, `state.${process.pid}.new.json`);
+  let verified: ProbeResult | undefined; // a fresh browser already said the state holds (the kept-window flow)
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({ headless: o.headed === false });
   try {
@@ -213,15 +249,48 @@ export async function loginSession(o: LoginOptions): Promise<LoginResult> {
       .goto(probeUrl(o.app), { waitUntil: "domcontentloaded", timeout: 30_000 })
       .catch(() => undefined); // an unreachable page is still a window you can use
     await o.afterOpen?.(page);
-    o.onOpened?.();
     const closed = new Promise<never>((_, reject) =>
       browser.on("disconnected", () =>
         reject(new Error("the browser window was closed before you said you were logged in")),
       ),
     );
-    await Promise.race([o.waitForDone, closed]);
-    await context.storageState({ path: tmp, indexedDB: true });
-    fs.chmodSync(tmp, 0o600);
+    closed.catch(() => undefined);
+    o.onOpened?.({ check: () => probeLive(context, page, o.app) });
+    let wait = o.waitForDone;
+    for (;;) {
+      await Promise.race([wait, closed]);
+      if (!o.confirmAgain) {
+        // the plain flow: save what the window holds; a fresh browser checks it after the window is closed
+        await context.storageState({ path: tmp, indexedDB: true });
+        fs.chmodSync(tmp, 0o600);
+        break;
+      }
+      // 1. the window itself: still on a login page, nothing to save yet
+      const live = await probeLive(context, page, o.app);
+      let why =
+        live.state === "expired"
+          ? `this window still looks logged out (${live.reason}). Finish logging in there, then say so again`
+          : undefined;
+      if (!why) {
+        // 2. what the window holds, in a fresh browser: the app may keep its login where a saved state cannot (sessionStorage)
+        await context.storageState({ path: tmp, indexedDB: true });
+        fs.chmodSync(tmp, 0o600);
+        const fresh = await probeSession({
+          root: o.root,
+          app: o.app,
+          file: tmp,
+          ...(o.viewport ? { viewport: o.viewport } : {}),
+        });
+        if (fresh.state !== "expired") {
+          verified = fresh;
+          break;
+        }
+        fs.rmSync(tmp, { force: true });
+        why = `a fresh browser with this login is logged out (${fresh.reason}). Either the login did not finish, or the app keeps it where a saved state cannot (sessionStorage), so it cannot be reused. Nothing was saved`;
+      }
+      wait = o.confirmAgain(why);
+      wait.catch(() => undefined);
+    }
   } catch (err) {
     fs.rmSync(tmp, { force: true });
     return {
@@ -234,12 +303,14 @@ export async function loginSession(o: LoginOptions): Promise<LoginResult> {
     await browser.close().catch(() => undefined);
   }
   // a fresh browser must be logged in with it, or it is no good
-  const probe = await probeSession({
-    root: o.root,
-    app: o.app,
-    file: tmp,
-    ...(o.viewport ? { viewport: o.viewport } : {}),
-  });
+  const probe =
+    verified ??
+    (await probeSession({
+      root: o.root,
+      app: o.app,
+      file: tmp,
+      ...(o.viewport ? { viewport: o.viewport } : {}),
+    }));
   if (probe.state === "expired") {
     fs.rmSync(tmp, { force: true });
     return {

@@ -15,14 +15,12 @@ import { uncoveredAreas } from "../discovery/measure.ts";
 import { coverageOf, readReport, reportVersions } from "../discovery/report.ts";
 import {
   PRESETS,
-  addRequest,
   cancelRequest,
-  checkBudget,
   pendingRequest,
   presetBudgets,
   readRequests,
-  requestMessage,
 } from "../discovery/requests.ts";
+import { requestDiscovery } from "../discovery/start.ts";
 import { discoveryStatus, listSessions } from "../discovery/state.ts";
 import { PANEL_PREFIX } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
@@ -94,58 +92,17 @@ export function discoveryRoutes(rt: Runtime): {
     },
     post: {
       "discovery-start": (body) => {
-        const { p, cfg, app } = ctx();
-        if (rt.discovery && !rt.discovery.isClosed)
-          throw new Error(
-            "a discovery session is running: wait for it to finish, or ask the Director to close it",
-          );
-        const sessions = listSessions(app);
+        const { cfg } = ctx();
         const mode = body.mode === "enhance" ? "enhance" : "start";
-        if (mode === "enhance" && !sessions.length)
-          throw new Error("there is no earlier discovery to enhance: start one first");
-        const budget = checkBudget(body.budget ?? cfg.budgets);
-        const base =
-          mode === "enhance"
-            ? typeof body.base === "string" && sessions.some((s) => s.id === body.base)
-              ? body.base
-              : sessions.at(-1)?.id
-            : undefined;
-        const req = addRequest(p.dir, {
+        const req = requestDiscovery(rt, {
           mode,
           notes: body.notes,
           areas: body.areas,
-          budget,
+          budget: body.budget ?? cfg.budgets,
           preset: body.preset,
-          ...(base ? { base } : {}),
+          base: typeof body.base === "string" ? body.base : undefined,
+          by: "panel",
         });
-        recordInput(p.dir, {
-          stage: "discovery",
-          source: "panel",
-          kind: "direction",
-          text: `${mode === "enhance" ? "enhance discovery" : "start discovery"} (${budget.discoveryScreens} screens, ${budget.discoveryActions} actions, ${budget.discoveryMinutes} min${req.preset === "custom" ? "" : `, ${req.preset}`})${req.notes ? `: ${req.notes}` : ""}${req.areas.length ? ` · areas: ${req.areas.join("; ")}` : ""}`,
-        });
-        rt.bus.publish(
-          "discovery.requested",
-          {
-            request: req.id,
-            mode,
-            by: "panel",
-            budget,
-            message: `${mode === "enhance" ? "asked the Director to enhance discovery" : "asked the Director to start discovery"} (${budget.discoveryScreens} screens, ${budget.discoveryActions} actions, ${budget.discoveryMinutes} min)`,
-          },
-          p.slug,
-        );
-        const findings = listFindings(p.dir, { appDir: app }).filter(
-          (f) => f.stage === "discovery",
-        ).length;
-        rt.notifyAgent(
-          requestMessage(
-            PANEL_PREFIX,
-            { slug: p.slug, name: p.app.name ?? p.app.slug, url: p.app.baseUrl },
-            req,
-            { sessions: sessions.length, findings },
-          ),
-        );
         return { request: req };
       },
       "discovery-report-ask": () => {

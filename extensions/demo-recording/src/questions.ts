@@ -55,6 +55,8 @@ export interface Question {
   grant?: { kind: "tts" | "take"; target: string; request: string; summary: string };
   /** The question is the pause of a recording whose saved login expired (S7): "login" carries on when you have logged in again, "stop" ends the recording. */
   auth?: { app: string };
+  /** The question is "start discovery now?" after a fresh login: answering it starts the request, or leaves it to you. Engine only. */
+  discovery?: { app: string };
 }
 
 const file = (projectDir: string) => path.join(projectDir, "questions.json");
@@ -94,6 +96,8 @@ export function askQuestion(
     grant?: Question["grant"];
     /** Engine only: a recording waits for a new login. Not counted against the limit of waiting questions. */
     auth?: Question["auth"];
+    /** Engine only: the offer to start discovery after a login. Not counted against the limit of waiting questions. */
+    discovery?: Question["discovery"];
   },
   now = new Date(),
 ): Question {
@@ -136,7 +140,7 @@ export function askQuestion(
   });
   const list = readQuestions(projectDir);
   const waiting = list.filter((x) => x.status === "pending");
-  if (!q.grant && !q.auth && waiting.length >= LIMITS.pending)
+  if (!q.grant && !q.auth && !q.discovery && waiting.length >= LIMITS.pending)
     problems.push(
       `${waiting.length} questions are still waiting for the user (${waiting.map((x) => x.id).join(", ")}): wait for them`,
     );
@@ -155,6 +159,7 @@ export function askQuestion(
     status: "pending",
     ...(q.grant ? { grant: q.grant } : {}),
     ...(q.auth ? { auth: q.auth } : {}),
+    ...(q.discovery ? { discovery: q.discovery } : {}),
   };
   save(projectDir, [...list, question]);
   return question;

@@ -25,8 +25,8 @@ export function loginView(data, now = Date.now()) {
       tone: "info",
       icon: "◔",
       title: "A browser window is open",
-      text: `Log in by hand in the window on ${data.app.baseUrl} (a password, OAuth, an e-mail link, a one-time code). When you are in, come back and press “I'm logged in”.`,
-      actions: ["confirm", "cancel"],
+      text: `Log in by hand in the window on ${data.app.baseUrl} (a password, OAuth, an e-mail link, a one-time code). When you are in, come back and press “I'm logged in”: the window is checked first and stays open if you are not in yet.`,
+      actions: ["confirm", "live", "cancel"],
     };
   if (s.state === "none")
     return {
@@ -71,6 +71,7 @@ export const ACTION_LABEL = {
   confirm: "I'm logged in",
   cancel: "Cancel",
   check: "Check now",
+  live: "Check this window",
   forget: "Forget…",
 };
 

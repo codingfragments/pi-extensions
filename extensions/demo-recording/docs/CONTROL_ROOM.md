@@ -71,8 +71,13 @@ Below it, one group at a time (the chip that is open closes when you press it ag
 The **Login card** on the Project page is for an app that asks for a login (a password, OAuth, an e-mail link, a one-time code). You log in **by hand, once**; the engine saves the session for
 the app and reuses it for discovery and recordings. It never stores a password and never shows the session to the Director or the panel.
 
-- **Log in…** opens a browser window on the app (the same as `/demo login`). Log in there, come back and press **I'm logged in** (or **Cancel**). The session is saved owner-only (never in a project's zip),
-  then **checked in a fresh browser**; if that browser is logged out (the app keeps its login in sessionStorage, which a saved login cannot keep) nothing is saved and the earlier login stays.
+- **Log in…** opens a browser window on the app (the same as `/demo login`). Log in there, come back and press **I'm logged in** (or **Cancel**). The window is looked at first: if it is still on a login page
+  (or the app's own check fails there) nothing is saved, **the window stays open** and the card says why; log in and press the button again. Then the session is saved owner-only (never in a project's zip) and
+  **checked in a fresh browser**; if that browser is logged out (the app keeps its login in sessionStorage, which a saved login cannot keep) nothing is saved, the window stays open and the earlier login stays.
+  **Check this window** looks at the open window at any time and closes nothing. In the chat, `/demo login` asks again in the same way ("Not logged in yet").
+- **After a fresh login the Director asks** "Your login for … is saved and works. Start discovery now?" with **Start discovery now (standard budget)**, **Choose areas or budget first** (points to Start discovery… on this
+  page) and **Not now**. Only Start sends a request (Config's standard budget; model tokens and browser time, no money); nothing starts by itself. It is not asked when a recording was waiting for this login, a session is
+  open, a request or the same question is already waiting, or the project is past discovery. **Check now** never asks.
 - The card says where the login stands: **no saved login** (an app that needs none can ignore it), **logged in** (saved and checked when), **expired** (with the reason; discovery and recordings are refused
   until you log in again) or **could not be checked** (the app was not reachable). **Check now** looks again; **Forget…** deletes the saved session.
 - **The app's own check** (optional): by default a session counts as gone when the app lands on a login-looking address (`/login`, `/sign_in`, `sso`, `auth`…) or shows a password field. If that is wrong for an app,

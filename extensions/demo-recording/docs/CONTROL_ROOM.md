@@ -66,6 +66,22 @@ Below it, one group at a time (the chip that is open closes when you press it ag
 | **Findings** | what discovery and the recordings found (strengths, weaknesses, friction, values, use cases, length), each **auto**, **use** (always in the recording and the narration) or **ignore** |
 | **Project history** | the input log: every direction, review, edit and note; withdrawn ones are marked outdated, never deleted |
 
+## Projects
+
+**Projects** (`#/projects`; click the project's name in the header, or "All projects" on the Project page) lists every project of the working folder: its name, app, phase, size on
+disk and when it last changed, with the active one marked.
+
+- **Switch to it** makes it the active project: the Director gets its memory and is told, the choice is remembered in the pi session. Refused while a job of the active project
+  runs (its results would land in the wrong project) or a discovery session is open.
+- **Archive…** writes a zip, `<working folder>/archive/<project>-<date>.zip`, **reads it back and checks every file** against its source, and shows the result. The project stays.
+  The zip holds the project and its app under their own paths (`projects/<name>/…`, `apps/<app>/…`), so unzipping it into the working folder puts it back. Left out: caches
+  (`previews/`), and **the app's saved login (`auth/`), which never goes into a backup**. A project of 4 GiB or more is refused with the reason (the zip writer has no ZIP64), with the
+  offer to archive **without the video files of draft renders** (their records and every final stay).
+- **Delete…** does the same archive, and **only after the zip has been read back and checked** removes the project's folder. The dialog says what happens and waits until you have typed the
+  project's exact name. The app (its record and discovery screens) is shared and stays. Deleting the active project leaves none active until you open or create one.
+- From the chat: `/demo archive [project] [--delete] [--no-drafts]`; `--delete` needs the project named.
+- There is no restore command: unzip the archive into the working folder.
+
 ## Storyboard
 
 The scenes the Director plans to record, as a list with one scene in detail: the steps, what each waits for, and the confidence of the

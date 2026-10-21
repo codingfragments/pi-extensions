@@ -115,7 +115,7 @@ export function Header({ slug, tab, states, news, band }) {
   }, []);
   return html`<div class="ds-hwrap" ref=${wrap}>
     <header class="top ds-header">
-      <span class="ds-brand">demo-recording${slug ? html` <span class="ds-brand-sub ds-muted ds-small">${slug}</span>` : null}</span>
+      <span class="ds-brand">demo-recording${slug ? html` <a class="ds-brand-sub ds-small" href="#/projects" title="Projects: switch, archive, delete">${slug}</a>` : html` <a class="ds-brand-sub ds-small" href="#/projects">Projects</a>`}</span>
       <a class="ds-step ds-step--plain" href="#/project" aria-current=${tab === "project" ? "page" : undefined}><span class="ds-step-label">Project</span></a>
       <nav class="steps" aria-label="Production stages" style="flex:1;min-inline-size:0">
         <ol class="ds-steps">

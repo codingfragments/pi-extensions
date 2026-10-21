@@ -11,6 +11,7 @@ export const SCREENS = [
   "annotations",
   "render",
   "config",
+  "projects",
   "map",
 ];
 

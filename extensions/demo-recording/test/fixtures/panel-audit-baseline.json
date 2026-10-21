@@ -6,7 +6,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 23
+      "focusChecked": 27
     },
     "storyboard|macchiato|1400": {
       "axe": {},
@@ -20,28 +20,28 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 14
+      "focusChecked": 16
     },
     "voice|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 29
     },
     "annotations|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 40
     },
     "render|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 31
+      "focusChecked": 32
     },
     "config|macchiato|1400": {
       "axe": {},
@@ -69,7 +69,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 33
+    },
+    "projects|macchiato|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 17
     },
     "map|macchiato|1400": {
       "axe": {},
@@ -118,14 +125,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 30
     },
     "director-working|macchiato|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 29
     },
     "render-fixes|macchiato|1400": {
       "axe": {},
@@ -139,14 +146,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 32
     },
     "project|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 23
+      "focusChecked": 27
     },
     "storyboard|macchiato|900": {
       "axe": {},
@@ -160,28 +167,28 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 14
+      "focusChecked": 16
     },
     "voice|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 29
     },
     "annotations|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 40
     },
     "render|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 31
+      "focusChecked": 32
     },
     "config|macchiato|900": {
       "axe": {},
@@ -209,7 +216,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 32
+    },
+    "projects|macchiato|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 16
     },
     "map|macchiato|900": {
       "axe": {},
@@ -258,14 +272,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 29
     },
     "director-working|macchiato|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 28
     },
     "render-fixes|macchiato|900": {
       "axe": {},
@@ -279,14 +293,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 31
     },
     "project|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 23
+      "focusChecked": 27
     },
     "storyboard|latte|1400": {
       "axe": {},
@@ -300,28 +314,28 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 14
+      "focusChecked": 16
     },
     "voice|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 29
     },
     "annotations|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 40
     },
     "render|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 31
+      "focusChecked": 32
     },
     "config|latte|1400": {
       "axe": {},
@@ -349,7 +363,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 33
+    },
+    "projects|latte|1400": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 17
     },
     "map|latte|1400": {
       "axe": {},
@@ -398,14 +419,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 30
     },
     "director-working|latte|1400": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 29
     },
     "render-fixes|latte|1400": {
       "axe": {},
@@ -419,14 +440,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 32
     },
     "project|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 23
+      "focusChecked": 27
     },
     "storyboard|latte|900": {
       "axe": {},
@@ -440,28 +461,28 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 14
+      "focusChecked": 16
     },
     "voice|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 29
     },
     "annotations|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 38
+      "focusChecked": 40
     },
     "render|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 31
+      "focusChecked": 32
     },
     "config|latte|900": {
       "axe": {},
@@ -489,7 +510,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 28
+      "focusChecked": 32
+    },
+    "projects|latte|900": {
+      "axe": {},
+      "axeSerious": 0,
+      "smallTargets": 0,
+      "focusMissing": 0,
+      "focusChecked": 16
     },
     "map|latte|900": {
       "axe": {},
@@ -538,14 +566,14 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 26
+      "focusChecked": 29
     },
     "director-working|latte|900": {
       "axe": {},
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 24
+      "focusChecked": 28
     },
     "render-fixes|latte|900": {
       "axe": {},
@@ -559,7 +587,7 @@
       "axeSerious": 0,
       "smallTargets": 0,
       "focusMissing": 0,
-      "focusChecked": 27
+      "focusChecked": 31
     }
   }
 }

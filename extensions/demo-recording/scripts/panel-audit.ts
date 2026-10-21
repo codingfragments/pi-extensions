@@ -81,6 +81,7 @@ export const SCREENS = [
   "brands",
   "project-brief",
   "project-history",
+  "projects",
   "map",
   "map-focus",
   "dialog-cost",
@@ -260,6 +261,10 @@ export async function runAudit(o: AuditOptions = {}): Promise<AuditResult> {
             );
             await page.goto(`${url}#/config?view=brands`);
             await page.waitForSelector(".brand-editor .ds-inspector[data-brand]");
+            await page.waitForTimeout(400);
+          } else if (screen === "projects") {
+            await page.goto(`${url}#/projects`);
+            await page.waitForSelector("[data-projlist]");
             await page.waitForTimeout(400);
           } else if (screen === "map" || screen === "map-focus") {
             await page.goto(

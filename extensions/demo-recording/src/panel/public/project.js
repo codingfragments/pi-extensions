@@ -507,7 +507,8 @@ export function Project({ events }) {
     history: context.data?.inputs?.length ?? null,
   };
   return html`
-    ${data?.summary ? html`<${Summary} data=${data} openGroup=${openGroup} ask=${ask} asked=${asked} />` : data && !data.project ? html`<section class="card muted">No active project. Run <code>/demo new</code> or <code>/demo open</code> in pi.</section>` : null}
+    ${data?.summary ? html`<${Summary} data=${data} openGroup=${openGroup} ask=${ask} asked=${asked} />` : data && !data.project ? html`<section class="card muted">No active project. Pick one in <a href="#/projects">Projects</a>, or run <code>/demo new</code> in pi.</section>` : null}
+    <p class="ds-small"><a href="#/projects" data-act="all-projects">All projects: switch, archive, delete…</a></p>
     <div class="subtabs" role="group" aria-label="Project groups">${GROUPS.map(
       ([id, label]) =>
         html`<button class="ds-chip" aria-pressed=${group === id} type="button" key=${id} data-group=${id} onClick=${() => openGroup(group === id ? null : id)}>${label}${count[id] !== undefined && count[id] !== null ? html` <span class="muted">${count[id]}</span>` : null}</button>`,

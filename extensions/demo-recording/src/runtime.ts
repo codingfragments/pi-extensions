@@ -31,6 +31,7 @@ import { fixRoutes } from "./panel/fix-routes.ts";
 import { grantRoutes } from "./panel/grant-routes.ts";
 import { graphRoutes } from "./panel/graph-routes.ts";
 import { jobRoutes } from "./panel/job-routes.ts";
+import { projectManageRoutes } from "./panel/project-manage-routes.ts";
 import { projectRoutes } from "./panel/project-routes.ts";
 import { questionRoutes } from "./panel/question-routes.ts";
 import { renderRoutes } from "./panel/render-routes.ts";
@@ -40,9 +41,11 @@ import { stageRoutes } from "./panel/stage-routes.ts";
 import { versionRoutes } from "./panel/version-routes.ts";
 import { voiceListRoutes } from "./panel/voice-list-routes.ts";
 import { voiceRoutes } from "./panel/voice-routes.ts";
+import { ACTIVE_ENTRY } from "./projects/manage.ts";
 import { linkFixDraft } from "./qa/apply.ts";
 import { type Question, cancelAskedSince, questionText } from "./questions.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
+import { PANEL_PREFIX } from "./roles.ts";
 import { startDesigner } from "./tools/designer.ts";
 import { readManifest } from "./tts/synthesize.ts";
 import { MAX_EVENT_TEXT, capText, firstLine } from "./util/events.ts";
@@ -52,6 +55,8 @@ import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/l
 /** The subset of ExtensionAPI the runtime needs (keeps tests and the CLI simple). */
 export interface AgentBridge {
   sendUserMessage: (text: string, options?: { deliverAs?: "steer" | "followUp" }) => void;
+  /** A custom session entry (not sent to the model): the active project survives a restart of pi. */
+  appendEntry?: (customType: string, data?: unknown) => void;
   /** Custom message into the session (job completions). */
   sendMessage?: (
     message: { customType: string; content: string; display: boolean; details?: unknown },
@@ -210,6 +215,35 @@ export class Runtime {
         { message: `active project: ${slug}`, project: slug },
         slug,
       );
+  }
+
+  /**
+   * Make another project the active one (the Projects page; `/demo open` does the same from the chat). Refused while something of the active project is
+   * running (a job or a discovery session): switching under it would send its results to the wrong project.
+   */
+  switchProject(slug: string): ProjectHandle {
+    const handle = openProject(this.getConfig().root, slug);
+    if (this.activeSlug === slug) return handle;
+    const busy = this.jobs.running();
+    if (busy)
+      throw new Error(
+        `a ${busy.kind} job of "${this.activeSlug}" is running (${busy.id}): wait for it or cancel it first`,
+      );
+    if (this.discovery && !this.discovery.isClosed)
+      throw new Error(`a discovery session of "${this.activeSlug}" is open: close it first`);
+    this.setActiveProject(handle.slug);
+    this.agent?.appendEntry?.(ACTIVE_ENTRY, { project: handle.slug });
+    this.primeContext();
+    this.tellAgent(
+      `${PANEL_PREFIX} The user switched the active project to "${handle.slug}" (${handle.app.name}, phase ${handle.state.phase}) in the panel. Work on that one now.`,
+    );
+    return handle;
+  }
+
+  /** The active project was deleted: there is none until one is opened. */
+  clearActiveProject(): void {
+    this.activeSlug = undefined;
+    this.agent?.appendEntry?.(ACTIVE_ENTRY, { project: null });
   }
 
   get activeProjectSlug(): string | undefined {
@@ -483,6 +517,7 @@ export class Runtime {
     const compare = compareRoutes(this);
     const discover = discoveryRoutes(this);
     const questions = questionRoutes(this);
+    const projectsManage = projectManageRoutes(this);
     const jobs = jobRoutes(this);
     const graph = graphRoutes(this);
     const drafts = draftRoutes({
@@ -505,6 +540,7 @@ export class Runtime {
         ...compare.get,
         ...discover.get,
         ...questions.get,
+        ...projectsManage.get,
         ...drafts.get,
         ...versions.get,
         ...brand.get,
@@ -532,6 +568,7 @@ export class Runtime {
         ...compare.post,
         ...discover.post,
         ...questions.post,
+        ...projectsManage.post,
       },
     };
   }

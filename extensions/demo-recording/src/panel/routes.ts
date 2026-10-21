@@ -16,6 +16,8 @@ import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
 import { diffStoryboards } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
+import { storyboardTiming } from "../storyboard/timing.ts";
+import { listTakes } from "../tools/take.ts";
 import { capText } from "../util/events.ts";
 import { wordDiff } from "../util/worddiff.ts";
 import {
@@ -25,7 +27,7 @@ import {
   readVoMeta,
   voVersions,
 } from "../vo/store.ts";
-import { briefFieldValue, parseStance } from "../workdir/brief.ts";
+import { briefFieldValue, effectiveFacts, parseStance } from "../workdir/brief.ts";
 import { recordInput } from "../workdir/inputs.ts";
 import type { ProjectHandle } from "../workdir/layout.ts";
 import {
@@ -142,6 +144,29 @@ export function panelRoutes(deps: RouteDeps): {
             return r ? { version: r.version, at: r.at } : null;
           })(),
           reports: reportVersions(p.dir).length,
+          // how long this storyboard takes to record (the raw take), against the length the brief asks for
+          timing: (() => {
+            try {
+              const brief = fs.existsSync(path.join(p.dir, "brief.md"))
+                ? effectiveFacts(fs.readFileSync(path.join(p.dir, "brief.md"), "utf8"))
+                : undefined;
+              const done = listTakes(p.dir)
+                .filter(
+                  (t) =>
+                    t.status === "ok" && t.storyboardVersion === current.version && t.durationMs,
+                )
+                .at(-1);
+              return storyboardTiming(
+                current.storyboard,
+                brief?.length
+                  ? { lo: brief.length[0], hi: brief.length[1], fromDepth: brief.lengthFromDepth }
+                  : undefined,
+                done?.durationMs ? { id: done.id, ms: done.durationMs } : undefined,
+              );
+            } catch {
+              return null;
+            }
+          })(),
         };
       },
       vo: (q) => {

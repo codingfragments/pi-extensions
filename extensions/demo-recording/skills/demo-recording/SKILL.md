@@ -337,6 +337,8 @@ inputs, any error toasts, and any resumes. Summarize it briefly, flag
 anything that looks wrong (an error toast during a scene, a resume), and
 suggest the next step.
 
+If the user asked for the browser window to be shown (the Recording tab's switch), the request message says `headed=true`: pass it to `demo_rec_record` (the engine also remembers it). A **frozen browser** is not a failing scene: every step has a deadline; a step that does not finish is diagnosed (the take's `diagnostics/stalled-N/`), the browser killed and replaced, and the scene shot again without using a retry (at most `recording.maxStalls` per take). If the take fails or is interrupted, read `diagnostics/*/README.txt` first (it says in words where the browser was stuck) and tell the user what it says; the `context.json` names the step. Do not retry a take that froze on the same step twice without telling the user.
+
 A failing scene is retried automatically (up to `recording.maxRetriesPerScene`).
 The take is cut at that scene's start and the app is restored off-camera via
 the scene's `deep_link` (fast) or by replaying the previous scenes. Good

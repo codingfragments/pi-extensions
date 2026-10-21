@@ -11,17 +11,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Page } from "playwright";
-import { type ProcRow, processesOf, sampleProcess } from "../browser/processes.ts";
+import {
+  type ProbeTarget,
+  fmtProcesses,
+  probeBrowser,
+  runtimeFacts,
+  sampleBrowser,
+  verdictOf,
+} from "../browser/diagnosis.ts";
+import { processesOf } from "../browser/processes.ts";
 
 export const diagDir = (sessionDir: string) => path.join(sessionDir, "diagnostics");
-
-const fmtRows = (rows: ProcRow[]) =>
-  rows
-    .map(
-      (r) =>
-        `${String(r.pid).padStart(6)} ${String(r.ppid).padStart(6)} ${r.stat.padEnd(4)} cpu ${String(r.cpu).padStart(5)}% rss ${String(r.rssMb).padStart(5)} MB up ${r.etime.padEnd(10)} ${r.command.slice(0, 140)}`,
-    )
-    .join("\n");
 
 /** Chromium switches of the deep log. */
 export const deepLogArgs = (sessionDir: string): string[] => [
@@ -30,37 +30,40 @@ export const deepLogArgs = (sessionDir: string): string[] => [
   `--log-file=${path.join(diagDir(sessionDir), "chromium.log")}`,
 ];
 
-/** The short diagnosis of a stall: the processes and, where possible, their native stacks. Never throws. Returns the files written. */
+/**
+ * The diagnosis of a stall, before the browser is killed: what answers and what does not (`stall-N.probes.json`, with a verdict that says where it is stuck), the
+ * processes, the page as far as it still answers (screenshot, aria), and where possible the native stacks. Never throws. Returns the files written.
+ */
 export async function diagnoseStall(
   sessionDir: string,
   marker: string,
   n: number,
   note: string,
+  target?: ProbeTarget,
 ): Promise<string[]> {
   const dir = diagDir(sessionDir);
   const files: string[] = [];
   try {
     fs.mkdirSync(dir, { recursive: true });
+    // the processes and their stacks are taken while the probes run: both are slow when the browser is stuck
+    const [probes, samples] = await Promise.all([
+      target
+        ? probeBrowser(target, { filesDir: path.join(dir, `stall-${n}`) })
+        : Promise.resolve([]),
+      sampleBrowser(marker, dir, `stall-${n}`),
+    ]);
     const rows = processesOf(marker);
     const ps = path.join(dir, `stall-${n}.ps.txt`);
     fs.writeFileSync(
       ps,
-      `${new Date().toISOString()} ${note}\n\n${fmtRows(rows) || "(no processes found for this browser)"}\n`,
+      `${new Date().toISOString()} ${note}\n${probes.length ? `verdict: ${verdictOf(probes)}\n` : ""}\n${fmtProcesses(rows)}\n\nmachine: ${JSON.stringify(runtimeFacts())}\n`,
     );
-    files.push(ps);
-    // the browser process and the busiest others: three seconds each, in parallel
-    const pick = [...rows].sort((a, b) => b.cpu - a.cpu).slice(0, 4);
-    const main = rows.find(
-      (r) => r.command.includes("--remote-debugging-pipe") && !r.command.includes("--type="),
-    );
-    if (main && !pick.some((r) => r.pid === main.pid)) pick.unshift(main);
-    const done = await Promise.all(
-      pick.map(async (r) => {
-        const f = path.join(dir, `stall-${n}.${r.pid}.sample.txt`);
-        return (await sampleProcess(r.pid, 3, f)) ? f : undefined;
-      }),
-    );
-    for (const f of done) if (f) files.push(f);
+    files.push(ps, ...samples);
+    if (probes.length) {
+      const pf = path.join(dir, `stall-${n}.probes.json`);
+      fs.writeFileSync(pf, `${JSON.stringify({ verdict: verdictOf(probes), probes }, null, 2)}\n`);
+      files.push(pf);
+    }
   } catch {
     // a diagnosis must never be what breaks the recovery
   }
@@ -79,7 +82,7 @@ export function startProcessSampler(
     try {
       fs.appendFileSync(
         path.join(dir, "ps.log"),
-        `--- ${new Date().toISOString()}\n${fmtRows(processesOf(getMarker()))}\n`,
+        `--- ${new Date().toISOString()}\n${fmtProcesses(processesOf(getMarker()))}\n`,
       );
     } catch {
       // ignore

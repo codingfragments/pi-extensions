@@ -416,7 +416,13 @@ export class DiscoverySession {
       afterMs: stalled.afterMs,
       message: `${stalled.message}: the browser looks frozen, diagnosing and restarting it`,
     });
-    const files = await diagnoseStall(this.dir, this.marker, n, `${stalled.message} on ${url}`);
+    const files = await diagnoseStall(
+      this.dir,
+      this.marker,
+      n,
+      `${stalled.message} on ${url}`,
+      this.session,
+    );
     killMarker(this.marker);
     await Promise.race([this.session.close(), sleep(3000)]).catch(() => undefined);
     try {

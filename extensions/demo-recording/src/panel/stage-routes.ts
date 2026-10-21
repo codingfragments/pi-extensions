@@ -45,6 +45,7 @@ import {
   versionLabel,
 } from "../workdir/stages.ts";
 import { readState, selectStage, unacceptStage } from "../workdir/state.ts";
+import { clearTakeRequest, writeTakeRequest } from "../workdir/take-request.ts";
 import type { GetRoute, PostRoute } from "./server.ts";
 
 export interface StageRouteDeps {
@@ -404,6 +405,10 @@ export function stageRoutes(deps: StageRouteDeps): {
             "approve a storyboard first — a take is always recorded from an approved storyboard",
           );
         const note = typeof body.note === "string" ? body.note.trim() : "";
+        const headed = body.headed === true;
+        // a real browser window, when asked for (it sometimes shows what a hidden one hides): remembered for the call that records the take
+        if (headed) writeTakeRequest(p.dir, { storyboard: sb, headed: true });
+        else clearTakeRequest(p.dir);
         // the open notes of this storyboard's takes go with the request, once (item 7c)
         const carried = openNotes(
           p.dir,
@@ -419,20 +424,21 @@ export function stageRoutes(deps: StageRouteDeps): {
           version: sb,
           source: "panel",
           kind: "direction",
-          text: `re-record requested for storyboard v${sb}${note ? `: ${note}` : ""}${notesText}`,
+          text: `re-record requested for storyboard v${sb}${headed ? " (in a visible browser window)" : ""}${note ? `: ${note}` : ""}${notesText}`,
           ...(carried.length ? { refs: carried.map((n) => `${n.take}#${n.id}`) } : {}),
         });
         // the click, after the cost dialog, is the permission for exactly this take (P1a)
         deps.grant?.("take", p.slug, `storyboard:${sb}`);
         deps.notifyAgent(
-          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}${notesText}, and ALLOWED the recording. Record it with demo_rec_record storyboard=${sb} (then analyze it and suggest it with demo_rec_take propose; the user approves takes in the Recording tab).`,
+          `${PANEL_PREFIX} The user asks for a new take of storyboard v${sb} for project "${p.slug}"${note ? ` — notes: "${note}"` : ""}${notesText}, and ALLOWED the recording${headed ? ", in a VISIBLE browser window (they want to watch it)" : ""}. Record it with demo_rec_record storyboard=${sb}${headed ? " headed=true" : ""} (then analyze it and suggest it with demo_rec_take propose; the user approves takes in the Recording tab).`,
         );
         deps.publish(
           "recording.requested",
           {
             storyboard: sb,
             ...(note ? { note } : {}),
-            message: `new take of storyboard v${sb} requested${note || carried.length ? " (with notes)" : ""}`,
+            ...(headed ? { headed: true } : {}),
+            message: `new take of storyboard v${sb} requested${headed ? " in a visible window" : ""}${note || carried.length ? " (with notes)" : ""}`,
           },
           p.slug,
         );

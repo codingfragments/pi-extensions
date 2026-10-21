@@ -111,6 +111,8 @@ export const STEPS = {
   "stage.unaccepted": { class: "quiet" },
   "storyboard.approved": { class: "quiet" },
   "storyboard.written": { class: "run-and-tell", tab: "storyboard" },
+  "take.diagnosed": { class: "quiet" },
+  "take.stalled": { class: "alert" },
   "take.accepted": { class: "quiet" },
   "take.analyzed": { class: "run-and-tell", tab: "recording" },
   "take.analyzing": { class: "progress" },

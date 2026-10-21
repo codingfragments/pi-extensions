@@ -11,6 +11,10 @@ import { moveDuration } from "../browser/cursor/motion.ts";
 import { expectedTypingMs } from "../browser/cursor/typing.ts";
 import type { Step, Storyboard } from "../storyboard/types.ts";
 
+/** The take lingers on the first frame and on the last one (the runner sleeps this long before and after the scenes). */
+export const LEAD_IN_MS = 700;
+export const TAIL_MS = 900;
+
 export const DEFAULT_DWELL: Record<Step["do"], number> = {
   goto: 500,
   move: 150,
@@ -70,6 +74,8 @@ export interface ProgressSnapshot {
   etaMs: number;
   attempt: number;
   phase: "setup" | "recording" | "recovering" | "encoding" | "done" | "failed";
+  /** The running step has taken much longer than it should (set only then): a step that may be stuck. */
+  slow?: { runMs: number; expectedMs: number };
 }
 
 export function stepLabel(step: Step): string {
@@ -159,7 +165,10 @@ export class ProgressTracker {
         ? 0
         : Math.max(0, Math.round((this.total - this.doneMs - inStep) * rate));
     const scene = this.sb.scenes[this.sceneIdx];
+    const runMs = this.phase === "recording" ? this.now() - this.stepStarted : 0;
+    const slow = runMs > Math.max(15_000, current * 2) ? { runMs, expectedMs: current } : undefined;
     return {
+      ...(slow ? { slow } : {}),
       scene: {
         index: this.sceneIdx + 1,
         total: this.sb.scenes.length,
@@ -192,6 +201,8 @@ export function formatProgress(p: ProgressSnapshot): string {
     `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
   if (p.phase === "encoding") return `🎬 encoding take · ${mmss(p.elapsedMs)}`;
   if (p.phase === "done") return `🎬 take recorded · ${mmss(p.elapsedMs)}`;
+  if (p.slow)
+    return `🎬 ${pct}% · scene ${p.scene.index}/${p.scene.total} · step ${p.step.index}/${p.step.total} · ${p.step.label} · ⚠ this step has run ${Math.round(p.slow.runMs / 1000)} s (expected ${Math.max(1, Math.round(p.slow.expectedMs / 1000))} s): the browser may be stuck · ${mmss(p.elapsedMs)} elapsed`;
   return (
     `🎬 ${pct}% · scene ${p.scene.index}/${p.scene.total} · step ${p.step.index}/${p.step.total} · ${p.step.label}` +
     `${p.attempt > 1 ? ` · retry ${p.attempt - 1}` : ""} · ${mmss(p.elapsedMs)} elapsed · ~${mmss(p.etaMs)} left`

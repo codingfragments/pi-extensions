@@ -59,7 +59,8 @@ test(
       total("Project") <= PRE_PASS.Project,
       `Project (the summary): ${total("Project")} (was ${PRE_PASS.Project})`,
     );
-    assert.ok(total("Recording") <= 20, `Recording: ${total("Recording")}`);
+    // 21: one more control on purpose: "Show the browser window while recording" on the request card
+    assert.ok(total("Recording") <= 21, `Recording: ${total("Recording")}`);
     assert.ok(
       by("Render").frame >= 10 && by("Render").frame <= 16,
       "the frame is about thirteen controls on every screen",

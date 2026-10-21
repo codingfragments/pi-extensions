@@ -158,7 +158,7 @@ function AskModal({ mode, data, extend, onClose }) {
         <div class="ds-row-flex">${num("discoveryScreens", "Screens", 200)}${num("discoveryActions", "Actions", 800)}${num("discoveryMinutes", "Minutes", 120)}</div>
         <span class="ds-hint-text">The Director stops exploring when any of the three is used up. Scout is the first look: the engine surveys the navigation by itself (those pages do not use the screens), then the Director looks closely at a few. Standard is the Config value (${data.defaults.discoveryScreens} screens, ${data.defaults.discoveryActions} actions, ${data.defaults.discoveryMinutes} minutes).</span>
       </fieldset>
-      <label class="ds-field ds-disc-headed"><span class="ds-row-flex"><input type="checkbox" data-field="headed" checked=${headed} onChange=${(e) => setHeaded(e.target.checked)} /> <span class="ds-label">Show the browser window in front, and keep it open afterwards</span></span>
+      <label class="ds-field ds-disc-headed"><span class="ds-row-flex ds-check"><input type="checkbox" data-field="headed" checked=${headed} onChange=${(e) => setHeaded(e.target.checked)} /> <span class="ds-label">Show the browser window in front, and keep it open afterwards</span></span>
         <span class="ds-hint-text">To watch, or to look around in it yourself once the Director is done (it uses the same login). The window stays until you start the next discovery or pi closes. Off: the browser runs hidden and the panel shows screenshots.</span></label>
       ${data.briefDraft ? html`<p class="ds-small ds-muted" data-brief-draft>The brief is still a draft. That is fine: the Director will not stop to ask about it, and tells you at the end which fields it could fill in.</p>` : null}
     </div>

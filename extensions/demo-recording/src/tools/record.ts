@@ -23,6 +23,7 @@ import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { briefFieldValue } from "../workdir/brief.ts";
 import { appDir } from "../workdir/layout.ts";
 import { readState, requireSelected, setPhase } from "../workdir/state.ts";
+import { clearTakeRequest, readTakeRequest } from "../workdir/take-request.ts";
 import { result } from "./common.ts";
 import { askFirst, notAllowed, spendTarget } from "./spend.ts";
 
@@ -79,7 +80,10 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
         StringEnum(["start", "status", "cancel"] as const, { description: "default start" }),
       ),
       headed: Type.Optional(
-        Type.Boolean({ description: "Show the browser while recording (default headless)" }),
+        Type.Boolean({
+          description:
+            "Show the browser window while recording (default headless, or what the user chose when requesting the take)",
+        }),
       ),
       seed: Type.Optional(Type.Number({ description: "RNG seed for reproducible motion/typing" })),
       storyboard: Type.Optional(
@@ -155,6 +159,9 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
         setPhase(p.dir, "recording");
 
       if (!rt.grants.consume("take", p.slug, target)) throw notAllowed("take", target);
+      // the Recording tab's "show the browser window" reaches the take even when the Director does not pass it on
+      const headed = params.headed ?? readTakeRequest(p.dir, version)?.headed ?? false;
+      clearTakeRequest(p.dir);
       const job = rt.jobs.start<TakeResult>(
         "record",
         p.slug,
@@ -169,12 +176,27 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
             capture: cfg.capture,
             signal,
             maxRetriesPerScene: cfg.recording.maxRetriesPerScene,
+            stepDeadlineMinMs: cfg.recording.stepDeadlineMinSec * 1000,
+            maxStalls: cfg.recording.maxStalls,
+            browserMemoryMb: cfg.recording.browserMemoryMb,
+            onDiagnosis: (d) => {
+              const facts = {
+                kind: d.kind,
+                ...(d.scene ? { scene: d.scene } : {}),
+                ...(d.step !== undefined ? { step: d.step } : {}),
+                dir: d.dir,
+                verdict: d.verdict,
+              };
+              if (d.kind === "stalled")
+                rt.bus.publish("take.stalled", { ...facts, message: d.message }, p.slug);
+              else rt.bus.publish("take.diagnosed", { ...facts, message: d.message }, p.slug);
+            },
             typoRate: cfg.recording.typoRate,
             keepFrames: cfg.recording.keepFrames,
             hesitateMs: cfg.improvise.hesitateMs,
             ...(improviser ? { improviser } : {}),
             ...(context ? { improviseContext: context } : {}),
-            ...(params.headed ? { headed: true } : {}),
+            ...(headed ? { headed: true } : {}),
             ...(params.seed !== undefined ? { seed: params.seed } : {}),
             ...(fs.existsSync(statePath)
               ? { storageState: statePath, sessionGuard: sessionGuardFor(rt, p, signal) }
@@ -244,8 +266,8 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
           job: job.id,
           version,
           url: p.app.baseUrl,
-          ...(params.headed ? { headed: true } : {}),
-          message: `recording storyboard v${version} on ${p.app.baseUrl}`,
+          ...(headed ? { headed: true } : {}),
+          message: `recording storyboard v${version} on ${p.app.baseUrl}${headed ? " (in a visible window)" : ""}`,
         },
         p.slug,
       );

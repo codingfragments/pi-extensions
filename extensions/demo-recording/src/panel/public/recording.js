@@ -288,6 +288,7 @@ export function Recording({ events, stages }) {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
   const [note, setNote] = useState("");
+  const [headed, setHeaded] = useState(false);
   const [picked, setPicked] = useState(null);
   if (error) return html`<section class="card error">${error}</section>`;
   if (!data) return html`<section class="card muted">loading…</section>`;
@@ -296,7 +297,7 @@ export function Recording({ events, stages }) {
     setBusy(true);
     try {
       if (!(await confirmCost("rerecord", { storyboard: data.storyboard }))) return;
-      await post("/api/rerecord", { storyboard: data.storyboard, note });
+      await post("/api/rerecord", { storyboard: data.storyboard, note, headed });
       setNote("");
       setFlash(`new take of storyboard v${data.storyboard} requested — the agent records it`);
     } catch (e) {
@@ -328,6 +329,7 @@ export function Recording({ events, stages }) {
     }
     <section class="card review-foot ds-inflow" data-request-take>
       <textarea placeholder="Notes for the next take (what to change, what to re-explore)…" aria-label="notes for the next take" value=${note} onInput=${(e) => setNote(e.target.value)}></textarea>
+      <label class="ds-check ds-small" data-headed-label title="A real browser window sometimes shows what a hidden one hides. The take is recorded the same way either way."><input type="checkbox" data-field="headed" checked=${headed} onChange=${(e) => setHeaded(e.target.checked)} /> Show the browser window while recording</label>
       <div class="row">
         ${data.openNotes ? html`<span class="muted small-text" data-open-notes>${data.openNotes} open note${data.openNotes === 1 ? "" : "s"} will go with it</span>` : html`<span class="muted small-text">No open notes on the takes</span>`}
         <span class="grow"></span>

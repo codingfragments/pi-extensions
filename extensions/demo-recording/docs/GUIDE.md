@@ -142,13 +142,16 @@ In the panel the narration is a list of sections (an intro, one per scene, an ou
 - **Direction** steers the whole narrative (stance, tone, length, focus, notes) and asks the Director for a new version.
 - **Confidence badges** and the speech-versus-footage bar show where it is risky; **compare with v1** shows what changed.
 
-When the voice-over is right, **Approve & use**. Approving unlocks the voice.
+When the voice-over is right, press **Approve script v2**. Approving is free; it unlocks the voice and the Director then asks to make it (with the cost and your Allow). A list under the buttons says what
+happens next and where you are: **approve the script, make the voice** (**Make the voice (uses credits)…**: you see the cost and press Allow), **the sync edit and a draft to
+watch** (by itself, local), **the annotations are suggested** (by themselves, a model call; `annotations.autoSuggest`). The Director also asks to make the voice after you approve;
+the button is the same thing, done by you.
 
 ![Voice over: sections, the narration and the timing at each anchor](images/guide/05-voice.jpg)
 
 ### 3b. Voice and edit: this is where credits are spent
 
-**Generate voice, edit and a draft to watch…** shows a cost dialog first: how many characters are cached (free) and how many are billed, in credits
+**Make the voice (uses credits)…** shows a cost dialog first: how many characters are cached (free) and how many are billed, in credits
 and in money. It can never be switched off for the voice. (If the Director gets there first, it does not synthesize: it asks, with the
 same numbers, and waits for your **Allow**.) Then the engine (no agent) synthesizes the voice with the first engine of
 your chain that works (ElevenLabs, then OpenAI, then the local Kokoro; one engine for the whole video), and **edits the take to the

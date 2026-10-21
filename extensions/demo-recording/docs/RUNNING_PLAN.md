@@ -247,9 +247,12 @@ Allow, and can feed the fix window.
 
 **Items 13 and 14 (run-3 prep, D146; separate small PRs, in this order).**
 
-- **13a, Voice over buttons (R3-6).** "Approve script vN" and "Make the voice (uses credits)" instead of "Approve & use" and "Generate voice, edit and a draft to watch"; a
+- **13a, Voice over buttons (R3-6; done).** "Approve script vN" and "Make the voice (uses credits)" instead of "Approve & use" and "Generate voice, edit and a draft to watch"; a
   "what happens next" line under them (approve, the voice with its cost, the sync edit and a draft, the annotations start by themselves); the approval toast says the same.
-  The credit gate stays a separate click.
+  The credit gate stays a separate click. **Built:** the two buttons and the dialog titles renamed (Voice over only; the other stages keep "Approve & use"), an ordered list
+  under them (`voiceSteps`: approve the script, make the voice, the sync edit and a draft, the annotations; the first not done is marked, state in words for a screen reader;
+  the last step says if `annotations.autoSuggest` is off), the toast and the guide use the same words. **Tests:** `test/voice-steps.test.ts` (3, one in the browser); older strings
+  moved. **Not verified:** the list at 900 px and in Latte; "voiced" is read from the fit or the audio files of the version.
 - **13b, Recording: the request box at the bottom (R3-4).** The card of the storyboard's review (a bigger notes box, "N open notes will go with it", the button, the cost
   hint); the paragraph about approving and "Use for next steps" moves to the take rows.
 - **13c, Recording keys (R3-3).** `<` and `>` = previous / next finding of the take (what the scene is meant to cover and what the take found; the ones with a time jump to

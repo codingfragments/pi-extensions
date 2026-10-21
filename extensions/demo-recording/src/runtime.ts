@@ -425,6 +425,7 @@ export class Runtime {
           ? { id: this.discovery.id, dir: this.discovery.dir, budget: this.discovery.budget() }
           : undefined,
       notifyAgent: (text) => this.notifyAgent(text),
+      autoSuggest: () => this.getConfig().annotations.autoSuggest,
       audio: (version) => {
         const p = this.activeProject();
         const m = p ? readManifest(p.dir, version) : undefined;

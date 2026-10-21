@@ -102,7 +102,7 @@ export function nextAfterApproval(stage: Stage): string {
     case "recording":
       return "Next: the Director writes the voice-over from this take, and waits for your review.";
     case "vo":
-      return "Next: the Director asks to synthesize the voice. The estimate comes with the request and it waits for your Allow (or press Generate voice, edit and a draft to watch yourself).";
+      return "Next: the Director asks to make the voice; the cost comes with the request and it waits for your Allow (or press Make the voice yourself). Then the sync edit and a draft to watch, and the annotations are suggested by themselves.";
     case "annotations":
       return "Next: render a final (Render, New render…). Nothing starts by itself.";
     case "render":

@@ -233,7 +233,12 @@ function dialogFor(plan, stale) {
       text: `${note}${turn ? `\n\nThe Director continues from it (starts an agent turn${model ? ` on ${model.split("/").slice(1).join("/") || model}` : ""}).` : ""}`,
       facts,
       list: lines.length ? { title: "The production line changes:", items: lines } : undefined,
-      confirmLabel: plan.stage === "render" ? "Approve final" : "Approve & use",
+      confirmLabel:
+        plan.stage === "render"
+          ? "Approve final"
+          : plan.stage === "vo"
+            ? "Approve script"
+            : "Approve & use",
     };
   if (plan.intent === "use")
     return {
@@ -396,7 +401,12 @@ export function VersionActions({
     </span>`;
   };
   const final = stage === "render";
-  const approveUse = final ? `Approve final ${row.short}` : `Approve & use ${row.short}`;
+  // the voice-over is the one stage where approving starts nothing that costs: the words say "script" and the voice is its own, named step (D146)
+  const approveUse = final
+    ? `Approve final ${row.short}`
+    : stage === "vo"
+      ? `Approve script ${row.short}`
+      : `Approve & use ${row.short}`;
   return html`<span class="ds-row-flex version-actions">
     ${
       !row.approved

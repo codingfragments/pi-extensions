@@ -9,7 +9,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { forgetSession, hasState, loginSession, probeSession, readMeta } from "../auth/session.ts";
+import { startLogin } from "../auth/login-flow.ts";
+import { forgetSession, hasState, probeSession, readMeta } from "../auth/session.ts";
 import { listBrands, resolveBrand } from "../brand/brand.ts";
 import {
   type Scope,
@@ -25,7 +26,7 @@ import { formatDoctor, runDoctor } from "../doctor.ts";
 import { envNotice } from "../env-overrides.ts";
 import { allowedMessage, deniedMessage } from "../grants.ts";
 import { ACTIVE_ENTRY, archiveProject, deleteProject } from "../projects/manage.ts";
-import { loginSaved, settleGrantQuestion } from "../question-flow.ts";
+import { settleGrantQuestion } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
 import { startRender } from "../tools/render.ts";
@@ -505,11 +506,7 @@ export async function cmdArchive(rt: Runtime, rest: string[], ctx: ExtensionComm
  * `/demo login`: a browser window opens on the app, you log in by hand (a password, OAuth, an e-mail link, a one-time code) and say so; the engine saves the session for
  * the app and checks it in a fresh browser (S7, D147). The same engine as the Project page's Login card.
  */
-export async function cmdLogin(
-  rt: Runtime,
-  ctx: ExtensionCommandContext,
-  seam: { headed?: boolean; afterOpen?: (page: import("playwright").Page) => Promise<void> } = {},
-) {
+export async function cmdLogin(rt: Runtime, ctx: ExtensionCommandContext) {
   const p = rt.requireProject();
   if (!ctx.hasUI)
     return report(
@@ -517,49 +514,23 @@ export async function cmdLogin(
       "/demo login needs a screen: open the Project page in the panel instead",
       "warning",
     );
-  if (rt.loginInProgress) return report(ctx, "a login window is already open", "warning");
-  const cfg = rt.getConfig();
-  let confirmed!: () => void;
-  let gaveUp!: (e: Error) => void;
-  const waitForDone = new Promise<void>((res, rej) => {
-    confirmed = res;
-    gaveUp = rej;
-  });
-  waitForDone.catch(() => undefined);
-  let opened!: () => void;
-  const isOpen = new Promise<void>((r) => {
-    opened = r;
-  });
-  rt.loginInProgress = true;
-  try {
-    const run = loginSession({
-      root: cfg.root,
-      app: p.app,
-      headed: seam.headed ?? true,
-      ...(seam.afterOpen ? { afterOpen: seam.afterOpen } : {}),
-      viewport: { width: cfg.viewport.width, height: cfg.viewport.height },
-      waitForDone,
-      onOpened: opened,
-    });
-    run.catch(() => undefined);
-    await Promise.race([isOpen, run]);
-    const sure = await ctx.ui.confirm(
-      `Log in to ${p.app.name}`,
-      `A browser window is open on ${p.app.baseUrl}. Log in by hand there (password, OAuth, e-mail link, one-time code), then press Yes. No cancels.`,
+  if (rt.login) return report(ctx, "a login window is already open", "warning");
+  const h = startLogin(rt, p, rt.loginSeam);
+  h.done.catch(() => undefined);
+  await Promise.race([h.opened, h.done]);
+  const sure = await ctx.ui.confirm(
+    `Log in to ${p.app.name}`,
+    `A browser window is open on ${p.app.baseUrl}. Log in by hand there (password, OAuth, e-mail link, one-time code), then press Yes. No cancels.`,
+  );
+  if (sure) h.confirm();
+  else h.cancel();
+  const r = await h.done;
+  if (r.saved)
+    report(
+      ctx,
+      `saved the login for ${p.app.name} (owner-only, never in a zip). A fresh browser with it is logged in: ${r.probe.reason}.`,
     );
-    if (sure) confirmed();
-    else gaveUp(new Error("you cancelled the login"));
-    const r = await run;
-    if (r.saved) {
-      loginSaved(rt, p.app.slug, p.app.name);
-      report(
-        ctx,
-        `saved the login for ${p.app.name} (owner-only, never in a zip). A fresh browser with it is logged in: ${r.probe.reason}.`,
-      );
-    } else report(ctx, `the login was not saved: ${r.problem ?? "unknown reason"}`, "warning");
-  } finally {
-    rt.loginInProgress = false;
-  }
+  else report(ctx, `the login was not saved: ${r.problem ?? "unknown reason"}`, "warning");
 }
 
 export function cmdLogout(rt: Runtime, ctx: ExtensionCommandContext) {

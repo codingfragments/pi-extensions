@@ -351,11 +351,12 @@ test(
       await cmdSession(rt, [], ctx(true));
       assert.match(said.at(-1) ?? "", /^no saved login for Fixture: \/demo login/);
       // cancelled: nothing saved
-      await cmdLogin(rt, ctx(false), { headed: false, afterOpen: (pg) => logInByHand(pg) });
+      rt.loginSeam = { headed: false, afterOpen: (pg) => logInByHand(pg) };
+      await cmdLogin(rt, ctx(false));
       assert.match(said.at(-1) ?? "", /^the login was not saved: you cancelled the login$/);
       assert.equal(hasState(root, p.app.slug), false);
       // confirmed: saved
-      await cmdLogin(rt, ctx(true), { headed: false, afterOpen: (pg) => logInByHand(pg) });
+      await cmdLogin(rt, ctx(true));
       assert.match(
         asked.at(-1) ?? "",
         /^Log in to Fixture \| A browser window is open on http:\/\/127\.0\.0\.1:\d+\/?\. Log in by hand there/,
@@ -365,7 +366,7 @@ test(
         /^saved the login for Fixture \(owner-only, never in a zip\)\. A fresh browser with it is logged in: /,
       );
       assert.equal(hasState(root, p.app.slug), true);
-      assert.equal(rt.loginInProgress, false);
+      assert.equal(rt.login, undefined);
       assert.equal(readMeta(root, p.app.slug).state, "valid");
     } finally {
       await rt.shutdown();

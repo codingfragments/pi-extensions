@@ -67,7 +67,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
       if (!params.yaml?.trim()) throw new Error("write needs yaml (the complete storyboard)");
       // the storyboard is not written over areas nobody saw (D3): explore them, or leave them out on purpose with a reason
       const dir = appDirOf(p.dir, p.app.slug);
-      const last = listSessions(dir).at(-1);
+      const last = listSessions(dir, p.dir).at(-1);
       if (last && params.skipAreas?.length) dropInLog(dir, last.id, params.skipAreas);
       const gap = coverageProblem(p.dir, dir);
       if (gap) throw new Error(coverageMessage(gap));
@@ -117,7 +117,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
           `${f.id} is marked USE ("${f.text.slice(0, 80)}") but no scene lists it in findings: — it must appear in the recording and the narration`,
         );
       // the storyboard follows the discovery report's guidance (D2): say which one it is based on, or that there is none
-      const sessionsNow = listSessions(appDirOf(p.dir, p.app.slug));
+      const sessionsNow = listSessions(appDirOf(p.dir, p.app.slug), p.dir);
       const report = readReport(p.dir);
       if (sessionsNow.length && !report)
         warnings.push(

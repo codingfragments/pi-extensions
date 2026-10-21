@@ -44,7 +44,7 @@ export function requestDiscovery(rt: Runtime, body: StartRequest): DiscoveryRequ
     throw new Error(
       "a discovery session is running: wait for it to finish, or ask the Director to close it",
     );
-  const sessions = listSessions(app);
+  const sessions = listSessions(app, p.dir);
   if (body.mode === "enhance" && !sessions.length)
     throw new Error("there is no earlier discovery to enhance: start one first");
   const budget = checkBudget(body.budget);

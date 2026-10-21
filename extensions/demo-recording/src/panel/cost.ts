@@ -45,6 +45,7 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "brand-use": ["none"],
   "compare-ask": ["turn"],
   "discovery-cancel": ["none"],
+  "discovery-forget": ["none"],
   "login-start": ["none"],
   "login-confirm": ["none"],
   "login-cancel": ["none"],

@@ -72,7 +72,7 @@ function writtenSince(projectDir: string, startedAt: string): boolean {
 
 /** The areas of the latest discovery session that nobody saw and nobody dropped, when no storyboard was written since it began. */
 export function coverageProblem(projectDir: string, appDir: string): CoverageProblem | undefined {
-  const last = listSessions(appDir).at(-1);
+  const last = listSessions(appDir, projectDir).at(-1);
   if (!last) return undefined;
   const m = measureSession(appDir, last.id);
   if (!m.planned) return undefined;

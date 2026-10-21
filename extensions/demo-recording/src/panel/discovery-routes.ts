@@ -22,6 +22,7 @@ import {
   presetBudgets,
   readRequests,
 } from "../discovery/requests.ts";
+import { forgetDiscovery, forgetPreview } from "../discovery/reset.ts";
 import { requestDiscovery } from "../discovery/start.ts";
 import { discoveryStatus, listSessions } from "../discovery/state.ts";
 import { PANEL_PREFIX } from "../roles.ts";
@@ -48,7 +49,7 @@ export function discoveryRoutes(rt: Runtime): {
         const versions = reportVersions(p.dir);
         const asked = q.get("version") ? Number(q.get("version")) : undefined;
         const report = readReport(p.dir, asked) ?? null;
-        const sessions = listSessions(app);
+        const sessions = listSessions(app, p.dir);
         const last = report?.coverage.sessions.at(-1)?.id;
         return {
           versions,
@@ -67,7 +68,7 @@ export function discoveryRoutes(rt: Runtime): {
       },
       discovery: () => {
         const { p, cfg, app } = ctx();
-        const sessions = listSessions(app);
+        const sessions = listSessions(app, p.dir);
         const running = rt.discovery && !rt.discovery.isClosed ? rt.discovery.id : undefined;
         const last = sessions.at(-1);
         const standard = cfg.budgets;
@@ -89,6 +90,8 @@ export function discoveryRoutes(rt: Runtime): {
               return false;
             }
           })(),
+          // what "Forget the discovery…" would set aside
+          forget: forgetPreview(p.dir, app),
           presets: Object.fromEntries(PRESETS.map((x) => [x, presetBudgets(standard, x)])),
           findings: listFindings(p.dir, { appDir: app }).filter((f) => f.stage === "discovery")
             .length,
@@ -117,7 +120,7 @@ export function discoveryRoutes(rt: Runtime): {
       },
       "discovery-report-ask": () => {
         const { p, app } = ctx();
-        const sessions = listSessions(app);
+        const sessions = listSessions(app, p.dir);
         if (!sessions.length)
           throw new Error("there is no discovery to report on yet: start one first");
         if (rt.discovery && !rt.discovery.isClosed)
@@ -145,6 +148,34 @@ export function discoveryRoutes(rt: Runtime): {
           `${PANEL_PREFIX} The user asks you to ${had ? `UPDATE the discovery report of "${p.slug}" (the latest is v${had.version}${sessions.length > had.coverage.sessions.length ? `; there are ${sessions.length - had.coverage.sessions.length} newer session(s) it does not cover` : ""})` : `WRITE the discovery report of "${p.slug}"`}. Call demo_rec_discovery context (what you may cite and the rules), then demo_rec_discovery report; every item must cite evidence that exists. Do not write the storyboard; stop after report.`,
         );
         return { asked: true, latest: had?.version ?? null };
+      },
+      "discovery-forget": () => {
+        const { p, app } = ctx();
+        if (rt.discovery && !rt.discovery.isClosed)
+          throw new Error(
+            "a discovery session is running: wait for it to finish (or ask the Director to close it) before forgetting the discovery",
+          );
+        if (pendingRequest(p.dir))
+          throw new Error(
+            "the Director has been asked to start discovery and has not picked it up: take the request back first",
+          );
+        const rec = forgetDiscovery(p.dir, app);
+        const what = `${rec.sessions} session${rec.sessions === 1 ? "" : "s"}, ${rec.findings} finding${rec.findings === 1 ? "" : "s"}${rec.reportVersions ? `, the report (${rec.reportVersions} version${rec.reportVersions === 1 ? "" : "s"})` : ""}`;
+        recordInput(p.dir, {
+          stage: "discovery",
+          source: "panel",
+          kind: "direction",
+          text: `forgot the discovery so far (${what}); everything was set aside, nothing deleted. Treat the project as never discovered.`,
+        });
+        rt.bus.publish(
+          "discovery.forgotten",
+          { ...rec, by: "panel", message: `forgot the discovery so far: ${what} set aside` },
+          p.slug,
+        );
+        rt.tellAgent(
+          `${PANEL_PREFIX} The user FORGOT the discovery of "${p.slug}": ${what} were set aside, and the project history of the earlier runs is outdated. Treat the project as never discovered; do not rely on earlier sessions, findings or the report. Nothing else to do until they start discovery again.`,
+        );
+        return { forgotten: rec };
       },
       "discovery-cancel": () => {
         const { p } = ctx();

@@ -1,7 +1,7 @@
 import { html, useEffect, useState } from "/vendor/preact-htm.module.js";
 import { Modal, media, post, screenUrl, useApi } from "./core.js";
 import { CostHint } from "./cost.js";
-import { errorToast, toast } from "./dialog.js";
+import { confirmAsk, errorToast, toast } from "./dialog.js";
 import {
   AREA_WORDS,
   KIND_ICON,
@@ -181,6 +181,35 @@ export function Discovery({ events }) {
       errorToast(e, "discovery");
     }
   };
+  const f = data.forget ?? {};
+  const forgettable =
+    (f.sessions ?? 0) + (f.findings ?? 0) + (f.reportVersions ?? 0) + (f.requests ?? 0) > 0;
+  const forget = async () => {
+    const parts = [
+      f.sessions ? `${f.sessions} session${f.sessions === 1 ? "" : "s"}` : "",
+      f.findings ? `${f.findings} finding${f.findings === 1 ? "" : "s"}` : "",
+      f.reportVersions
+        ? `the report (${f.reportVersions} version${f.reportVersions === 1 ? "" : "s"})`
+        : "",
+    ].filter(Boolean);
+    if (
+      !(await confirmAsk({
+        title: "Forget the discovery so far?",
+        text: `The project sets aside ${parts.join(", ") || "its discovery notes"} and starts again from zero: the Director is told to treat it as never discovered. Nothing is deleted: the report and the request list are moved aside in the project folder, and the sessions stay with the app (other projects of it keep theirs). What you wrote as notes and sources, the brief and any storyboard stay; a storyboard written from the old report keeps saying so.`,
+        confirmLabel: "Forget and start fresh",
+        danger: true,
+      }))
+    )
+      return;
+    try {
+      await post("/api/discovery-forget", {});
+      toast("Discovery forgotten. Start it again when you are ready.", { kind: "ok" });
+      reload();
+      setAsk({ mode: "start" });
+    } catch (e) {
+      errorToast(e, "discovery");
+    }
+  };
   const line = {
     never:
       "Discovery has not run yet. The Director explores the app and records what it finds before it writes a storyboard.",
@@ -199,6 +228,7 @@ export function Discovery({ events }) {
     }
     <div class="ds-row-flex">
       ${data.status === "never" ? html`<button class="ds-btn ds-btn--primary" type="button" data-act="start-discovery" disabled=${running} onClick=${() => setAsk({ mode: "start" })}>Start discovery</button>` : html`<button class="ds-btn ds-btn--primary" type="button" data-act="enhance-discovery" disabled=${running} onClick=${() => setAsk({ mode: "enhance" })}>Enhance…</button>`}
+      ${forgettable && !running && !data.pending ? html`<button class="ds-btn ds-btn--ghost" type="button" data-act="forget-discovery" title="Set aside every earlier run, finding and the report, and start again" onClick=${forget}>Forget discovery…</button>` : null}
       ${data.extend && !running ? html`<button class="ds-btn" type="button" data-act="extend-budget" onClick=${() => setAsk({ mode: "enhance", extend: data.extend })}>Extend the budget…</button>` : null}
       <${CostHint} />
       ${running ? html`<span class="ds-why">A session is running: wait for it to finish.</span>` : null}

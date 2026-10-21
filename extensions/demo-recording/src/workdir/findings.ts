@@ -19,6 +19,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { effectiveFacts, formatLength } from "./brief.ts";
+import { discoveryCutoff } from "./discovery-cutoff.ts";
 
 export const FINDINGS_FILE = "findings.jsonl";
 
@@ -326,7 +327,10 @@ export function listFindings(
     if ("mark" in l) marks.set(l.mark, l.state);
     else agent.push(l);
   }
+  // a project that forgot its discovery does not see the discovery findings from before (nothing is deleted)
+  const cutoff = discoveryCutoff(projectDir);
   return [...agent, ...engineFindings(projectDir, opts)]
+    .filter((f) => !(cutoff && f.stage === "discovery" && f.at < cutoff))
     .map((f) => ({ ...f, state: marks.get(f.id) ?? "auto" }))
     .sort((a, b) => (a.at < b.at ? 1 : -1));
 }

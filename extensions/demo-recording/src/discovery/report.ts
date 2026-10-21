@@ -224,7 +224,7 @@ export function reportProblems(projectDir: string, appDir: string, ans: ReportAn
 
 /** The engine's own account of what discovery covered: every session, every area, and how much there is to cite. */
 export function coverageOf(projectDir: string, appDir: string): DiscoveryReport["coverage"] {
-  const sessions = listSessions(appDir).map((s) => ({
+  const sessions = listSessions(appDir, projectDir).map((s) => ({
     id: s.id,
     areas: measureSession(appDir, s.id).areas.map(
       (a: AreaMeasure): CoverageArea => ({
@@ -346,7 +346,7 @@ export function reportBrief(projectDir: string, appDir: string): string {
   const findings = listFindings(projectDir, { appDir }).filter(
     (f) => f.stage === "discovery" || f.stage === "recording",
   );
-  const sessions = listSessions(appDir);
+  const sessions = listSessions(appDir, projectDir);
   const src = projectSources(projectDir);
   const prev = readReport(projectDir);
   const cov = coverageOf(projectDir, appDir);

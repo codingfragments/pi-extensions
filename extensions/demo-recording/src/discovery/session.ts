@@ -28,6 +28,13 @@ import type { Target } from "../storyboard/types.ts";
 import { sleep } from "../util/duration.ts";
 import { createRng } from "../util/rng.ts";
 import { type AppInfo, appDir } from "../workdir/layout.ts";
+import {
+  type DirectorState,
+  HEARTBEAT_DEFAULT_SEC,
+  type HeartbeatFacts,
+  heartbeatMessage,
+  nextBeatDelay,
+} from "./heartbeat.ts";
 import { type LogRecord, type Measure, measureAreas, measuredProgress } from "./measure.ts";
 import { type DiscoveryProgress, formatDiscoveryProgress } from "./progress.ts";
 import { readSessionRecord, writeSessionRecord } from "./state.ts";
@@ -54,6 +61,8 @@ export interface DiscoveryOptions {
   /** Max characters of aria digest returned per look. */
   digestChars?: number;
   now?: () => Date;
+  /** Say that the session is alive when nothing else was said for this many seconds (default 30; 0 = never). */
+  heartbeatSec?: number;
 }
 
 export interface Budget {
@@ -210,6 +219,13 @@ export class DiscoverySession {
   readonly verified = new Map<string, Target>();
   private readonly sitemap = new Map<string, { title: string; firstScreen: string }>();
   private closed = false;
+  // the heartbeat: when anything was last said, when the last step was, what it was, and what the Director is doing
+  private lastSaidAt = Date.now();
+  private lastStepAt = Date.now();
+  private lastStep = "";
+  private director: DirectorState = "unknown";
+  private beatTimer: ReturnType<typeof setTimeout> | undefined;
+  private unsubscribeBus: (() => void) | undefined;
 
   private constructor(opts: DiscoveryOptions, session: BrowserSession, id: string) {
     this.opts = opts;
@@ -260,6 +276,7 @@ export class DiscoverySession {
       budgets: opts.budgets,
       message: `discovery ${id} opened on ${pathOf(session.page.url())}${opts.headed ? " (headed)" : ""}`,
     });
+    ds.startHeartbeat();
     return ds;
   }
 
@@ -268,7 +285,52 @@ export class DiscoverySession {
   }
 
   private emit(type: string, data: Record<string, unknown>): void {
+    this.lastSaidAt = Date.now();
     this.opts.bus?.publish(type, { app: this.appSlug, ...data }, this.opts.project);
+  }
+
+  // ---- the heartbeat: a quiet session says it is alive (every 30 s by default) ----
+  private startHeartbeat(): void {
+    const beatMs = (this.opts.heartbeatSec ?? HEARTBEAT_DEFAULT_SEC) * 1000;
+    if (!(beatMs > 0)) return;
+    // what the Director is doing comes from its own events on the bus
+    this.unsubscribeBus = this.opts.bus?.subscribe((e) => {
+      if (this.opts.project && e.project && e.project !== this.opts.project) return;
+      if (e.type === "director.started" || e.type === "director.step") this.director = "working";
+      else if (e.type === "director.settled") this.director = "settled";
+    });
+    const schedule = () => {
+      if (this.closed) return;
+      this.beatTimer = setTimeout(
+        () => {
+          if (this.closed) return;
+          if (Date.now() - this.lastSaidAt >= beatMs - 25) this.beat();
+          schedule();
+        },
+        nextBeatDelay(Date.now(), this.lastSaidAt, beatMs),
+      );
+      this.beatTimer.unref?.();
+    };
+    schedule();
+  }
+
+  private beat(): void {
+    const b = this.budget();
+    const area = this.progress().current;
+    const facts: HeartbeatFacts = {
+      sinceStepMs: Date.now() - this.lastStepAt,
+      lastStep: this.lastStep,
+      screens: b.screens,
+      actions: b.actions,
+      ...(area ? { area } : {}),
+      director: this.director,
+    };
+    this.emit("discovery.heartbeat", {
+      sinceStepMs: facts.sinceStepMs,
+      director: facts.director,
+      budget: b,
+      message: heartbeatMessage(facts),
+    });
   }
 
   /** The action log as it is on disk, kept in memory too: progress is measured from it (measure.ts). */
@@ -277,7 +339,10 @@ export class DiscoverySession {
   private append(file: string, record: Record<string, unknown>): void {
     const full = { at: new Date().toISOString(), ...record };
     fs.appendFileSync(path.join(this.dir, file), `${JSON.stringify(full)}\n`);
-    if (file === "actions.jsonl") this.log.push(full as LogRecord);
+    if (file === "actions.jsonl") {
+      this.log.push(full as LogRecord);
+      this.lastStepAt = Date.now();
+    }
   }
 
   // ---- exploration plan + measured progress (S3, D3) ----
@@ -451,6 +516,7 @@ export class DiscoverySession {
       budget: this.budget(),
       message: `look ${screen}${title ? ` “${title}”` : ""} · ${pathOf(url)}`,
     });
+    this.lastStep = `look ${screen}${title ? ` “${title}”` : ""} · ${pathOf(url)}`;
     this.emitProgress();
     return { screen, url, title, jpeg, digest, truncated, budget: this.budget() };
   }
@@ -676,6 +742,7 @@ export class DiscoverySession {
       ...(note ? { note } : {}),
       message: `${p.action}${target ? ` ${target}` : ""}${p.action === "goto" && p.url ? ` ${p.url}` : ""}${p.action === "press" && p.key ? ` ${p.key}` : ""} (${verdict.level})${url !== before ? ` → ${pathOf(url)}` : ""}`,
     });
+    this.lastStep = `${p.action}${target ? ` ${target}` : ""} · ${pathOf(url)}`;
     this.emitProgress();
     return result;
   }
@@ -696,6 +763,8 @@ export class DiscoverySession {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    if (this.beatTimer) clearTimeout(this.beatTimer);
+    this.unsubscribeBus?.();
     this.writeSitemap();
     await this.session.close();
     const bud = this.budget();

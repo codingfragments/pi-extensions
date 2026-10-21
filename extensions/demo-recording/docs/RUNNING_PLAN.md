@@ -346,9 +346,9 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
     `demo_rec_storyboard write` is **refused** while a declared area of the latest session was never seen and not dropped (it names them; `skipAreas:
     [{ area, why }]` leaves them out with a reason kept in the log; a storyboard written since the session began ends the asking; sessions without a plan
     are left alone). The panel: an **Areas** table (state, looks, actions, routes, why dropped, pages nobody claimed), a "Not seen yet" notice, and in the
-    drawer **"No activity for 2 min"** after 90 s without a look, action or plan change, or "The Director has stopped, but the session is still open" 15 s
+    drawer **"No activity for 2 min"** after 60 s without a look, action or plan change (was 90 s; run 3 feedback: a heartbeat line every 30 s, `discovery.heartbeatSec`, says the session is alive and what the Director is doing), or "The Director has stopped, but the session is still open" 15 s
     after its run ended with the session open: icon and words, never an error. **Decided with you:** route hints with the current area as fallback; refuse
-    until covered or dropped with a reason. **Guesses:** the 90 s and 15 s; "about done" for the area in hand is 12 looks plus actions; a Director that gives
+    until covered or dropped with a reason. **Guesses:** the 60 s and 15 s; "about done" for the area in hand is 12 looks plus actions; a Director that gives
     no routes gets everything counted for the area in hand.
   - **D2, the discovery report** (`src/discovery/report.ts`, the tool `demo_rec_discovery`: context, report, get). A project artifact, versioned and immutable
     (`discovery-report/report.vN.json`), written by the Director at the end of every discovery (after an Enhance too, as a new version) and when you ask

@@ -128,6 +128,7 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             app: p.app,
             viewport: { width: cfg.viewport.width, height: cfg.viewport.height },
             budgets: asked?.budget ?? cfg.budgets,
+            heartbeatSec: cfg.discovery.heartbeatSec,
             ...(asked ? { request: asked.id } : {}),
             bus: rt.bus,
             project: p.slug,

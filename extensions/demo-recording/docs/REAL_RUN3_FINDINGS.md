@@ -98,3 +98,11 @@ R3-7 [idea] (before the run) Projects · manage projects in the UI: list them, s
    project is a folder under `<root>/projects/<slug>` (plus its app record under `<root>/apps/`), 70 to 150 MB on the real ones here. Decided: a Projects page from the header's project name;
    delete = zip, verify, remove, with the name typed; the zip holds everything of the project and its app record minus caches, refuses over 4 GiB (the zip writer has no ZIP64);
    no restore command in this step.
+
+R3-8 [ux] (during the run) Discovery · the session sometimes looked stuck: nothing in the log, the bar or the drawer for a minute or more · wanted: at least one message every 30 seconds, at most a minute.
+   **addressed (heartbeat).** Context when noted: events were only sent on a look, an action or a plan change; between two of them the Director waits for a model call that can take a minute, and the only
+   signal was "No activity for 2 min" after 90 s. Done: while a session is open and quiet it says so every 30 s (`discovery.heartbeatSec`, 0 = never): the time since the last step, what it was, the budget used,
+   the area in hand and what the Director is doing (working, or stopped with the session open); the bar's detail and the drawer show the newest one; the stall note now comes after 60 s and reads in seconds.
+
+R3-9 [ux, idea] (during the run) Login · the check should also run on the live browser, and after a valid login the Director should ask whether to start discovery · wanted: do not lose the login window when the
+   saved login fails the fresh-browser check; ask (never start by itself) after a fresh login. Addressed by the login live-check change.

@@ -2,7 +2,7 @@
 // No browser imports, so tests can load it.
 
 /** No look, action or plan change for this long while a session is open: say so (the Director may only be thinking). */
-export const STALL_MS = 90_000;
+export const STALL_MS = 60_000;
 /** The Director's turn ended while the session is still open: a short grace, then say so. */
 export const SETTLED_GRACE_MS = 15_000;
 
@@ -41,12 +41,14 @@ export function stallOf(events, now = Date.now()) {
 }
 
 const minutes = (ms) => Math.max(1, Math.round(ms / 60_000));
+/** "45 s" under two minutes, else "3 min": a stall is read in seconds first. */
+const age = (ms) => (ms < 120_000 ? `${Math.round(ms / 1000)} s` : `${minutes(ms)} min`);
 
 /** The words for a stall. */
 export function stallWords(s) {
   return s.kind === "director-stopped"
-    ? `The Director has stopped, but the discovery session is still open (${minutes(s.sinceMs)} min). Nothing will move it until you ask it to continue.`
-    : `No activity for ${minutes(s.sinceMs)} min. The Director may be thinking, or it may have lost the thread.`;
+    ? `The Director has stopped, but the discovery session is still open (${age(s.sinceMs)}). Nothing will move it until you ask it to continue.`
+    : `No activity for ${age(s.sinceMs)}. The Director may be thinking, or it may have lost the thread.`;
 }
 
 /** How an area reads: [tone, icon, word]. Never colour alone. */

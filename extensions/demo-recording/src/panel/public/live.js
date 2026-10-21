@@ -13,13 +13,16 @@ function discoveryRow(events) {
   if (!ev) return null;
   const takeStarted = last(events, ["take.started"]);
   const over = ev.type === "discovery.closed" || (takeStarted && takeStarted.seq > ev.seq);
+  // a quiet session says it is alive (the heartbeat): the newest word wins over an older progress line
+  const beat = last(events, ["discovery.heartbeat"]);
+  const said = !over && beat && beat.seq > ev.seq ? beat.data.message : null;
   if (ev.type !== "discovery.progress")
     return {
       key: "discovery",
       title: "Discovery",
       state: over ? "done" : "running",
       fraction: over ? 1 : 0,
-      detail: over ? "closed" : "starting…",
+      detail: over ? "closed" : (said ?? "starting…"),
       at: ev.seq,
     };
   const p = ev.data.progress;
@@ -51,7 +54,7 @@ function discoveryRow(events) {
     state: over ? "done" : "running",
     fraction: p.fraction,
     segments,
-    detail: ev.data.message,
+    detail: said ?? ev.data.message,
     at: ev.seq,
   };
 }

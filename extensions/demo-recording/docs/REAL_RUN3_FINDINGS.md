@@ -161,3 +161,30 @@ R3-22 [bug] (during the run) Render · crashes when starting a render: the outpu
    Where the engine is exposed: the render path starts a browser for each overlay batch (`withBrowser` in `annotations/render.ts`), each annotation preview and each brand preview launches its own one (the thumbnails of R3-19 are the worst case: a launch per thumbnail, one after the other, "browser recycling" exactly as in the Bun issue), the login probe and window, every discovery restart and every recording scene restart. Every one of them goes through `chromium.launch` with the same stdio pipes.
    Also found while looking: the temp folder (`$TMPDIR`) holds about 35,000 leftovers (the folder itself is over a megabyte): the test suite's seeds and projects (`panel-seed` 7,300, `ann8` 6,300, `demo-rec-brand` 1,100 and more, many tests do not delete what they make; some are from other tools) and 69 `playwright_*_profile` folders from browsers that were killed instead of closed. A directory that big is slow for every create, lookup and cleanup in it, and it is where Bun puts its stdio sockets; I could not show it to be the cause, but it is the first thing to clean.
    Ideas (to decide): (1) one entry point for every launch (`launchChromium`) that **retries** on this exact error (a few tries with a short pause) and serializes launches, so a race on recycling does not surface; (2) **reuse** a browser instead of launching per job: a small pool for overlays, previews and brand renders (this is also the main fix for R3-19's latency); (3) run the browser work in a **Node child process** (a worker script `node render-worker.mjs`, JSON over stdin/stdout), where Playwright is reliable, as the upstream advice says; costs a protocol and a second runtime; (4) find out what pi's Bun does differently (its session log and the exact action when it happened: which button, which render, what else was running; the full text of the error and whether pi exited), and report it upstream to pi if it is the host; (5) clean `$TMPDIR` (remove the leftovers; make the tests delete what they create, and the engine remove the profile folder of a browser it killed), and measure whether the failures stop. Next step: ask what was clicked when it crashed, and whether pi itself exited.
+
+R3-23 [idea] (during the run) Recording · a short stability check after a navigation, before the next step: wait for the DOM (and other signals) to settle within a tight cap, so timing issues are minimised; it may not always work, and some scripts need to ignore it. **Not acted on: stored for later.**
+   Where it stands (read from the code): `goto` already waits for `load` and then for the DOM to be quiet (300 ms, 3 s cap; skipped in the fast resume replay); after every other step only a background pass waits for quiet (250 ms, 1.5 s cap), and only to take a layout snapshot and log `target-settled`; the next step starts at once and `resolveBox` reads the target's box once. Discovery already settles after every action (capped, `discovery.settleMaxMs`).
+   The plan as discussed: (1) adaptive: after a step, wait only if something changed (URL, a navigation, DOM mutations in the first 150 ms), so a quiet page costs nothing; (2) signals: DOM quiet 250 ms and no visible busy indicator are required, network idle (about 300 ms) only as a lower-capped extra, since apps that poll never go idle; (3) before aiming, the target's box must be the same across two reads about 100 ms apart, within a short cap; (4) an escape hatch: `settle: false` or `settle: 3s` on a step or a scene, and a config default `recording.settleMaxMs`; (5) a `settled` event with how long it waited and why it stopped (quiet, busy, cap), so a cap that is hit often shows. Trade-offs: the wait is dead time on camera (the edit cuts dead time and the cursor can drift while it waits), it cannot fix an app that never goes quiet, and it also makes resumes less likely to fail at the same spot. Start with 1, 2 and 4; add 3 after measuring how often it matters.
+
+## Status after run 3 (the order of work)
+
+| | Finding | Status |
+|---|---|---|
+| R3-1 to R3-7 | the items from before the run (storyboard layout and scroll, recording keys and request card, voice-over buttons, projects page) | done (13a–d, 12c, 14) |
+| R3-8 | discovery looks stuck: a heartbeat | done (#146) |
+| R3-9 | login live check, "start discovery?" question | done (#147) |
+| R3-10 | slow discovery: deadlines, survey, batching, scout, show the window | done (#148) |
+| R3-11 | forget discovery | done (#151) |
+| R3-12 | recording safeguards, visible browser, diagnostics, projected time | done (#149) |
+| R3-13 | hangs everywhere (ffmpeg, uv, short-lived browsers) | done (#150) |
+| (band) | close button on the next-action band | done (#152) |
+| R3-22 | Playwright launch crashes under pi's Bun | next: step 2 (temp folder, one launch entry with retry), then the browser pool |
+| R3-14 | a failed take starts the Director by itself | next: step 3 (quiet report plus a question; define "autoheal") |
+| R3-19 | annotation thumbnails are slow | step 4 (with the browser pool: cancel, visible first, cached lookup, render ahead) |
+| R3-21 | render progress stuck at 0 % | step 5 |
+| R3-20 | brands and subtitles in the config | step 5 |
+| R3-17 | pin the scene header with the player | step 5 |
+| R3-16 | which take is displayed, selected, active; unfinished takes | step 6 |
+| R3-15 | cancel an activity from the panel | step 7 |
+| R3-18 | Voice over as one scrolling list | step 8 (discuss) |
+| R3-23 | stability check after navigation | step 8 (discuss) |

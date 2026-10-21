@@ -91,7 +91,9 @@ production line): the scenes as **chapters with their frames** (the start, each 
 stays in view** while the list scrolls. Above the video are the chapter you are in: its **goal** from the storyboard, the **findings the scene
 should show** and **what this take found there** (an error shown, a fallback, dead time, a resume; each with its time, a click goes there).
 Under the video a **chapter bar** marks every scene on the take's own time line. A click on a chapter, a frame, a found item or a segment goes
-to that moment; `[` and `]` (focus inside the workspace) go to the previous and next chapter. In a narrow window the player comes first and
+to that moment. **The keys work anywhere on the Recording tab** (never while you type or a dialog is open): `[` and `]` go to the previous and next chapter, `<` and `>` to the
+previous and next **finding** of the take (what the storyboard meant the scene to show and what the take found; one with a time jumps to it, the others to the start of their scene),
+`←` and `→` back and forward 10 seconds (with Shift, 1 second), `N` adds a note. A line under the video says where the key took you. In a narrow window the player comes first and
 the chapters follow.
 
 **Notes** (the third column from a wide window, else under the chapters): pause on a moment and press `N` (or `+`, or *Add note* under the video)
@@ -252,7 +254,9 @@ your tweaks (built-in brands are read-only), **Set as default** and **Default fo
   | Tab, Shift+Tab | move between controls (a list is one stop) |
   | ↑ ↓, Home, End | move between the items of a list; Enter opens the one in focus |
   | `[`, `]` | previous / next chapter in the recording review, previous / next annotation in Annotations (never in a text field) |
-  | `N`, `+` | add a note at the current moment of the recording (focus inside the review) |
+  | `<`, `>` | previous / next finding of the take in the recording review (anywhere on the tab) |
+  | `←`, `→` | back / forward 10 seconds in the recording, with Shift 1 second (anywhere on the tab) |
+  | `N`, `+` | add a note at the current moment of the recording (anywhere on the tab) |
   | Esc | close the top layer: a dialog, the Versions list, the Map, or clear a search |
   | `/`, Ctrl/Cmd+K | search the settings (in Config) |
   | arrow keys in the Map | walk the graph from node to node; Enter selects |

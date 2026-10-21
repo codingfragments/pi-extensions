@@ -1,4 +1,4 @@
-import { html, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
+import { html, useEffect, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Chapters, chapterAt, clock } from "./chapters.js";
 import { media, mmss, post, useApi, useRouteVersion } from "./core.js";
 // demo-recording panel — Recording tab (S5 part 4, D44–D46; UX3): the takes of the production line's
@@ -6,6 +6,7 @@ import { media, mmss, post, useApi, useRouteVersion } from "./core.js";
 // the production line, and ask for a new take of that storyboard.
 import { CostHint, confirmCost } from "./cost.js";
 import { errorToast, toast } from "./dialog.js";
+import { clampSeek, findingStops, keyAction, stopFrom } from "./recording-keys-core.js";
 import { stageOf } from "./stages.js";
 import {
   RowBadges,
@@ -201,25 +202,59 @@ function TakeWorkspace({ t, reload }) {
     setTime(at);
     setDraft({ t: at, ...(sc ? { scene: sc.id } : {}) });
   };
-  const onKeyDown = (e) => {
+  const [keyNote, setKeyNote] = useState("");
+  const stops = findingStops(scenes);
+  /** Where the video is now (ms): the player's own clock, which is ahead of the last time update. */
+  const nowMs = () => Math.round((video.current?.currentTime ?? 0) * 1000);
+  const act = (a) => {
+    if (!t.video) return;
+    if (a.kind === "note") return startNote();
+    if (a.kind === "chapter") return step(a.d);
+    if (a.kind === "seekBy") {
+      const v = video.current;
+      const to = clampSeek(nowMs(), a.ms, (v?.duration ?? 0) * 1000 || (t.durationMs ?? 0));
+      seek(to);
+      return setKeyNote(
+        `${a.ms < 0 ? "Back" : "Forward"} ${Math.abs(a.ms) / 1000} s · ${clock(to)}`,
+      );
+    }
+    const stop = stopFrom(stops, nowMs(), a.d);
+    if (!stop)
+      return setKeyNote(
+        stops.length
+          ? `No ${a.d > 0 ? "further" : "earlier"} finding`
+          : "This take has no findings to move between",
+      );
+    seek(stop.ms);
+    setKeyNote(
+      `Finding ${stops.indexOf(stop) + 1} of ${stops.length} · ${clock(stop.ms)} · ${stop.scene}: ${stop.text.length > 70 ? `${stop.text.slice(0, 69)}…` : stop.text}`,
+    );
+  };
+  // the keys work anywhere on the tab, not only while the player has the focus; never while you type, in a dialog, or with a modifier
+  const handler = useRef(null);
+  handler.current = (e) => {
     if (
+      e.defaultPrevented ||
       e.ctrlKey ||
       e.metaKey ||
       e.altKey ||
-      e.target.closest?.("input, textarea, select, [contenteditable]")
+      e.target?.closest?.("input, textarea, select, [contenteditable]") ||
+      document.querySelector(".modal-backdrop")
     )
       return;
-    if (e.key === "[" || e.key === "]") {
-      e.preventDefault();
-      step(e.key === "]" ? 1 : -1);
-    } else if ((e.key === "n" || e.key === "N" || e.key === "+") && t.video) {
-      e.preventDefault();
-      startNote();
-    }
+    const a = keyAction(e.key, e.shiftKey);
+    if (!a) return;
+    e.preventDefault(); // also takes the arrows from a focused <video> (it would seek 5 s by itself)
+    act(a);
   };
+  useEffect(() => {
+    const on = (e) => handler.current?.(e);
+    document.addEventListener("keydown", on);
+    return () => document.removeEventListener("keydown", on);
+  }, []);
   if (!scenes.length)
     return html`<section class="card muted">${t.analyzed ? "No scenes in this take's analysis." : "This take is not analyzed yet: its chapters appear once it is."}</section>`;
-  return html`<div class="ds-rv-wrap"><div class="ds-rv" onKeyDown=${onKeyDown} data-take=${t.id}>
+  return html`<div class="ds-rv-wrap"><div class="ds-rv" data-take=${t.id}>
     <div class="ds-rv-chapters"><${Chapters} scenes=${scenes} time=${playing ? time : null} onSeek=${t.video ? seek : undefined} label=${`Chapters of ${t.id}`} /></div>
     <div class="ds-rv-pane">
       <${SceneContext} scene=${scenes[current]} onSeek=${t.video ? seek : () => undefined} />
@@ -228,7 +263,8 @@ function TakeWorkspace({ t, reload }) {
           ? html`<div class="ds-rv-player"><video class="ds-rv-video" ref=${video} controls preload="metadata" aria-label=${`Raw recording ${t.id}`} src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>
             <${ChapterBar} scenes=${scenes} durationMs=${t.durationMs ?? 0} time=${time} current=${current} onSeek=${seek} />
             <div class="ds-row-flex"><button class="ds-btn ds-btn--sm" type="button" data-act="add-note" onClick=${startNote}>Add note at ${clock(time ?? 0)}${scenes[current] ? ` · ${scenes[current].id}` : ""}</button>
-              <span class="ds-small ds-muted"><kbd class="ds-kbd">N</kbd> adds a note, <kbd class="ds-kbd">[</kbd> / <kbd class="ds-kbd">]</kbd> change chapter (focus inside)</span></div></div>`
+              <span class="ds-small ds-muted">On this whole tab: <kbd class="ds-kbd">N</kbd> adds a note · <kbd class="ds-kbd">[</kbd> <kbd class="ds-kbd">]</kbd> chapter · <kbd class="ds-kbd">&lt;</kbd> <kbd class="ds-kbd">&gt;</kbd> finding · <kbd class="ds-kbd">←</kbd> <kbd class="ds-kbd">→</kbd> 10 s (Shift: 1 s)</span></div>
+            <p class="ds-small" role="status" data-keystatus>${keyNote}</p></div>`
           : html`<p class="ds-notice" role="note">This take has no raw video on disk, so the chapters cannot play.</p>`
       }
     </div>

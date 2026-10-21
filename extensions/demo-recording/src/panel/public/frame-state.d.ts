@@ -70,6 +70,8 @@ export interface Strip {
   running: JobData[];
   failure: JobData | null;
 }
+/** What a closed band is remembered by: the words of a suggestion or a block, the kind of a status. */
+export function bandKey(band: Band | null | undefined): string | null;
 export const vLabel: (stage: string, n: number) => string;
 export const stepWords: (step: { label: string; role?: string }) => string;
 export const directorAs: (step?: { role?: string }) => string;

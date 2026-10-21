@@ -177,6 +177,55 @@ test(
 );
 
 test(
+  "the band can be closed: it collapses, stays under Suggestions, stays closed after a reload, and comes back when it says something else",
+  { skip, timeout: 60_000 },
+  async () => {
+    const { rt, seed, panel, context, close } = await setup();
+    try {
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.goto(`${panel.url}#/recording`);
+      const wrap = page.locator(".ds-next-wrap");
+      await page.waitForSelector(".ds-next");
+      assert.equal(await wrap.getAttribute("data-hidden"), null, "showing");
+      const text = await page.locator(".ds-next-text").innerText();
+      assert.match(text, /Storyboard v2 is waiting for review/i);
+      await page.click("[data-act=close-band]");
+      await page.waitForFunction(
+        `document.querySelector(".ds-next-wrap")?.dataset.hidden === "true"`,
+      );
+      // still there, under Suggestions
+      await page.click("[data-act=suggestions]");
+      assert.match(
+        await page.locator(".ds-suggest ul").innerText(),
+        /Storyboard v2 is waiting for review/i,
+      );
+      await page.keyboard.press("Escape");
+      // closed for this tab, also after a reload
+      await page.reload();
+      await page.waitForSelector(".ds-next-wrap", { state: "attached" });
+      assert.equal(await page.locator(".ds-next-wrap").getAttribute("data-hidden"), "true");
+      assert.match(await page.locator("[data-act=suggestions]").innerText(), /Suggestions\s*· 2/);
+      // another tab does not inherit it
+      const other = await context.newPage();
+      await other.goto(`${panel.url}#/recording`);
+      await other.waitForSelector(".ds-next");
+      assert.equal(
+        await other.locator(".ds-next-wrap").getAttribute("data-hidden"),
+        null,
+        "a new tab starts fresh",
+      );
+      assert.deepEqual(errors, []);
+      void rt;
+      void seed;
+    } finally {
+      await close();
+    }
+  },
+);
+
+test(
   "a result that arrives never moves you: it puts a badge on its step, and what you are typing stays",
   { skip, timeout: 60_000 },
   async () => {

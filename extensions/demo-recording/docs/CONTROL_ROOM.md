@@ -83,7 +83,7 @@ Director in each (the doubtful ones come first with **riskiest first**).
 ## Recording
 
 The takes of the selected storyboard, newest first, one line each (status, duration, analysis state, **Review**, and the approve / use actions);
-**Approve** each take that is good enough to build on. **Request a new take** (with an optional note) asks the Director for another one, and
+**Approve** each take that is good enough to build on. **Request a new take** (a card at the bottom of the page, like the storyboard's review, with an optional note) asks the Director for another one, and
 shows its cost first.
 
 Below them is the **review workspace** of one take (the one you picked with *Review*, else the one you are viewing, else the one in the

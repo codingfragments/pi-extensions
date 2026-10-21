@@ -156,7 +156,7 @@ function NotesPanel({ take, notes, draft, onDraft, onSeek, onSaved }) {
           ? null
           : html`<p class="ds-small ds-muted">No notes yet. Pause on a moment and press <kbd class="ds-kbd">N</kbd>, or use Add note under the video.</p>`
     }
-    <p class="ds-small ds-muted">Notes are not sent as you write. <strong>Request a new take</strong> at the top carries the open ones to the Director, once.</p>
+    <p class="ds-small ds-muted">Notes are not sent as you write. <strong>Request a new take</strong> at the bottom of the page carries the open ones to the Director, once.</p>
   </section>`;
 }
 
@@ -281,17 +281,7 @@ export function Recording({ events, stages }) {
     <${StageSummary} events=${events} stage="recording" row=${routeRow} rows=${rows} viewed=${routeVersion}
       onUse=${(v) => runVersionAction({ stage: "recording", version: v, intent: "use" }).then(reload)}
       meta=${html`<span>Takes of storyboard <strong style="color:var(--text-strong)">${sb}</strong></span><span>${data.takes.length} take(s)</span>`} />
-    <section class="card review-head">
-      <div class="row">
-        <input class="ds-input ds-input--wide" placeholder="notes for the next take (optional)" aria-label="notes for the next take" value=${note} onInput=${(e) => setNote(e.target.value)} />
-        <button class="ds-btn ds-btn--primary" type="button" disabled=${busy || !data.storyboardUsable} title=${data.storyboardUsable ? "asks the agent to record a new take of this storyboard" : "accept a storyboard first"}
-          onClick=${request}>Request a new take</button>
-        <${CostHint} />
-        ${data.openNotes ? html`<span class="ds-small" data-open-notes>${data.openNotes} open note${data.openNotes === 1 ? "" : "s"} will go with it</span>` : null}
-        ${flash ? html`<span class="flash">${flash}</span>` : null}
-      </div>
-      <p class="muted small-text">Approve every take that is good enough to build on — each approved take can get its own voice-over. <b>Use for next steps</b> puts a take in the production line (the Voice over screen and the Director follow it).</p>
-    </section>
+    <p class="ds-small ds-muted ds-take-guide">Approve every take that is good enough to build on: each approved take can get its own voice-over. <b>Use for next steps</b> puts a take in the production line (the Voice over screen and the Director follow it).</p>
     ${
       data.takes.length
         ? html`${data.takes.map(
@@ -299,5 +289,15 @@ export function Recording({ events, stages }) {
               html`<${TakeRow} key=${t.id} t=${t} row=${rows.find((r) => r.version === t.version)} events=${events} viewed=${t.version === routeVersion} selected=${t.id === reviewed.id} onSelect=${() => setPicked(t.id)} reload=${reload} />`,
           )}<${TakeWorkspace} key=${reviewed.id} t=${reviewed} reload=${reload} />`
         : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (its progress is in the Activity drawer).` : "Accept a storyboard first; its takes show up here."}</section>`
-    }`;
+    }
+    <section class="card review-foot ds-inflow" data-request-take>
+      <textarea placeholder="Notes for the next take (what to change, what to re-explore)…" aria-label="notes for the next take" value=${note} onInput=${(e) => setNote(e.target.value)}></textarea>
+      <div class="row">
+        ${data.openNotes ? html`<span class="muted small-text" data-open-notes>${data.openNotes} open note${data.openNotes === 1 ? "" : "s"} will go with it</span>` : html`<span class="muted small-text">No open notes on the takes</span>`}
+        <span class="grow"></span>
+        ${flash ? html`<span class="flash">${flash}</span>` : null}
+        <button class="ds-btn ds-btn--primary" type="button" disabled=${busy || !data.storyboardUsable} title=${data.storyboardUsable ? "asks the agent to record a new take of this storyboard" : "accept a storyboard first"}
+          onClick=${request}>Request a new take</button><${CostHint} />
+      </div>
+    </section>`;
 }

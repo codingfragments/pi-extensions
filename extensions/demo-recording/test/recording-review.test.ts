@@ -366,9 +366,9 @@ test(
           4.5,
         "] at the last chapter stays",
       );
-      await page.fill("input[aria-label='notes for the next take']", "[ ] typed");
+      await page.fill("textarea[aria-label='notes for the next take']", "[ ] typed");
       assert.equal(
-        await page.inputValue("input[aria-label='notes for the next take']"),
+        await page.inputValue("textarea[aria-label='notes for the next take']"),
         "[ ] typed",
         "typing keeps its brackets",
       );

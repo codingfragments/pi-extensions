@@ -107,12 +107,13 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
         }),
       ),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
       rt.bindUi(ctx?.ui);
       switch (params.action) {
         case "open": {
           const p = rt.requireProject();
           await rt.closeDiscovery();
+          await rt.closeKeptWindows(); // a window kept open from the last session goes now: one at a time
           const cfg = rt.getConfig();
           const statePath = path.join(appDir(cfg.root, p.app.slug), "auth", "state.json");
           // a saved login that has expired stops the start, with what to do (S7)
@@ -129,6 +130,10 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             viewport: { width: cfg.viewport.width, height: cfg.viewport.height },
             budgets: asked?.budget ?? cfg.budgets,
             heartbeatSec: cfg.discovery.heartbeatSec,
+            callTimeoutSec: cfg.discovery.callTimeoutSec,
+            browserLog: cfg.discovery.browserLog,
+            browserMemoryMb: cfg.discovery.browserMemoryMb,
+            settleMaxMs: cfg.discovery.settleMaxMs,
             ...(asked ? { request: asked.id } : {}),
             bus: rt.bus,
             project: p.slug,
@@ -169,7 +174,10 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
         case "look": {
           const d = requireSession(rt);
           return result(
-            lookContent(await d.look(params.full_page ? { fullPage: true } : {}), progressLine(rt)),
+            lookContent(
+              await d.look(params.full_page ? { fullPage: true } : {}, signal),
+              progressLine(rt),
+            ),
           );
         }
         case "act": {
@@ -188,15 +196,18 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
           if (params.dy !== undefined) act.dy = params.dy;
           if (params.url !== undefined) act.url = params.url;
           if (params.ms !== undefined) act.ms = params.ms;
-          const r = await d.act(act);
+          const r = await d.act(act, signal);
           const summary =
             `${r.action}: ${r.verdict.level.toUpperCase()}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` +
             `${r.urlChanged ? ` → navigated to ${r.url}` : ""}${r.note ? ` — ${r.note}` : ""}` +
             `${r.verifiedTarget ? `\nverified storyboard target: ${JSON.stringify(r.verifiedTarget)}` : ""}`;
           if (params.look === false) return result(summary, { verdict: r.verdict });
-          return result([text(summary), ...lookContent(await d.look(), progressLine(rt))], {
-            verdict: r.verdict,
-          });
+          return result(
+            [text(summary), ...lookContent(await d.look({}, signal), progressLine(rt))],
+            {
+              verdict: r.verdict,
+            },
+          );
         }
         case "plan": {
           const d = requireSession(rt);

@@ -91,6 +91,14 @@ export const CONFIG_DOCS: Record<string, string> = {
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",
+  "discovery.callTimeoutSec":
+    "How long one browser call of a discovery session (a look or an action) may take, in seconds (0 to 600, 0 = no deadline). Past it the browser is judged frozen: its processes are sampled for the diagnosis, killed, and reopened on the same page with the saved login, and the Director is told. Pages and waits that are slow on purpose (goto, wait) get a longer one.",
+  "discovery.browserLog":
+    "Keep a deep log of the discovery browser in the session folder (diagnostics/): Chromium's own log, the page's console errors and dialogs, and a process sample every 2 s. Off by default; a frozen browser always leaves a short diagnosis (diagnostics/stall-N) and a call log (calls.jsonl) either way.",
+  "discovery.browserMemoryMb":
+    "Cap for one page's JavaScript heap in the discovery browser, in megabytes (0 to 65536, 0 = Chromium's own limit). A page that runs away then crashes (and is recovered) instead of freezing the machine.",
+  "discovery.settleMaxMs":
+    "The longest a discovery action waits for the page to settle (network idle, then the DOM quiet), in milliseconds (500 to 15000). Apps that never go idle (polling, live data) cost this on every step.",
   "discovery.heartbeatSec":
     "While a discovery session is open and quiet, say that it is still alive every this many seconds (0 to 300, 0 = never): the time since the last step, what it was, and what the Director is doing. The panel calls a session stalled after 60 s without a step.",
 };

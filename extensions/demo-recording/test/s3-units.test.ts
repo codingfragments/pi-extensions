@@ -237,6 +237,18 @@ test("discoveryProgress: budget-only without a plan; complete after the storyboa
   assert.equal(b.mode, "budget-only");
   assert.equal(b.fraction, 0.5);
   assert.match(formatDiscoveryProgress(b), /50% of budget used · max 19 min left/);
+  // measured progress knows what was seen, not how long the rest takes: no made-up estimate
+  const noEta = formatDiscoveryProgress({
+    fraction: 0.03,
+    areas: [{ name: "Issue feed", status: "current" }],
+    current: "Issue feed",
+    doneCount: 0,
+    maxMs: 50 * 60_000,
+    budgetFraction: 0.02,
+    mode: "plan",
+  });
+  assert.match(noEta, /area 1\/1 · Issue feed · budget max 50 min left$/);
+  assert.doesNotMatch(noEta, /~/);
   const done = discoveryProgress({
     startedAt: 0,
     now: 1,

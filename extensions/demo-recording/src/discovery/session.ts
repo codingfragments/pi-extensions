@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Page } from "playwright";
 import { Cursor, aimPoint } from "../browser/cursor/motion.ts";
+import { killMarker, newMarker } from "../browser/processes.ts";
 import { waitForDomQuiet } from "../browser/quiet.ts";
 import {
   type ActionContext,
@@ -29,6 +30,13 @@ import { sleep } from "../util/duration.ts";
 import { createRng } from "../util/rng.ts";
 import { type AppInfo, appDir } from "../workdir/layout.ts";
 import {
+  attachPageLog,
+  deepLogArgs,
+  diagDir,
+  diagnoseStall,
+  startProcessSampler,
+} from "./diagnostics.ts";
+import {
   type DirectorState,
   HEARTBEAT_DEFAULT_SEC,
   type HeartbeatFacts,
@@ -38,6 +46,7 @@ import {
 import { type LogRecord, type Measure, measureAreas, measuredProgress } from "./measure.ts";
 import { type DiscoveryProgress, formatDiscoveryProgress } from "./progress.ts";
 import { readSessionRecord, writeSessionRecord } from "./state.ts";
+import { CallStalledError, deadlineFor, withDeadline } from "./watchdog.ts";
 
 export interface DiscoveryBudgets {
   discoveryScreens: number;
@@ -63,6 +72,16 @@ export interface DiscoveryOptions {
   now?: () => Date;
   /** Say that the session is alive when nothing else was said for this many seconds (default 30; 0 = never). */
   heartbeatSec?: number;
+  /** One browser call may take this many seconds before the browser is judged frozen and restarted (default 25; 0 = no deadline). */
+  callTimeoutSec?: number;
+  /** Keep the deep browser log (diagnostics/). */
+  browserLog?: boolean;
+  /** Cap for a page's JavaScript heap in MB (0 = Chromium's own). */
+  browserMemoryMb?: number;
+  /** The longest an action waits for the page to settle, in ms (default 2500). */
+  settleMaxMs?: number;
+  /** Leave the (headed) browser window open when the session closes; it is closed when pi shuts down. */
+  keepOpen?: boolean;
 }
 
 export interface Budget {
@@ -210,8 +229,17 @@ export class DiscoverySession {
   readonly baseUrl: string;
   private readonly opts: DiscoveryOptions;
   private readonly policy: Policy;
-  private readonly session: BrowserSession;
-  private readonly cursor: Cursor;
+  private session: BrowserSession;
+  private cursor: Cursor;
+  /** Marks this session's browser processes, so a frozen one can be found and killed. */
+  private marker: string;
+  /** Browser calls run one at a time; what is running now (the heartbeat and the panel say it). */
+  private chain: Promise<unknown> = Promise.resolve();
+  private inFlight: { call: string; startedAt: number; deadlineMs: number } | undefined;
+  private stalls = 0;
+  private stopSampler: (() => void) | undefined;
+  /** Set when the session closed but left its window open (keepOpen): closed for good by `closeKept`. */
+  private kept: BrowserSession | undefined;
   private readonly startedAt: number;
   private screens = 0;
   private actions = 0;
@@ -227,42 +255,62 @@ export class DiscoverySession {
   private beatTimer: ReturnType<typeof setTimeout> | undefined;
   private unsubscribeBus: (() => void) | undefined;
 
-  private constructor(opts: DiscoveryOptions, session: BrowserSession, id: string) {
+  private constructor(opts: DiscoveryOptions, session: BrowserSession, id: string, marker: string) {
     this.opts = opts;
     this.session = session;
+    this.marker = marker;
     this.id = id;
     this.appSlug = opts.app.slug;
     this.baseUrl = opts.baseUrl ?? opts.app.baseUrl;
     this.dir = path.join(appDir(opts.root, opts.app.slug), "discovery", id);
     this.policy = loadPolicy(appDir(opts.root, opts.app.slug));
-    this.cursor = new Cursor(session.page, createRng(Date.now() >>> 0), {
-      x: Math.round(opts.viewport.width / 2),
-      y: Math.round(opts.viewport.height / 2),
-    });
+    this.cursor = this.newCursor(session.page);
     this.startedAt = Date.now();
     for (const sub of ["screens", "dom"])
       fs.mkdirSync(path.join(this.dir, sub), { recursive: true });
   }
 
-  static async open(opts: DiscoveryOptions): Promise<DiscoverySession> {
-    const session = await openSession({
-      viewport: { ...opts.viewport, dpr: 1 },
-      ...(opts.headed ? { headed: true } : {}),
-      ...(opts.storageState ? { storageState: opts.storageState } : {}),
+  /** The cursor of discovery: it does not need to look human (that is for recordings), so it moves at once. */
+  private newCursor(page: Page): Cursor {
+    const c = new Cursor(page, createRng(Date.now() >>> 0), {
+      x: Math.round(this.opts.viewport.width / 2),
+      y: Math.round(this.opts.viewport.height / 2),
     });
+    c.fast = true;
+    return c;
+  }
+
+  static async open(opts: DiscoveryOptions): Promise<DiscoverySession> {
     let id = stamp((opts.now ?? (() => new Date()))());
     // Two sessions in the same second get distinct ids.
     while (fs.existsSync(path.join(appDir(opts.root, opts.app.slug), "discovery", id)))
       id = `${id.slice(0, 15)}${String(Number(id.slice(13)) + 1).padStart(2, "0")}`;
-    const ds = new DiscoverySession(opts, session, id);
+    const sessionDir = path.join(appDir(opts.root, opts.app.slug), "discovery", id);
+    const marker = newMarker();
+    if (opts.browserLog) fs.mkdirSync(diagDir(sessionDir), { recursive: true });
+    const launch = {
+      viewport: { ...opts.viewport, dpr: 1 },
+      marker,
+      ...(opts.browserMemoryMb ? { memoryMb: opts.browserMemoryMb } : {}),
+      ...(opts.browserLog ? { extraArgs: deepLogArgs(sessionDir) } : {}),
+      ...(opts.headed ? { headed: true } : {}),
+      ...(opts.storageState ? { storageState: opts.storageState } : {}),
+    };
+    const session = await openSession(launch);
+    session.context.setDefaultTimeout(10_000);
+    session.context.setDefaultNavigationTimeout(30_000);
+    const ds = new DiscoverySession(opts, session, id, marker);
     try {
       await session.page.goto(ds.baseUrl, { waitUntil: "load" });
       await ds.settle();
       await ds.cursor.place(ds.cursor.pos);
+      if (opts.headed) await session.page.bringToFront().catch(() => undefined);
     } catch (err) {
       await session.close();
       throw err;
     }
+    ds.watchPage();
+    if (opts.browserLog) ds.stopSampler = startProcessSampler(ds.dir, () => ds.marker);
     writeSessionRecord(appDir(opts.root, opts.app.slug), {
       id,
       startedAt: new Date().toISOString(),
@@ -284,6 +332,124 @@ export class DiscoverySession {
     return this.session.page;
   }
 
+  /** Page events worth keeping (and saying): crashes and dialogs always, console errors in the deep log. */
+  private watchPage(): void {
+    attachPageLog(this.session.page, this.dir, !!this.opts.browserLog, (message) =>
+      this.emit("discovery.page-event", { message }),
+    );
+  }
+
+  /** What is running now, for the heartbeat and the panel. */
+  currentCall(): { call: string; ms: number; deadlineMs: number } | undefined {
+    const f = this.inFlight;
+    return f ? { call: f.call, ms: Date.now() - f.startedAt, deadlineMs: f.deadlineMs } : undefined;
+  }
+
+  private callLog(rec: Record<string, unknown>): void {
+    try {
+      fs.appendFileSync(
+        path.join(this.dir, "calls.jsonl"),
+        `${JSON.stringify({ at: new Date().toISOString(), ...rec })}\n`,
+      );
+    } catch {
+      // the call log must never break a call
+    }
+  }
+
+  /**
+   * One browser call, alone, with a deadline. A browser that does not answer is judged frozen: its processes are diagnosed (ps and macOS sample, into diagnostics/),
+   * killed, and a new browser is opened on the same page with the saved login; the caller is told what happened and that the page was reloaded.
+   */
+  private guarded<T>(
+    call: string,
+    deadlineMs: number,
+    fn: () => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    const run = async (): Promise<T> => {
+      this.ensureOpen();
+      const startedAt = Date.now();
+      this.inFlight = { call, startedAt, deadlineMs };
+      try {
+        const out = await withDeadline(call, deadlineMs, fn, signal);
+        this.callLog({ call, ms: Date.now() - startedAt, ok: true });
+        return out;
+      } catch (err) {
+        const ms = Date.now() - startedAt;
+        if (err instanceof CallStalledError) {
+          this.callLog({ call, ms, ok: false, stalled: true, aborted: err.aborted });
+          this.inFlight = undefined;
+          throw await this.recover(err);
+        }
+        this.callLog({ call, ms, ok: false, error: (err as Error).message.split("\n")[0] });
+        throw err;
+      } finally {
+        this.inFlight = undefined;
+      }
+    };
+    const next = this.chain.then(run, run);
+    this.chain = next.catch(() => undefined);
+    return next;
+  }
+
+  /** Diagnose, kill and reopen the browser; returns the error the caller throws. */
+  private async recover(stalled: CallStalledError): Promise<Error> {
+    const n = ++this.stalls;
+    const url = (() => {
+      try {
+        return this.session.page.url();
+      } catch {
+        return this.baseUrl;
+      }
+    })();
+    this.emit("discovery.stalled", {
+      call: stalled.call,
+      afterMs: stalled.afterMs,
+      message: `${stalled.message}: the browser looks frozen, diagnosing and restarting it`,
+    });
+    const files = await diagnoseStall(this.dir, this.marker, n, `${stalled.message} on ${url}`);
+    killMarker(this.marker);
+    await Promise.race([this.session.close(), sleep(3000)]).catch(() => undefined);
+    try {
+      const sessionDir = this.dir;
+      this.marker = newMarker();
+      const session = await openSession({
+        viewport: { ...this.opts.viewport, dpr: 1 },
+        marker: this.marker,
+        ...(this.opts.browserMemoryMb ? { memoryMb: this.opts.browserMemoryMb } : {}),
+        ...(this.opts.browserLog ? { extraArgs: deepLogArgs(sessionDir) } : {}),
+        ...(this.opts.headed ? { headed: true } : {}),
+        ...(this.opts.storageState ? { storageState: this.opts.storageState } : {}),
+      });
+      session.context.setDefaultTimeout(10_000);
+      session.context.setDefaultNavigationTimeout(30_000);
+      this.session = session;
+      this.cursor = this.newCursor(session.page);
+      this.watchPage();
+      await session.page
+        .goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 })
+        .catch(() => undefined);
+      await this.settle();
+      this.emit("discovery.recovered", {
+        call: stalled.call,
+        diagnostics: files.map((f) => path.relative(this.dir, f)),
+        message: `the browser was restarted on ${pathOf(url)} after ${stalled.call} stalled (diagnosis: ${files.length} file(s) in diagnostics/)`,
+      });
+      return new Error(
+        `${stalled.message}, so the browser was frozen: it was restarted and the page ${pathOf(url)} was reloaded with the saved login (scroll position and any typed text are gone). ` +
+          `${stalled.aborted ? "" : "Try the step again, or go on with another route. "}If it happens again on the same page, avoid that page and say so in your findings.`,
+      );
+    } catch (err) {
+      this.closed = true;
+      this.emit("discovery.recover-failed", {
+        message: `the browser could not be restarted: ${(err as Error).message.split("\n")[0]}`,
+      });
+      return new Error(
+        `${stalled.message}, and the browser could not be restarted (${(err as Error).message.split("\n")[0]}): the discovery session is closed. Open a new one with demo_rec_browser open.`,
+      );
+    }
+  }
+
   private emit(type: string, data: Record<string, unknown>): void {
     this.lastSaidAt = Date.now();
     this.opts.bus?.publish(type, { app: this.appSlug, ...data }, this.opts.project);
@@ -299,15 +465,17 @@ export class DiscoverySession {
       if (e.type === "director.started" || e.type === "director.step") this.director = "working";
       else if (e.type === "director.settled") this.director = "settled";
     });
+    // while a browser call is running and silent, say so more often (every 10 s at most): that is exactly when a session looks stuck
+    const every = () => (this.inFlight ? Math.min(beatMs, 10_000) : beatMs);
     const schedule = () => {
       if (this.closed) return;
       this.beatTimer = setTimeout(
         () => {
           if (this.closed) return;
-          if (Date.now() - this.lastSaidAt >= beatMs - 25) this.beat();
+          if (Date.now() - this.lastSaidAt >= every() - 25) this.beat();
           schedule();
         },
-        nextBeatDelay(Date.now(), this.lastSaidAt, beatMs),
+        Math.min(nextBeatDelay(Date.now(), this.lastSaidAt, every()), 2000),
       );
       this.beatTimer.unref?.();
     };
@@ -323,11 +491,19 @@ export class DiscoverySession {
       screens: b.screens,
       actions: b.actions,
       ...(area ? { area } : {}),
+      ...(this.currentCall()
+        ? {
+            inFlight: this.currentCall() as NonNullable<
+              ReturnType<DiscoverySession["currentCall"]>
+            >,
+          }
+        : {}),
       director: this.director,
     };
     this.emit("discovery.heartbeat", {
       sinceStepMs: facts.sinceStepMs,
       director: facts.director,
+      ...(facts.inFlight ? { inFlight: facts.inFlight } : {}),
       budget: b,
       message: heartbeatMessage(facts),
     });
@@ -470,14 +646,29 @@ export class DiscoverySession {
 
   /** Let the SPA finish: load state, then DOM quiet (results, streamed answers). */
   private async settle(): Promise<void> {
-    await this.page.waitForLoadState("domcontentloaded").catch(() => {});
-    await this.page.waitForLoadState("networkidle", { timeout: 2500 }).catch(() => {});
-    const q = await waitForDomQuiet(this.page, 400, 4000);
+    // The whole wait is capped (settleMaxMs): an app that never goes idle (polling, live data) would otherwise cost the longest wait on every single step.
+    const max = this.opts.settleMaxMs ?? 2500;
+    const t0 = Date.now();
+    await this.page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+    await this.page
+      .waitForLoadState("networkidle", { timeout: Math.min(1500, Math.round(max * 0.6)) })
+      .catch(() => {});
+    const left = () => Math.max(400, max - (Date.now() - t0));
+    const q = await waitForDomQuiet(this.page, 300, left());
     // A navigation during the wait resets the context; wait once more on the new page.
-    if (!q.quiet && q.ms === 0) await waitForDomQuiet(this.page, 400, 4000);
+    if (!q.quiet && q.ms === 0) await waitForDomQuiet(this.page, 300, left());
   }
 
-  async look(opts: { fullPage?: boolean } = {}): Promise<LookResult> {
+  /** A screenshot and the aria digest of the page now. Under a deadline: a frozen browser is restarted (see `guarded`). */
+  look(opts: { fullPage?: boolean } = {}, signal?: AbortSignal): Promise<LookResult> {
+    return this.guarded("look", this.deadlineMs(), () => this.lookNow(opts), signal);
+  }
+
+  private deadlineMs(act?: { action: string; ms?: number; text?: string }): number {
+    return deadlineFor((this.opts.callTimeoutSec ?? 25) * 1000, act);
+  }
+
+  private async lookNow(opts: { fullPage?: boolean } = {}): Promise<LookResult> {
     this.ensureOpen();
     this.requireBudget("screens");
     this.screens++;
@@ -529,14 +720,25 @@ export class DiscoverySession {
   private async describe(target?: Target): Promise<ElementInfo | null> {
     if (target) {
       const locator = locate(this.page, target);
-      await locator.waitFor({ state: "attached", timeout: 8000 }).catch(() => {});
+      // the target is waited for ONCE (the caller has done it); a short look is all that is left, never Playwright's 30 s default
       return (await locator
-        .evaluate(describeElement as unknown as Parameters<typeof locator.evaluate>[0])
+        .evaluate(describeElement as unknown as Parameters<typeof locator.evaluate>[0], undefined, {
+          timeout: 3000,
+        })
         .catch(() => null)) as ElementInfo | null;
     }
     return (await this.page
       .evaluate(`(${describeElement.toString()})(document.activeElement)`)
       .catch(() => null)) as ElementInfo | null;
+  }
+
+  /** Wait once for a target to be there (up to 8 s); a missing one fails here, with the message the Director knows. */
+  private async waitForTarget(target: Target, ms = 8000): Promise<void> {
+    try {
+      await locate(this.page, target).waitFor({ state: "visible", timeout: ms });
+    } catch {
+      throw new Error(`target not visible within ${ms} ms: ${describeTarget(target)}`);
+    }
   }
 
   /**
@@ -591,7 +793,12 @@ export class DiscoverySession {
     return verdict;
   }
 
-  async act(p: ActParams): Promise<ActResult> {
+  /** One action behind the safety net. Under a deadline: a frozen browser is restarted (see `guarded`). */
+  act(p: ActParams, signal?: AbortSignal): Promise<ActResult> {
+    return this.guarded(`act ${p.action}`, this.deadlineMs(p), () => this.actNow(p), signal);
+  }
+
+  private async actNow(p: ActParams): Promise<ActResult> {
     this.ensureOpen();
     this.requireBudget("actions");
     this.actions++;
@@ -609,6 +816,7 @@ export class DiscoverySession {
       case "click":
       case "hover": {
         const target = needTarget();
+        await this.waitForTarget(target);
         const info = await this.describe(target);
         if (!info && p.action === "click" && "css" in target) {
           throw new BlockedActionError(
@@ -618,7 +826,7 @@ export class DiscoverySession {
         verdict = this.gate(this.contextFor(p.action, target, info), {
           target: describeTarget(target),
         });
-        const { box } = await resolveBox(this.page, target, 8000);
+        const { box } = await resolveBox(this.page, target, 3000);
         await this.cursor.moveTo(aimPoint(box, createRng(this.actions)), box.w);
         if (p.action === "click") await this.cursor.click();
         verifiedTarget = target;
@@ -627,7 +835,8 @@ export class DiscoverySession {
       case "type": {
         if (!p.text) throw new Error("act type needs text");
         if (p.target) {
-          const { box } = await resolveBox(this.page, p.target, 8000);
+          await this.waitForTarget(p.target);
+          const { box } = await resolveBox(this.page, p.target, 3000);
           await this.cursor.moveTo(aimPoint(box, createRng(this.actions)), box.w);
           await this.cursor.click();
           verifiedTarget = p.target;
@@ -686,7 +895,9 @@ export class DiscoverySession {
       case "scroll": {
         let dy = p.dy ?? 0;
         if (p.target) {
-          const bb = await locate(this.page, p.target).boundingBox();
+          const bb = await locate(this.page, p.target)
+            .boundingBox({ timeout: 3000 })
+            .catch(() => null);
           if (bb) dy = Math.round(bb.y + bb.height / 2 - this.opts.viewport.height * 0.45);
           verifiedTarget = p.target;
         }
@@ -765,8 +976,11 @@ export class DiscoverySession {
     this.closed = true;
     if (this.beatTimer) clearTimeout(this.beatTimer);
     this.unsubscribeBus?.();
+    this.stopSampler?.();
     this.writeSitemap();
-    await this.session.close();
+    // keepOpen: a window you asked to see stays open (it is closed when pi shuts down, or with `closeKept`); everything else closes, a frozen one by force
+    if (this.opts.keepOpen && this.opts.headed) this.kept = this.session;
+    else await this.session.close();
     const bud = this.budget();
     const prior = readSessionRecord(appDir(this.opts.root, this.appSlug), this.id);
     writeSessionRecord(appDir(this.opts.root, this.appSlug), {
@@ -793,5 +1007,17 @@ export class DiscoverySession {
 
   get isClosed(): boolean {
     return this.closed;
+  }
+
+  /** True when the session is closed but its window is still open (keepOpen). */
+  get windowKept(): boolean {
+    return !!this.kept;
+  }
+
+  /** Close the window that was kept open. */
+  async closeKept(): Promise<void> {
+    const k = this.kept;
+    this.kept = undefined;
+    await k?.close();
   }
 }

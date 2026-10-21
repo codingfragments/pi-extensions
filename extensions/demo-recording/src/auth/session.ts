@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Page } from "playwright";
+import { type BoundedBrowser, launchBounded } from "../browser/bounded.ts";
 import { type AppInfo, type LoginRule, appDir } from "../workdir/layout.ts";
 
 export const authDir = (root: string, app: string) => path.join(appDir(root, app), "auth");
@@ -166,9 +167,10 @@ export async function probeSession(o: ProbeOptions): Promise<ProbeResult> {
   if (!fs.existsSync(file)) return { state: "none", reason: "no saved login" };
   let result: ProbeResult;
   let browser: import("playwright").Browser | undefined;
+  let bounded: BoundedBrowser | undefined;
   try {
-    const { chromium } = await import("playwright");
-    browser = await chromium.launch({ headless: true });
+    bounded = await launchBounded({ headless: true });
+    browser = bounded.browser;
     const context = await browser.newContext({
       storageState: file,
       viewport: o.viewport ?? { width: 1280, height: 800 },
@@ -185,7 +187,7 @@ export async function probeSession(o: ProbeOptions): Promise<ProbeResult> {
       reason: `the app could not be reached: ${(err as Error).message.split("\n")[0]}`,
     };
   } finally {
-    await browser?.close().catch(() => undefined);
+    await bounded?.close();
   }
   if (o.record !== false && !o.file)
     writeMeta(o.root, o.app.slug, {
@@ -237,8 +239,8 @@ export async function loginSession(o: LoginOptions): Promise<LoginResult> {
   const file = statePath(o.root, o.app.slug);
   const tmp = path.join(dir, `state.${process.pid}.new.json`);
   let verified: ProbeResult | undefined; // a fresh browser already said the state holds (the kept-window flow)
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: o.headed === false });
+  const bounded = await launchBounded({ headless: o.headed === false });
+  const browser = bounded.browser;
   try {
     const context = await browser.newContext({
       viewport: o.viewport ?? { width: 1280, height: 800 },
@@ -300,7 +302,7 @@ export async function loginSession(o: LoginOptions): Promise<LoginResult> {
       problem: (err as Error).message,
     };
   } finally {
-    await browser.close().catch(() => undefined);
+    await bounded.close();
   }
   // a fresh browser must be logged in with it, or it is no good
   const probe =

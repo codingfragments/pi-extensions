@@ -53,6 +53,7 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 15 | **S7 Login and sessions** | required for v1, with the session checks; the engine and the card are built, **your real app is the acceptance** | F4 | done | 8 | 69 |
 | 16a | **Discovery watchdog and survey** (R3-10) | a frozen browser is diagnosed and reopened, a survey by the engine, steps in one call, a scout preset first, the switch to keep the window open | R3-8, R3-9, R3-10 | done | 3 | 71 |
 | 16b | **Recording watchdog** (R3-12) | the same safeguards for a take; everything about a stalled, interrupted or failed step kept in the take; a visible browser on request; the projected recording time on the Storyboard tab | R3-12 | done | 2 | 73 |
+| 16c | **Bounded runs** (R3-13) | ffmpeg/uv commands and the short-lived browsers have deadlines, are diagnosed and killed | R3-13 | done | 1 | 74 |
 | 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | **next** | 2 | 71 |
 | 17 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 77 |
 | 18 | **S8 Native capture** | optional | | later | | |

@@ -49,6 +49,7 @@ import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
 import { PANEL_PREFIX } from "./roles.ts";
 import { startDesigner } from "./tools/designer.ts";
 import { readManifest } from "./tts/synthesize.ts";
+import { setDiagnosticsDir, setToolTimeoutMin } from "./util/bounded.ts";
 import { MAX_EVENT_TEXT, capText, firstLine } from "./util/events.ts";
 import { projectContext } from "./workdir/context.ts";
 import { type ProjectHandle, appDir, openProject, projectDir } from "./workdir/layout.ts";
@@ -201,6 +202,9 @@ export class Runtime {
       const file = this.projectConfigPath(base.root);
       this.config = file && fs.existsSync(file) ? this.resolve(file) : base;
       this.configKey = key;
+      // where a stuck child or browser is written down, and how long a tool may run (util/bounded.ts)
+      setDiagnosticsDir(path.join(this.config.root, "diagnostics"));
+      setToolTimeoutMin(this.config.media.toolTimeoutMin);
     }
     return this.config;
   }

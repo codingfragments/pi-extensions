@@ -97,6 +97,8 @@ export const CONFIG_DOCS: Record<string, string> = {
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",
+  "media.toolTimeoutMin":
+    "How long one ffmpeg or uv (Python) command may run before it is diagnosed (its process tree, native stacks on a Mac, the last of its output, in <root>/diagnostics/) and killed with everything it started, in minutes (0 to 600, 0 = never). An encode of a long take is slow on purpose: the default is generous (30). ffprobe gets 60 s, say 10 minutes.",
   "discovery.callTimeoutSec":
     "How long one browser call of a discovery session (a look or an action) may take, in seconds (0 to 600, 0 = no deadline). Past it the browser is judged frozen: its processes are sampled for the diagnosis, killed, and reopened on the same page with the saved login, and the Director is told. Pages and waits that are slow on purpose (goto, wait) get a longer one.",
   "discovery.browserLog":

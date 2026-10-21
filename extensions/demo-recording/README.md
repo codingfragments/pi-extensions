@@ -242,6 +242,7 @@ fish extensions/demo-recording/scripts/fixture-walkthrough.fish        # --no-pi
 | `/demo new [<project> <app-url> [app name…]]` | creates a project, opens the panel, starts the brief skill |
 | `/demo open [<project>]` | sets the active project (persisted in the session) |
 | `/demo archive [<project>] [--delete] [--no-drafts]` | zip a project (and its app) into `<root>/archive/<project>-<date>.zip`, read it back and check it; `--delete` then removes the project (the name must be given); `--no-drafts` leaves out the video files of draft renders. The saved login of an app is never put into a zip |
+| `/demo login` · `/demo logout` · `/demo session [check]` | for an app that needs a login: a browser window opens, you log in by hand (password, OAuth, e-mail link, one-time code) and confirm; the session is saved for the app (owner-only, never in a zip), checked in a fresh browser, and reused by discovery and recordings. `logout` forgets it, `session` shows its state (`check` looks again now). A saved login that has expired stops discovery and a recording with what to do |
 | `/demo status` | root, config sources, phase, approvals, panel URL |
 | `/demo discover [notes]` | start discovery + storyboard (demo-recording skill) |
 | `/demo panel` | starts the side panel and opens it in your browser (URL with token; `DEMO_REC_NO_OPEN=1` to only print it) |

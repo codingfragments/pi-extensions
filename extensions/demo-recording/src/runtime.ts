@@ -116,6 +116,8 @@ export class Runtime {
   private configKey = "";
   private readonly agent: AgentBridge | undefined;
   discovery: DiscoverySession | undefined;
+  /** A login window is open (one at a time, S7). */
+  loginInProgress = false;
   readonly jobs = new Jobs();
   /** What the user has allowed the Director to spend (P1a). */
   readonly grants = new GrantStore();

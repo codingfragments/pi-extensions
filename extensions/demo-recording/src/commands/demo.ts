@@ -9,6 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { forgetSession, hasState, loginSession, probeSession, readMeta } from "../auth/session.ts";
 import { listBrands, resolveBrand } from "../brand/brand.ts";
 import {
   type Scope,
@@ -40,6 +41,9 @@ export const SUBCOMMANDS = [
   "new",
   "open",
   "archive",
+  "login",
+  "logout",
+  "session",
   "status",
   "discover",
   "voiceover",
@@ -57,6 +61,9 @@ const USAGE = [
   "/demo new [<project> <app-url> [app name…]]   create a demo project",
   "/demo open [<project>]                          set the active project",
   "/demo archive [<project>] [--delete] [--no-drafts]  zip a project into <root>/archive; --delete then removes it (name required)",
+  "/demo login                                     log in by hand in a browser window; the session is saved for the app and reused (S7)",
+  "/demo logout                                    forget the saved login of the app",
+  "/demo session [check]                           the state of the saved login (check: look again now)",
   "/demo status                                    phase, approvals, panel",
   "/demo discover [notes…]                         explore the app and draft a storyboard",
   "/demo voiceover [notes…]                        analyze the latest take and write the voice-over",
@@ -494,6 +501,103 @@ export async function cmdArchive(rt: Runtime, rest: string[], ctx: ExtensionComm
   );
 }
 
+/**
+ * `/demo login`: a browser window opens on the app, you log in by hand (a password, OAuth, an e-mail link, a one-time code) and say so; the engine saves the session for
+ * the app and checks it in a fresh browser (S7, D147). The same engine as the Project page's Login card.
+ */
+export async function cmdLogin(
+  rt: Runtime,
+  ctx: ExtensionCommandContext,
+  seam: { headed?: boolean; afterOpen?: (page: import("playwright").Page) => Promise<void> } = {},
+) {
+  const p = rt.requireProject();
+  if (!ctx.hasUI)
+    return report(
+      ctx,
+      "/demo login needs a screen: open the Project page in the panel instead",
+      "warning",
+    );
+  if (rt.loginInProgress) return report(ctx, "a login window is already open", "warning");
+  const cfg = rt.getConfig();
+  let confirmed!: () => void;
+  let gaveUp!: (e: Error) => void;
+  const waitForDone = new Promise<void>((res, rej) => {
+    confirmed = res;
+    gaveUp = rej;
+  });
+  waitForDone.catch(() => undefined);
+  let opened!: () => void;
+  const isOpen = new Promise<void>((r) => {
+    opened = r;
+  });
+  rt.loginInProgress = true;
+  try {
+    const run = loginSession({
+      root: cfg.root,
+      app: p.app,
+      headed: seam.headed ?? true,
+      ...(seam.afterOpen ? { afterOpen: seam.afterOpen } : {}),
+      viewport: { width: cfg.viewport.width, height: cfg.viewport.height },
+      waitForDone,
+      onOpened: opened,
+    });
+    run.catch(() => undefined);
+    await Promise.race([isOpen, run]);
+    const sure = await ctx.ui.confirm(
+      `Log in to ${p.app.name}`,
+      `A browser window is open on ${p.app.baseUrl}. Log in by hand there (password, OAuth, e-mail link, one-time code), then press Yes. No cancels.`,
+    );
+    if (sure) confirmed();
+    else gaveUp(new Error("you cancelled the login"));
+    const r = await run;
+    if (r.saved) {
+      rt.bus.publish(
+        "auth.saved",
+        { app: p.app.slug, message: `login saved for ${p.app.name}` },
+        p.slug,
+      );
+      report(
+        ctx,
+        `saved the login for ${p.app.name} (owner-only, never in a zip). A fresh browser with it is logged in: ${r.probe.reason}.`,
+      );
+    } else report(ctx, `the login was not saved: ${r.problem ?? "unknown reason"}`, "warning");
+  } finally {
+    rt.loginInProgress = false;
+  }
+}
+
+export function cmdLogout(rt: Runtime, ctx: ExtensionCommandContext) {
+  const p = rt.requireProject();
+  const had = forgetSession(rt.getConfig().root, p.app.slug);
+  if (had)
+    rt.bus.publish(
+      "auth.forgotten",
+      { app: p.app.slug, message: `login forgotten for ${p.app.name}` },
+      p.slug,
+    );
+  report(
+    ctx,
+    had ? `forgot the saved login for ${p.app.name}` : `there was no saved login for ${p.app.name}`,
+  );
+}
+
+export async function cmdSession(rt: Runtime, rest: string[], ctx: ExtensionCommandContext) {
+  const p = rt.requireProject();
+  const root = rt.getConfig().root;
+  if (rest[0] === "check" && hasState(root, p.app.slug)) await probeSession({ root, app: p.app });
+  const m = readMeta(root, p.app.slug);
+  const rule = p.app.login
+    ? `\nthe app's own check: ${[p.app.login.url ? `opens ${p.app.login.url}` : "", p.app.login.expectText ? `text “${p.app.login.expectText}”` : "", p.app.login.expectSelector ? `selector ${p.app.login.expectSelector}` : ""].filter(Boolean).join(", ")}`
+    : "";
+  report(
+    ctx,
+    m.state === "none"
+      ? `no saved login for ${p.app.name}: /demo login (an app that needs none can ignore this)`
+      : `${p.app.name}: login ${m.state}${m.reason ? ` (${m.reason})` : ""}\nsaved ${m.savedAt ?? "?"}, checked ${m.checkedAt ?? "never"}${rule}`,
+    m.state === "expired" ? "warning" : "info",
+  );
+}
+
 function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
   const cfg = rt.getConfig();
   const p = rt.activeProject();
@@ -549,6 +653,12 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return await cmdOpen(pi, rt, rest, ctx);
           case "archive":
             return await cmdArchive(rt, rest, ctx);
+          case "login":
+            return await cmdLogin(rt, ctx);
+          case "logout":
+            return cmdLogout(rt, ctx);
+          case "session":
+            return await cmdSession(rt, rest, ctx);
           case "status":
             return cmdStatus(rt, ctx);
           case "discover":

@@ -95,6 +95,13 @@ annotations → render.
   panel reviews and inline edits are logged automatically. Don't note them
   again.
 
+## Apps that need a login
+
+The user logs in **by hand** (a password, OAuth, an e-mail link, a one-time code) with `/demo login`, and the saved session is reused by discovery and recordings. You never log
+in yourself, never ask for or type a password, a code or a token, and never read the saved state. When `demo_rec_browser open` or `demo_rec_record start` is refused with
+"the saved login … has expired", tell the user in one line to run `/demo login` (or use the Project page) and **stop**; start again when they say they have. If the app shows
+a login page and there is no saved login, say so and ask them to log in the same way. A login page is never part of a storyboard.
+
 ## Discovery method (vision-first)
 
 1. `demo_rec_project status`, then read the brief (`read_brief`) or

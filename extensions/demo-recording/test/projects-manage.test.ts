@@ -219,6 +219,16 @@ test("the list: name, app, phase, size, last change, which is active", () => {
   }
 });
 
+interface Reply {
+  error?: string;
+  active?: string | null;
+  archive?: string;
+  projects: { slug: string }[];
+  verified?: boolean;
+  file: string;
+  wasActive?: boolean;
+}
+
 function runtimeFor(s: ReturnType<typeof seedWithExtras>) {
   process.env.DEMO_REC_NO_OPEN = "1";
   const entries: unknown[][] = [];
@@ -251,7 +261,7 @@ test("the routes: list, switch (remembered, the Director told, refused while a j
         headers: { authorization: `Bearer ${panel.token}`, "content-type": "application/json" },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      return { status: res.status, json: (await res.json()) as Record<string, any> };
+      return { status: res.status, json: (await res.json()) as Reply };
     };
     const list = await call("projects");
     assert.deepEqual(

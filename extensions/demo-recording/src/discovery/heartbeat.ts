@@ -29,11 +29,22 @@ export interface HeartbeatFacts {
   actions: string;
   /** The area in hand, when the Director declared a plan. */
   area?: string;
+  /** A browser call that is running now and has not answered yet. */
+  inFlight?: { call: string; ms: number; deadlineMs: number };
   director: DirectorState;
 }
 
 /** One line, plain: what is known and nothing guessed. */
 export function heartbeatMessage(f: HeartbeatFacts): string {
+  // a browser call that has not answered is the news, not the Director
+  if (f.inFlight && f.inFlight.ms >= 8000) {
+    const w = f.inFlight;
+    return [
+      `⏳ ${w.call} has been running for ${formatAge(w.ms)} and the browser has not answered${w.deadlineMs > 0 ? ` (the browser is restarted after ${formatAge(w.deadlineMs)})` : ""}`,
+      `${f.screens} screens, ${f.actions} actions`,
+      ...(f.area ? [`area in hand: ${f.area}`] : []),
+    ].join(" · ");
+  }
   const parts = [
     f.lastStep
       ? `⏳ still here · ${formatAge(f.sinceStepMs)} since the last step (${f.lastStep})`

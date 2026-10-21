@@ -73,8 +73,18 @@ export interface DemoRecConfig {
   render: { keepDrafts: number };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
-  /** Discovery behaviour: how often a quiet session says it is alive (seconds; 0 = never). */
-  discovery: { heartbeatSec: number };
+  /**
+   * Discovery behaviour: how often a quiet session says it is alive (seconds; 0 = never), how long one browser call may take before the browser is judged frozen and
+   * restarted (seconds; 0 = no deadline), whether to keep a deep browser log, the page memory cap (MB; 0 = Chromium's own), and the longest a page may take to settle
+   * after an action (milliseconds).
+   */
+  discovery: {
+    heartbeatSec: number;
+    callTimeoutSec: number;
+    browserLog: boolean;
+    browserMemoryMb: number;
+    settleMaxMs: number;
+  };
   /** Where the resolved config came from, for `/demo status` and doctor. */
   sources: string[];
 }
@@ -177,7 +187,13 @@ export function defaultConfig(home: string): DemoRecConfig {
     annotations: { autoSuggest: true, zoomsPerMinute: 1.5, zoomsPerScene: 1 },
     render: { keepDrafts: 3 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
-    discovery: { heartbeatSec: 30 },
+    discovery: {
+      heartbeatSec: 30,
+      callTimeoutSec: 25,
+      browserLog: false,
+      browserMemoryMb: 2048,
+      settleMaxMs: 2500,
+    },
     sources: ["defaults"],
   };
 }
@@ -413,13 +429,30 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       cfg.budgets.discoveryMinutes = positiveInt(b.discoveryMinutes, "budgets.discoveryMinutes");
   }
   const dc = raw.discovery as Record<string, unknown> | undefined;
-  if (dc !== undefined && dc.heartbeatSec !== undefined) {
-    const v = dc.heartbeatSec;
-    if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > 300)
-      throw new Error(
-        'demo-recording config: "discovery.heartbeatSec" must be a whole number of seconds from 0 to 300 (0 = no heartbeat)',
-      );
-    cfg.discovery.heartbeatSec = v;
+  if (dc !== undefined) {
+    const whole = (
+      key: "heartbeatSec" | "callTimeoutSec" | "browserMemoryMb" | "settleMaxMs",
+      min: number,
+      max: number,
+      unit: string,
+    ) => {
+      const v = dc[key];
+      if (v === undefined) return;
+      if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max)
+        throw new Error(
+          `demo-recording config: "discovery.${key}" must be a whole number of ${unit} from ${min} to ${max}`,
+        );
+      cfg.discovery[key] = v;
+    };
+    whole("heartbeatSec", 0, 300, "seconds (0 = no heartbeat)");
+    whole("callTimeoutSec", 0, 600, "seconds (0 = no deadline)");
+    whole("browserMemoryMb", 0, 65536, "megabytes (0 = Chromium's own limit)");
+    whole("settleMaxMs", 500, 15000, "milliseconds");
+    if (dc.browserLog !== undefined) {
+      if (typeof dc.browserLog !== "boolean")
+        throw new Error('demo-recording config: "discovery.browserLog" must be true or false');
+      cfg.discovery.browserLog = dc.browserLog;
+    }
   }
 }
 

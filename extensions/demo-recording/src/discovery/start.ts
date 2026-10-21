@@ -3,6 +3,8 @@
  * the Director. The Project page's Start / Enhance window and the "Start discovery now?" question after a login both come here.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { PANEL_PREFIX, reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { listFindings } from "../workdir/findings.ts";
@@ -11,6 +13,15 @@ import { appDir } from "../workdir/layout.ts";
 import { type DiscoveryRequest, addRequest, checkBudget, requestMessage } from "./requests.ts";
 import { listSessions } from "./state.ts";
 
+/** The brief still has fields nobody filled in (`_TODO_`). */
+function briefIsDraft(projectDir: string): boolean {
+  try {
+    return /_TODO_/.test(fs.readFileSync(path.join(projectDir, "brief.md"), "utf8"));
+  } catch {
+    return false;
+  }
+}
+
 export interface StartRequest {
   mode: "start" | "enhance";
   notes?: unknown;
@@ -18,6 +29,8 @@ export interface StartRequest {
   budget: unknown;
   preset?: unknown;
   base?: string;
+  /** Show the browser window in front and keep it open afterwards. */
+  headed?: boolean;
   /** Where the request came from: the panel, or the chat (a typed answer). */
   by?: "panel" | "chat";
 }
@@ -48,6 +61,7 @@ export function requestDiscovery(rt: Runtime, body: StartRequest): DiscoveryRequ
     budget,
     preset: body.preset,
     ...(base ? { base } : {}),
+    ...(body.headed ? { headed: true } : {}),
   });
   const by = body.by ?? "panel";
   recordInput(p.dir, {
@@ -76,6 +90,7 @@ export function requestDiscovery(rt: Runtime, body: StartRequest): DiscoveryRequ
       { slug: p.slug, name: p.app.name ?? p.app.slug, url: p.app.baseUrl },
       req,
       { sessions: sessions.length, findings },
+      { briefDraft: briefIsDraft(p.dir) },
     ),
   );
   return req;

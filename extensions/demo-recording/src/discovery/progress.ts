@@ -121,6 +121,11 @@ export function formatDiscoveryProgress(p: DiscoveryProgress): string {
   if (p.fraction >= 1) return "🔎 discovery done · storyboard written";
   return (
     `🔎 ${Math.round(p.fraction * 100)}% · area ${Math.min(p.doneCount + 1, p.areas.length)}/${p.areas.length}` +
-    `${p.current ? ` · ${p.current}` : " · writing storyboard"} · ~${mins(p.etaMs ?? 0)} left (budget max ${mins(p.maxMs)})`
+    `${p.current ? ` · ${p.current}` : " · writing storyboard"} · ${
+      // no estimate is made up: measured progress knows what was seen, not how long the rest takes
+      p.etaMs === undefined
+        ? `budget max ${mins(p.maxMs)} left`
+        : `~${mins(p.etaMs)} left (budget max ${mins(p.maxMs)})`
+    }`
   );
 }

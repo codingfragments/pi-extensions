@@ -618,16 +618,28 @@ export class Runtime {
     return this.panel?.url;
   }
 
+  /** Discovery windows that were asked to stay open (the Start window's "keep the browser open"): closed when pi shuts down, or the next time one is asked for. */
+  private keptWindows: DiscoverySession[] = [];
+
   async closeDiscovery(): Promise<void> {
     const d = this.discovery;
     this.discovery = undefined;
     await d?.close();
+    if (d?.windowKept) this.keptWindows.push(d);
+  }
+
+  /** Close every window that was kept open. */
+  async closeKeptWindows(): Promise<void> {
+    const all = this.keptWindows;
+    this.keptWindows = [];
+    await Promise.all(all.map((d) => d.closeKept().catch(() => undefined)));
   }
 
   async shutdown(): Promise<void> {
     await this.jobs.cancelAll().catch(() => {});
     this.setStatus(undefined, true);
     await this.closeDiscovery().catch(() => {});
+    await this.closeKeptWindows();
     const panel = this.panel ?? (await this.panelStarting?.catch(() => undefined));
     this.panel = undefined;
     this.panelStarting = undefined;

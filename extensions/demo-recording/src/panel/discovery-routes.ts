@@ -10,6 +10,8 @@
  *   POST /api/discovery-report-ask  ask the Director to write or update the report (starts a Director turn: model tokens only)
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { measureSession } from "../discovery/coverage.ts";
 import { uncoveredAreas } from "../discovery/measure.ts";
 import { coverageOf, readReport, reportVersions } from "../discovery/report.ts";
@@ -80,6 +82,13 @@ export function discoveryRoutes(rt: Runtime): {
           pending: pendingRequest(p.dir) ?? null,
           requests: readRequests(p.dir).slice(-5),
           defaults: standard,
+          briefDraft: (() => {
+            try {
+              return /_TODO_/.test(fs.readFileSync(path.join(p.dir, "brief.md"), "utf8"));
+            } catch {
+              return false;
+            }
+          })(),
           presets: Object.fromEntries(PRESETS.map((x) => [x, presetBudgets(standard, x)])),
           findings: listFindings(p.dir, { appDir: app }).filter((f) => f.stage === "discovery")
             .length,
@@ -101,6 +110,7 @@ export function discoveryRoutes(rt: Runtime): {
           budget: body.budget ?? cfg.budgets,
           preset: body.preset,
           base: typeof body.base === "string" ? body.base : undefined,
+          headed: body.headed === true,
           by: "panel",
         });
         return { request: req };

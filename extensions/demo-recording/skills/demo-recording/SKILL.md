@@ -122,9 +122,36 @@ a login page and there is no saved login, say so and ask them to log in the same
    purpose with `drop: <area>` and `why`. **The storyboard is refused** while a
    declared area was never seen and not dropped (the refusal names them): explore
    them, or pass `skipAreas: [{ area, why }]` with the write.
-4. **Map first, then go deep.** Visit the main navigation areas once (look at
-   each). Then spend most of the budget on the 2–4 areas that serve the brief's
-   goal.
+4. **Survey first, then go deep.** Right after the plan call
+   `demo_rec_browser survey` ONCE: the engine visits the app's navigation by
+   itself (about 2 s a page, no model between the pages, and the pages do not
+   use the screen budget) and returns a contact sheet and one line per page
+   (headings, rows, and whether it loads more on scroll). Choose from that the
+   2–4 areas that serve the brief's goal and spend the budget there. Do not look
+   at every page yourself, and do not survey twice (`paths: [...]` surveys only
+   the routes you name). Then work economically:
+   - **Walk a route in one call**: `act` with `steps: [{step: "goto", url: …},
+     {step: "scroll", dy: 700}, {step: "click", target: …}]` (up to 8) runs them in
+     order, stops at the first failure and says which, and returns ONE look of
+     where it ended. One call per step is about three times slower.
+   - **A look repeats nothing that did not change**: the page's unchanged
+     navigation is one line ("unchanged since the last look"; its targets are
+     still valid). `full_digest: true` sends everything.
+   - **A list that loads more as you scroll extends once.** The engine measures
+     what a scroll did: the first extension is allowed and noted, then scrolls
+     down stay inside what is loaded and the answer says "NOT scrolled". One
+     extension is enough to understand such a page: use the rows you have, or
+     filter and search. Never try to scroll to the end of it.
+   - **A frozen browser is restarted for you.** Every look and action has a
+     deadline (Config `discovery.callTimeoutSec`). If the browser does not answer,
+     it is diagnosed, killed and reopened on the same page with the saved login,
+     and your call returns an error saying so: scroll position and typed text are
+     gone. Try the step again once, or take another route; if the same page
+     freezes it twice, leave it out and record that as a finding. Do not retry the
+     same call in a loop.
+   - **A scouting run** (the Project page's first-look preset) is the survey plus a
+     few deep looks: write the storyboard proposal from that. The user enhances
+     it later if they want more.
 5. **Make the app do something.** Static dashboards make weak demos. Run real
    searches, open details, ask the assistant a question, and read what comes
    back. Note concrete values (numbers, names, outliers): they become the

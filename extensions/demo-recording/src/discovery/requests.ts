@@ -9,7 +9,7 @@ import path from "node:path";
 import { writeFileAtomic } from "../workdir/versioning.ts";
 import type { DiscoveryBudgets } from "./session.ts";
 
-export const PRESETS = ["quick", "standard", "deep"] as const;
+export const PRESETS = ["scout", "quick", "standard", "deep"] as const;
 export type Preset = (typeof PRESETS)[number] | "custom";
 
 /** The most a request may ask for (a typo must not start a three-hour session). */
@@ -19,17 +19,28 @@ export const BUDGET_CAPS: DiscoveryBudgets = {
   discoveryMinutes: 120,
 };
 
-/** quick is half of the standard (the Config values), deep is double, within the caps. */
+/**
+ * scout is the first look at an app: a survey (the engine's, which does not use the screen budget) and a few deep looks, 0.4 of the standard screens and minutes and a
+ * quarter of its actions. quick is half of the standard, deep is double, all within the caps.
+ */
 export function presetBudgets(
   standard: DiscoveryBudgets,
   preset: (typeof PRESETS)[number],
 ): DiscoveryBudgets {
-  const k = preset === "quick" ? 0.5 : preset === "deep" ? 2 : 1;
-  const f = (n: number, cap: number) => Math.min(cap, Math.max(1, Math.round(n * k)));
+  const k = (kind: "screens" | "actions" | "minutes") =>
+    preset === "scout"
+      ? { screens: 0.4, actions: 0.25, minutes: 0.4 }[kind]
+      : preset === "quick"
+        ? 0.5
+        : preset === "deep"
+          ? 2
+          : 1;
+  const f = (n: number, cap: number, kind: "screens" | "actions" | "minutes") =>
+    Math.min(cap, Math.max(1, Math.round(n * k(kind))));
   return {
-    discoveryScreens: f(standard.discoveryScreens, BUDGET_CAPS.discoveryScreens),
-    discoveryActions: f(standard.discoveryActions, BUDGET_CAPS.discoveryActions),
-    discoveryMinutes: f(standard.discoveryMinutes, BUDGET_CAPS.discoveryMinutes),
+    discoveryScreens: f(standard.discoveryScreens, BUDGET_CAPS.discoveryScreens, "screens"),
+    discoveryActions: f(standard.discoveryActions, BUDGET_CAPS.discoveryActions, "actions"),
+    discoveryMinutes: f(standard.discoveryMinutes, BUDGET_CAPS.discoveryMinutes, "minutes"),
   };
 }
 
@@ -62,6 +73,8 @@ export interface DiscoveryRequest {
   preset: Preset;
   /** Enhance: the session it builds on (the newest one when you did not pick). */
   base?: string;
+  /** Show the browser window in front and leave it open when discovery ends (the Start window's switch). */
+  headed?: boolean;
   status: "pending" | "started" | "cancelled";
   /** The session that took it. */
   session?: string;
@@ -95,6 +108,7 @@ export function addRequest(
     budget: unknown;
     preset?: unknown;
     base?: string;
+    headed?: unknown;
   },
   now = new Date(),
 ): DiscoveryRequest {
@@ -121,6 +135,7 @@ export function addRequest(
     budget: checkBudget(r.budget),
     preset,
     ...(r.base ? { base: r.base } : {}),
+    ...(r.headed === true ? { headed: true } : {}),
     status: "pending",
   };
   save(projectDir, [...list, req]);
@@ -152,12 +167,26 @@ export function requestMessage(
   p: { slug: string; name: string; url: string },
   r: DiscoveryRequest,
   earlier: { sessions: number; findings: number },
+  extra: { briefDraft?: boolean } = {},
 ): string {
   const b = r.budget;
   const lines = [
     `${prefix} The user ${r.mode === "enhance" ? "asks to ENHANCE the discovery" : "asks to start discovery"} of ${p.name} (${p.url}) for demo project "${p.slug}" from the Project page (request ${r.id}).`,
     `Follow the demo-recording skill: open a discovery session with demo_rec_browser open (it takes this request's budget: ${b.discoveryScreens} screens, ${b.discoveryActions} actions, ${b.discoveryMinutes} minutes${r.preset === "custom" ? "" : `, the ${r.preset} choice`}), explore, record findings, and propose a storyboard based on brief.md.`,
   ];
+  lines.push(
+    r.preset === "scout"
+      ? "This is a SCOUTING run: open, declare your plan, call demo_rec_browser survey ONCE (the engine visits the navigation itself, in seconds, and the pages do not use the screen budget), then go deep on only the few pages that serve the brief (act with steps: [...] walks a route in one call). Write the storyboard proposal from that; the user can enhance the discovery later."
+      : "Start with demo_rec_browser survey right after the plan (the engine visits the navigation itself, in seconds, and the pages do not use the screen budget), then spend the budget on the few pages that serve the brief (act with steps: [...] walks a route in one call).",
+  );
+  if (r.headed)
+    lines.push(
+      "The user wants to WATCH: the browser window is shown in front and stays open when you close the session. Do not close it early, and do not ask them to open anything.",
+    );
+  if (extra.briefDraft)
+    lines.push(
+      "The brief is still a draft (fields marked TODO). Do NOT stop to ask the user about it: explore, and at the end say which brief fields you could now fill in.",
+    );
   if (r.notes) lines.push(`Their notes: ${r.notes}`);
   if (r.areas.length)
     lines.push(

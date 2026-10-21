@@ -93,15 +93,18 @@ function Areas({ measure, session }) {
   </div>`;
 }
 
-const PRESET_WORD = { quick: "Quick", standard: "Standard", deep: "Deep" };
+const PRESET_WORD = { scout: "Scout", quick: "Quick", standard: "Standard", deep: "Deep" };
 
 /** The window that asks the Director: notes, areas, the budget (a choice or the three numbers), and for an enhance which session it builds on. */
 function AskModal({ mode, data, extend, onClose }) {
   const enhance = mode === "enhance";
-  const start = extend?.budget ?? data.defaults;
+  // a first look at an app is a scout (the engine surveys the navigation, then a few deep looks); an enhance builds on it with the standard budget
+  const firstPreset = extend ? "custom" : enhance ? "standard" : "scout";
+  const start = extend?.budget ?? data.presets?.[firstPreset] ?? data.defaults;
   const [notes, setNotes] = useState("");
   const [areas, setAreas] = useState("");
-  const [preset, setPreset] = useState(extend ? "custom" : "standard");
+  const [preset, setPreset] = useState(firstPreset);
+  const [headed, setHeaded] = useState(false);
   const [b, setB] = useState({ ...start });
   const [base, setBase] = useState(extend?.base ?? data.sessions.at(-1)?.id ?? "");
   const [busy, setBusy] = useState(false);
@@ -125,6 +128,7 @@ function AskModal({ mode, data, extend, onClose }) {
         areas: areas.split("\n"),
         budget: b,
         preset,
+        headed,
         ...(enhance && base ? { base } : {}),
       });
       toast(
@@ -150,10 +154,13 @@ function AskModal({ mode, data, extend, onClose }) {
         <span class="ds-hint-text">The Director declares them in its plan and covers each. Add more to the Sources & context group first if you have documents or links.</span></label>
       ${enhance && data.sessions.length > 1 ? html`<label class="ds-field"><span class="ds-label">Build on</span><select class="ds-select" data-field="base" value=${base} onChange=${(e) => setBase(e.target.value)}>${[...data.sessions].reverse().map((s) => html`<option value=${s.id} key=${s.id}>${s.id}${s.id === data.sessions.at(-1).id ? " (the newest)" : ""}</option>`)}</select></label>` : null}
       <fieldset class="ds-field ds-disc-budget"><legend class="ds-label">Budget</legend>
-        <div class="ds-seg" role="group" aria-label="Budget choice">${["quick", "standard", "deep"].map((p) => html`<button type="button" key=${p} data-preset=${p} aria-pressed=${preset === p} onClick=${() => choose(p)}>${PRESET_WORD[p]}</button>`)}<button type="button" data-preset="custom" aria-pressed=${preset === "custom"} onClick=${() => setPreset("custom")}>Custom</button></div>
+        <div class="ds-seg" role="group" aria-label="Budget choice">${["scout", "quick", "standard", "deep"].map((p) => html`<button type="button" key=${p} data-preset=${p} aria-pressed=${preset === p} onClick=${() => choose(p)}>${PRESET_WORD[p]}</button>`)}<button type="button" data-preset="custom" aria-pressed=${preset === "custom"} onClick=${() => setPreset("custom")}>Custom</button></div>
         <div class="ds-row-flex">${num("discoveryScreens", "Screens", 200)}${num("discoveryActions", "Actions", 800)}${num("discoveryMinutes", "Minutes", 120)}</div>
-        <span class="ds-hint-text">The Director stops exploring when any of the three is used up. Standard is the Config value (${data.defaults.discoveryScreens} screens, ${data.defaults.discoveryActions} actions, ${data.defaults.discoveryMinutes} minutes).</span>
+        <span class="ds-hint-text">The Director stops exploring when any of the three is used up. Scout is the first look: the engine surveys the navigation by itself (those pages do not use the screens), then the Director looks closely at a few. Standard is the Config value (${data.defaults.discoveryScreens} screens, ${data.defaults.discoveryActions} actions, ${data.defaults.discoveryMinutes} minutes).</span>
       </fieldset>
+      <label class="ds-field ds-disc-headed"><span class="ds-row-flex"><input type="checkbox" data-field="headed" checked=${headed} onChange=${(e) => setHeaded(e.target.checked)} /> <span class="ds-label">Show the browser window in front, and keep it open afterwards</span></span>
+        <span class="ds-hint-text">To watch, or to look around in it yourself once the Director is done (it uses the same login). The window stays until you start the next discovery or pi closes. Off: the browser runs hidden and the panel shows screenshots.</span></label>
+      ${data.briefDraft ? html`<p class="ds-small ds-muted" data-brief-draft>The brief is still a draft. That is fine: the Director will not stop to ask about it, and tells you at the end which fields it could fill in.</p>` : null}
     </div>
   <//>`;
 }

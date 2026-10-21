@@ -73,6 +73,8 @@ export interface DemoRecConfig {
   render: { keepDrafts: number };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
+  /** Discovery behaviour: how often a quiet session says it is alive (seconds; 0 = never). */
+  discovery: { heartbeatSec: number };
   /** Where the resolved config came from, for `/demo status` and doctor. */
   sources: string[];
 }
@@ -175,6 +177,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     annotations: { autoSuggest: true, zoomsPerMinute: 1.5, zoomsPerScene: 1 },
     render: { keepDrafts: 3 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
+    discovery: { heartbeatSec: 30 },
     sources: ["defaults"],
   };
 }
@@ -408,6 +411,15 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
       cfg.budgets.discoveryActions = positiveInt(b.discoveryActions, "budgets.discoveryActions");
     if (b.discoveryMinutes !== undefined)
       cfg.budgets.discoveryMinutes = positiveInt(b.discoveryMinutes, "budgets.discoveryMinutes");
+  }
+  const dc = raw.discovery as Record<string, unknown> | undefined;
+  if (dc !== undefined && dc.heartbeatSec !== undefined) {
+    const v = dc.heartbeatSec;
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > 300)
+      throw new Error(
+        'demo-recording config: "discovery.heartbeatSec" must be a whole number of seconds from 0 to 300 (0 = no heartbeat)',
+      );
+    cfg.discovery.heartbeatSec = v;
   }
 }
 

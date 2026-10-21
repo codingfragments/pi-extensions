@@ -66,7 +66,11 @@ export const SETTING_GROUPS: { id: string; label: string; match: (key: string) =
       k.startsWith("output.") || k === "fps" || k === "brand" || k.startsWith("render."),
   },
   { id: "annotations", label: "Annotations", match: (k) => k.startsWith("annotations.") },
-  { id: "discovery", label: "Discovery budgets", match: (k) => k.startsWith("budgets.") },
+  {
+    id: "discovery",
+    label: "Discovery",
+    match: (k) => k.startsWith("budgets.") || k.startsWith("discovery."),
+  },
   { id: "general", label: "General", match: () => true },
 ];
 

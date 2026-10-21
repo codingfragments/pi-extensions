@@ -91,6 +91,8 @@ export const CONFIG_DOCS: Record<string, string> = {
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",
+  "discovery.heartbeatSec":
+    "While a discovery session is open and quiet, say that it is still alive every this many seconds (0 to 300, 0 = never): the time since the last step, what it was, and what the Director is doing. The panel calls a session stalled after 60 s without a step.",
 };
 
 /** Env vars that override keys (highest layer). */

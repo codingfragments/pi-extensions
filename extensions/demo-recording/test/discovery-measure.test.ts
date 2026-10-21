@@ -457,7 +457,7 @@ test(
   },
 );
 
-test("a stalled session: quiet after 90 s, the Director stopped with the session open, and never once it closed", () => {
+test("a stalled session: quiet after 60 s, the Director stopped with the session open, and never once it closed", () => {
   const t0 = Date.parse("2026-10-19T08:00:00Z");
   const ev = (type: string, ms: number) => ({ type, at: new Date(t0 + ms).toISOString() });
   const open = [
@@ -471,6 +471,11 @@ test("a stalled session: quiet after 90 s, the Director stopped with the session
   assert.match(
     stallWords({ kind: "quiet", sinceMs: 150_000 }),
     /No activity for 3 min\. The Director may be thinking/,
+  );
+  assert.match(
+    stallWords({ kind: "quiet", sinceMs: 75_000 }),
+    /No activity for 75 s\./,
+    "seconds first",
   );
   // plan changes are activity
   assert.equal(stallOf([...open, ev("discovery.progress", 100_000)], t0 + 120_000), null);

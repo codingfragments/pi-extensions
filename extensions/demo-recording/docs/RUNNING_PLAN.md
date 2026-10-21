@@ -12,7 +12,7 @@ Last updated: 2026-10-19, after the run 2 grill. Last merged before this page: #
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** The next pieces of work are items 13 and 14: the run-3 findings that were worth fixing before a real test (A to D), and a Projects page with archive (E). Run 3 moved behind S7: the real test is on a more complicated app that needs a login.
+`main`.** The next piece of work is item 15, S7 (login and sessions), which needs the real app that asks for a login. Items 13 and 14 (the run-3 findings worth fixing before a real test, and a Projects page with archive) are done. Run 3 is item 16, behind S7.
 
 ## 2. Done
 
@@ -48,9 +48,9 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 10 | **P3 Discovery you can steer and read** | start or enhance from the Project page, a discovery report, measured progress, an enlarged live preview | F1, F2, F3, F5, F6 | done | 12 | 43 |
 | 11 | **P4 The Director in the open (rest)** | a pending question answered in chat or panel; role labels in the chat | F18, F23 | done | 7 | 50 |
 | 12 | **P5 Small options (rest)** | the logo bug option explained; zoom limits as settings | F28, F21 | done | 4 | 54 |
-| 13 | **Run-3 prep (A to D)** | Voice over buttons say what happens (A); the Recording request box at the bottom (B); Recording keys on the whole tab (C); the storyboard picture beside the text (D). Four small PRs | R3-6, R3-4, R3-3, R3-1 | **next** | 4 | 58 |
-| 14 | **Projects page and archive (E)** | list, switch, archive and delete projects in the panel (a delete is a verified zip first); `/demo archive` | R3-7 | planned | 3 | 61 |
-| 15 | **S7 Login and sessions** | required for v1, with the session checks | F4 | later | 8 | 69 |
+| 13 | **Run-3 prep (A to D)** | Voice over buttons say what happens (A); the Recording request box at the bottom (B); Recording keys on the whole tab (C); the storyboard picture beside the text (D). Four small PRs | R3-6, R3-4, R3-3, R3-1 | done | 4 | 58 |
+| 14 | **Projects page and archive (E)** | list, switch, archive and delete projects in the panel (a delete is a verified zip first); `/demo archive` | R3-7 | done | 3 | 61 |
+| 15 | **S7 Login and sessions** | required for v1, with the session checks (needs the real app that asks for a login) | F4 | **next** | 8 | 69 |
 | 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | you | 2 | 71 |
 | 17 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 77 |
 | 18 | **S8 Native capture** | optional | | later | | |
@@ -270,10 +270,16 @@ Allow, and can feed the fix window.
   like the list screens), stacked with the picture first below that; the title, badges, confidence, takeaway, emphasis, outline, steps, review buttons and notes are all in the right
   part; a scene without a screenshot is one column and says so. **Tests:** `test/storyboard-scene-layout.test.ts` (browser, 1400 and 1000 px, with and without a picture). **Not
   verified:** Latte; a very tall picture next to a short text (the picture is not capped in height).
-- **14, Projects page and archive (E, R3-7).** `#/projects`, opened from the project name in the header: a row per project (name, app, phase, size, last change, active) with
+- **14, Projects page and archive (E, R3-7; done).** `#/projects`, opened from the project name in the header: a row per project (name, app, phase, size, last change, active) with
   Switch, Archive and Delete. Archive writes `<root>/archive/<project>-<date>.zip` (everything of the project and its app record, minus caches; over 4 GiB it refuses and says why).
   Delete = zip, read the zip back, then remove the folder, only after you typed the project's name. `/demo archive <project> [--delete]` does the same from the chat. Switching
-  is refused while a job of the active project runs. No restore command (the zip unpacks into `<root>/projects`).
+  is refused while a job of the active project runs. No restore command (the zip unpacks into `<root>/projects`). **Built:** `src/projects/manage.ts` (`listProjectRows`, `planArchive`,
+  `archiveProject`, `verifyArchive`, `deleteProject`), a zip reader (`readZipIndex`, `crcOfEntry`), `Runtime.switchProject` / `clearActiveProject` (the choice is remembered with `appendEntry`, the
+  Director is primed and told), the routes `projects`, `project-switch`, `project-archive`, `project-delete`, the Projects page (`#/projects`; the header's project name and the Project page link
+  to it), a dialog that waits for the typed name (`input.equals`), and `/demo archive`. The zip holds `projects/<slug>/…` and `apps/<app>/…` minus caches and **minus the app's `auth/`** (a saved login
+  never goes into a backup); two archives in the same second get a number. **Tests:** `test/projects-manage.test.ts` (7: the zip reader, what goes in, verify catches a flipped byte, too big is refused
+  and leaves nothing, delete keeps the project when anything fails, the routes, `/demo archive`) and `test/projects-page.test.ts` (the words, and the page in a browser). **Not verified:** a project near
+  4 GiB; restoring from a zip by hand; the header link when the window is narrow (the project name is hidden below 80rem: the Project page has the link then).
 
 **Item 12, P5 small options (two PRs).**
 

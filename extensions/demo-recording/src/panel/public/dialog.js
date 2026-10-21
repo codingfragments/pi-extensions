@@ -53,7 +53,9 @@ function Dialog({ o, done }) {
   const [value, setValue] = useState(o.input?.value ?? "");
   const [skip, setSkip] = useState(false);
   const [touched, setTouched] = useState(false);
-  const missing = !!o.input?.required && !value.trim();
+  // `input.equals`: the confirm button waits until this exact text is typed (a destructive action asks for the name)
+  const wrong = o.input?.equals !== undefined && value.trim() !== o.input.equals;
+  const missing = (!!o.input?.required && !value.trim()) || wrong;
   const live = useRef({});
   live.current = {
     confirm: () => !missing && done({ ...(o.input ? { value: value.trim() } : {}), skip }),
@@ -137,7 +139,7 @@ function Dialog({ o, done }) {
                       setValue(e.target.value);
                     }} />`
               }
-              ${missing ? html`<span class="ds-field-error" id=${`${id.current}-h`}>${touched ? html`<span aria-hidden="true">!</span>` : null}${o.input.required === true ? "Required to continue." : "Required."}</span>` : o.input.hint ? html`<span class="ds-hint-text" id=${`${id.current}-h`}>${o.input.hint}</span>` : html`<span id=${`${id.current}-h`}></span>`}
+              ${missing ? html`<span class="ds-field-error" id=${`${id.current}-h`}>${touched ? html`<span aria-hidden="true">!</span>` : null}${o.input.equals !== undefined ? `Type ${o.input.equals} exactly to continue.` : o.input.required === true ? "Required to continue." : "Required."}</span>` : o.input.hint ? html`<span class="ds-hint-text" id=${`${id.current}-h`}>${o.input.hint}</span>` : html`<span id=${`${id.current}-h`}></span>`}
             </label>`
             : null
         }

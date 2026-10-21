@@ -23,6 +23,7 @@ import {
 import { formatDoctor, runDoctor } from "../doctor.ts";
 import { envNotice } from "../env-overrides.ts";
 import { allowedMessage, deniedMessage } from "../grants.ts";
+import { ACTIVE_ENTRY, archiveProject, deleteProject } from "../projects/manage.ts";
 import { settleGrantQuestion } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import { configFiles } from "../tools/config.ts";
@@ -34,10 +35,11 @@ import { recordInput } from "../workdir/inputs.ts";
 import { ensureProject, listProjects, openProject } from "../workdir/layout.ts";
 import { formatLine } from "../workdir/stages.ts";
 
-export const ACTIVE_ENTRY = "demo-recording.active";
+export { ACTIVE_ENTRY };
 export const SUBCOMMANDS = [
   "new",
   "open",
+  "archive",
   "status",
   "discover",
   "voiceover",
@@ -54,6 +56,7 @@ export const SUBCOMMANDS = [
 const USAGE = [
   "/demo new [<project> <app-url> [app name…]]   create a demo project",
   "/demo open [<project>]                          set the active project",
+  "/demo archive [<project>] [--delete] [--no-drafts]  zip a project into <root>/archive; --delete then removes it (name required)",
   "/demo status                                    phase, approvals, panel",
   "/demo discover [notes…]                         explore the app and draft a storyboard",
   "/demo voiceover [notes…]                        analyze the latest take and write the voice-over",
@@ -433,6 +436,64 @@ export function cmdAnswer(
   else rt.tellAgent(deniedMessage(said));
 }
 
+/**
+ * `/demo archive [project] [--delete] [--no-drafts]`: the Projects page's Archive and Delete from the chat. The zip goes to `<root>/archive/`, is read back and compared;
+ * with `--delete` the project's folder is removed only after that, and the project must be named (the active one is never deleted by default).
+ */
+export async function cmdArchive(rt: Runtime, rest: string[], ctx: ExtensionCommandContext) {
+  const flags = rest.filter((x) => x.startsWith("--"));
+  const unknown = flags.filter((x) => !["--delete", "--no-drafts"].includes(x));
+  if (unknown.length)
+    return report(
+      ctx,
+      `unknown option ${unknown.join(", ")}. usage: ${USAGE.split("\n").find((l) => l.startsWith("/demo archive"))}`,
+      "warning",
+    );
+  const named = rest.find((x) => !x.startsWith("--"));
+  const del = flags.includes("--delete");
+  if (del && !named)
+    return report(
+      ctx,
+      "--delete needs the project's name: /demo archive <project> --delete",
+      "warning",
+    );
+  const slug = named ?? rt.activeProjectSlug;
+  if (!slug) return report(ctx, "no project: /demo archive <project>", "warning");
+  const root = rt.getConfig().root;
+  const busy = rt.activeProjectSlug === slug ? rt.jobs.running() : undefined;
+  if (busy)
+    return report(
+      ctx,
+      `a ${busy.kind} job of "${slug}" is running (${busy.id}): wait for it or cancel it first`,
+      "warning",
+    );
+  const opts = { withoutDrafts: flags.includes("--no-drafts") };
+  const wasActive = rt.activeProjectSlug === slug;
+  const r = del
+    ? await deleteProject(root, slug, slug, opts)
+    : await archiveProject(root, slug, opts);
+  if (del && wasActive) rt.clearActiveProject();
+  rt.bus.publish(
+    del ? "project.deleted" : "project.archived",
+    {
+      project: slug,
+      file: r.file,
+      bytes: r.bytes,
+      message: `${del ? "deleted" : "archived"} ${slug}: ${r.file}`,
+    },
+    del ? undefined : slug,
+  );
+  const left = [
+    r.left.caches ? `${r.left.caches} cache item(s)` : "",
+    r.left.auth ? "the saved login of the app" : "",
+    r.left.drafts ? `${r.left.drafts} draft render folder(s)` : "",
+  ].filter(Boolean);
+  report(
+    ctx,
+    `${del ? "deleted" : "archived"} ${slug}: ${r.files} files, ${(r.bytes / 1024 / 1024).toFixed(1)} MB, read back and verified\n${r.file}${left.length ? `\nleft out: ${left.join(", ")}` : ""}${del ? `\nthe project folder is gone${wasActive ? "; there is no active project now (/demo open)" : ""}` : ""}`,
+  );
+}
+
 function cmdStatus(rt: Runtime, ctx: ExtensionCommandContext) {
   const cfg = rt.getConfig();
   const p = rt.activeProject();
@@ -464,11 +525,11 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
         }));
         return items.length ? items : null;
       }
-      if (parts[0] === "open" && parts.length === 2) {
+      if ((parts[0] === "open" || parts[0] === "archive") && parts.length === 2) {
         try {
           const items = listProjects(rt.getConfig().root)
             .filter((p) => p.startsWith(parts[1] ?? ""))
-            .map((p) => ({ value: `open ${p}`, label: p }));
+            .map((p) => ({ value: `${parts[0]} ${p}`, label: p }));
           return items.length ? items : null;
         } catch {
           return null;
@@ -486,6 +547,8 @@ export function registerDemoCommand(pi: ExtensionAPI, rt: Runtime): void {
             return await cmdNew(pi, rt, rest, ctx);
           case "open":
             return await cmdOpen(pi, rt, rest, ctx);
+          case "archive":
+            return await cmdArchive(rt, rest, ctx);
           case "status":
             return cmdStatus(rt, ctx);
           case "discover":

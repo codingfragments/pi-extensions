@@ -14,6 +14,7 @@ import { installKeys } from "./keys.js";
 import { activityRows } from "./live.js";
 import { ProjectMap } from "./map.js";
 import { Project } from "./project.js";
+import { Projects } from "./projects.js";
 import { Recording } from "./recording.js";
 import { Render } from "./render.js";
 import { readLastPlace, writeLastPlace } from "./route.js";
@@ -32,6 +33,7 @@ const SCREEN_BODY = {
   annotations: (p) => html`<${Annotations} events=${p.events} stages=${p.stages} />`,
   render: (p) => html`<${Render} events=${p.events} stages=${p.stages} />`,
   config: (p) => html`<${Config} events=${p.events} />`,
+  projects: (p) => html`<${Projects} events=${p.events} />`,
 };
 
 /** The time, refreshed every 30 s while `on` (so "no news for N min" ages without an event). */
@@ -105,7 +107,8 @@ export function App() {
       ? route.screen
       : "project";
   useEffect(() => {
-    if (slug && route?.valid && route.screen !== "map") writeLastPlace(slug, route);
+    if (slug && route?.valid && route.screen !== "map" && route.screen !== "projects")
+      writeLastPlace(slug, route);
   }, [slug, route?.raw]);
   const wasMap = useRef(false);
   useEffect(() => {

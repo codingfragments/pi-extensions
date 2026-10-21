@@ -2954,3 +2954,29 @@ button.ds-evidence {
 .ds-vosteps li[data-state="next"] {
   color: var(--text-strong);
 }
+
+/* Projects (item 14): a card per project, the name and facts on the left, the actions on the right */
+.ds-projlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.ds-projrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.ds-projrow[data-active="true"] {
+  border-color: var(--accent);
+}
+a.ds-brand-sub {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+a.ds-brand-sub:hover {
+  color: var(--text-strong);
+  text-decoration: underline;
+}

@@ -24,8 +24,7 @@ const browserType = await chromium();
 /** The fixture: /login sets what each variant keeps; /app says "in" or "out"; /api/me is 401 when the server-side session is gone. */
 function fixture() {
   const sessions = new Map<string, number>(); // token -> expires at
-  let now = Date.now();
-  const clock = { advance: (ms: number) => (now += ms) };
+  const now = Date.now();
   const page = (body: string) => `<!doctype html><meta charset=utf-8><body>${body}</body>`;
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
@@ -86,7 +85,7 @@ function fixture() {
     res.statusCode = 404;
     res.end();
   });
-  return { server, sessions, clock };
+  return { server, sessions };
 }
 
 test(

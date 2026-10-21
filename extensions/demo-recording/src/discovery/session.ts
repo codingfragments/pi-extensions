@@ -36,6 +36,8 @@ import {
   diagnoseStall,
   startProcessSampler,
 } from "./diagnostics.ts";
+import { reduceDigest } from "./digest.ts";
+import { type ExtensionState, NODE_CAP, allowedScroll, grew, measureExtent } from "./extent.ts";
 import {
   type DirectorState,
   HEARTBEAT_DEFAULT_SEC,
@@ -46,6 +48,7 @@ import {
 import { type LogRecord, type Measure, measureAreas, measuredProgress } from "./measure.ts";
 import { type DiscoveryProgress, formatDiscoveryProgress } from "./progress.ts";
 import { readSessionRecord, writeSessionRecord } from "./state.ts";
+import { type SurveyPage, collectNavLinks, contactSheets, linkKey, outlineOf } from "./survey.ts";
 import { CallStalledError, deadlineFor, withDeadline } from "./watchdog.ts";
 
 export interface DiscoveryBudgets {
@@ -237,11 +240,17 @@ export class DiscoverySession {
   private chain: Promise<unknown> = Promise.resolve();
   private inFlight: { call: string; startedAt: number; deadlineMs: number } | undefined;
   private stalls = 0;
+  /** The page chrome (navigation, header) of the last look, to leave out of the next digest while it is the same. */
+  private lastChrome = new Map<string, string>();
+  /** Pages that load more when scrolled (by address): what is known about each. */
+  private readonly extension = new Map<string, ExtensionState>();
   private stopSampler: (() => void) | undefined;
   /** Set when the session closed but left its window open (keepOpen): closed for good by `closeKept`. */
   private kept: BrowserSession | undefined;
   private readonly startedAt: number;
   private screens = 0;
+  /** Screens taken by the survey: they do not use the screen budget (the engine took them, not the model's steps). */
+  private surveyed = 0;
   private actions = 0;
   readonly seen = new Set<string>();
   readonly verified = new Map<string, Target>();
@@ -601,7 +610,7 @@ export class DiscoverySession {
       startedAt: this.startedAt,
       now: Date.now(),
       budgetUsed: {
-        screens: this.screens / b.discoveryScreens,
+        screens: this.screensUsed() / b.discoveryScreens,
         actions: this.actions / b.discoveryActions,
         minutes: minutes / b.discoveryMinutes,
       },
@@ -615,15 +624,19 @@ export class DiscoverySession {
     this.emit("discovery.progress", { progress: p, message: formatDiscoveryProgress(p) });
   }
 
+  private screensUsed(): number {
+    return this.screens - this.surveyed;
+  }
+
   budget(): Budget {
     const b = this.opts.budgets;
     const minutes = (Date.now() - this.startedAt) / 60000;
     return {
-      screens: `${this.screens}/${b.discoveryScreens}`,
+      screens: `${this.screensUsed()}/${b.discoveryScreens}`,
       actions: `${this.actions}/${b.discoveryActions}`,
       minutes: `${minutes.toFixed(1)}/${b.discoveryMinutes}`,
       exhausted:
-        this.screens >= b.discoveryScreens ||
+        this.screensUsed() >= b.discoveryScreens ||
         this.actions >= b.discoveryActions ||
         minutes >= b.discoveryMinutes,
     };
@@ -633,7 +646,7 @@ export class DiscoverySession {
     const b = this.opts.budgets;
     const minutes = (Date.now() - this.startedAt) / 60000;
     const over =
-      (kind === "screens" && this.screens >= b.discoveryScreens) ||
+      (kind === "screens" && this.screensUsed() >= b.discoveryScreens) ||
       (kind === "actions" && this.actions >= b.discoveryActions) ||
       minutes >= b.discoveryMinutes;
     if (over) {
@@ -646,21 +659,28 @@ export class DiscoverySession {
 
   /** Let the SPA finish: load state, then DOM quiet (results, streamed answers). */
   private async settle(): Promise<void> {
-    // The whole wait is capped (settleMaxMs): an app that never goes idle (polling, live data) would otherwise cost the longest wait on every single step.
-    const max = this.opts.settleMaxMs ?? 2500;
+    await this.settlePage(this.page, this.opts.settleMaxMs ?? 2500);
+  }
+
+  /** Let a page finish: load state, then network idle, then the DOM quiet; the whole wait capped at `max` ms. */
+  private async settlePage(page: Page, max: number): Promise<void> {
+    // An app that never goes idle (polling, live data) would otherwise cost the longest wait on every single step.
     const t0 = Date.now();
-    await this.page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
-    await this.page
+    await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+    await page
       .waitForLoadState("networkidle", { timeout: Math.min(1500, Math.round(max * 0.6)) })
       .catch(() => {});
     const left = () => Math.max(400, max - (Date.now() - t0));
-    const q = await waitForDomQuiet(this.page, 300, left());
+    const q = await waitForDomQuiet(page, 300, left());
     // A navigation during the wait resets the context; wait once more on the new page.
-    if (!q.quiet && q.ms === 0) await waitForDomQuiet(this.page, 300, left());
+    if (!q.quiet && q.ms === 0) await waitForDomQuiet(page, 300, left());
   }
 
   /** A screenshot and the aria digest of the page now. Under a deadline: a frozen browser is restarted (see `guarded`). */
-  look(opts: { fullPage?: boolean } = {}, signal?: AbortSignal): Promise<LookResult> {
+  look(
+    opts: { fullPage?: boolean; fullDigest?: boolean } = {},
+    signal?: AbortSignal,
+  ): Promise<LookResult> {
     return this.guarded("look", this.deadlineMs(), () => this.lookNow(opts), signal);
   }
 
@@ -668,7 +688,9 @@ export class DiscoverySession {
     return deadlineFor((this.opts.callTimeoutSec ?? 25) * 1000, act);
   }
 
-  private async lookNow(opts: { fullPage?: boolean } = {}): Promise<LookResult> {
+  private async lookNow(
+    opts: { fullPage?: boolean; fullDigest?: boolean } = {},
+  ): Promise<LookResult> {
     this.ensureOpen();
     this.requireBudget("screens");
     this.screens++;
@@ -685,11 +707,14 @@ export class DiscoverySession {
       .ariaSnapshot({ timeout: 5000 })
       .catch(() => "(aria snapshot unavailable)");
     for (const key of ariaTargets(raw)) this.seen.add(key);
+    // page chrome that has not changed since the last look is one line, so the limit is spent on the page's own content
+    const reduced = reduceDigest(raw, this.lastChrome, opts.fullDigest);
+    const shown = reduced.text;
     const limit = this.opts.digestChars ?? 6000;
-    const truncated = raw.length > limit;
+    const truncated = shown.length > limit;
     const digest = truncated
-      ? `${raw.slice(0, limit)}\n… (truncated ${raw.length - limit} chars — scroll or look at a narrower region)`
-      : raw;
+      ? `${shown.slice(0, limit)}\n… (truncated ${shown.length - limit} chars — scroll or look at a narrower region)`
+      : shown;
     fs.writeFileSync(path.join(this.dir, "screens", `${file}.jpg`), jpeg);
     fs.writeFileSync(path.join(this.dir, "dom", `${file}.yaml`), raw);
     const url = this.page.url();
@@ -717,6 +742,178 @@ export class DiscoverySession {
     fs.writeFileSync(path.join(this.dir, "sitemap.json"), `${JSON.stringify(pages, null, 2)}\n`);
   }
 
+  /**
+   * The survey: visit the navigation of the app by itself (no model between the pages), up to `max` pages, a few tabs at a time, and return what each page is. The pages
+   * are real screens (sNNN, in the log and the sitemap) but do not use the screen budget. A page that loads more when scrolled is extended once and marked.
+   */
+  survey(
+    o: { paths?: string[]; max?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<{ pages: SurveyPage[]; sheets: Buffer[]; ms: number }> {
+    const base = (this.opts.callTimeoutSec ?? 25) * 1000;
+    return this.guarded("survey", base > 0 ? base * 5 : 0, () => this.surveyNow(o), signal);
+  }
+
+  private async surveyNow(o: { paths?: string[]; max?: number }): Promise<{
+    pages: SurveyPage[];
+    sheets: Buffer[];
+    ms: number;
+  }> {
+    this.ensureOpen();
+    this.requireBudget("actions");
+    this.actions++;
+    const t0 = Date.now();
+    const origin = new URL(this.baseUrl).origin;
+    const max = Math.max(1, Math.min(60, Math.round(o.max ?? 24)));
+    const here = this.page.url();
+    // what to visit: the paths asked for, else the navigation of this page, then the navigation of what that reveals (two levels)
+    const queue: { href: string; name: string; depth: number }[] = [];
+    const queued = new Set<string>();
+    const enqueue = (href: string, name: string, depth: number) => {
+      let key: string;
+      try {
+        key = linkKey(href);
+      } catch {
+        return;
+      }
+      if (queued.has(key) || queue.length >= max) return;
+      queued.add(key);
+      queue.push({ href, name, depth });
+    };
+    queued.add(linkKey(here));
+    if (o.paths?.length)
+      for (const p of o.paths) enqueue(new URL(p, this.baseUrl).toString(), p, 1);
+    else for (const l of await collectNavLinks(this.page, origin)) enqueue(l.href, l.name, 1);
+    const pages: SurveyPage[] = [];
+    const files: string[] = [];
+    const concurrency = 3;
+    const visit = async (
+      item: { href: string; name: string; depth: number },
+      index: number,
+    ): Promise<SurveyPage> => {
+      const pth = (() => {
+        const u = new URL(item.href);
+        return `${u.pathname}${u.search}`;
+      })();
+      const started = Date.now();
+      let verdict: SafetyVerdict;
+      try {
+        verdict = this.gate(
+          { action: "goto", sameOrigin: new URL(item.href).origin === origin },
+          { url: item.href },
+        );
+      } catch (err) {
+        return {
+          screen: "",
+          url: item.href,
+          path: pth,
+          title: "",
+          status: "skipped",
+          note: (err as Error).message.split("\n")[0] ?? "blocked",
+        };
+      }
+      void verdict;
+      const tab = await this.session.context.newPage();
+      try {
+        await tab.goto(item.href, { waitUntil: "domcontentloaded", timeout: 15_000 });
+        await this.settlePage(tab, Math.min(1500, this.opts.settleMaxMs ?? 1500));
+        const title = await tab.title().catch(() => "");
+        const screenNo = ++this.screens;
+        this.surveyed++;
+        const screen = `${this.id}/s${String(screenNo).padStart(3, "0")}`;
+        const file = screen.split("/")[1] as string;
+        const jpeg = await tab.screenshot({ type: "jpeg", quality: 60, scale: "css" });
+        const raw = await tab
+          .locator("body")
+          .ariaSnapshot({ timeout: 3000 })
+          .catch(() => "");
+        for (const key of ariaTargets(raw)) this.seen.add(key);
+        fs.writeFileSync(path.join(this.dir, "screens", `${file}.jpg`), jpeg);
+        fs.writeFileSync(path.join(this.dir, "dom", `${file}.yaml`), raw);
+        files[index] = path.join(this.dir, "screens", `${file}.jpg`);
+        const url = tab.url();
+        // one scroll to the bottom: does the page load more? If so it is marked and the Director's own scrolls stay inside what loaded
+        let extendsInfo: SurveyPage["extends"];
+        const before = await measureExtent(tab);
+        if (before && before.scrollH > before.clientH * 1.3) {
+          await tab.mouse.move(
+            Math.round(this.opts.viewport.width / 2),
+            Math.round(this.opts.viewport.height / 2),
+          );
+          await tab.mouse.wheel(0, Math.round(before.clientH * 1.5));
+          await tab.waitForTimeout(700);
+          const after = await measureExtent(tab);
+          if (after && grew(before, after)) {
+            extendsInfo = { rows: after.rows - before.rows, px: after.scrollH - before.scrollH };
+            this.extension.set(this.keyOf(url), {
+              extends: true,
+              grewRows: extendsInfo.rows,
+              grewPx: extendsInfo.px,
+              knownH: after.scrollH,
+            });
+          }
+        }
+        if (!this.sitemap.has(url)) this.sitemap.set(url, { title, firstScreen: screen });
+        this.append("actions.jsonl", { kind: "look", screen, url, title, survey: true });
+        this.emit("discovery.look", {
+          screen,
+          url,
+          title,
+          media: `discovery/${this.id}/screens/${file}.jpg`,
+          budget: this.budget(),
+          message: `survey ${screen}${title ? ` “${title}”` : ""} · ${pathOf(url)}`,
+        });
+        // the second level: the navigation this page reveals (a section's own menu)
+        if (item.depth < 2 && !o.paths?.length)
+          for (const l of await collectNavLinks(tab, origin))
+            enqueue(l.href, l.name, item.depth + 1);
+        return {
+          screen,
+          url,
+          path: pth,
+          title,
+          outline: outlineOf(raw),
+          ...(extendsInfo ? { extends: extendsInfo } : {}),
+          status: "seen",
+          ms: Date.now() - started,
+        };
+      } catch (err) {
+        return {
+          screen: "",
+          url: item.href,
+          path: pth,
+          title: "",
+          status: "failed",
+          note: (err as Error).message.split("\n")[0] ?? "failed",
+          ms: Date.now() - started,
+        };
+      } finally {
+        await tab.close().catch(() => undefined);
+      }
+    };
+    // breadth first, a few tabs at a time; the queue grows as the pages reveal their own menus
+    let cursor = 0;
+    while (cursor < queue.length) {
+      const batch = queue.slice(cursor, cursor + concurrency);
+      const start = cursor;
+      cursor += batch.length;
+      const done = await Promise.all(batch.map((item, k) => visit(item, start + k)));
+      done.forEach((page, k) => {
+        pages[start + k] = page;
+      });
+    }
+    this.writeSitemap();
+    this.lastStep = `survey of ${pages.filter((p) => p.status === "seen").length} pages`;
+    this.emitProgress();
+    const seenFiles = files.filter((f): f is string => !!f);
+    const sheetFiles = await contactSheets(seenFiles, path.join(this.dir, "screens"), "survey");
+    return {
+      pages: pages.filter(Boolean),
+      sheets: sheetFiles.slice(0, 2).map((f) => fs.readFileSync(f)),
+      ms: Date.now() - t0,
+    };
+  }
+
   private async describe(target?: Target): Promise<ElementInfo | null> {
     if (target) {
       const locator = locate(this.page, target);
@@ -730,6 +927,20 @@ export class DiscoverySession {
     return (await this.page
       .evaluate(`(${describeElement.toString()})(document.activeElement)`)
       .catch(() => null)) as ElementInfo | null;
+  }
+
+  /** The page's address without the part that does not change what it shows. */
+  private pageKey(): string {
+    return this.keyOf(this.page.url());
+  }
+
+  private keyOf(url: string): string {
+    try {
+      const u = new URL(url);
+      return `${u.origin}${u.pathname}${u.search}`;
+    } catch {
+      return url;
+    }
   }
 
   /** Wait once for a target to be there (up to 8 s); a missing one fails here, with the message the Director knows. */
@@ -903,8 +1114,40 @@ export class DiscoverySession {
         }
         if (!dy) dy = Math.round(this.opts.viewport.height * 0.7);
         verdict = this.gate({ action: "scroll" }, { dy });
-        await this.cursor.scrollBy(dy);
-        note = `scrolled ${dy}px`;
+        // a list that loads more as you scroll may extend ONCE (that is enough to understand the page); after that a scroll stays inside what is loaded
+        const key = this.pageKey();
+        const state = this.extension.get(key);
+        const before = await measureExtent(this.page);
+        let todo = dy;
+        if (before && dy > 0) {
+          todo = allowedScroll(
+            state ?? { extends: false, grewRows: 0, grewPx: 0, knownH: 0 },
+            before,
+            dy,
+          );
+          if (todo <= 0) {
+            note =
+              before.nodes > NODE_CAP
+                ? `NOT scrolled: this page already holds ${before.nodes} elements, scrolling further would only bloat it. Use what you have, or filter or search instead.`
+                : `NOT scrolled: this page loads more rows as you scroll and it has already extended once (+${state?.grewRows ?? 0} rows), which is enough to understand it. Use what is loaded, or filter or search instead of scrolling on.`;
+            break;
+          }
+        }
+        await this.cursor.scrollBy(todo);
+        note = `scrolled ${todo}px${todo !== dy ? ` (of ${dy}: the rest would load more rows)` : ""}`;
+        if (before && dy > 0) {
+          await this.settle();
+          const after = await measureExtent(this.page);
+          if (after && !state?.extends && grew(before, after)) {
+            this.extension.set(key, {
+              extends: true,
+              grewRows: after.rows - before.rows,
+              grewPx: after.scrollH - before.scrollH,
+              knownH: after.scrollH,
+            });
+            note += ` — this page loads more as you scroll (+${after.rows - before.rows} rows, +${after.scrollH - before.scrollH} px): it extended once, which is enough to understand it; further scrolling down stays inside what is loaded`;
+          } else if (state?.extends && after) state.knownH = Math.max(state.knownH, before.scrollH);
+        }
         break;
       }
       case "goto": {

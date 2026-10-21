@@ -13,6 +13,7 @@ import { checkBeforeStart } from "../auth/session.ts";
 import { formatDiscoveryProgress } from "../discovery/progress.ts";
 import { pendingRequest, startRequest } from "../discovery/requests.ts";
 import { type ActParams, DiscoverySession, type LookResult } from "../discovery/session.ts";
+import { surveyLine } from "../discovery/survey.ts";
 import { contextWarning, visionWarning } from "../models.ts";
 import type { Runtime } from "../runtime.ts";
 import { appDir } from "../workdir/layout.ts";
@@ -41,10 +42,13 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
       "look: screenshot (source of truth) + aria digest with exact values and role/name targets; returns a screen id usable as a storyboard scene thumbnail. " +
       "act: click | hover | type | press | scroll | goto | back | wait, using storyboard target syntax ({role, name} preferred) — every action passes a safety check " +
       "(destructive/financial/sharing actions are blocked; state-changing ones are allowed but audited and shown to the user). " +
+      "survey: the ENGINE visits the app's navigation by itself (about 2 s a page, up to max pages, default 24; or only the given paths) and returns a contact sheet and one line per page (headings, rows, whether it loads more on scroll): do it once right after open and plan, then go deep only where it matters. Surveyed pages do not use the screen budget. " +
+      "act with steps: [...] runs up to 8 actions in ONE call (a route walk: goto, scroll, click …) and returns one look of where it ends: use it instead of one call per step. " +
+      "Every browser call has a deadline: a browser that does not answer is restarted on the same page and you are told. A list that loads more on scroll extends once, then scrolls stay inside what is loaded. " +
       'plan: right after the first look, declare the areas you will explore (areas: [...], with routes: {area: ["/path"]} so looks and actions are counted for the right area); progress is MEASURED from what you saw, so marking an area done (done: name) does not move it by itself. An area you will not explore is left out on purpose with drop + why. The storyboard is refused while a declared area was never seen or dropped. ' +
       "close: end the session. Budgets for screens/actions/minutes are enforced.",
     parameters: Type.Object({
-      action: StringEnum(["open", "look", "act", "plan", "close"] as const),
+      action: StringEnum(["open", "look", "act", "survey", "plan", "close"] as const),
       step: Type.Optional(
         StringEnum(["click", "hover", "type", "press", "scroll", "goto", "back", "wait"] as const, {
           description: "act: what to do",
@@ -96,6 +100,44 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
       ),
       look: Type.Optional(
         Type.Boolean({ description: "act: return a fresh look afterwards (default true)" }),
+      ),
+      steps: Type.Optional(
+        Type.Array(
+          Type.Object({
+            step: StringEnum(
+              ["click", "hover", "type", "press", "scroll", "goto", "back", "wait"] as const,
+              { description: "what to do" },
+            ),
+            target: Type.Optional(TargetSchema),
+            text: Type.Optional(Type.String()),
+            submit: Type.Optional(Type.Boolean()),
+            clear: Type.Optional(Type.Boolean()),
+            key: Type.Optional(Type.String()),
+            dy: Type.Optional(Type.Number()),
+            url: Type.Optional(Type.String()),
+            ms: Type.Optional(Type.Number()),
+          }),
+          {
+            maxItems: 8,
+            description:
+              "act: several actions in one call, in order (at most 8); it stops at the first one that fails and says which. One look of the end state follows (look: false for none)",
+          },
+        ),
+      ),
+      paths: Type.Optional(
+        Type.Array(Type.String(), {
+          description:
+            'survey: only these paths (e.g. ["/issues/", "/explore/traces/"]) instead of the navigation the page shows',
+        }),
+      ),
+      max: Type.Optional(
+        Type.Number({ description: "survey: at most this many pages (default 24, at most 60)" }),
+      ),
+      full_digest: Type.Optional(
+        Type.Boolean({
+          description:
+            "look / act: send the whole aria digest, including the navigation that has not changed since the last look (default: that is one line)",
+        }),
       ),
       full_page: Type.Optional(
         Type.Boolean({ description: "look: capture the full scrollable page" }),
@@ -175,39 +217,104 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
           const d = requireSession(rt);
           return result(
             lookContent(
-              await d.look(params.full_page ? { fullPage: true } : {}, signal),
+              await d.look(
+                {
+                  ...(params.full_page ? { fullPage: true } : {}),
+                  ...(params.full_digest ? { fullDigest: true } : {}),
+                },
+                signal,
+              ),
               progressLine(rt),
             ),
           );
         }
         case "act": {
           const d = requireSession(rt);
-          if (!params.step)
-            throw new Error(
-              "act needs step (click | hover | type | press | scroll | goto | back | wait)",
-            );
-          const target = toTarget(params.target);
-          const act: ActParams = { action: params.step };
-          if (target) act.target = target;
-          if (params.text !== undefined) act.text = params.text;
-          if (params.submit !== undefined) act.submit = params.submit;
-          if (params.clear !== undefined) act.clear = params.clear;
-          if (params.key !== undefined) act.key = params.key;
-          if (params.dy !== undefined) act.dy = params.dy;
-          if (params.url !== undefined) act.url = params.url;
-          if (params.ms !== undefined) act.ms = params.ms;
-          const r = await d.act(act, signal);
-          const summary =
+          const one = (x: {
+            step?: string;
+            target?: unknown;
+            text?: string;
+            submit?: boolean;
+            clear?: boolean;
+            key?: string;
+            dy?: number;
+            url?: string;
+            ms?: number;
+          }): ActParams => {
+            if (!x.step)
+              throw new Error(
+                "act needs step (click | hover | type | press | scroll | goto | back | wait)",
+              );
+            const target = toTarget(x.target as never);
+            const act: ActParams = { action: x.step as ActParams["action"] };
+            if (target) act.target = target;
+            if (x.text !== undefined) act.text = x.text;
+            if (x.submit !== undefined) act.submit = x.submit;
+            if (x.clear !== undefined) act.clear = x.clear;
+            if (x.key !== undefined) act.key = x.key;
+            if (x.dy !== undefined) act.dy = x.dy;
+            if (x.url !== undefined) act.url = x.url;
+            if (x.ms !== undefined) act.ms = x.ms;
+            return act;
+          };
+          const say = (r: Awaited<ReturnType<typeof d.act>>) =>
             `${r.action}: ${r.verdict.level.toUpperCase()}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` +
             `${r.urlChanged ? ` → navigated to ${r.url}` : ""}${r.note ? ` — ${r.note}` : ""}` +
             `${r.verifiedTarget ? `\nverified storyboard target: ${JSON.stringify(r.verifiedTarget)}` : ""}`;
+          const lookOpts = params.full_digest ? { fullDigest: true } : {};
+          if (params.steps?.length) {
+            // a route walk in one call: stops at the first step that fails and says which; one look of where it ended
+            const lines: string[] = [];
+            let failed = false;
+            for (const [i, x] of params.steps.slice(0, 8).entries()) {
+              try {
+                lines.push(`${i + 1}. ${say(await d.act(one(x), signal))}`);
+              } catch (err) {
+                lines.push(`${i + 1}. ${x.step} FAILED: ${(err as Error).message}`);
+                failed = true;
+                break;
+              }
+            }
+            const head = `${lines.length} of ${Math.min(params.steps.length, 8)} steps${failed ? " (stopped at the first failure)" : ""}:\n${lines.join("\n")}`;
+            if (params.look === false || d.isClosed) return result(head);
+            return result(
+              [text(head), ...lookContent(await d.look(lookOpts, signal), progressLine(rt))],
+              {},
+            );
+          }
+          const r = await d.act(one(params), signal);
+          const summary = say(r);
           if (params.look === false) return result(summary, { verdict: r.verdict });
           return result(
-            [text(summary), ...lookContent(await d.look({}, signal), progressLine(rt))],
-            {
-              verdict: r.verdict,
-            },
+            [text(summary), ...lookContent(await d.look(lookOpts, signal), progressLine(rt))],
+            { verdict: r.verdict },
           );
+        }
+        case "survey": {
+          const d = requireSession(rt);
+          const sv = await d.survey(
+            {
+              ...(params.paths?.length ? { paths: params.paths } : {}),
+              ...(params.max ? { max: params.max } : {}),
+            },
+            signal,
+          );
+          const seen = sv.pages.filter((p) => p.status === "seen");
+          const lines = sv.pages.map(surveyLine);
+          const extending = seen.filter((p) => p.extends).length;
+          const notSeen = sv.pages.length - seen.length;
+          const head = [
+            `survey: ${seen.length} page${seen.length === 1 ? "" : "s"} seen${notSeen ? `, ${notSeen} not (skipped or failed)` : ""} in ${(sv.ms / 1000).toFixed(1)} s${extending ? `; ${extending} load${extending === 1 ? "s" : ""} more on scroll and ${extending === 1 ? "was" : "were"} extended once` : ""}.`,
+            "These screens are in the log and the sitemap; they did not use the screen budget. Now choose the few pages that serve the brief and go deep there with look and act (steps: [...] walks a route in one call). Do not survey again.",
+          ].join("\n");
+          return result([
+            text(`${head}\n\n${lines.join("\n")}\n\n${progressLine(rt) ?? ""}`),
+            ...sv.sheets.map((j) => ({
+              type: "image" as const,
+              data: j.toString("base64"),
+              mimeType: "image/jpeg",
+            })),
+          ]);
         }
         case "plan": {
           const d = requireSession(rt);

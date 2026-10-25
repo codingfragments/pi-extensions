@@ -23,6 +23,9 @@ export class FakeDrive implements DriveClient {
   modifiedTimes = new Map<string, string>();
   /** Ids that should behave as inaccessible (simulates 404/trashed). */
   missing = new Set<string>();
+  /** Set to fire the rate-limit listener once when this name is created. */
+  rateLimitOn?: string;
+  private rateLimitListener?: () => void;
 
   private nextId(prefix: string): string {
     this.counter++;
@@ -43,6 +46,7 @@ export class FakeDrive implements DriveClient {
 
   async createEmptyDoc(name: string, parentId: string): Promise<DriveFile> {
     this.calls.push(`createEmptyDoc(${name},${parentId})`);
+    if (name === this.rateLimitOn) this.rateLimitListener?.();
     const file: FakeFile = {
       id: this.nextId("doc"),
       name,
@@ -115,5 +119,9 @@ export class FakeDrive implements DriveClient {
   /** Convenience for assertions. */
   contentOf(fileId: string): string {
     return this.files.get(fileId)?.content ?? "";
+  }
+
+  setRateLimitListener(listener: () => void): void {
+    this.rateLimitListener = listener;
   }
 }

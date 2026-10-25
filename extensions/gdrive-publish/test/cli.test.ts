@@ -31,7 +31,14 @@ afterEach(() => {
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-function run(args: string[]): { status: number; stdout: string; stderr: string } {
+function run(
+  args: string[],
+  envExtra: Record<string, string> = {},
+): {
+  status: number;
+  stdout: string;
+  stderr: string;
+} {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     encoding: "utf8",
     env: {
@@ -40,6 +47,7 @@ function run(args: string[]): { status: number; stdout: string; stderr: string }
       // Deterministic credentials that cannot be used against Google.
       GDRIVE_PUBLISH_CLIENT_ID: "test-client-id",
       GDRIVE_PUBLISH_CLIENT_SECRET: "test-secret",
+      ...envExtra,
     },
   });
   return {
@@ -492,4 +500,60 @@ test("secrets never appear in output", () => {
   seedManifest();
   const { stdout, stderr } = run(["status", tmp, "--json"]);
   assert.doesNotMatch(stdout + stderr, /test-secret/, "the client secret must never be printed");
+});
+
+// ---- concurrency knob (design: docs/parallel-publish.md) -------------------
+
+test("publish --concurrency out of range is a usage error (exit 2)", () => {
+  seedManifest();
+  write("doc.md", "# Doc\n");
+  const { status, stderr } = run(["publish", tmp, "--concurrency", "11"]);
+  assert.equal(status, 2);
+  assert.match(stderr, /--concurrency expects an integer between 1 and 10/);
+});
+
+test("publish --concurrency rejects non-integers (exit 2)", () => {
+  seedManifest();
+  write("doc.md", "# Doc\n");
+  assert.equal(run(["publish", tmp, "--concurrency", "2.5"]).status, 2);
+  assert.equal(run(["publish", tmp, "--concurrency", "fast"]).status, 2);
+});
+
+test("publish --concurrency in range is accepted (fails later at auth, not usage)", () => {
+  seedManifest();
+  write("doc.md", "# Doc\n");
+  // No cached token for the bogus env client: the run must get PAST flag
+  // validation and fail at authentication instead - proving the value parsed.
+  const { status, stderr } = run(["publish", tmp, "--concurrency", "5"]);
+  assert.equal(status, 1);
+  assert.match(stderr, /not authenticated/);
+});
+
+test("an invalid GDRIVE_PUBLISH_CONCURRENCY is a runtime error naming the env var", () => {
+  seedManifest();
+  write("doc.md", "# Doc\n");
+  const { status, stderr } = run(["publish", tmp], { GDRIVE_PUBLISH_CONCURRENCY: "42" });
+  assert.equal(status, 1);
+  assert.match(stderr, /GDRIVE_PUBLISH_CONCURRENCY must be an integer between 1 and 10/);
+});
+
+test("the flag beats the env var (env is ignored when --concurrency is given)", () => {
+  seedManifest();
+  write("doc.md", "# Doc\n");
+  // Invalid env + valid flag: the flag wins, so this reaches auth, not the
+  // env validation error.
+  const { status, stderr } = run(["publish", tmp, "--concurrency", "2"], {
+    GDRIVE_PUBLISH_CONCURRENCY: "banana",
+  });
+  assert.equal(status, 1);
+  assert.match(stderr, /not authenticated/);
+});
+
+test("an invalid concurrency in .gdrive-publish.json fails the publish", () => {
+  seedManifest();
+  write("doc.md", "# Doc\n");
+  write(".gdrive-publish.json", JSON.stringify({ concurrency: 99 }));
+  const { status, stderr } = run(["publish", tmp]);
+  assert.equal(status, 1);
+  assert.match(stderr, /concurrency.*integer between 1 and 10/);
 });

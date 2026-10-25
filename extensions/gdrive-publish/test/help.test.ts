@@ -120,7 +120,10 @@ test("an unknown flag is a usage error that lists the valid flags", () => {
     )) {
       void flag;
     }
-    assert.match(stderr, /valid: --dry-run --prune --repair --json --remote --help --version/);
+    assert.match(
+      stderr,
+      /valid: --dry-run --prune --repair --concurrency --json --remote --help --version/,
+    );
     assert.equal(
       fs.readFileSync(path.join(root, ".gdrive-manifest.json"), "utf8"),
       before,

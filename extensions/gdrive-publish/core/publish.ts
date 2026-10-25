@@ -11,13 +11,14 @@
  */
 
 import fs from "node:fs";
-import { derivePatterns } from "./config.ts";
+import { DEFAULT_CONCURRENCY, MAX_CONCURRENCY, derivePatterns } from "./config.ts";
 import { describeDialect, normaliseCsv } from "./csv.ts";
 import type { DriveClient } from "./drive.ts";
 import { DriveError } from "./drive.ts";
 import { classifyTarget, collectLinks } from "./links.ts";
 import * as manifestIo from "./manifest.ts";
 import { documentName, tabularName } from "./naming.ts";
+import { AdaptivePool } from "./pool.ts";
 import { prepareMarkdown } from "./prepare.ts";
 import { resolveRelative } from "./prepare.ts";
 import type { ResolvedTarget } from "./prepare.ts";
@@ -232,6 +233,12 @@ export interface PublishOptions {
   /** Recreate files whose Drive copy is gone (old shared URLs die). */
   repair?: boolean;
   /**
+   * Max parallel Drive requests for items and fills (1–MAX_CONCURRENCY).
+   * Default DEFAULT_CONCURRENCY; 1 is exactly the historical sequential
+   * behaviour. Folder creation and the phase barrier stay sequential.
+   */
+  concurrency?: number;
+  /**
    * Progress events, one per completed step. The CLI renders a bar (TTY) or
    * `[n/m]`-prefixed lines (piped); the extension shows status text.
    */
@@ -247,6 +254,19 @@ export interface PublishOptions {
 export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   const { root, drive, manifest, plan } = opts;
   const now = opts.now ?? (() => new Date());
+  // Bounded parallelism with adaptive throttling: the Drive client reports
+  // rate limits, the pool halves, surplus workers stop pulling. Folders and
+  // the phase-1/2 barrier stay sequential (design: docs/parallel-publish.md).
+  const requestedConcurrency = Math.min(
+    Math.max(Math.floor(opts.concurrency ?? DEFAULT_CONCURRENCY), 1),
+    MAX_CONCURRENCY,
+  );
+  const pool = new AdaptivePool(requestedConcurrency);
+  let rateLimitEvents = 0;
+  drive.setRateLimitListener?.(() => {
+    rateLimitEvents++;
+    pool.halve();
+  });
   // Step accounting: every meaningful operation increments once; payload
   // bytes are counted at each upload site. Totals are known upfront from the
   // plan, so the bar is determinate.
@@ -287,7 +307,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   const resolved = new Map<string, ResolvedTarget>();
   const toFill: { item: PlanItem; fileId: string }[] = [];
 
-  for (const item of plan.items) {
+  const reserveItem = async (item: PlanItem): Promise<void> => {
     const parentId = item.folder ? manifest.folders[item.folder] : manifest.rootFolderId;
     if (!parentId) throw new Error(`internal: folder "${item.folder}" missing after phase 1`);
 
@@ -311,7 +331,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
         });
         created++;
         step(`uploaded ${item.relPath}`, buf.length);
-        continue;
+        return;
       }
       if (item.kind === "markdown") {
         const shell = await drive.createEmptyDoc(item.name, parentId);
@@ -352,7 +372,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
         created++;
         step(`created sheet ${item.relPath}`, payloadBytes(media));
       }
-      continue;
+      return;
     }
 
     // update / unchanged: the id is already known
@@ -441,11 +461,11 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
           // and the CLI exit 3 with a complete report.
           step(`SKIPPED ${item.relPath} - Drive file gone; re-run with --repair`);
         }
-        continue;
+        return;
       }
       if (item.action === "unchanged") {
         step(`checked ${item.relPath}`);
-        continue;
+        return;
       }
       if (item.kind === "file") {
         const buf = fs.readFileSync(`${root}/${item.relPath}`);
@@ -459,7 +479,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
         }
         updated++;
         step(`updated ${item.relPath}`, buf.length);
-        continue;
+        return;
       }
       if (item.kind === "markdown") {
         step(`updating ${item.relPath}`);
@@ -478,7 +498,9 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
         step(`updated sheet ${item.relPath}`, payloadBytes(media));
       }
     }
-  }
+  };
+
+  await pool.run(plan.items, reserveItem);
 
   // Checkpoint: ids exist in Drive and are now recorded, pending fill.
   manifestIo.save(root, manifest);
@@ -486,7 +508,13 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   // ---- phase 2: rewrite links and fill content ---------------------------
   const scanned = scan(root);
   const known = new Set<string>([...scanned.files.map((f) => f.relPath), ...scanned.skipped]);
-  for (const { item, fileId } of toFill) {
+  const fillItem = async ({
+    item,
+    fileId,
+  }: {
+    item: PlanItem;
+    fileId: string;
+  }): Promise<void> => {
     const markdown = fs.readFileSync(`${root}/${item.relPath}`, "utf8");
     const prepared = prepareMarkdown({
       relPath: item.relPath,
@@ -498,7 +526,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     diagnostics.push(...prepared.diagnostics);
     if (prepared.diagnostics.some((d) => d.severity === "error")) {
       step(`SKIPPED ${item.relPath} (see errors)`);
-      continue;
+      return;
     }
     await drive.updateMedia(fileId, "text/markdown", prepared.content);
     const entry = manifest.entries[item.relPath];
@@ -513,7 +541,9 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     }
     if (item.action === "update") updated++;
     step(`published ${item.relPath}`, Buffer.byteLength(prepared.content, "utf8"));
-  }
+  };
+
+  await pool.run(toFill, fillItem);
 
   // ---- prune (opt-in, trash only) ----------------------------------------
   if (opts.prune) {
@@ -536,6 +566,11 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   }
 
   const manifestFile = manifestIo.save(root, manifest);
+  // Parallel completion order is meaningless to a reader: report by source
+  // path so any concurrency produces identical, diffable reports.
+  diagnostics.sort(
+    (a, b) => (a.relPath ?? "").localeCompare(b.relPath ?? "") || a.code.localeCompare(b.code),
+  );
   return {
     created,
     updated,
@@ -548,6 +583,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     diagnostics: dedupeDiagnostics(diagnostics),
     manifestPath: manifestFile,
     rootFolderUrl: folderUrl(manifest.rootFolderId),
+    concurrency: { requested: requestedConcurrency, effective: pool.limit, rateLimitEvents },
   };
 }
 

@@ -37,9 +37,12 @@ import {
 } from "./core/auth.ts";
 import {
   CONFIG_FILENAME,
+  DEFAULT_CONCURRENCY,
+  MAX_CONCURRENCY,
   cautionPatterns,
   loadConfig,
   mergePatterns,
+  parseConcurrency,
   saveConfig,
 } from "./core/config.ts";
 import { DriveError, RestDriveClient } from "./core/drive.ts";
@@ -84,6 +87,39 @@ function credentialsOrFail(args: Args): ReturnType<typeof resolveCredentials> {
     if (e instanceof AuthError) fail(1, e.message);
     throw e;
   }
+}
+
+/**
+ * Concurrency precedence: --concurrency flag > GDRIVE_PUBLISH_CONCURRENCY
+ * env > .gdrive-publish.json "concurrency" > default. Strict validation,
+ * each error names its layer (design: docs/parallel-publish.md).
+ */
+function resolveConcurrency(args: Args, env: NodeJS.ProcessEnv, configValue?: number): number {
+  const flagValue = args.options.get("concurrency");
+  if (flagValue !== undefined) {
+    const n = parseConcurrency(flagValue);
+    if (n === null) {
+      fail(
+        2,
+        `--concurrency expects an integer between 1 and ${MAX_CONCURRENCY} (got: ${flagValue})`,
+      );
+    }
+    return n;
+  }
+  const envValue = env.GDRIVE_PUBLISH_CONCURRENCY;
+  if (envValue !== undefined && envValue !== "") {
+    const n = parseConcurrency(envValue);
+    if (n === null) {
+      fail(
+        1,
+        `GDRIVE_PUBLISH_CONCURRENCY must be an integer between 1 and ${MAX_CONCURRENCY} (got: ${envValue})`,
+      );
+    }
+    return n;
+  }
+  // The config file was already strictly validated by loadConfig.
+  if (configValue !== undefined) return configValue;
+  return DEFAULT_CONCURRENCY;
 }
 
 async function cmdLogin(args: Args): Promise<void> {
@@ -208,13 +244,17 @@ function cmdPlan(args: Args): void {
           : "no unsupported files found - nothing to suggest\n",
       );
     } else {
-      const current = loadConfig(root)?.rawPatterns ?? [];
+      const existing = loadConfig(root);
+      const current = existing?.rawPatterns ?? [];
       const merged = mergePatterns(current, plan.rawSuggestion.patterns);
       const added = merged.filter((p) => !current.includes(p));
       if (added.length === 0) {
         process.stdout.write("config already covers all unsupported files - nothing added\n");
       } else {
-        configCreated = saveConfig(root, { rawPatterns: merged });
+        configCreated = saveConfig(root, {
+          rawPatterns: merged,
+          ...(existing?.concurrency !== undefined ? { concurrency: existing.concurrency } : {}),
+        });
         patternsAdded = added;
         manifest = manifestIo.load(root);
         plan = buildPlan({ root, manifest });
@@ -298,6 +338,16 @@ async function cmdPublish(args: Args): Promise<void> {
 
   const drive = new RestDriveClient(new CachedTokenProvider(creds));
 
+  // Concurrency knob: flag > env > config file > default (design:
+  // docs/parallel-publish.md). The config was strictly validated on load.
+  let configConcurrency: number | undefined;
+  try {
+    configConcurrency = loadConfig(root)?.concurrency;
+  } catch (e) {
+    fail(1, String(e instanceof Error ? e.message : e));
+  }
+  const concurrency = resolveConcurrency(args, process.env, configConcurrency);
+
   // Progress rendering: a live bar when stdout is a terminal (position,
   // elapsed, ETA, bytes - operation-based, since request latency dominates),
   // `[n/m]`-prefixed lines when piped, nothing in --json.
@@ -320,6 +370,7 @@ async function cmdPublish(args: Args): Promise<void> {
     plan,
     prune: args.flags.has("prune"),
     repair: args.flags.has("repair"),
+    concurrency,
     onProgress: json ? undefined : printer,
   });
   const elapsedMs = Date.now() - startedAt;

@@ -11,6 +11,34 @@ import { GOOGLE_DOC, GOOGLE_FOLDER } from "./types.ts";
 
 const API = "https://www.googleapis.com";
 
+/** Total fetch attempts per request (1 initial + 7 retries). */
+export const MAX_ATTEMPTS = 8;
+/** Ceiling for one backoff sleep (truncated exponential backoff). */
+export const MAX_BACKOFF_MS = 64_000;
+
+/**
+ * Truncated exponential backoff with jitter: 2^n seconds plus up to 1s of
+ * jitter, capped at MAX_BACKOFF_MS - Google's documented guidance for
+ * rate-limit responses. Pure and injectable so tests stay instant.
+ */
+export function backoffDelayMs(attempt: number, jitter: () => number = Math.random): number {
+  return Math.min(2 ** attempt * 1000 + Math.floor(jitter() * 1000), MAX_BACKOFF_MS);
+}
+
+/** Rate limits and transient server errors are worth retrying. */
+export function isRetryableStatus(status: number, reason: string): boolean {
+  if (status === 429) return true;
+  if (status === 403 && (reason === "rateLimitExceeded" || reason === "userRateLimitExceeded")) {
+    return true;
+  }
+  return status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+/** Only rate-limit responses count as throttling (not plain 5xx). */
+function isRateLimitStatus(status: number, reason: string): boolean {
+  return status === 429 || (status === 403 && isRetryableStatus(status, reason));
+}
+
 export interface DriveFile {
   id: string;
   name: string;
@@ -39,6 +67,12 @@ export interface DriveClient {
   get(fileId: string): Promise<DriveFile>;
   trash(fileId: string): Promise<void>;
   exportText(fileId: string, mimeType: string): Promise<string>;
+  /**
+   * Fired whenever Drive answers with a rate limit that is being retried
+   * (429 or 403 rateLimitExceeded). Optional: lets callers adapt (halve
+   * concurrency) without coupling to the REST client.
+   */
+  setRateLimitListener?(listener: () => void): void;
 }
 
 export class DriveError extends Error {
@@ -62,9 +96,18 @@ const FIELDS = "id,name,mimeType,parents,trashed,modifiedTime,lastModifyingUser"
 
 export class RestDriveClient implements DriveClient {
   private readonly tokens: TokenProvider;
+  private readonly sleep: (ms: number) => Promise<void>;
+  /** How often Drive answered with a rate limit that was retried. */
+  rateLimitEvents = 0;
+  private rateLimitListener?: () => void;
 
-  constructor(tokens: TokenProvider) {
+  constructor(tokens: TokenProvider, opts: { sleepMs?: (ms: number) => Promise<void> } = {}) {
     this.tokens = tokens;
+    this.sleep = opts.sleepMs ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  }
+
+  setRateLimitListener(listener: () => void): void {
+    this.rateLimitListener = listener;
   }
 
   private async request(
@@ -82,9 +125,14 @@ export class RestDriveClient implements DriveClient {
       headers["Content-Type"] = opts.contentType ?? "application/octet-stream";
       body = opts.body;
     }
-    const res = await fetch(url, { method, headers, body });
-    const text = await res.text();
-    if (!res.ok) {
+    // Truncated exponential backoff on rate limits and transient 5xx: a
+    // parallel publish provokes exactly these, and one 429 used to kill the
+    // whole run (design: docs/parallel-publish.md, slice 1).
+    let attempt = 0;
+    while (true) {
+      const res = await fetch(url, { method, headers, body });
+      const text = await res.text();
+      if (res.ok) return text === "" ? {} : JSON.parse(text);
       let reason = "";
       try {
         const parsed = JSON.parse(text) as { error?: { errors?: { reason?: string }[] } };
@@ -92,13 +140,21 @@ export class RestDriveClient implements DriveClient {
       } catch {
         // non-JSON error body
       }
+      if (attempt < MAX_ATTEMPTS - 1 && isRetryableStatus(res.status, reason)) {
+        if (isRateLimitStatus(res.status, reason)) {
+          this.rateLimitEvents++;
+          this.rateLimitListener?.();
+        }
+        await this.sleep(backoffDelayMs(attempt));
+        attempt++;
+        continue;
+      }
       throw new DriveError(
         `${method} ${url.replace(API, "")} -> ${res.status}${reason ? ` (${reason})` : ""}: ${text.slice(0, 300)}`,
         res.status,
         reason,
       );
     }
-    return text === "" ? {} : JSON.parse(text);
   }
 
   async createFolder(name: string, parentId?: string): Promise<DriveFile> {

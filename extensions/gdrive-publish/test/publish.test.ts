@@ -34,10 +34,18 @@ function freshManifest(): Manifest {
 async function run(
   root: string,
   manifest: Manifest,
-  opts: { prune?: boolean; repair?: boolean; drive?: FakeDrive; events?: ProgressEvent[] } = {},
+  opts: {
+    prune?: boolean;
+    repair?: boolean;
+    drive?: FakeDrive;
+    events?: ProgressEvent[];
+    concurrency?: number;
+    rateLimitOn?: string;
+  } = {},
 ) {
   const drive = opts.drive ?? new FakeDrive();
   drive.files.set("fldROOT", { id: "fldROOT", name: "Test Docs", mimeType: "folder" });
+  if (opts.rateLimitOn) drive.rateLimitOn = opts.rateLimitOn;
   const plan = buildPlan({ root, manifest });
   const summary = await publish({
     root,
@@ -46,6 +54,9 @@ async function run(
     plan,
     prune: opts.prune ?? false,
     repair: opts.repair ?? false,
+    // 1 pins the historical sequential order so existing call-sequence
+    // assertions stay deterministic; parallel behaviour has its own tests.
+    concurrency: opts.concurrency ?? 1,
     now: () => new Date("2024-01-01T00:00:00.000Z"),
     ...(opts.events ? { onProgress: (e: ProgressEvent) => opts.events?.push(e) } : {}),
   });
@@ -560,4 +571,107 @@ test("the manifest is written atomically, sorted and with pending cleared", asyn
     0,
     "no temp files left behind",
   );
+});
+
+// ---- parallel publish (design: docs/parallel-publish.md, slice 2) ---------
+
+test("parallel publish converges to the same manifest and content as sequential", async () => {
+  const files = {
+    "toc.md": "# TOC\n\nSee [the details](./details.md), [nested](./sub/nested.md).\n",
+    "details.md": "# Details\n\nBack to [toc](./toc.md).\n",
+    "sub/nested.md": "# Nested\n\nAlso [details](../details.md).\n",
+    "table.csv": "a,b\n1,2\n",
+    "raw.zip": "fake",
+  };
+  const seqRoot = fixture({
+    ...files,
+    ".gdrive-publish.json": JSON.stringify({ rawPatterns: ["*.zip"] }),
+  });
+  const parRoot = fixture({
+    ...files,
+    ".gdrive-publish.json": JSON.stringify({ rawPatterns: ["*.zip"] }),
+  });
+
+  const seqManifest = freshManifest();
+  const seq = await run(seqRoot, seqManifest);
+  const parManifest = freshManifest();
+  const par = await run(parRoot, parManifest, { concurrency: 4 });
+
+  // Same work happened: same op counts and the same multiset of Drive calls.
+  assert.equal(par.summary.created, seq.summary.created);
+  assert.equal(par.summary.updated, seq.summary.updated);
+  assert.deepEqual([...par.drive.calls].sort(), [...seq.drive.calls].sort());
+
+  // Same manifest identity per file: kind, name, hash, nothing left pending.
+  const shape = (m: Manifest) =>
+    Object.keys(m.entries)
+      .sort()
+      .map((k) => {
+        const e = m.entries[k] as {
+          kind: string;
+          name: string;
+          contentHash: string;
+          pending?: boolean;
+        };
+        return `${k}|${e.kind}|${e.name}|${e.contentHash ? "hashed" : "shell"}|${e.pending ?? false}`;
+      });
+  assert.deepEqual(shape(parManifest), shape(seqManifest));
+
+  // Same rendered content in Drive (match fake files by name, not by id).
+  const contents = (d: FakeDrive) =>
+    [...d.files.values()]
+      .filter((f) => f.content !== undefined && f.content !== "")
+      .map((f) => `${f.name}|${f.content}`)
+      .sort();
+  assert.deepEqual(contents(par.drive), contents(seq.drive));
+});
+
+test("the phase barrier holds under parallelism: all reservations before any fill", async () => {
+  const root = fixture({
+    "a.md": "# A\n\n[b](./b.md)\n",
+    "b.md": "# B\n\n[a](./a.md)\n",
+    "c.md": "# C\n\n[a](./a.md) [b](./b.md)\n",
+  });
+  const { drive } = await run(root, freshManifest(), { concurrency: 4 });
+  const shells = drive.calls.filter((c) => c.startsWith("createEmptyDoc")).length;
+  const firstFill = drive.calls.findIndex((c) => c.startsWith("updateMedia"));
+  // Phase 2 link rewriting needs every reserved id, so all shells must exist
+  // before the first fill - the barrier is load-bearing, not an optimization.
+  assert.ok(firstFill >= 0, "expected fills to run");
+  assert.equal(
+    drive.calls.slice(0, firstFill).filter((c) => !c.startsWith("createEmptyDoc")).length,
+    0,
+    `expected ${shells} shell creations before the first updateMedia`,
+  );
+});
+
+test("a Drive rate limit halves the pool and the run still completes", async () => {
+  const root = fixture({
+    "a.md": "# A\n\n[b](./b.md)\n",
+    "b.md": "# B\n\n[a](./a.md)\n",
+    "c.md": "# C\n",
+    "d.md": "# D\n",
+  });
+  const manifest = freshManifest();
+  const { summary } = await run(root, manifest, {
+    concurrency: 4,
+    rateLimitOn: "A", // fires the listener while reserving the first shell
+  });
+  assert.deepEqual(summary.concurrency, {
+    requested: 4,
+    effective: 2,
+    rateLimitEvents: 1,
+  });
+  // Throttling degrades, never stalls: every entry is filled, none pending.
+  assert.ok(
+    Object.values(manifest.entries).every((e) => !e.pending),
+    "all files published despite throttling",
+  );
+  assert.equal(summary.created, 4);
+});
+
+test("summary reports the requested concurrency even when nothing throttled", async () => {
+  const root = fixture({ "solo.md": "# Solo\n" });
+  const { summary } = await run(root, freshManifest(), { concurrency: 2 });
+  assert.deepEqual(summary.concurrency, { requested: 2, effective: 2, rateLimitEvents: 0 });
 });

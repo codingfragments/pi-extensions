@@ -67,6 +67,12 @@ export function renderSummary(summary: PublishSummary): string {
     `  ${summary.created} created, ${summary.updated} updated, ${summary.repaired} repaired, ` +
       `${summary.unchanged} unchanged, ${summary.pruned} pruned, ${summary.orphans} orphan(s) kept`,
   );
+  const c = summary.concurrency;
+  if (c && (c.effective !== c.requested || c.rateLimitEvents > 0)) {
+    lines.push(
+      `  concurrency: ${c.requested} → ${c.effective} (adaptive, ${c.rateLimitEvents} rate-limit event(s))`,
+    );
+  }
   const diag = renderDiagnostics(summary.diagnostics);
   if (diag) lines.push(diag);
   lines.push(`  folder: ${summary.rootFolderUrl}`);
@@ -97,6 +103,7 @@ export function summaryJson(summary: PublishSummary): unknown {
     orphans: summary.orphans,
     manifestPath: summary.manifestPath,
     rootFolderUrl: summary.rootFolderUrl,
+    concurrency: summary.concurrency ?? null,
     diagnostics: summary.diagnostics,
   };
 }

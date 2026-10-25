@@ -15,6 +15,7 @@ import {
   loadConfig,
   matchesPattern,
   mergePatterns,
+  parseConcurrency,
   saveConfig,
 } from "../core/config.ts";
 
@@ -94,4 +95,25 @@ test("mergePatterns unions, dedupes and never drops existing entries", () => {
 test("cautionPatterns flags credential-adjacent extensions", () => {
   const flagged = cautionPatterns(["*.zip", "*.env", "*.pem", "id_rsa", "*.yaml"]);
   assert.deepEqual(flagged, ["*.env", "*.pem", "id_rsa"]);
+});
+
+test("concurrency: accepted in the config file, round-trips through saveConfig", () => {
+  saveConfig(root, { rawPatterns: ["*.zip"], concurrency: 4 });
+  assert.equal(loadConfig(root)?.concurrency, 4);
+});
+
+test("concurrency: out-of-range or non-integer values are hard errors", () => {
+  for (const bad of [0, 11, 2.5, "3", null]) {
+    fs.writeFileSync(path.join(root, ".gdrive-publish.json"), JSON.stringify({ concurrency: bad }));
+    assert.throws(() => loadConfig(root), /concurrency.*integer between 1 and 10/);
+  }
+});
+
+test("parseConcurrency: strict 1–10 integers for flags and env", () => {
+  assert.equal(parseConcurrency("1"), 1);
+  assert.equal(parseConcurrency("10"), 10);
+  assert.equal(parseConcurrency("3"), 3);
+  for (const bad of ["0", "11", "2.5", "abc", "", "-1"]) {
+    assert.equal(parseConcurrency(bad), null, `expected null for ${JSON.stringify(bad)}`);
+  }
 });

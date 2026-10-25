@@ -268,6 +268,7 @@ publish to Drive; local content always wins
 | `--dry-run` | plan only; write nothing (same as `plan`) |
 | `--prune` | move orphaned Drive files to trash (never hard-deleted) |
 | `--repair` | recreate Drive files that are trashed or inaccessible; their old URLs die |
+| `--concurrency <n>` | max parallel Drive requests, 1–10 (default 3; 1 = sequential) |
 | `--json` | machine-readable output on stdout |
 | `--remote <name>` | rclone remote to take client credentials from |
 
@@ -281,6 +282,10 @@ gdrive-publish publish docs/ --dry-run
 
 ```
 gdrive-publish publish docs/ --prune
+```
+
+```
+gdrive-publish publish docs/ --concurrency 5
 ```
 
 ```
@@ -361,6 +366,7 @@ gdrive-publish help publish
 | `GDRIVE_PUBLISH_CLIENT_SECRET` | OAuth client secret |
 | `GDRIVE_PUBLISH_CLIENT_SECRET_FILE` | path to a Google client_secret.json |
 | `GDRIVE_PUBLISH_RCLONE_REMOTE` | rclone remote to borrow client credentials from |
+| `GDRIVE_PUBLISH_CONCURRENCY` | publish concurrency (1–10) when --concurrency is not given |
 
 ### Exit codes
 

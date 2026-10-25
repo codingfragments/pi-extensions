@@ -133,6 +133,8 @@ export interface PublishSummary {
   diagnostics: Diagnostic[];
   manifestPath: string;
   rootFolderUrl: string;
+  /** Concurrency used, after adaptive throttling (always set by publish). */
+  concurrency?: { requested: number; effective: number; rateLimitEvents: number };
 }
 
 export function driveUrl(kind: FileKind, fileId: string): string {

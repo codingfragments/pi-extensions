@@ -20,6 +20,23 @@ export const CONFIG_FILENAME = ".gdrive-publish.json";
 
 export interface PublishConfig {
   rawPatterns: string[];
+  /**
+   * Max parallel Drive requests for publish (1–10). Absent means the
+   * caller's default; the CLI resolves flag > env > this file > 3.
+   */
+  concurrency?: number;
+}
+
+/** Default concurrency: mid-band of Google's documented 2–5 recommendation. */
+export const DEFAULT_CONCURRENCY = 3;
+/** Hard ceiling: beyond this there is no throughput win, only 429 provocation. */
+export const MAX_CONCURRENCY = 10;
+
+/** Strict parse of a user-supplied concurrency value (flag or env). */
+export function parseConcurrency(value: string): number | null {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_CONCURRENCY) return null;
+  return n;
 }
 
 /** Extensions that look like credentials: covered only with a loud caution. */
@@ -84,9 +101,22 @@ export function loadConfig(root: string): PublishConfig | null {
   }
   const obj = raw as Record<string, unknown>;
   for (const key of Object.keys(obj)) {
-    if (key !== "rawPatterns") {
-      throw new Error(`${CONFIG_FILENAME}: unknown key "${key}" (only rawPatterns is supported)`);
+    if (key !== "rawPatterns" && key !== "concurrency") {
+      throw new Error(
+        `${CONFIG_FILENAME}: unknown key "${key}" (only rawPatterns and concurrency are supported)`,
+      );
     }
+  }
+  const concurrency = obj.concurrency;
+  if (
+    concurrency !== undefined &&
+    (!Number.isInteger(concurrency) ||
+      (concurrency as number) < 1 ||
+      (concurrency as number) > MAX_CONCURRENCY)
+  ) {
+    throw new Error(
+      `${CONFIG_FILENAME}: "concurrency" must be an integer between 1 and ${MAX_CONCURRENCY}`,
+    );
   }
   const patterns = obj.rawPatterns;
   if (
@@ -95,7 +125,10 @@ export function loadConfig(root: string): PublishConfig | null {
   ) {
     throw new Error(`${CONFIG_FILENAME}: rawPatterns must be an array of strings`);
   }
-  return { rawPatterns: (patterns as string[] | undefined) ?? [] };
+  return {
+    rawPatterns: (patterns as string[] | undefined) ?? [],
+    ...(concurrency !== undefined ? { concurrency: concurrency as number } : {}),
+  };
 }
 
 /** Atomic write (temp file + rename, same discipline as the manifest). */

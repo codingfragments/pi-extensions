@@ -52,6 +52,13 @@ const REMOTE_FLAG: FlagSpec = {
   valueLabel: "<name>",
 };
 
+const CONCURRENCY_FLAG: FlagSpec = {
+  name: "concurrency",
+  summary: "max parallel Drive requests, 1–10 (default 3; 1 = sequential)",
+  takesValue: true,
+  valueLabel: "<n>",
+};
+
 export const GLOBAL_FLAGS: FlagSpec[] = [
   { name: "help", summary: "show help for a command and exit" },
   { name: "version", summary: "print the version and exit" },
@@ -148,6 +155,10 @@ export const COMMANDS: CommandSpec[] = [
       "A file that is trashed or inaccessible in Drive is skipped with an error\n" +
       "unless --repair is given, which recreates it under a new id - any URL\n" +
       "previously shared for that file stops working.\n\n" +
+      "Items upload in parallel (bounded by --concurrency; folders stay\n" +
+      "sequential). Transient rate limits (429, 5xx) are retried with\n" +
+      "exponential backoff, and concurrency is halved automatically when\n" +
+      "Drive throttles.\n\n" +
       "Progress: a live bar (position, elapsed, ETA, bytes sent) when stdout is\n" +
       "a terminal; [n/m]-prefixed lines when piped; nothing in --json.",
     flags: [
@@ -160,6 +171,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "repair",
         summary: "recreate Drive files that are trashed or inaccessible; their old URLs die",
       },
+      CONCURRENCY_FLAG,
       JSON_FLAG,
       REMOTE_FLAG,
     ],
@@ -167,6 +179,7 @@ export const COMMANDS: CommandSpec[] = [
       `${BIN} publish docs/`,
       `${BIN} publish docs/ --dry-run`,
       `${BIN} publish docs/ --prune`,
+      `${BIN} publish docs/ --concurrency 5`,
       `${BIN} publish docs/ --json`,
     ],
   },
@@ -225,6 +238,7 @@ export const ENVIRONMENT: [string, string][] = [
   ["GDRIVE_PUBLISH_CLIENT_SECRET", "OAuth client secret"],
   ["GDRIVE_PUBLISH_CLIENT_SECRET_FILE", "path to a Google client_secret.json"],
   ["GDRIVE_PUBLISH_RCLONE_REMOTE", "rclone remote to borrow client credentials from"],
+  ["GDRIVE_PUBLISH_CONCURRENCY", "publish concurrency (1–10) when --concurrency is not given"],
 ];
 
 /**

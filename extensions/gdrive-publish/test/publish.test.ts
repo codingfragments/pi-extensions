@@ -628,7 +628,10 @@ test("each phase-1 reservation is checkpointed to disk immediately", async () =>
   drive.files.set("fldROOT", { id: "fldROOT", name: "Test Docs", mimeType: "folder" });
   drive.failNames.add(documentName("b.md", "# B\n")); // a.md is reserved first
 
-  let observed: Manifest | null = null;
+  // The `as` widening matters: the assignment happens inside the onProgress
+  // callback, which TS does not track, so a plain `null` initializer would
+  // keep this narrowed to null/never at the assertions below.
+  let observed: Manifest | null = null as Manifest | null;
   const plan = buildPlan({ root, manifest });
   await publish({
     root,

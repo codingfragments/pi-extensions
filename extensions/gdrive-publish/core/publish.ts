@@ -2,8 +2,11 @@
  * Planning (offline) and publishing (two-phase, Drive-facing).
  *
  * Phase 1 reserves ids: create folders, create empty Doc shells for markdown,
- * convert-upload tabular sources. The manifest is checkpointed here with
- * `pending` markers so a crash cannot leak unrecorded Docs (decision 20).
+ * convert-upload tabular sources. The manifest is checkpointed after every
+ * reservation (not just once after phase 1) so a crash cannot leak
+ * unrecorded Docs (decision 20). A Drive-side rejection of a single item is
+ * reported as a PUBLISH_FAILED error diagnostic and the run continues; only
+ * non-Drive failures (local fs, bugs) abort it.
  *
  * Phase 2 rewrites links against the now-known ids and fills content via
  * `files.update` + media, which keeps every fileId - and therefore every
@@ -249,7 +252,9 @@ export interface PublishOptions {
 
 /**
  * Execute a plan. Local content always wins; Drive-side modifications are
- * reported loudly but not merged (decision 3).
+ * reported loudly but not merged (decision 3). A Drive error on one item
+ * fails that item (PUBLISH_FAILED diagnostic, checkpointed manifest state)
+ * and the run continues so the report names every failed file.
  */
 export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   const { root, drive, manifest, plan } = opts;
@@ -291,6 +296,16 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
   let updated = 0;
   let repaired = 0;
   let pruned = 0;
+  let failed = 0;
+
+  // Checkpoint after every manifest mutation (atomic temp-file + rename in
+  // manifest.ts): a crash at any point can then never leak a Drive object
+  // the manifest does not record (decision 20 - previously guaranteed only
+  // "after phase 1", which a crash inside phase 1 violated). Also safe
+  // under the parallel pool: manifestIo.save is a synchronous atomic write.
+  const checkpoint = (): void => {
+    manifestIo.save(root, manifest);
+  };
 
   // ---- phase 1: folders + id reservation ---------------------------------
   for (const folder of plan.folders) {
@@ -301,6 +316,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     const name = folder.split("/").pop() as string;
     const made = await drive.createFolder(name, parentId);
     manifest.folders[folder] = made.id;
+    checkpoint();
     step(`created folder ${folder}`);
   }
 
@@ -311,199 +327,232 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     const parentId = item.folder ? manifest.folders[item.folder] : manifest.rootFolderId;
     if (!parentId) throw new Error(`internal: folder "${item.folder}" missing after phase 1`);
 
-    if (item.action === "create") {
-      if (item.kind === "file") {
-        const buf = fs.readFileSync(`${root}/${item.relPath}`);
-        const mime = rawMimeType(item.relPath);
-        const file = await drive.convertUpload(item.name, mime, mime, buf, parentId);
-        manifest.entries[item.relPath] = {
-          fileId: file.id,
-          kind: item.kind,
-          name: item.name,
-          url: driveUrl(item.kind, file.id),
-          contentHash: manifestIo.contentHash(buf),
-          publishedAt: now().toISOString(),
-        };
-        resolved.set(item.relPath, {
-          fileId: file.id,
-          url: driveUrl(item.kind, file.id),
-          kind: item.kind,
-        });
-        created++;
-        step(`uploaded ${item.relPath}`, buf.length);
-        return;
-      }
-      if (item.kind === "markdown") {
-        const shell = await drive.createEmptyDoc(item.name, parentId);
-        manifest.entries[item.relPath] = {
-          fileId: shell.id,
-          kind: item.kind,
-          name: item.name,
-          url: driveUrl(item.kind, shell.id),
-          contentHash: "",
-          publishedAt: now().toISOString(),
-          pending: true,
-        };
-        toFill.push({ item, fileId: shell.id });
-        resolved.set(item.relPath, {
-          fileId: shell.id,
-          url: driveUrl(item.kind, shell.id),
-          kind: item.kind,
-        });
-        created++;
-        step(`reserved Doc for ${item.relPath}`);
-      } else {
-        const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
-        if (note) diagnostics.push(note);
-        const file = await drive.convertUpload(item.name, GOOGLE_SHEET, mediaMime, media, parentId);
-        manifest.entries[item.relPath] = {
-          fileId: file.id,
-          kind: item.kind,
-          name: item.name,
-          url: driveUrl(item.kind, file.id),
-          contentHash: manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`)),
-          publishedAt: now().toISOString(),
-        };
-        resolved.set(item.relPath, {
-          fileId: file.id,
-          url: driveUrl(item.kind, file.id),
-          kind: item.kind,
-        });
-        created++;
-        step(`created sheet ${item.relPath}`, payloadBytes(media));
-      }
-      return;
-    }
-
-    // update / unchanged: the id is already known
-    const fileId = item.fileId as string;
-    resolved.set(item.relPath, { fileId, url: driveUrl(item.kind, fileId), kind: item.kind });
-    // Unchanged items are checked too: a trashed or inaccessible Drive file is
-    // a hard error regardless of whether the local source changed - the agreed
-    // contract is "dead id => error (or --repair)", not "error only if you
-    // also edited the file".
-    if (item.action === "update" || item.action === "unchanged") {
-      const divergence = await checkDivergence(drive, fileId, manifest, item.relPath);
-      if (divergence) diagnostics.push(divergence);
-      if (divergence?.code === "DRIVE_FILE_GONE") {
-        if (opts.repair) {
-          diagnostics.push({
-            code: "DRIVE_REPAIRED",
-            severity: "warn",
-            relPath: item.relPath,
-            message: `recreated ${item.relPath} - the old file (${fileId}) was gone, so previously shared URLs no longer work`,
+    // One item's Drive failure (a source Drive cannot convert, a quota or
+    // rate-limit rejection) must not abort the whole run: it becomes an
+    // error diagnostic naming the file, and every other item still
+    // publishes. The catch keeps the failure out of the pool, so sibling
+    // workers keep pulling; only non-Drive failures (local fs, bugs) abort.
+    try {
+      if (item.action === "create") {
+        if (item.kind === "file") {
+          const buf = fs.readFileSync(`${root}/${item.relPath}`);
+          const mime = rawMimeType(item.relPath);
+          const file = await drive.convertUpload(item.name, mime, mime, buf, parentId);
+          manifest.entries[item.relPath] = {
+            fileId: file.id,
+            kind: item.kind,
+            name: item.name,
+            url: driveUrl(item.kind, file.id),
+            contentHash: manifestIo.contentHash(buf),
+            publishedAt: now().toISOString(),
+          };
+          checkpoint();
+          resolved.set(item.relPath, {
+            fileId: file.id,
+            url: driveUrl(item.kind, file.id),
+            kind: item.kind,
           });
-          if (item.kind === "markdown") {
-            const shell = await drive.createEmptyDoc(item.name, parentId);
-            manifest.entries[item.relPath] = {
-              fileId: shell.id,
-              kind: item.kind,
-              name: item.name,
-              url: driveUrl(item.kind, shell.id),
-              contentHash: "",
-              publishedAt: now().toISOString(),
-              pending: true,
-            };
-            toFill.push({ item: { ...item, action: "create" }, fileId: shell.id });
-            resolved.set(item.relPath, {
-              fileId: shell.id,
-              url: driveUrl(item.kind, shell.id),
-              kind: item.kind,
-            });
-          } else if (item.kind === "file") {
-            const buf = fs.readFileSync(`${root}/${item.relPath}`);
-            const mime = rawMimeType(item.relPath);
-            const file = await drive.convertUpload(item.name, mime, mime, buf, parentId);
-            manifest.entries[item.relPath] = {
-              fileId: file.id,
-              kind: item.kind,
-              name: item.name,
-              url: driveUrl(item.kind, file.id),
-              contentHash: manifestIo.contentHash(buf),
-              publishedAt: now().toISOString(),
-            };
-            resolved.set(item.relPath, {
-              fileId: file.id,
-              url: driveUrl(item.kind, file.id),
-              kind: item.kind,
-            });
-            bytesSent += buf.length;
-          } else {
-            const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
-            if (note) diagnostics.push(note);
-            const file = await drive.convertUpload(
-              item.name,
-              GOOGLE_SHEET,
-              mediaMime,
-              media,
-              parentId,
-            );
-            bytesSent += payloadBytes(media);
-            manifest.entries[item.relPath] = {
-              fileId: file.id,
-              kind: item.kind,
-              name: item.name,
-              url: driveUrl(item.kind, file.id),
-              contentHash: manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`)),
-              publishedAt: now().toISOString(),
-            };
-            resolved.set(item.relPath, {
-              fileId: file.id,
-              url: driveUrl(item.kind, file.id),
-              kind: item.kind,
-            });
-          }
-          repaired++;
-          step(`repaired ${item.relPath}`);
+          created++;
+          step(`uploaded ${item.relPath}`, buf.length);
+          return;
+        }
+        if (item.kind === "markdown") {
+          const shell = await drive.createEmptyDoc(item.name, parentId);
+          manifest.entries[item.relPath] = {
+            fileId: shell.id,
+            kind: item.kind,
+            name: item.name,
+            url: driveUrl(item.kind, shell.id),
+            contentHash: "",
+            publishedAt: now().toISOString(),
+            pending: true,
+          };
+          checkpoint();
+          toFill.push({ item, fileId: shell.id });
+          resolved.set(item.relPath, {
+            fileId: shell.id,
+            url: driveUrl(item.kind, shell.id),
+            kind: item.kind,
+          });
+          created++;
+          step(`reserved Doc for ${item.relPath}`);
         } else {
-          // Leave the entry alone: the error diagnostic carries the guidance.
-          // Skipping instead of crashing on updateMedia lets the run finish
-          // and the CLI exit 3 with a complete report.
-          step(`SKIPPED ${item.relPath} - Drive file gone; re-run with --repair`);
+          const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
+          if (note) diagnostics.push(note);
+          const file = await drive.convertUpload(
+            item.name,
+            GOOGLE_SHEET,
+            mediaMime,
+            media,
+            parentId,
+          );
+          manifest.entries[item.relPath] = {
+            fileId: file.id,
+            kind: item.kind,
+            name: item.name,
+            url: driveUrl(item.kind, file.id),
+            contentHash: manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`)),
+            publishedAt: now().toISOString(),
+          };
+          checkpoint();
+          resolved.set(item.relPath, {
+            fileId: file.id,
+            url: driveUrl(item.kind, file.id),
+            kind: item.kind,
+          });
+          created++;
+          step(`created sheet ${item.relPath}`, payloadBytes(media));
         }
         return;
       }
-      if (item.action === "unchanged") {
-        step(`checked ${item.relPath}`);
-        return;
-      }
-      if (item.kind === "file") {
-        const buf = fs.readFileSync(`${root}/${item.relPath}`);
-        const mime = rawMimeType(item.relPath);
-        await drive.updateMedia(fileId, mime, buf);
-        const entry = manifest.entries[item.relPath];
-        if (entry) {
-          entry.name = item.name;
-          entry.contentHash = manifestIo.contentHash(buf);
-          entry.publishedAt = now().toISOString();
+
+      // update / unchanged: the id is already known
+      const fileId = item.fileId as string;
+      resolved.set(item.relPath, { fileId, url: driveUrl(item.kind, fileId), kind: item.kind });
+      // Unchanged items are checked too: a trashed or inaccessible Drive file is
+      // a hard error regardless of whether the local source changed - the agreed
+      // contract is "dead id => error (or --repair)", not "error only if you
+      // also edited the file".
+      if (item.action === "update" || item.action === "unchanged") {
+        const divergence = await checkDivergence(drive, fileId, manifest, item.relPath);
+        if (divergence) diagnostics.push(divergence);
+        if (divergence?.code === "DRIVE_FILE_GONE") {
+          if (opts.repair) {
+            // Recreate first, report after: a repair that itself fails is a
+            // PUBLISH_FAILED error, never a "repaired" claim.
+            if (item.kind === "markdown") {
+              const shell = await drive.createEmptyDoc(item.name, parentId);
+              manifest.entries[item.relPath] = {
+                fileId: shell.id,
+                kind: item.kind,
+                name: item.name,
+                url: driveUrl(item.kind, shell.id),
+                contentHash: "",
+                publishedAt: now().toISOString(),
+                pending: true,
+              };
+              checkpoint();
+              toFill.push({ item: { ...item, action: "create" }, fileId: shell.id });
+              resolved.set(item.relPath, {
+                fileId: shell.id,
+                url: driveUrl(item.kind, shell.id),
+                kind: item.kind,
+              });
+            } else if (item.kind === "file") {
+              const buf = fs.readFileSync(`${root}/${item.relPath}`);
+              const mime = rawMimeType(item.relPath);
+              const file = await drive.convertUpload(item.name, mime, mime, buf, parentId);
+              manifest.entries[item.relPath] = {
+                fileId: file.id,
+                kind: item.kind,
+                name: item.name,
+                url: driveUrl(item.kind, file.id),
+                contentHash: manifestIo.contentHash(buf),
+                publishedAt: now().toISOString(),
+              };
+              checkpoint();
+              resolved.set(item.relPath, {
+                fileId: file.id,
+                url: driveUrl(item.kind, file.id),
+                kind: item.kind,
+              });
+              bytesSent += buf.length;
+            } else {
+              const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
+              if (note) diagnostics.push(note);
+              const file = await drive.convertUpload(
+                item.name,
+                GOOGLE_SHEET,
+                mediaMime,
+                media,
+                parentId,
+              );
+              bytesSent += payloadBytes(media);
+              manifest.entries[item.relPath] = {
+                fileId: file.id,
+                kind: item.kind,
+                name: item.name,
+                url: driveUrl(item.kind, file.id),
+                contentHash: manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`)),
+                publishedAt: now().toISOString(),
+              };
+              checkpoint();
+              resolved.set(item.relPath, {
+                fileId: file.id,
+                url: driveUrl(item.kind, file.id),
+                kind: item.kind,
+              });
+            }
+            diagnostics.push({
+              code: "DRIVE_REPAIRED",
+              severity: "warn",
+              relPath: item.relPath,
+              message: `recreated ${item.relPath} - the old file (${fileId}) was gone, so previously shared URLs no longer work`,
+            });
+            repaired++;
+            step(`repaired ${item.relPath}`);
+          } else {
+            // Leave the entry alone: the error diagnostic carries the guidance.
+            // Skipping instead of crashing on updateMedia lets the run finish
+            // and the CLI exit 3 with a complete report.
+            step(`SKIPPED ${item.relPath} - Drive file gone; re-run with --repair`);
+          }
+          return;
         }
-        updated++;
-        step(`updated ${item.relPath}`, buf.length);
-        return;
-      }
-      if (item.kind === "markdown") {
-        step(`updating ${item.relPath}`);
-        toFill.push({ item, fileId });
-      } else {
-        const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
-        if (note) diagnostics.push(note);
-        await drive.updateMedia(fileId, mediaMime, media);
-        const entry = manifest.entries[item.relPath];
-        if (entry) {
-          entry.name = item.name;
-          entry.contentHash = manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`));
-          entry.publishedAt = now().toISOString();
+        if (item.action === "unchanged") {
+          step(`checked ${item.relPath}`);
+          return;
         }
-        updated++;
-        step(`updated sheet ${item.relPath}`, payloadBytes(media));
+        if (item.kind === "file") {
+          const buf = fs.readFileSync(`${root}/${item.relPath}`);
+          const mime = rawMimeType(item.relPath);
+          await drive.updateMedia(fileId, mime, buf);
+          const entry = manifest.entries[item.relPath];
+          if (entry) {
+            entry.name = item.name;
+            entry.contentHash = manifestIo.contentHash(buf);
+            entry.publishedAt = now().toISOString();
+          }
+          checkpoint();
+          updated++;
+          step(`updated ${item.relPath}`, buf.length);
+          return;
+        }
+        if (item.kind === "markdown") {
+          step(`updating ${item.relPath}`);
+          toFill.push({ item, fileId });
+        } else {
+          const { media, mediaMime, note } = tabularPayload(root, item.relPath, item.kind);
+          if (note) diagnostics.push(note);
+          await drive.updateMedia(fileId, mediaMime, media);
+          const entry = manifest.entries[item.relPath];
+          if (entry) {
+            entry.name = item.name;
+            entry.contentHash = manifestIo.contentHash(fs.readFileSync(`${root}/${item.relPath}`));
+            entry.publishedAt = now().toISOString();
+          }
+          checkpoint();
+          updated++;
+          step(`updated sheet ${item.relPath}`, payloadBytes(media));
+        }
       }
+    } catch (e) {
+      if (!(e instanceof DriveError)) throw e;
+      // Non-Drive errors (local fs, bugs) still abort the run; only Drive's
+      // rejection of one item is a per-item failure. The pool never sees
+      // this, so sibling items keep publishing in parallel.
+      diagnostics.push({
+        code: "PUBLISH_FAILED",
+        severity: "error",
+        relPath: item.relPath,
+        message: `Drive rejected this file: ${e.message.slice(0, 200)}`,
+      });
+      failed++;
+      step(`SKIPPED ${item.relPath} - publish failed (see report)`);
     }
   };
 
   await pool.run(plan.items, reserveItem);
-
-  // Checkpoint: ids exist in Drive and are now recorded, pending fill.
-  manifestIo.save(root, manifest);
 
   // ---- phase 2: rewrite links and fill content ---------------------------
   const scanned = scan(root);
@@ -528,7 +577,23 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
       step(`SKIPPED ${item.relPath} (see errors)`);
       return;
     }
-    await drive.updateMedia(fileId, "text/markdown", prepared.content);
+    try {
+      await drive.updateMedia(fileId, "text/markdown", prepared.content);
+    } catch (e) {
+      // A failed fill leaves the entry exactly as checkpointed: a `pending`
+      // shell (create) or an update whose hash never advanced, so the next
+      // run fills this Doc instead of creating a duplicate.
+      if (!(e instanceof DriveError)) throw e;
+      diagnostics.push({
+        code: "PUBLISH_FAILED",
+        severity: "error",
+        relPath: item.relPath,
+        message: `Drive rejected this document's content: ${e.message.slice(0, 200)}`,
+      });
+      failed++;
+      step(`SKIPPED ${item.relPath} - publish failed (see report)`);
+      return;
+    }
     const entry = manifest.entries[item.relPath];
     if (entry) {
       entry.name = item.name;
@@ -539,6 +604,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
       // biome-ignore lint/performance/noDelete: see comment above
       delete entry.pending;
     }
+    checkpoint();
     if (item.action === "update") updated++;
     step(`published ${item.relPath}`, Buffer.byteLength(prepared.content, "utf8"));
   };
@@ -552,6 +618,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
         await drive.trash(orphan.fileId);
         // A pruned entry must not survive as an undefined-valued key.
         delete manifest.entries[orphan.relPath];
+        checkpoint();
         pruned++;
         step(`trashed ${orphan.relPath}`);
       } catch (e) {
@@ -575,6 +642,7 @@ export async function publish(opts: PublishOptions): Promise<PublishSummary> {
     created,
     updated,
     repaired,
+    failed,
     unchanged: plan.items.filter((i) => i.action === "unchanged").length,
     pruned,
     orphans: plan.orphans.length - pruned,

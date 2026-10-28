@@ -42,6 +42,19 @@ function write(rel: string, content: string | Buffer): void {
 // scan.ts
 // ---------------------------------------------------------------------------
 
+test("Office lock files (~$foo.xlsx) are ignored silently", () => {
+  write("report.xlsx", "x");
+  // `~$` files exist exactly while the real workbook is open in Excel and
+  // are never content - they must not be published, skipped or warned about.
+  write("~$report.xlsx", Buffer.from("lock file, not a spreadsheet"));
+  const result = scan(root);
+  assert.deepEqual(
+    result.files.map((f) => f.relPath),
+    ["report.xlsx"],
+  );
+  assert.deepEqual(result.skipped, [], "not reported as unsupported either");
+});
+
 test("classify maps extensions to kinds", () => {
   assert.equal(classify("a.md"), "markdown");
   assert.equal(classify("a.markdown"), "markdown");

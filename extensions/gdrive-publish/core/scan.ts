@@ -117,6 +117,11 @@ export function scan(root: string, opts?: ScanOptions): ScanResult {
   const walk = (dir: string, rel: string): void => {
     const entries = fs.readdirSync(path.join(root, dir), { withFileTypes: true });
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      // Office lock files (`~$workbook.xlsx`, ~2 KB of who-has-it-open
+      // bookkeeping, never content) are dropped silently, like hidden
+      // files: they exist exactly while the real file is being edited, and
+      // "ignoring" must not depend on whether the editor is still open.
+      if (entry.name.startsWith("~$")) continue;
       if (entry.name.startsWith(".") && entry.name !== MANIFEST_FILENAME) {
         // Hidden files/directories are not published (manifest handled separately).
         if (entry.isDirectory()) continue;

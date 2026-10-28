@@ -41,11 +41,15 @@ async function run(
     events?: ProgressEvent[];
     concurrency?: number;
     rateLimitOn?: string;
+    failNames?: string[];
+    failFileIds?: string[];
   } = {},
 ) {
   const drive = opts.drive ?? new FakeDrive();
   drive.files.set("fldROOT", { id: "fldROOT", name: "Test Docs", mimeType: "folder" });
   if (opts.rateLimitOn) drive.rateLimitOn = opts.rateLimitOn;
+  if (opts.failNames) for (const n of opts.failNames) drive.failNames.add(n);
+  if (opts.failFileIds) for (const id of opts.failFileIds) drive.failFileIds.add(id);
   const plan = buildPlan({ root, manifest });
   const summary = await publish({
     root,
@@ -674,4 +678,108 @@ test("summary reports the requested concurrency even when nothing throttled", as
   const root = fixture({ "solo.md": "# Solo\n" });
   const { summary } = await run(root, freshManifest(), { concurrency: 2 });
   assert.deepEqual(summary.concurrency, { requested: 2, effective: 2, rateLimitEvents: 0 });
+});
+
+// ---- per-item failure isolation (recreated on the parallel publish) --------
+
+test("a Drive-side rejection fails that item, not the run", async () => {
+  const root = fixture({
+    "bad.md": "# Bad\n\nnobody references this\n",
+    "good.md": "# Good\n\nsee [bad](./bad.md)\n",
+  });
+  const manifest = freshManifest();
+  const { drive, summary } = await run(root, manifest, {
+    concurrency: 4,
+    failNames: ["Bad"], // rejected when reserving the Doc shell
+  });
+  assert.equal(summary.failed, 1);
+  const failure = summary.diagnostics.find((d) => d.code === "PUBLISH_FAILED");
+  assert.ok(failure, "expected a PUBLISH_FAILED error");
+  assert.equal(failure.relPath, "bad.md", "the diagnostic names the file");
+  assert.match(failure.message, /fake drive: rejected/, "the reason is carried");
+  assert.equal(summary.created, 1, "the sibling still published");
+  const goodId = manifest.entries["good.md"]?.fileId;
+  assert.ok(goodId);
+  assert.match(drive.contentOf(goodId), /see \[bad\]/, "link left verbatim");
+  assert.ok(!manifest.entries["bad.md"], "no manifest entry for the failed item");
+  assert.ok(
+    !Object.values(manifest.entries).some((e) => e.pending),
+    "nothing left pending: the failed create recorded nothing",
+  );
+});
+
+test("under parallelism a rejected item never stops its siblings", async () => {
+  const files = Object.fromEntries(
+    ["a", "b", "c", "d", "e", "f"].map((n) => [`${n}.md`, `# ${n.toUpperCase()}\n`]),
+  );
+  const root = fixture(files);
+  const manifest = freshManifest();
+  const { summary } = await run(root, manifest, {
+    concurrency: 4,
+    failNames: ["C"], // mid-batch rejection
+  });
+  assert.equal(summary.created, 5, "five of six published");
+  assert.equal(summary.failed, 1);
+  assert.equal(Object.keys(manifest.entries).length, 5);
+});
+
+test("a rejected fill keeps the Doc pending and the next run fills it in place", async () => {
+  const root = fixture({ "a.md": "# A\ncontent\n" });
+  const manifest = freshManifest();
+  const drive = new FakeDrive();
+  const first = await run(root, manifest, {
+    drive,
+    concurrency: 1,
+    failFileIds: ["doc0001"], // the first reserved shell's fill is rejected
+  });
+  assert.equal(first.summary.failed, 1);
+  assert.deepEqual(manifestIo.pendingEntries(manifest), ["a.md"], "entry stays pending");
+  assert.equal(manifest.entries["a.md"]?.fileId, "doc0001");
+  assert.equal(drive.contentOf("doc0001"), "", "shell exists but was never filled");
+
+  // The Drive-side fault was transient: the next run's fill must succeed.
+  drive.failFileIds.clear();
+  const second = await run(root, manifest, { drive, concurrency: 1 });
+  assert.equal(second.summary.failed, 0);
+  // Same id - the resume filled the existing shell instead of duplicating.
+  assert.equal(manifest.entries["a.md"]?.fileId, "doc0001");
+  assert.match(drive.contentOf("doc0001"), /content/);
+  assert.equal(manifestIo.pendingEntries(manifest).length, 0);
+});
+
+test("each phase-1 reservation is checkpointed to disk immediately", async () => {
+  const root = fixture({ "a.md": "# A\n", "b.md": "# B\n" });
+  const manifest = freshManifest();
+  const drive = new FakeDrive();
+  drive.failNames.add("B"); // b.md's reservation is rejected by Drive
+  // The `as` widening matters: the assignment happens inside the onProgress
+  // callback, which TS does not track, so a plain `null` initializer would
+  // keep this narrowed to null/never at the assertions below.
+  let observed: Manifest | null = null as Manifest | null;
+  const plan = buildPlan({ root, manifest });
+  await publish({
+    root,
+    drive,
+    manifest,
+    plan,
+    prune: false,
+    repair: false,
+    concurrency: 1,
+    now: () => new Date("2024-01-01T00:00:00.000Z"),
+    onProgress: (e) => {
+      if (e.label === "reserved Doc for a.md" && !observed) {
+        observed = manifestIo.load(root);
+      }
+    },
+  });
+
+  assert.ok(observed, "expected to observe the manifest after a.md's reservation");
+  assert.ok(
+    observed.entries["a.md"]?.pending,
+    "a.md hit the disk as pending before b.md was even attempted",
+  );
+  assert.ok(!observed.entries["b.md"]);
+  const final = manifestIo.load(root) as Manifest;
+  assert.ok(!final.entries["b.md"], "b.md never recorded (its create failed)");
+  assert.ok(final.entries["a.md"], "a.md survived the run on disk");
 });

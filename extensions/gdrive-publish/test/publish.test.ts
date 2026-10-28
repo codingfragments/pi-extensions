@@ -783,3 +783,58 @@ test("each phase-1 reservation is checkpointed to disk immediately", async () =>
   assert.ok(!final.entries["b.md"], "b.md never recorded (its create failed)");
   assert.ok(final.entries["a.md"], "a.md survived the run on disk");
 });
+
+// ---- ignorePatterns interplay ------------------------------------------------
+
+test("ignored content never publishes, in a full parallel run", async () => {
+  const root = fixture({
+    "toc.md": "# Toc\n",
+    "_drafts/old.md": "# Old draft\n",
+    "sub/_tmp/note.md": "# Note\n",
+    ".gdrive-publish.json": JSON.stringify({ ignorePatterns: ["_*"] }),
+  });
+  const manifest = freshManifest();
+  const { summary, drive } = await run(root, manifest, { concurrency: 4 });
+  assert.equal(summary.created, 1, "only toc.md");
+  assert.deepEqual(Object.keys(manifest.entries), ["toc.md"]);
+  assert.equal(
+    drive.calls.filter((c) => c.startsWith("createEmptyDoc")).length,
+    1,
+    "exactly one Doc shell was ever reserved",
+  );
+});
+
+test("a previously published file that falls under a pattern becomes an orphan", async () => {
+  const root = fixture({
+    "toc.md": "# Toc\n",
+    "_drafts/old.md": "# Old draft\n",
+    ".gdrive-publish.json": JSON.stringify({ ignorePatterns: ["_*"] }),
+  });
+  const manifest = freshManifest();
+  // old.md was published in a previous run, before the ignore existed.
+  manifest.entries["_drafts/old.md"] = {
+    fileId: "docOLD",
+    kind: "markdown",
+    name: "Old draft",
+    url: "https://docs.google.com/document/d/docOLD/edit",
+    contentHash: "deadbeef",
+    publishedAt: "2023-01-01T00:00:00.000Z",
+  };
+  const plan = buildPlan({ root, manifest });
+  assert.ok(
+    plan.orphans.some((o) => o.relPath === "_drafts/old.md"),
+    "the ignored file is a visible orphan",
+  );
+
+  // The old Doc must exist in Drive for the prune to trash it.
+  const drive = new FakeDrive();
+  drive.files.set("docOLD", {
+    id: "docOLD",
+    name: "Old draft",
+    mimeType: "application/vnd.google-apps.document",
+  });
+  const { summary } = await run(root, manifest, { drive, prune: true, concurrency: 2 });
+  assert.equal(summary.pruned, 1, "the orphan left Drive via the explicit prune");
+  assert.ok(!manifest.entries["_drafts/old.md"], "and its manifest entry is gone");
+  assert.ok(drive.files.get("docOLD")?.trashed, "trashed, never hard-deleted");
+});

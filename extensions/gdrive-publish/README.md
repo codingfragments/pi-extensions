@@ -114,6 +114,27 @@ Every command except `login` is fully non-interactive and scriptable from CI
 and git hooks. The task-oriented guide (first publish, day-two workflows,
 troubleshooting) is the [manual](MANUAL.md).
 
+## Ignoring content (opt-out)
+
+`ignorePatterns` in the same `.gdrive-publish.json` excludes content from
+publishing altogether:
+
+```json
+{ "ignorePatterns": ["_*", "secrets.md", "drafts/**"] }
+```
+
+The same glob engine as `rawPatterns`, but inverted: a matching file never
+publishes - **including native types** (`secrets.md` is genuinely excluded,
+not published) and never warns as unsupported. A matching directory is
+pruned whole - its subtree is never even walked, so `_*` cleanly excludes
+underscore trees like `_drafts/` at any depth. Ignored is stronger than
+raw: an ignored file never uploads as a raw file either.
+
+Files that were published *before* falling under a pattern become
+**orphans**: `plan` reports them, and they leave Drive only through an
+explicit `publish --prune` (trash, like any orphan) - nothing disappears
+silently.
+
 ## Raw uploads (opt-in)
 
 Files whose type has no native Drive conversion (no `markdown`→Doc, no

@@ -390,3 +390,59 @@ test("analyzeOnly still measures the payload accurately enough to trip the cap",
     `estimate ${analyzed.payloadBytes} vs real ${real.payloadBytes}`,
   );
 });
+
+// ---- ignorePatterns ---------------------------------------------------------
+
+test("a basename pattern ignores matching directories at any depth, whole subtree", () => {
+  write("keep.md", "# Keep");
+  write("_drafts/old.md", "# Old");
+  write("sub/keep.md", "# Sub");
+  write("sub/_secret/hidden.md", "# Hidden");
+  const result = scan(root, { ignorePatterns: ["_*"] });
+  assert.deepEqual(
+    result.files.map((f) => f.relPath).sort(),
+    ["keep.md", "sub/keep.md"],
+    "underscore subtrees gone at both depths, the rest untouched",
+  );
+  assert.deepEqual(result.skipped, [], "ignored content never warns as unsupported");
+});
+
+test("ignorePatterns suppress native types, not just unsupported files", () => {
+  write("toc.md", "# Toc");
+  write("secret.md", "# Secret");
+  write("data.csv", "a,b\n");
+  const result = scan(root, { ignorePatterns: ["secret.md", "data.csv"] });
+  assert.deepEqual(
+    result.files.map((f) => f.relPath),
+    ["toc.md"],
+  );
+});
+
+test("ignore beats raw: an ignored file never uploads as raw either", () => {
+  write("a.log", "x");
+  write("special.log", "x");
+  const result = scan(root, { rawPatterns: ["*.log"], ignorePatterns: ["special.log"] });
+  const rels = result.files.map((f) => f.relPath);
+  assert.deepEqual(rels, ["a.log"], "special.log is gone entirely, not claimed as raw");
+  assert.ok(result.files[0]?.kind === "file", "a.log still claims its raw upload");
+});
+
+test("a slash pattern is anchored to the publish root", () => {
+  write("data/x.md", "# X");
+  write("sub/data/x.md", "# X sub");
+  const result = scan(root, { ignorePatterns: ["data/**"] });
+  assert.deepEqual(
+    result.files.map((f) => f.relPath),
+    ["sub/data/x.md"],
+  );
+});
+
+test("ignorePatterns are read from .gdrive-publish.json when not overridden", () => {
+  write("_drafts/a.md", "# A");
+  write("keep.md", "# K");
+  write(".gdrive-publish.json", JSON.stringify({ ignorePatterns: ["_*"] }));
+  assert.deepEqual(
+    scan(root).files.map((f) => f.relPath),
+    ["keep.md"],
+  );
+});

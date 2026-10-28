@@ -253,6 +253,9 @@ function cmdPlan(args: Args): void {
       } else {
         configCreated = saveConfig(root, {
           rawPatterns: merged,
+          ...(existing?.ignorePatterns !== undefined
+            ? { ignorePatterns: existing.ignorePatterns }
+            : {}),
           ...(existing?.concurrency !== undefined ? { concurrency: existing.concurrency } : {}),
         });
         patternsAdded = added;

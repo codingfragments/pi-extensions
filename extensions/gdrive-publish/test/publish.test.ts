@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import * as manifestIo from "../core/manifest.ts";
+import { documentName } from "../core/naming.ts";
 import type { ProgressEvent } from "../core/progress.ts";
 import { buildPlan, publish } from "../core/publish.ts";
 import type { Manifest } from "../core/types.ts";
@@ -560,4 +561,97 @@ test("the manifest is written atomically, sorted and with pending cleared", asyn
     0,
     "no temp files left behind",
   );
+});
+
+// ---------------------------------------------------------------------------
+// per-item Drive failures (a source Drive cannot convert, etc.)
+// ---------------------------------------------------------------------------
+
+test("a Drive-side rejection fails that item, not the run", async () => {
+  const root = fixture({
+    "good.md": "# Good\nsee [bad](./bad.md)\n",
+    "bad.md": "# Bad\n",
+  });
+  const manifest = freshManifest();
+  const drive = new FakeDrive();
+  drive.failNames.add(documentName("bad.md", "# Bad\n"));
+  const { summary } = await run(root, manifest, { drive });
+
+  assert.equal(summary.failed, 1);
+  const failure = summary.diagnostics.find((d) => d.code === "PUBLISH_FAILED");
+  assert.ok(failure, "expected a PUBLISH_FAILED error");
+  assert.equal(failure.relPath, "bad.md", "the diagnostic names the file");
+  assert.match(failure.message, /fake drive: rejected/, "the reason is carried");
+
+  // the sibling still published, filled and recorded
+  assert.equal(summary.created, 1);
+  const goodId = manifest.entries["good.md"]?.fileId as string;
+  assert.ok(goodId);
+  assert.match(drive.contentOf(goodId), /see \[bad\]/, "link left verbatim");
+  assert.ok(!manifest.entries["bad.md"], "no manifest entry for the failed item");
+  // the degraded link is a warning, so the run finished with a full report
+  assert.ok(
+    summary.diagnostics.some(
+      (d) => d.code === "LINK_TO_UNSUPPORTED" && d.relPath === "good.md",
+    ),
+  );
+});
+
+test("a rejected fill keeps the Doc pending and the next run fills it in place", async () => {
+  const root = fixture({ "a.md": "# A\ncontent\n" });
+  const manifest = freshManifest();
+  const drive = new FakeDrive();
+  drive.failFileIds.add("doc0001"); // deterministic first shell id
+  const first = await run(root, manifest, { drive });
+
+  assert.equal(first.summary.failed, 1);
+  assert.deepEqual(manifestIo.pendingEntries(manifest), ["a.md"], "entry stays pending");
+  assert.equal(manifest.entries["a.md"]?.fileId, "doc0001");
+  assert.equal(drive.contentOf("doc0001"), "", "shell exists but was never filled");
+
+  drive.failFileIds.clear();
+  const second = await run(root, manifest, { drive });
+  assert.equal(second.summary.failed, 0);
+  assert.equal(
+    manifest.entries["a.md"]?.fileId,
+    "doc0001",
+    "resumed in place - no duplicate Doc",
+  );
+  assert.match(drive.contentOf("doc0001"), /content/);
+  assert.equal(manifestIo.pendingEntries(manifest).length, 0);
+});
+
+test("each phase-1 reservation is checkpointed to disk immediately", async () => {
+  const root = fixture({ "a.md": "# A\n", "b.md": "# B\n" });
+  const manifest = freshManifest();
+  const drive = new FakeDrive();
+  drive.files.set("fldROOT", { id: "fldROOT", name: "Test Docs", mimeType: "folder" });
+  drive.failNames.add(documentName("b.md", "# B\n")); // a.md is reserved first
+
+  let observed: Manifest | null = null;
+  const plan = buildPlan({ root, manifest });
+  await publish({
+    root,
+    drive,
+    manifest,
+    plan,
+    prune: false,
+    repair: false,
+    now: () => new Date("2024-01-01T00:00:00.000Z"),
+    onProgress: (e) => {
+      if (e.label === "reserved Doc for a.md" && !observed) {
+        observed = manifestIo.load(root);
+      }
+    },
+  });
+
+  assert.ok(observed, "expected to observe the manifest after a.md's reservation");
+  assert.ok(
+    observed.entries["a.md"]?.pending,
+    "a.md hit the disk as pending before b.md was even attempted",
+  );
+  assert.ok(!observed.entries["b.md"]);
+  const final = manifestIo.load(root) as Manifest;
+  assert.ok(!final.entries["b.md"], "b.md never recorded (its create failed)");
+  assert.ok(final.entries["a.md"], "a.md survived the run on disk");
 });

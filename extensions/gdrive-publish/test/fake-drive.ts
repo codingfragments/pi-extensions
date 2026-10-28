@@ -23,10 +23,20 @@ export class FakeDrive implements DriveClient {
   modifiedTimes = new Map<string, string>();
   /** Ids that should behave as inaccessible (simulates 404/trashed). */
   missing = new Set<string>();
+  /** Drive names whose create/convert call is rejected (simulates a
+   * conversion failure like an unconvertible source, quota, rate-limit). */
+  failNames = new Set<string>();
+  /** File ids whose `updateMedia` is rejected (simulates a failed fill). */
+  failFileIds = new Set<string>();
 
   private nextId(prefix: string): string {
     this.counter++;
     return `${prefix}${String(this.counter).padStart(4, "0")}`;
+  }
+
+  /** Drive-style rejection for fault injection. */
+  private reject(name: string): void {
+    throw new DriveError(`fake drive: rejected "${name}"`, 400, "invalid");
   }
 
   async createFolder(name: string, parentId?: string): Promise<DriveFile> {
@@ -43,6 +53,7 @@ export class FakeDrive implements DriveClient {
 
   async createEmptyDoc(name: string, parentId: string): Promise<DriveFile> {
     this.calls.push(`createEmptyDoc(${name},${parentId})`);
+    if (this.failNames.has(name)) this.reject(name);
     const file: FakeFile = {
       id: this.nextId("doc"),
       name,
@@ -62,6 +73,7 @@ export class FakeDrive implements DriveClient {
     parentId: string,
   ): Promise<DriveFile> {
     this.calls.push(`convertUpload(${name},${targetMime},${mediaMime},${parentId})`);
+    if (this.failNames.has(name)) this.reject(name);
     const file: FakeFile = {
       id: this.nextId("sht"),
       name,
@@ -76,6 +88,7 @@ export class FakeDrive implements DriveClient {
 
   async updateMedia(fileId: string, mediaMime: string, data: Buffer | string): Promise<void> {
     this.calls.push(`updateMedia(${fileId},${mediaMime})`);
+    if (this.failFileIds.has(fileId)) this.reject(fileId);
     const file = this.files.get(fileId);
     if (!file) throw new Error(`fake drive: no such file ${fileId}`);
     file.content = Buffer.isBuffer(data) ? data.toString("base64").slice(0, 32) : data;

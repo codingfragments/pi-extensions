@@ -51,7 +51,7 @@ phase 0  scan the tree, build the link graph, run the full offline
          link/image analysis                            (no network)
 phase 1  create folders; create EMPTY Doc shells for each .md;
          convert-upload CSV/XLSX  -> every fileId is now known
-         -> manifest checkpointed with `pending` markers
+         -> manifest checkpointed after EVERY reservation (`pending` markers)
 phase 2  rewrite relative links to real Doc/Sheet URLs, inline images,
          fill content via files.update  -> fileIds (and URLs) unchanged
 phase 3  final manifest write + report
@@ -155,9 +155,13 @@ is the identity map from source path to Drive fileId, and therefore the reason
 URLs stay stable for everyone. `publish` never touches git; it just tells you
 the file changed.
 
-It is written via temp-file + atomic rename, and checkpointed after phase 1
-with `pending: true` entries. If a run dies between creating shells and filling
-them, the next run fills those exact Docs instead of creating duplicates.
+It is written via temp-file + atomic rename, and checkpointed after every
+reservation and fill (not once per phase), so a crash at any point cannot leak
+an unrecorded Drive file. If a run dies between creating shells and filling
+them, the next run fills those exact Docs instead of creating duplicates —
+and a Drive-side rejection of one file fails only that file (a
+`PUBLISH_FAILED` error names it in the report; the run continues and the CLI
+exits 3).
 
 ## Behaviour worth knowing
 
@@ -170,6 +174,7 @@ them, the next run fills those exact Docs instead of creating duplicates.
 | `[x](https://…)` | untouched |
 | `[x](./missing.md)` | left verbatim (warned) |
 | links inside ``` fences / `code spans` | never rewritten |
+| `~$workbook.xlsx` | ignored silently — an Office lock file, not content (exists exactly while the real file is open in Excel) |
 | `![img](./pic.png)` | **inlined as a base64 `data:` URI** so Drive embeds a real copy |
 | YAML front matter | stripped (Drive mangles it); `title:` becomes the Doc name |
 | Doc name | front-matter `title` → first H1 → filename stem |
@@ -215,10 +220,10 @@ executed through Node's native type stripping - there is no build step.
 |---|---|---|
 | `links.test.ts` | 10 | link/image parsing; never rewriting inside fenced blocks or inline code spans |
 | `csv-naming.test.ts` | 12 | encoding/delimiter sniffing, quoting, front matter, Doc naming |
-| `scan-prepare.test.ts` | 20 | file classification, ignore rules, path-escape refusal, image inlining, size caps, plan-time analysis mode |
+| `scan-prepare.test.ts` | 26 | file classification, ignore rules (incl. Office lock files), path-escape refusal, image inlining, size caps, plan-time analysis mode |
 | `auth.test.ts` | 13 | credential-chain precedence, the `GOCSPX-`/`rclone reveal` rule, per-client token keying |
 | `drive-manifest-report.test.ts` | 18 | exact REST request shapes, error-reason parsing, atomic/sorted manifest IO, report rendering |
-| `publish.test.ts` | 17 | two-phase ordering, update-in-place, crash recovery, orphan safety, trash-not-delete, diagnostic dedupe |
+| `publish.test.ts` | 30 | two-phase ordering, update-in-place, crash recovery, orphan safety, trash-not-delete, diagnostic dedupe, per-item Drive failures, checkpoint durability |
 | `cli.test.ts` | 18 | exit-code contract (0/1/2/3), `--json` shape, dry-run purity, plan/publish diagnostic parity, secrets never printed |
 | `extension.test.ts` | 10 | the tool is registered only in configured projects; writes are confirm-gated |
 

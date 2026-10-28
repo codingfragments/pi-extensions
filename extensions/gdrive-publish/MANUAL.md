@@ -168,8 +168,11 @@ like any other file. Losing it does not lose your Drive files — it loses the
 *identity map*, so re-publishing would create duplicates instead of updating.
 That is why it belongs in git.
 
-A run that dies halfway checkpoints the manifest after reserving Drive ids, so
-re-running fills the same Docs rather than duplicating them.
+A run that dies halfway checkpoints the manifest after every reservation and
+fill, so re-running fills the same Docs rather than duplicating them. A
+Drive-side rejection of a single file (for example a source Drive cannot
+convert) fails only that file: a `PUBLISH_FAILED` error names it in the
+report, the rest of the run continues, and the exit code is 3.
 
 ## Safety model
 
@@ -384,6 +387,8 @@ Tool version at generation time: 0.8.1.
 | Links to images do not render | Drive fetches image URLs anonymously, so only images embedded as data URIs render. This tool always inlines images; if you pasted a `drive.google.com/uc?...` link by hand, expect a blank placeholder on Workspaces that block anyone-with-link sharing. |
 | `DOC_PAYLOAD_TOO_LARGE` | The prepared document exceeds 10 MB after inlining images as base64. Shrink or remove images. |
 | `DRIVE_FILE_GONE` | A manifest entry points at a file that was trashed or became inaccessible; that file is skipped and the run reports an error. Restore it in Drive, or re-run with `--repair` to recreate it (under a new id - previously shared URLs for it stop working). |
+| `PUBLISH_FAILED` | Drive rejected this one file (conversion failed, quota, rate limit); the report names it, the run continues, and the exit code is 3. Fix or remove the source file and re-run — a failed fill resumes in place instead of duplicating. |
+| Office `~$…` files are not published | Not an error: those are Excel lock files, ignored silently whether or not the workbook is still open. |
 | A Doc shows the old content after publish | Check for `DRIVE_MODIFIED` in the report — a Drive-side edit was overwritten by your local version on purpose. |
 | Orphan warnings you did not expect | A local file was renamed or deleted. Rename it back, or accept the orphan, or `--prune` to trash the Drive file. |
 

@@ -30,6 +30,7 @@ export type DiagnosticCode =
   | "DRIVE_MODIFIED"
   | "DRIVE_FILE_GONE"
   | "DRIVE_REPAIRED"
+  | "PUBLISH_FAILED"
   | "ORPHAN"
   | "UNSUPPORTED_FILE"
   | "PENDING_RESUMED";
@@ -127,6 +128,8 @@ export interface PublishSummary {
   updated: number;
   /** Files recreated because their Drive file was gone (old URLs die). */
   repaired: number;
+  /** Items whose Drive call failed; each has a PUBLISH_FAILED diagnostic. */
+  failed: number;
   unchanged: number;
   pruned: number;
   orphans: number;

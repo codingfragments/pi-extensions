@@ -65,7 +65,8 @@ export function renderSummary(summary: PublishSummary): string {
   const lines: string[] = [];
   lines.push(
     `  ${summary.created} created, ${summary.updated} updated, ${summary.repaired} repaired, ` +
-      `${summary.unchanged} unchanged, ${summary.pruned} pruned, ${summary.orphans} orphan(s) kept`,
+      `${summary.unchanged} unchanged, ${summary.pruned} pruned, ${summary.failed} failed, ` +
+      `${summary.orphans} orphan(s) kept`,
   );
   const diag = renderDiagnostics(summary.diagnostics);
   if (diag) lines.push(diag);
@@ -92,6 +93,7 @@ export function summaryJson(summary: PublishSummary): unknown {
     created: summary.created,
     updated: summary.updated,
     repaired: summary.repaired,
+    failed: summary.failed,
     unchanged: summary.unchanged,
     pruned: summary.pruned,
     orphans: summary.orphans,

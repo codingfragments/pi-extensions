@@ -21,6 +21,11 @@ export const CONFIG_FILENAME = ".gdrive-publish.json";
 export interface PublishConfig {
   rawPatterns: string[];
   /**
+   * Gitignore-style exclusion: matching files never publish (native types
+   * included), and a matching directory is pruned whole. Default: none.
+   */
+  ignorePatterns?: string[];
+  /**
    * Max parallel Drive requests for publish (1–10). Absent means the
    * caller's default; the CLI resolves flag > env > this file > 3.
    */
@@ -101,9 +106,9 @@ export function loadConfig(root: string): PublishConfig | null {
   }
   const obj = raw as Record<string, unknown>;
   for (const key of Object.keys(obj)) {
-    if (key !== "rawPatterns" && key !== "concurrency") {
+    if (key !== "rawPatterns" && key !== "ignorePatterns" && key !== "concurrency") {
       throw new Error(
-        `${CONFIG_FILENAME}: unknown key "${key}" (only rawPatterns and concurrency are supported)`,
+        `${CONFIG_FILENAME}: unknown key "${key}" (only rawPatterns, ignorePatterns and concurrency are supported)`,
       );
     }
   }
@@ -125,8 +130,16 @@ export function loadConfig(root: string): PublishConfig | null {
   ) {
     throw new Error(`${CONFIG_FILENAME}: rawPatterns must be an array of strings`);
   }
+  const ignore = obj.ignorePatterns;
+  if (
+    ignore !== undefined &&
+    (!Array.isArray(ignore) || !ignore.every((x) => typeof x === "string"))
+  ) {
+    throw new Error(`${CONFIG_FILENAME}: ignorePatterns must be an array of strings`);
+  }
   return {
     rawPatterns: (patterns as string[] | undefined) ?? [],
+    ...(ignore !== undefined ? { ignorePatterns: ignore as string[] } : {}),
     ...(concurrency !== undefined ? { concurrency: concurrency as number } : {}),
   };
 }

@@ -101,16 +101,22 @@ export interface ScanResult {
 export interface ScanOptions {
   /** Overrides the config file (tests / freshly-written config re-scans). */
   rawPatterns?: string[];
+  /** Same for ignorePatterns. */
+  ignorePatterns?: string[];
 }
 
 /**
  * Recursively scan a publish root. Files whose type has no native Drive
  * conversion publish as raw uploads when (and only when) they match a
- * rawPatterns entry from .gdrive-publish.json. Symlinked directories are
+ * rawPatterns entry from .gdrive-publish.json. ignorePatterns entries
+ * exclude files outright - native types included - and a matching
+ * directory is pruned whole, gitignore-style. Symlinked directories are
  * not followed.
  */
 export function scan(root: string, opts?: ScanOptions): ScanResult {
-  const rawPatterns = opts?.rawPatterns ?? loadConfig(root)?.rawPatterns ?? [];
+  const config = loadConfig(root);
+  const rawPatterns = opts?.rawPatterns ?? config?.rawPatterns ?? [];
+  const ignorePatterns = opts?.ignorePatterns ?? config?.ignorePatterns ?? [];
   const files: SourceFile[] = [];
   const skipped: string[] = [];
 
@@ -130,11 +136,19 @@ export function scan(root: string, opts?: ScanOptions): ScanResult {
       const relPath = rel ? `${rel}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         if (IGNORED_DIRS.has(entry.name)) continue;
+        // A matching directory is pruned whole (children are never even
+        // walked) - gitignore intuition, and the point of excluding `_*`
+        // style trees is to skip the subtree, not warn per file.
+        if (matchesAnyPattern(ignorePatterns, relPath)) continue;
         walk(path.join(dir, entry.name), relPath);
         continue;
       }
       if (!entry.isFile()) continue;
       if (entry.name === MANIFEST_FILENAME) continue;
+      // Ignored files never publish - native types included: an ignore is
+      // content-level (unlike rawPatterns, which can never hijack a native
+      // conversion) and they never warn as unsupported either.
+      if (matchesAnyPattern(ignorePatterns, relPath)) continue;
       const kind = classify(relPath);
       const absPath = path.join(root, relPath);
       // Raw upload is opt-in per pattern, for files WITHOUT a native

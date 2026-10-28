@@ -117,3 +117,26 @@ test("parseConcurrency: strict 1–10 integers for flags and env", () => {
     assert.equal(parseConcurrency(bad), null, `expected null for ${JSON.stringify(bad)}`);
   }
 });
+
+test("ignorePatterns: accepted in the config file, round-trips through saveConfig", () => {
+  saveConfig(root, { rawPatterns: [], ignorePatterns: ["_*"] });
+  assert.deepEqual(loadConfig(root)?.ignorePatterns, ["_*"]);
+});
+
+test("ignorePatterns: must be an array of strings", () => {
+  for (const bad of ["_*", { pattern: "_*" }, [1], null]) {
+    fs.writeFileSync(
+      path.join(root, ".gdrive-publish.json"),
+      JSON.stringify({ ignorePatterns: bad }),
+    );
+    assert.throws(() => loadConfig(root), /ignorePatterns must be an array of strings/);
+  }
+});
+
+test("unknown keys still name every supported key", () => {
+  fs.writeFileSync(path.join(root, ".gdrive-publish.json"), JSON.stringify({ whatever: 1 }));
+  assert.throws(
+    () => loadConfig(root),
+    /only rawPatterns, ignorePatterns and concurrency are supported/,
+  );
+});

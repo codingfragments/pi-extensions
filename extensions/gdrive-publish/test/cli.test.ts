@@ -557,3 +557,13 @@ test("an invalid concurrency in .gdrive-publish.json fails the publish", () => {
   assert.equal(status, 1);
   assert.match(stderr, /concurrency.*integer between 1 and 10/);
 });
+
+test("plan respects ignorePatterns from the config file", () => {
+  seedManifest();
+  write("toc.md", "# Toc\n");
+  write("_drafts/secret.md", "# Secret draft\n");
+  write(".gdrive-publish.json", JSON.stringify({ ignorePatterns: ["_*"] }));
+  const { status, stdout } = run(["plan", tmp]);
+  assert.equal(status, 0);
+  assert.ok(!stdout.includes("_drafts"), "ignored content is invisible to plan");
+});

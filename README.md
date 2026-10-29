@@ -123,22 +123,19 @@ Rule of thumb:
 | Extension | Description |
 |---|---|
 | [herdr-display-agent-sync](extensions/herdr-display-agent-sync/index.ts) | Syncs the pi session name (or cwd fallback) into herdr's sidebar `display_agent` label, refreshing on every agent event. |
-| [gdrive-publish](extensions/gdrive-publish/README.md) | Publishes markdown/CSV/XLSX to Google Drive as native Docs/Sheets, rewriting relative links to the real Doc URLs and keeping shared URLs stable across re-publishes. Ships a CLI plus a `gdrive_publish` tool that only registers in configured projects. Manual: [MANUAL.md](extensions/gdrive-publish/MANUAL.md). |
 | [demo-recording](extensions/demo-recording/README.md) | *(in development, S4 done, S5 in progress)* Automated PoC/demo video recorder for web apps: discovery → approved storyboard → human-like recording → anchored voice-over → ElevenLabs TTS → audio-led edit → branded render, with a local review panel. Plan: [IMPLEMENTATION_PLAN.md](extensions/demo-recording/docs/IMPLEMENTATION_PLAN.md). |
 
-## Sandbox
-
-[`sandbox/docs`](sandbox/README.md) is a deliberately awkward documentation
-tree for exercising `gdrive-publish` against a real Google Drive by hand
-(cross-type links, anchors, escapes, code-fenced links, a latin-1 semicolon
-CSV, an xlsx, and an obvious test image). It is not loaded by pi.
+> **gdrive-publish moved out.** The gdrive-publish CLI, pi extension and skill
+> now live in their own repo: [codingfragments/codingfragments-publish](https://github.com/codingfragments/codingfragments-publish)
+> (npm: `gdrive-publish`, releases from v0.10.1 on). Versions up to and
+> including 0.10.0 were released from this monorepo — the `gdrive-publish-v*`
+> tags remain here as history.
 
 ## Skills in this repo
 
 | Skill | Description |
 |---|---|
 | [grill-me](skills/grill-me/SKILL.md) | Adversarially stress-tests a plan, design doc, PR, or code by interrogating it with tough questions before it ships. |
-| [gdrive-publish](skills/gdrive-publish/SKILL.md) | Guides publishing a docs folder to Google Drive as native Docs/Sheets: plan first, read the warning taxonomy, commit the manifest, never prune or auto-approve without being asked. Human manual: [MANUAL.md](skills/gdrive-publish/MANUAL.md). |
 
 ## License
 

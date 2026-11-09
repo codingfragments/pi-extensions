@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Browser, BrowserContext, Page } from "playwright";
+import { launchChromium, noteBrowserClosed } from "./launch.ts";
 import { MARKER_FLAG, killMarker } from "./processes.ts";
 
 const OVERLAY_FILE = path.join(
@@ -60,16 +61,18 @@ export function launchArgs(
 }
 
 export async function openSession(opts: SessionOptions): Promise<BrowserSession> {
-  const { chromium } = await import("playwright");
   const { width, height, dpr } = opts.viewport;
-  const browser = await chromium.launch({
-    headless: !opts.headed,
-    args: launchArgs(dpr, {
-      ...(opts.marker ? { marker: opts.marker } : {}),
-      ...(opts.memoryMb ? { memoryMb: opts.memoryMb } : {}),
-      ...(opts.extraArgs ? { extraArgs: opts.extraArgs } : {}),
-    }),
-  });
+  const browser = await launchChromium(
+    {
+      headless: !opts.headed,
+      args: launchArgs(dpr, {
+        ...(opts.marker ? { marker: opts.marker } : {}),
+        ...(opts.memoryMb ? { memoryMb: opts.memoryMb } : {}),
+        ...(opts.extraArgs ? { extraArgs: opts.extraArgs } : {}),
+      }),
+    },
+    "session",
+  );
   try {
     const context = await browser.newContext({
       viewport: { width, height },
@@ -95,6 +98,7 @@ export async function openSession(opts: SessionOptions): Promise<BrowserSession>
           new Promise<void>((r) => setTimeout(r, 5000)),
         ]);
         if (opts.marker) killMarker(opts.marker);
+        noteBrowserClosed();
       },
     };
   } catch (err) {

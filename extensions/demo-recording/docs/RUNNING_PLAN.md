@@ -12,7 +12,7 @@ Last updated: 2026-10-22, after run 3. Last merged: #153 (the run 3 findings; PR
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** Run 3 (item 16) is done: a full run on a real app that needs a login, the acceptance of S7; it left 25 findings in [REAL_RUN3_FINDINGS.md](REAL_RUN3_FINDINGS.md), of which items 16a to 16c and the band's close button are built and merged. **The next piece of work is item 16d** (the launch crashes), then 16e to 16k in the order of the table; the two largest, 16i (the take hits the budget of the brief) and 16j (the language of the voice-over and the storyboard), are written up as R3-25 and R3-24 and change how the Director plans and writes. Items 13 and 14 are done.
+`main`.** Run 3 (item 16) is done: a full run on a real app that needs a login, the acceptance of S7; it left 25 findings in [REAL_RUN3_FINDINGS.md](REAL_RUN3_FINDINGS.md), of which items 16a to 16c and the band's close button are built and merged. **The next piece of work is item 17** (the launch crashes), then items 18 to 24 in the order of the table (16a to 16c above are what was built during the run); the two largest, item 22 (the take hits the budget of the brief) and item 23 (the language of the voice-over and the storyboard), are written up as R3-25 and R3-24 and change how the Director plans and writes. Items 13 and 14 are done.
 
 ## 2. Done
 
@@ -55,17 +55,17 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 16b | **Recording watchdog** (R3-12) | the same safeguards for a take; everything about a stalled, interrupted or failed step kept in the take; a visible browser on request; the projected recording time on the Storyboard tab | R3-12 | done | 2 | 73 |
 | 16c | **Bounded runs** (R3-13) | ffmpeg/uv commands and the short-lived browsers have deadlines, are diagnosed and killed | R3-13 | done | 1 | 74 |
 | 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | done | 2 | 71 |
-| 16d | **Stop the browser launch crashes** (R3-22) | clean `$TMPDIR` and make tests clean up; one launch entry with retry and serialization; remove the profile of a killed browser; ask what was clicked | R3-22 | next | 1 | 75 |
-| 16e | **A failed take stops the Director** (R3-14) | a failed take reports quietly and asks, with your recommendation on the scene; define "autoheal" first | R3-14 | planned | 2 | 77 |
-| 16f | **Browser pool and fast previews** (R3-19) | one browser reused for overlays, previews and brand renders; cancel and de-duplicate requests, visible first, a cached lookup, render ahead | R3-19, R3-22 | planned | 3 | 80 |
-| 16g | **Small fixes** (R3-21, R3-20, R3-17) | the render progress from ffmpeg; brands and subtitles in the config; the scene header pinned with the player | R3-21, R3-20, R3-17 | planned | 2 | 82 |
-| 16h | **Recording tab clarity** (R3-16) | one badge vocabulary, the selected take marked, unfinished takes labelled and without approve buttons | R3-16 | planned | 2 | 84 |
-| 16i | **The budget in the recording** (R3-25) | one length budget with its source; the storyboard written to it (time hints, the engine's projection given to the Director); the recorder holds a still to meet a scene's time; the voice-over stretches and asks for a budget extension; discovery planned to time | R3-25 | planned | 5 | 89 |
-| 16j | **The language of voice and storyboard** (R3-24) | meaning over reading the screen: the skill's rules and examples, a POC voice direction, persona questions in the brief, why/meaning/so_what per scene, discovery that records meaning, a "mostly reads the screen" lint | R3-24 | planned | 5 | 94 |
-| 16k | **Cancel from the panel** (R3-15) | Cancel on the engine jobs and the discovery session; "ask the Director to stop" | R3-15 | planned | 3 | 97 |
-| 16l | **To discuss** (R3-18, R3-23) | the Voice over as one scrolling list; a stability check after navigation | R3-18, R3-23 | later | | |
-| 17 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 77 |
-| 18 | **S8 Native capture** | optional | | later | | |
+| 17 | **Stop the browser launch crashes** (R3-22) | clean `$TMPDIR` and make tests clean up; one launch entry with retry and serialization; remove the profile of a killed browser; ask what was clicked | R3-22 | next | 1 | 72 |
+| 18 | **A failed take stops the Director** (R3-14) | a failed take reports quietly and asks, with your recommendation on the scene; define "autoheal" first | R3-14 | planned | 2 | 74 |
+| 19 | **Browser pool and fast previews** (R3-19) | one browser reused for overlays, previews and brand renders; cancel and de-duplicate requests, visible first, a cached lookup, render ahead | R3-19, R3-22 | planned | 3 | 77 |
+| 20 | **Small fixes** (R3-21, R3-20, R3-17) | the render progress from ffmpeg; brands and subtitles in the config; the scene header pinned with the player | R3-21, R3-20, R3-17 | planned | 2 | 79 |
+| 21 | **Recording tab clarity** (R3-16) | one badge vocabulary, the selected take marked, unfinished takes labelled and without approve buttons | R3-16 | planned | 2 | 81 |
+| 22 | **The budget in the recording** (R3-25) | one length budget with its source; the storyboard written to it (time hints, the engine's projection given to the Director); the recorder holds a still to meet a scene's time; the voice-over stretches and asks for a budget extension; discovery planned to time | R3-25 | planned | 5 | 86 |
+| 23 | **The language of voice and storyboard** (R3-24) | meaning over reading the screen: the skill's rules and examples, a POC voice direction, persona questions in the brief, why/meaning/so_what per scene, discovery that records meaning, a "mostly reads the screen" lint | R3-24 | planned | 5 | 91 |
+| 24 | **Cancel from the panel** (R3-15) | Cancel on the engine jobs and the discovery session; "ask the Director to stop" | R3-15 | planned | 3 | 94 |
+| 25 | **To discuss** (R3-18, R3-23) | the Voice over as one scrolling list; a stability check after navigation | R3-18, R3-23 | later | | |
+| 26 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 100 |
+| 27 | **S8 Native capture** | optional | | later | | |
 
 What moved on the way: L1, L3 and L6 are absorbed into items 3, 4 and 9; the early checks and the discovery checks left the plan (long tail,
 section 6); the filmstrip and step-through (8) follow the recording review (7) because they reuse its chapter and frame component.
@@ -381,7 +381,7 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.
 - **Run-3 prep (13) and E (14), decided with you (D146):** see section 4.
 - **S7 (15):** `/demo login`, a login probe, re-login on expiry, session checks before discovery and recording; needs the real app. **Run 3 (16):** a full run on that
-  more complicated app, every screen at 1400 and 900 px; its findings feed S6 and S8. **S6 (17):** parallel discovery lanes, opt-in, one bar per lane. **S8 (18):**
+  more complicated app, every screen at 1400 and 900 px; its findings feed S6 and S8. **S6 (26):** parallel discovery lanes, opt-in, one bar per lane. **S8 (27):**
   native capture, optional.
 
 ## 6. Long tail (not scheduled)

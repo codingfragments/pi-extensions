@@ -206,5 +206,5 @@ R3-25 [bug, design] (during the run) Recording and storyboard · the take does n
 | R3-15 | cancel an activity from the panel | step 7 |
 | R3-18 | Voice over as one scrolling list | step 8 (discuss) |
 | R3-23 | stability check after navigation | step 8 (discuss) |
-| R3-24 | voice and storyboard language: meaning over reading the screen (skill text, POC direction, brief and storyboard fields, discovery, lint) | planned (16j): the skill rules and the sample rewrite can go in at any time; then the brief and storyboard fields, discovery, the lint |
-| R3-25 | the take hits the brief's budget: one length budget, time hints, recorder holds, voice-over stretch and extension, discovery planned to time | planned (16i): first of the two, because it gives R3-24 the time it needs to explain |
+| R3-24 | voice and storyboard language: meaning over reading the screen (skill text, POC direction, brief and storyboard fields, discovery, lint) | planned (item 23 of the plan): the skill rules and the sample rewrite can go in at any time; then the brief and storyboard fields, discovery, the lint |
+| R3-25 | the take hits the brief's budget: one length budget, time hints, recorder holds, voice-over stretch and extension, discovery planned to time | planned (item 22 of the plan): first of the two, because it gives R3-24 the time it needs to explain |

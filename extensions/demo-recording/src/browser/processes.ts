@@ -4,6 +4,8 @@
  */
 
 import { execFile, execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 export const MARKER_FLAG = "--demo-rec-session=";
 
@@ -62,10 +64,29 @@ export function processesOf(marker: string): ProcRow[] {
   }
 }
 
-/** SIGKILL everything of a marker; returns how many processes were killed. */
+/** The profile folders (`--user-data-dir`) a browser's processes were started with. */
+export function userDataDirsOf(rows: ProcRow[]): string[] {
+  const dirs = new Set<string>();
+  for (const r of rows) {
+    const m = /--user-data-dir=(\S+)/.exec(r.command);
+    if (m?.[1]) dirs.add(m[1]);
+  }
+  return [...dirs];
+}
+
+/** A profile folder Playwright made for a throwaway browser (its own name, in the temp folder): the only kind that is removed after a kill. */
+export const isThrowawayProfile = (dir: string): boolean =>
+  /^playwright_[a-z]+dev_profile-/.test(path.basename(dir));
+
+/**
+ * SIGKILL everything of a marker, and remove the browser's throwaway profile folder (a killed browser cannot clean up after itself, and its profile is 100+ MB of
+ * cache). Returns how many processes were killed.
+ */
 export function killMarker(marker: string): number {
   let n = 0;
-  for (const r of processesOf(marker)) {
+  const rows = processesOf(marker);
+  const profiles = userDataDirsOf(rows).filter(isThrowawayProfile);
+  for (const r of rows) {
     try {
       process.kill(r.pid, "SIGKILL");
       n++;
@@ -73,6 +94,12 @@ export function killMarker(marker: string): number {
       // already gone
     }
   }
+  for (const dir of profiles)
+    try {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    } catch {
+      // the janitor gets it later
+    }
   return n;
 }
 

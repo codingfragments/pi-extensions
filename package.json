@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "lint": "biome check .",
-    "test": "node --test extensions/**/test/*.test.ts"
+    "test": "node scripts/test.mjs",
+    "clean:tmp": "node extensions/demo-recording/scripts/clean-temp.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

@@ -12,7 +12,7 @@ Last updated: 2026-10-22, after run 3. Last merged: #153 (the run 3 findings; PR
 
 The engine, the panel and the first quality change are built and accepted: a real-app run (run 1) found 32 findings, P1 (the QA change) answered
 them, and a second real run (run 2) accepted P1 and produced 12 more findings, which were grilled into the order below. **Nothing is half-built on
-`main`.** Run 3 (item 16) is done: a full run on a real app that needs a login, the acceptance of S7; it left 25 findings in [REAL_RUN3_FINDINGS.md](REAL_RUN3_FINDINGS.md), of which items 16a to 16c and the band's close button are built and merged. **The next piece of work is item 17** (the launch crashes), then items 18 to 24 in the order of the table (16a to 16c above are what was built during the run); the two largest, item 22 (the take hits the budget of the brief) and item 23 (the language of the voice-over and the storyboard), are written up as R3-25 and R3-24 and change how the Director plans and writes. Items 13 and 14 are done.
+`main`.** Run 3 (item 16) is done: a full run on a real app that needs a login, the acceptance of S7; it left 25 findings in [REAL_RUN3_FINDINGS.md](REAL_RUN3_FINDINGS.md), of which items 16a to 16c and the band's close button are built and merged. **Item 17 (the launch crashes) is built; the next piece of work is item 18** (a failed take stops the Director), then items 19 to 24 in the order of the table (16a to 16c above are what was built during the run); the two largest, item 22 (the take hits the budget of the brief) and item 23 (the language of the voice-over and the storyboard), are written up as R3-25 and R3-24 and change how the Director plans and writes. Items 13 and 14 are done.
 
 ## 2. Done
 
@@ -55,8 +55,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 16b | **Recording watchdog** (R3-12) | the same safeguards for a take; everything about a stalled, interrupted or failed step kept in the take; a visible browser on request; the projected recording time on the Storyboard tab | R3-12 | done | 2 | 73 |
 | 16c | **Bounded runs** (R3-13) | ffmpeg/uv commands and the short-lived browsers have deadlines, are diagnosed and killed | R3-13 | done | 1 | 74 |
 | 16 | **Run 3** | a full run on a more complicated app (the one S7 is for), every screen at 1400 and 900 px (your time) | | done | 2 | 71 |
-| 17 | **Stop the browser launch crashes** (R3-22) | clean `$TMPDIR` and make tests clean up; one launch entry with retry and serialization; remove the profile of a killed browser; ask what was clicked | R3-22 | next | 1 | 72 |
-| 18 | **A failed take stops the Director** (R3-14) | a failed take reports quietly and asks, with your recommendation on the scene; define "autoheal" first | R3-14 | planned | 2 | 74 |
+| 17 | **Stop the browser launch crashes** (R3-22) | clean `$TMPDIR` and make tests clean up; one launch entry with retry and serialization; remove the profile of a killed browser; ask what was clicked | R3-22 | done | 1 | 72 |
+| 18 | **A failed take stops the Director** (R3-14) | a failed take reports quietly and asks, with your recommendation on the scene; define "autoheal" first | R3-14 | **next** | 2 | 74 |
 | 19 | **Browser pool and fast previews** (R3-19) | one browser reused for overlays, previews and brand renders; cancel and de-duplicate requests, visible first, a cached lookup, render ahead | R3-19, R3-22 | planned | 3 | 77 |
 | 20 | **Small fixes** (R3-21, R3-20, R3-17) | the render progress from ffmpeg; brands and subtitles in the config; the scene header pinned with the player | R3-21, R3-20, R3-17 | planned | 2 | 79 |
 | 21 | **Recording tab clarity** (R3-16) | one badge vocabulary, the selected take marked, unfinished takes labelled and without approve buttons | R3-16 | planned | 2 | 81 |

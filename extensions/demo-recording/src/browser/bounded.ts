@@ -7,6 +7,7 @@ import type { Browser } from "playwright";
 import { CallStalledError, withDeadline } from "../discovery/watchdog.ts";
 import { diagnoseStuck } from "../util/bounded.ts";
 import { fmtProcesses } from "./diagnosis.ts";
+import { launchChromium, noteBrowserClosed } from "./launch.ts";
 import { MARKER_FLAG, killMarker, newMarker, processesOf } from "./processes.ts";
 
 export interface BoundedBrowser {
@@ -17,12 +18,11 @@ export interface BoundedBrowser {
 }
 
 export async function launchBounded(o: { headless?: boolean } = {}): Promise<BoundedBrowser> {
-  const { chromium } = await import("playwright");
   const marker = newMarker();
-  const browser = await chromium.launch({
-    headless: o.headless !== false,
-    args: [`${MARKER_FLAG}${marker}`],
-  });
+  const browser = await launchChromium(
+    { headless: o.headless !== false, args: [`${MARKER_FLAG}${marker}`] },
+    "short-lived",
+  );
   let closed = false;
   return {
     browser,
@@ -35,6 +35,7 @@ export async function launchBounded(o: { headless?: boolean } = {}): Promise<Bou
         new Promise<void>((r) => setTimeout(r, 5000)),
       ]);
       killMarker(marker);
+      noteBrowserClosed();
     },
   };
 }

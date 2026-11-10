@@ -32,11 +32,12 @@ export async function api(path) {
   return res.json();
 }
 
-export async function post(path, body) {
+export async function post(path, body, opts = {}) {
   const res = await fetch(path, {
     method: "POST",
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify(body),
+    ...(opts.signal ? { signal: opts.signal } : {}),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error ?? `${path}: ${res.status}`);

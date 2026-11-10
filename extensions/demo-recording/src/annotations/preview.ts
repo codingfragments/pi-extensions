@@ -12,6 +12,7 @@ import type { RenderBrand, RenderJob, VideoPiece } from "../edit/render.ts";
 import { renderJob, sceneJob } from "../edit/render.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { ffmpeg } from "../media/ffmpeg.ts";
+import { diagnosticsDir } from "../util/bounded.ts";
 import { resolveContext } from "./apply.ts";
 import { type RenderAnnotations, buildRenderAnnotations } from "./render.ts";
 import { resolveAnnotations } from "./resolve.ts";
@@ -82,6 +83,8 @@ export async function previewAnnotation(o: {
   outDir: string;
   /** both (default): clip + still from it; still: a 1-frame render at the peak (fast); clip: the clip (+ still). */
   kind?: "both" | "still" | "clip";
+  /** Filled with where the time went (the overlay build, the render), for the log. */
+  timings?: PreviewPhases;
 }): Promise<AnnotationPreview> {
   const item = o.file.items.find((x) => x.id === o.id);
   if (!item) throw new Error(`annotation ${o.id} is not in v${o.file.version}`);
@@ -93,6 +96,7 @@ export async function previewAnnotation(o: {
   const footage = o.frame.backdrop
     ? o.frame.inset
     : { x: 0, y: 0, w: o.output.width, h: o.output.height };
+  const tOverlay = Date.now();
   const built = await buildRenderAnnotations([res], {
     brand: o.brand,
     source: geo.source,
@@ -100,6 +104,7 @@ export async function previewAnnotation(o: {
     footage,
     cacheDir: o.cacheDir,
   });
+  if (o.timings) o.timings.overlayMs = Date.now() - tOverlay;
   const sc = o.timeline.scenes.find((s) => s.id === item.scene) as Timeline["scenes"][number];
   const from = Math.max(0, res.startMs - 1000);
   const to = Math.min(sc.durationMs, res.endMs + 1000);
@@ -134,36 +139,71 @@ export async function previewAnnotation(o: {
     brand: o.frame,
   };
   const warnings = [...r.warnings, ...built.warnings];
-  if (o.kind === "still" && !fs.existsSync(clip)) {
-    if (!fs.existsSync(still)) {
-      // One frame at the peak: a 3-frame slice, first frame out.
-      const at = from + peakMs;
-      const frameMs = 1000 / o.fps;
-      const tmp = path.join(o.outDir, `${o.id}-${key}.still.mp4`);
-      await renderJob(
-        sliceJob(sceneJob(o.timeline, item.scene, o.projectDir), at, at + 3 * frameMs),
-        path.join(takeDir, "raw.mp4"),
-        tmp,
-        { ...opts, annotations: shiftOps(built.ops, -at) },
-      );
-      try {
-        await ffmpeg(["-i", tmp, "-frames:v", "1", "-y", still]);
-      } finally {
-        fs.rmSync(tmp, { force: true });
+  const tRender = Date.now();
+  if (o.timings) o.timings.cached = fs.existsSync(o.kind === "still" ? still : clip);
+  try {
+    if (o.kind === "still" && !fs.existsSync(clip)) {
+      if (!fs.existsSync(still)) {
+        // One frame at the peak: a 3-frame slice, first frame out.
+        const at = from + peakMs;
+        const frameMs = 1000 / o.fps;
+        const tmp = path.join(o.outDir, `${o.id}-${key}.still.mp4`);
+        await renderJob(
+          sliceJob(sceneJob(o.timeline, item.scene, o.projectDir), at, at + 3 * frameMs),
+          path.join(takeDir, "raw.mp4"),
+          tmp,
+          { ...opts, annotations: shiftOps(built.ops, -at) },
+        );
+        try {
+          await ffmpeg(["-i", tmp, "-frames:v", "1", "-y", still]);
+        } finally {
+          fs.rmSync(tmp, { force: true });
+        }
       }
+      return { id: o.id, still, peakMs, warnings };
     }
-    return { id: o.id, still, peakMs, warnings };
+    if (!fs.existsSync(clip)) {
+      const job = sliceJob(sceneJob(o.timeline, item.scene, o.projectDir), from, to);
+      await renderJob(job, path.join(takeDir, "raw.mp4"), clip, {
+        ...opts,
+        annotations: shiftOps(built.ops, -from),
+      });
+    }
+    if (!fs.existsSync(still))
+      await ffmpeg(["-ss", (peakMs / 1000).toFixed(3), "-i", clip, "-frames:v", "1", "-y", still]);
+    return { id: o.id, clip, still, peakMs, warnings };
+  } finally {
+    if (o.timings) o.timings.renderMs = Date.now() - tRender;
   }
-  if (!fs.existsSync(clip)) {
-    const job = sliceJob(sceneJob(o.timeline, item.scene, o.projectDir), from, to);
-    await renderJob(job, path.join(takeDir, "raw.mp4"), clip, {
-      ...opts,
-      annotations: shiftOps(built.ops, -from),
-    });
+}
+
+/** Where the time of one preview went, in ms (the log's line). */
+export interface PreviewPhases {
+  /** Waiting for the render in front of it. */
+  queuedMs?: number;
+  /** The brand and its assets. */
+  brandMs?: number;
+  /** The overlay of this annotation (a browser, unless its picture is cached). */
+  overlayMs?: number;
+  /** ffmpeg: the still or the clip. */
+  renderMs?: number;
+  totalMs?: number;
+  /** Nothing had to be rendered: the file existed. */
+  cached?: boolean;
+}
+
+/** One line per preview in `<root>/diagnostics/previews.jsonl`: where the time goes, so a slow preview has evidence. */
+export function logPreview(rec: Record<string, unknown>): void {
+  try {
+    const dir = diagnosticsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(
+      path.join(dir, "previews.jsonl"),
+      `${JSON.stringify({ at: new Date().toISOString(), ...rec })}\n`,
+    );
+  } catch {
+    // a log that cannot be written is not worth a failed preview
   }
-  if (!fs.existsSync(still))
-    await ffmpeg(["-ss", (peakMs / 1000).toFixed(3), "-i", clip, "-frames:v", "1", "-y", still]);
-  return { id: o.id, clip, still, peakMs, warnings };
 }
 
 /** A low-res draft of one scene with all enabled annotations (D55), cached. */

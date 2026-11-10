@@ -7,9 +7,16 @@
 
 import path from "node:path";
 import { resolveContext } from "../annotations/apply.ts";
+import { prepareBrandMemo } from "../annotations/brand-memo.ts";
 import { type DraftOp, canReset } from "../annotations/draft.ts";
 import { annotationVersions, readAnnotations } from "../annotations/file.ts";
-import { previewAnnotation, previewScene } from "../annotations/preview.ts";
+import { PreviewQueue } from "../annotations/preview-queue.ts";
+import {
+  type PreviewPhases,
+  logPreview,
+  previewAnnotation,
+  previewScene,
+} from "../annotations/preview.ts";
 import { resolveAnnotations } from "../annotations/resolve.ts";
 import type { AnnotationFile } from "../annotations/types.ts";
 import { budgetOf } from "../annotations/weights.ts";
@@ -27,7 +34,6 @@ import {
   saveAnnotationDraftAsVersion,
 } from "../drafts/annotations.ts";
 import { DraftConflict } from "../drafts/store.ts";
-import { prepareBrand } from "../edit/pipeline.ts";
 import type { Timeline } from "../edit/timeline.ts";
 import { PANEL_PREFIX } from "../roles.ts";
 import { logInstructions, timelineFor, zoomGuardFor } from "../tools/annotations.ts";
@@ -160,16 +166,6 @@ export function annotationsView(p: ProjectHandle, cfg: DemoRecConfig, requested?
   };
 }
 
-/** One preview render at a time (they share Chromium and ffmpeg). */
-function serial() {
-  let chain: Promise<unknown> = Promise.resolve();
-  return <T>(fn: () => Promise<T>): Promise<T> => {
-    const run = chain.then(fn, fn);
-    chain = run.catch(() => undefined);
-    return run;
-  };
-}
-
 export function annotationRoutes(deps: AnnotationRouteDeps): {
   get: Record<string, GetRoute>;
   post: Record<string, PostRoute>;
@@ -179,7 +175,7 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
     if (!p) throw new Error("no active project");
     return p;
   };
-  const queue = serial();
+  const queue = new PreviewQueue();
   const fileFor = (p: ProjectHandle, body: Record<string, unknown>): AnnotationFile => {
     const v = Number(body.version);
     const d = readAnnotationDraft(p.dir, v);
@@ -401,71 +397,106 @@ export function annotationRoutes(deps: AnnotationRouteDeps): {
         return { requested: true, base: base ?? null, separate: !!separate };
       },
       /** { version, id, kind: still|clip } → media URL (draft-aware, cached). */
-      "annotation-preview": (body) => {
+      "annotation-preview": (body, ctx) => {
         const p = requireProject();
         const file = fileFor(p, body);
         const id = String(body.id ?? "");
         const kind = body.kind === "clip" ? "clip" : "still";
-        return queue(async () => {
-          const cfg = deps.getConfig();
-          const { timeline } = timelineFor(p.dir, file.basedOn.vo);
-          const size = kind === "clip" ? CLIP_SIZE : STILL_SIZE;
-          const b = await prepareBrand(p.dir, { ...cfg, output: size }, timeline.take, cfg.brand);
-          const pv = await previewAnnotation({
-            projectDir: p.dir,
-            timeline,
-            file,
-            id,
-            brand: b.loaded,
-            frame: b.frame,
-            fps: cfg.fps,
-            output: size,
-            cacheDir: path.join(cfg.root, ".cache", "annotation-assets"),
-            outDir: path.join(
+        // the same still of the same content is one render, whoever asks (and a tab that left the screen stops waiting)
+        const key = JSON.stringify([
+          p.dir,
+          file.version,
+          id,
+          kind,
+          file.items.find((x) => x.id === id),
+        ]);
+        const asked = Date.now();
+        return queue.run(
+          key,
+          async () => {
+            const cfg = deps.getConfig();
+            const phases: PreviewPhases = { queuedMs: Date.now() - asked };
+            const t0 = Date.now();
+            const { timeline } = timelineFor(p.dir, file.basedOn.vo);
+            const size = kind === "clip" ? CLIP_SIZE : STILL_SIZE;
+            const b = await prepareBrandMemo(
               p.dir,
-              "previews",
-              "annotations",
-              kind === "clip" ? "clips" : "stills",
-            ),
-            kind,
-          });
-          return {
-            id,
-            kind,
-            still: media(p.dir, pv.still),
-            ...(pv.clip ? { clip: media(p.dir, pv.clip) } : {}),
-            warnings: pv.warnings,
-          };
-        });
+              { ...cfg, output: size },
+              timeline.take,
+              cfg.brand,
+            );
+            phases.brandMs = Date.now() - t0;
+            const pv = await previewAnnotation({
+              timings: phases,
+              projectDir: p.dir,
+              timeline,
+              file,
+              id,
+              brand: b.loaded,
+              frame: b.frame,
+              fps: cfg.fps,
+              output: size,
+              cacheDir: path.join(cfg.root, ".cache", "annotation-assets"),
+              outDir: path.join(
+                p.dir,
+                "previews",
+                "annotations",
+                kind === "clip" ? "clips" : "stills",
+              ),
+              kind,
+            });
+            phases.totalMs = Date.now() - t0;
+            logPreview({ id, kind, ...phases });
+            return {
+              id,
+              kind,
+              still: media(p.dir, pv.still),
+              ...(pv.clip ? { clip: media(p.dir, pv.clip) } : {}),
+              warnings: pv.warnings,
+            };
+          },
+          ctx?.signal,
+        );
       },
       /** { version, scene } → a low-res draft of the scene with all enabled annotations. */
-      "annotations-scene-draft": (body) => {
+      "annotations-scene-draft": (body, ctx) => {
         const p = requireProject();
         const file = fileFor(p, body);
         const scene = String(body.scene ?? "");
-        return queue(async () => {
-          const cfg = deps.getConfig();
-          const { timeline } = timelineFor(p.dir, file.basedOn.vo);
-          const b = await prepareBrand(
-            p.dir,
-            { ...cfg, output: SCENE_DRAFT_SIZE },
-            timeline.take,
-            cfg.brand,
-          );
-          const r = await previewScene({
-            projectDir: p.dir,
-            timeline,
-            file,
-            scene,
-            brand: b.loaded,
-            frame: b.frame,
-            fps: cfg.fps,
-            output: SCENE_DRAFT_SIZE,
-            cacheDir: path.join(cfg.root, ".cache", "annotation-assets"),
-            outDir: path.join(p.dir, "previews", "annotations", "scenes"),
-          });
-          return { scene, file: media(p.dir, r.file), warnings: r.warnings };
-        });
+        const key = JSON.stringify([
+          p.dir,
+          file.version,
+          "scene",
+          scene,
+          file.items.filter((x) => x.scene === scene),
+        ]);
+        return queue.run(
+          key,
+          async () => {
+            const cfg = deps.getConfig();
+            const { timeline } = timelineFor(p.dir, file.basedOn.vo);
+            const b = await prepareBrandMemo(
+              p.dir,
+              { ...cfg, output: SCENE_DRAFT_SIZE },
+              timeline.take,
+              cfg.brand,
+            );
+            const r = await previewScene({
+              projectDir: p.dir,
+              timeline,
+              file,
+              scene,
+              brand: b.loaded,
+              frame: b.frame,
+              fps: cfg.fps,
+              output: SCENE_DRAFT_SIZE,
+              cacheDir: path.join(cfg.root, ".cache", "annotation-assets"),
+              outDir: path.join(p.dir, "previews", "annotations", "scenes"),
+            });
+            return { scene, file: media(p.dir, r.file), warnings: r.warnings };
+          },
+          ctx?.signal,
+        );
       },
     },
   };

@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { closePool } from "./browser/pool.ts";
 import { EventBus } from "./bus.ts";
 import { layerFiles } from "./config-edit.ts";
 import { type DemoRecConfig, resolveConfig } from "./config.ts";
@@ -644,6 +645,7 @@ export class Runtime {
     this.setStatus(undefined, true);
     await this.closeDiscovery().catch(() => {});
     await this.closeKeptWindows();
+    await closePool();
     const panel = this.panel ?? (await this.panelStarting?.catch(() => undefined));
     this.panel = undefined;
     this.panelStarting = undefined;

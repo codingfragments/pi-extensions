@@ -18,7 +18,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { LoadedBrand } from "../brand/brand.ts";
-import { withBrowser } from "../browser/bounded.ts";
+import { withPooledPages } from "../browser/pool.ts";
 import type { Box, ResolvedAnnotation } from "./resolve.ts";
 import { type AnnotationType, MOTION, ZOOM_IN_MS, ZOOM_OUT_MS } from "./types.ts";
 
@@ -146,7 +146,7 @@ export async function renderPngs(
   }
   if (!todo.length) return out;
   // one browser for all the overlays, under a deadline: a frozen one is diagnosed and killed instead of holding the render
-  await withBrowser(
+  await withPooledPages(
     "overlay rendering",
     async (browser) => {
       for (const j of todo) {

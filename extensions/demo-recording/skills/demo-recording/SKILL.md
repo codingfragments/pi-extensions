@@ -345,6 +345,8 @@ start a discovery, do NOT start a new take and do NOT edit the storyboard on you
 arrives, apply it: propose a storyboard fix as a new **draft** (`demo_rec_storyboard write`), say what you changed, and stop; never record or approve. A short discovery look
 (at most 10 actions) is fine only when a changed target has to be verified, and you say so first. The same goes for a failed edit.
 
+**The autoheal** (a `[demo-panel] … REPAIR the failed take-N` message): only the user starts it. It is a bounded repair run: open ONE discovery session (`demo_rec_browser open` takes the request's fixed budget, 10 screens, 15 actions, 6 minutes, and the session is read-only: an action that would change something is blocked), go straight to the page of the failing step, find out why it failed, and write ONE new draft storyboard that fixes only that scene (`demo_rec_storyboard write`). Then close the session and say what was wrong, what you changed and what you could not verify. If the cause is not clear, say so and write no draft. You never record a take, approve, edit the brief, start another discovery or spend; there is no second try, and no repair you start yourself.
+
 A failing scene is retried automatically (up to `recording.maxRetriesPerScene`).
 The take is cut at that scene's start and the app is restored off-camera via
 the scene's `deep_link` (fast) or by replaying the previous scenes. Good

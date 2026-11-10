@@ -45,11 +45,16 @@ function FailedTake({ t, reload }) {
   const go = async (kind) => {
     setBusy(kind);
     try {
-      await post(`/api/take-recommend-${kind}`, { take: t.id, text });
+      await post(kind === "heal" ? "/api/take-heal" : `/api/take-recommend-${kind}`, {
+        take: t.id,
+        text,
+      });
       toast(
-        kind === "send"
-          ? "Sent to the Director: it proposes a storyboard fix as a new draft."
-          : "Saved: it goes with the next take you request.",
+        kind === "heal"
+          ? "Asked the Director to look and repair: follow it in the Activity drawer."
+          : kind === "send"
+            ? "Sent to the Director: it proposes a storyboard fix as a new draft."
+            : "Saved: it goes with the next take you request.",
         { kind: "ok" },
       );
       reload();
@@ -70,6 +75,7 @@ function FailedTake({ t, reload }) {
       <span class="ds-hint-text">The evidence is filled in: add what you would change (another target, a deep link, a wait, drop the step).</span></label>
     <div class="ds-row-flex">
       <button class="ds-btn" type="button" data-act="recommend-save" disabled=${!!busy} onClick=${() => go("save")}>Save for the next take</button>
+      <button class="ds-btn" type="button" data-act="heal" disabled=${!!busy} onClick=${() => go("heal")}>Heal it: let the Director look</button>
       <button class="ds-btn ds-btn--primary" type="button" data-act="recommend-send" disabled=${!!busy} onClick=${() => go("send")}>Send to the Director now</button><${CostHint} />
     </div>
     <p class="ds-small ds-muted">Nothing starts by itself. Saved, it is a note on this scene that “Request a new take” carries${mine ? ` (${mine} open note${mine === 1 ? "" : "s"} now)` : ""}. Sent, the Director proposes a storyboard fix as a new draft: it does not record or approve anything.</p>

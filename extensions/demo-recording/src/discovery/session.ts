@@ -85,6 +85,8 @@ export interface DiscoveryOptions {
   settleMaxMs?: number;
   /** Leave the (headed) browser window open when the session closes; it is closed when pi shuts down. */
   keepOpen?: boolean;
+  /** A repair look (autoheal): only looking. An action that would change something is blocked, not just audited. */
+  readOnly?: boolean;
 }
 
 export interface Budget {
@@ -985,7 +987,14 @@ export class DiscoverySession {
   }
 
   private gate(ctx: ActionContext, detail: Record<string, unknown>): SafetyVerdict {
-    const verdict = classify(ctx, this.policy);
+    const classified = classify(ctx, this.policy);
+    const verdict: SafetyVerdict =
+      this.opts.readOnly && classified.level === "mutating"
+        ? {
+            level: "blocked",
+            reason: `this is a read-only repair look (it may change nothing): ${classified.reason}`,
+          }
+        : classified;
     const record = {
       action: ctx.action,
       ...detail,

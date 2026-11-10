@@ -71,6 +71,7 @@ export const ROUTE_COST: Record<string, CostClass[]> = {
   "brief-draft": ["turn"],
   "finding-mark": ["none"],
   "take-note-add": ["none"],
+  "take-heal": ["turn"],
   "take-recommend-save": ["none"],
   "take-recommend-send": ["turn"],
   "take-note-delete": ["none"],

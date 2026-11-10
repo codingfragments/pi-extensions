@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { measureSession } from "../discovery/coverage.ts";
+import { requestHeal } from "../discovery/heal.ts";
 import { uncoveredAreas } from "../discovery/measure.ts";
 import { coverageOf, readReport, reportVersions } from "../discovery/report.ts";
 import {
@@ -103,6 +104,15 @@ export function discoveryRoutes(rt: Runtime): {
       },
     },
     post: {
+      /** The autoheal of a failed take: a bounded, read-only repair run for the Director; its output is a new draft storyboard (it never records). */
+      "take-heal": (body) => {
+        const req = requestHeal(rt, {
+          take: String(body.take ?? ""),
+          text: body.text,
+          by: "panel",
+        });
+        return { request: req };
+      },
       "discovery-start": (body) => {
         const { cfg } = ctx();
         const mode = body.mode === "enhance" ? "enhance" : "start";

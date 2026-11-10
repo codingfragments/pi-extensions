@@ -61,10 +61,23 @@ export function checkBudget(b: unknown): DiscoveryBudgets {
   };
 }
 
+/**
+ * The autoheal's budget (item 18, part 2): a short read-only look at the failing step. Fixed, not a choice: it is the most a repair may spend, whatever Config says
+ * (the session enforces it).
+ */
+export const HEAL_BUDGET: DiscoveryBudgets = {
+  discoveryScreens: 10,
+  discoveryActions: 15,
+  discoveryMinutes: 6,
+};
+
 export interface DiscoveryRequest {
   id: string;
   at: string;
-  mode: "start" | "enhance";
+  /** heal: the autoheal of a failed take (read-only look, a new draft storyboard as the output). */
+  mode: "start" | "enhance" | "heal";
+  /** heal: the failed take it repairs. */
+  heal?: { take: string; scene?: string; storyboardVersion: number };
   /** What you want the Director to look at or keep in mind. */
   notes: string;
   /** Areas of the app to cover, one per line in the form. */
@@ -102,7 +115,8 @@ export const pendingRequest = (projectDir: string): DiscoveryRequest | undefined
 export function addRequest(
   projectDir: string,
   r: {
-    mode: "start" | "enhance";
+    mode: "start" | "enhance" | "heal";
+    heal?: DiscoveryRequest["heal"];
     notes?: unknown;
     areas?: unknown;
     budget: unknown;
@@ -130,6 +144,7 @@ export function addRequest(
     id: `dr-${list.length + 1}`,
     at: now.toISOString(),
     mode: r.mode,
+    ...(r.heal ? { heal: r.heal } : {}),
     notes,
     areas,
     budget: checkBudget(r.budget),

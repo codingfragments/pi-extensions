@@ -8,6 +8,7 @@
  *    ones the Director always got for those, and the grant store stays the only thing that decides whether something may start.
  */
 
+import { requestHeal } from "./discovery/heal.ts";
 import { pendingRequest, presetBudgets } from "./discovery/requests.ts";
 import { requestDiscovery } from "./discovery/start.ts";
 import { allowedMessage, deniedMessage } from "./grants.ts";
@@ -19,6 +20,7 @@ import {
   askQuestion,
   readQuestions,
 } from "./questions.ts";
+import { readFailedTake, recommendationDraft } from "./recorder/failure.ts";
 import { PANEL_PREFIX, reportAs } from "./roles.ts";
 import type { Runtime } from "./runtime.ts";
 import { readState } from "./workdir/state.ts";
@@ -126,6 +128,25 @@ export function answerFor(
         p.slug,
       );
   } else if (q.takeFailed) {
+    if (a.word === "heal") {
+      try {
+        const f = readFailedTake(p.dir, q.takeFailed.take);
+        requestHeal(rt, {
+          take: q.takeFailed.take,
+          text: f ? recommendationDraft(f).replace(/\s*What I would change:\s*$/, "") : "",
+          by: "chat",
+        });
+      } catch (e) {
+        rt.bus.publish(
+          "take.heal-refused",
+          {
+            take: q.takeFailed.take,
+            message: `could not start the repair: ${e instanceof Error ? e.message : e}`,
+          },
+          p.slug,
+        );
+      }
+    }
     // what now, after a failed take: the answers only point at the Recording tab or close the question; no answer wakes the Director
     if (a.word === "add")
       rt.bus.publish(
@@ -253,8 +274,12 @@ export function askAfterFailedTake(rt: Runtime, take: string, words: string): Qu
   const q = askQuestion(p.dir, {
     role: "Operator",
     what: `${take} failed: ${words}. What now?`.slice(0, 300),
-    why: "Nothing starts by itself. Add your recommendation on the failed scene in the Recording tab (it goes to the Director as a note for the next take, or straight away), or leave it.",
-    options: [{ label: "Add my recommendation" }, { label: "Leave it" }],
+    why: "Nothing starts by itself. Add your recommendation on the failed scene in the Recording tab (a note for the next take, or sent to the Director), let the Director look and propose a repaired draft (a read-only look, 15 actions, 6 minutes: it never records), or leave it.",
+    options: [
+      { label: "Add my recommendation" },
+      { label: "Heal it: let the Director look and repair" },
+      { label: "Leave it" },
+    ],
     takeFailed: { take },
   });
   announceQuestion(rt, q);

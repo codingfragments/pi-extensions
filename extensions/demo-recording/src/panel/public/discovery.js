@@ -223,7 +223,7 @@ export function Discovery({ events }) {
     <p>${line}</p>
     ${
       data.pending
-        ? html`<div class="ds-notice" role="status" data-pending><span class="ds-status" data-tone="info" aria-hidden="true">◔</span><div>Waiting for the Director to pick up your ${data.pending.mode === "enhance" ? "enhance" : "start"} request (${data.pending.budget.discoveryScreens} screens, ${data.pending.budget.discoveryActions} actions, ${data.pending.budget.discoveryMinutes} minutes). <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="take-back" onClick=${takeBack}>Take it back</button></div></div>`
+        ? html`<div class="ds-notice" role="status" data-pending><span class="ds-status" data-tone="info" aria-hidden="true">◔</span><div>Waiting for the Director to pick up your ${data.pending.mode === "enhance" ? "enhance" : data.pending.mode === "heal" ? "repair" : "start"} request (${data.pending.budget.discoveryScreens} screens, ${data.pending.budget.discoveryActions} actions, ${data.pending.budget.discoveryMinutes} minutes). <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="take-back" onClick=${takeBack}>Take it back</button></div></div>`
         : null
     }
     <div class="ds-row-flex">

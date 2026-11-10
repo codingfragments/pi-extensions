@@ -278,7 +278,7 @@ test("a failed take: the Director is told quietly (no turn), the user is asked w
     assert.equal(q?.takeFailed?.take, "take-050");
     assert.deepEqual(
       q?.options.map((o) => o.word),
-      ["add", "leave"],
+      ["add", "heal", "leave"],
     );
     assert.match(q?.what ?? "", /^take-050 failed: scene 01-dash/);
     // the same failure does not ask twice

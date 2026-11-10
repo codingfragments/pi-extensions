@@ -182,6 +182,8 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             // the Start window's switch shows the window in front and keeps it open afterwards; the Director's own `headed` only shows it
             ...(params.headed || asked?.headed ? { headed: true } : {}),
             ...(asked?.headed ? { keepOpen: true } : {}),
+            // the autoheal only looks: an action that would change something is blocked
+            ...(asked?.mode === "heal" ? { readOnly: true } : {}),
             ...(fs.existsSync(statePath) ? { storageState: statePath } : {}),
           });
           if (asked) {

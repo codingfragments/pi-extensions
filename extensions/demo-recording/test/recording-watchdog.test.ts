@@ -226,6 +226,10 @@ test(
     );
     assert.equal(meta.status, "failed");
     assert.deepEqual(meta.diagnostics, ["diagnostics/stalled-1", "diagnostics/stalled-2"]);
+    assert.deepEqual(
+      [meta.failure.kind, meta.failure.scene, meta.failure.stalls],
+      ["stalls", "02-search", 2],
+    );
   },
 );
 

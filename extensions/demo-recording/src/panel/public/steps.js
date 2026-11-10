@@ -115,6 +115,8 @@ export const STEPS = {
   "take.diagnosed": { class: "quiet" },
   "take.stalled": { class: "alert" },
   "take.accepted": { class: "quiet" },
+  "take.recommend-asked": { class: "run-and-tell", tab: "recording" },
+  "take.recommended": { class: "quiet" },
   "take.analyzed": { class: "run-and-tell", tab: "recording" },
   "take.analyzing": { class: "progress" },
   "take.event": { class: "progress" },

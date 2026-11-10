@@ -33,6 +33,49 @@ function TakeRow({ t, row, events, viewed, selected, onSelect, reload }) {
   </section>`;
 }
 
+/**
+ * A take that did not finish: what failed, in words, the diagnosis, and a box for YOUR recommendation on the scene it failed in. Nothing starts by itself: the
+ * recommendation is kept as a note for the next take, or sent to the Director now (it then proposes a storyboard fix as a new draft; it does not record).
+ */
+function FailedTake({ t, reload }) {
+  const f = t.failure;
+  const [text, setText] = useState(f.draft);
+  const [busy, setBusy] = useState(null);
+  // (the card is keyed by the take: another take is another card, with its own draft)
+  const go = async (kind) => {
+    setBusy(kind);
+    try {
+      await post(`/api/take-recommend-${kind}`, { take: t.id, text });
+      toast(
+        kind === "send"
+          ? "Sent to the Director: it proposes a storyboard fix as a new draft."
+          : "Saved: it goes with the next take you request.",
+        { kind: "ok" },
+      );
+      reload();
+    } catch (e) {
+      errorToast(e, "recommendation");
+    } finally {
+      setBusy(null);
+    }
+  };
+  const mine = t.notes.filter((n) => !n.sent).length;
+  return html`<section class="card ds-failed-take" data-failed-take=${t.id} aria-label=${`${t.id} did not finish`}>
+    <div class="ds-row-flex"><span class="ds-status" data-tone="err" aria-hidden="true">!</span><h2>${t.id} did not finish</h2></div>
+    <p data-failure-words>${f.words}.</p>
+    ${f.verdict ? html`<p class="ds-small" data-verdict><b>The diagnosis:</b> ${f.verdict}</p>` : null}
+    ${f.diagnostics.length ? html`<p class="ds-small ds-muted">Everything about it is in <code>takes/${t.id}/${f.diagnostics.at(-1)}/</code> (README.txt first).</p>` : null}
+    <label class="ds-field"><span class="ds-label">Your recommendation${f.failure.scene ? html` for scene <code>${f.failure.scene}</code>` : null}</span>
+      <textarea class="ds-textarea" rows="5" maxlength="1000" data-field="recommendation" value=${text} onInput=${(e) => setText(e.target.value)}></textarea>
+      <span class="ds-hint-text">The evidence is filled in: add what you would change (another target, a deep link, a wait, drop the step).</span></label>
+    <div class="ds-row-flex">
+      <button class="ds-btn" type="button" data-act="recommend-save" disabled=${!!busy} onClick=${() => go("save")}>Save for the next take</button>
+      <button class="ds-btn ds-btn--primary" type="button" data-act="recommend-send" disabled=${!!busy} onClick=${() => go("send")}>Send to the Director now</button><${CostHint} />
+    </div>
+    <p class="ds-small ds-muted">Nothing starts by itself. Saved, it is a note on this scene that “Request a new take” carries${mine ? ` (${mine} open note${mine === 1 ? "" : "s"} now)` : ""}. Sent, the Director proposes a storyboard fix as a new draft: it does not record or approve anything.</p>
+  </section>`;
+}
+
 /** The chapter marks under the video: one segment per scene on the take's own time line, the playhead on top. */
 function ChapterBar({ scenes, durationMs, time, current, onSeek }) {
   const total = Math.max(durationMs, scenes.at(-1)?.endMs ?? 0, 1);
@@ -324,7 +367,7 @@ export function Recording({ events, stages }) {
         ? html`${data.takes.map(
             (t) =>
               html`<${TakeRow} key=${t.id} t=${t} row=${rows.find((r) => r.version === t.version)} events=${events} viewed=${t.version === routeVersion} selected=${t.id === reviewed.id} onSelect=${() => setPicked(t.id)} reload=${reload} />`,
-          )}<${TakeWorkspace} key=${reviewed.id} t=${reviewed} reload=${reload} />`
+          )}${reviewed.failure ? html`<${FailedTake} key=${reviewed.id} t=${reviewed} reload=${reload} />` : html`<${TakeWorkspace} key=${reviewed.id} t=${reviewed} reload=${reload} />`}`
         : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (its progress is in the Activity drawer).` : "Accept a storyboard first; its takes show up here."}</section>`
     }
     <section class="card review-foot ds-inflow" data-request-take>

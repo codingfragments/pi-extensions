@@ -11,6 +11,8 @@ import { reviewScenes } from "../analysis/review.ts";
 import { readAnalysis } from "../analysis/take.ts";
 import { compareVersions } from "../compare/facts.ts";
 import { listFixSets } from "../qa/fixes.ts";
+import { answerQuestion, readQuestions } from "../questions.ts";
+import { type FailedTake, readFailedTake, recommendationDraft } from "../recorder/failure.ts";
 import {
   addNote,
   deleteNote,
@@ -159,6 +161,72 @@ export function stageRoutes(deps: StageRouteDeps): {
     if (!p) throw new Error("no active project");
     return p;
   };
+  const recommendOnFailedTake = (body: Record<string, unknown>, send: boolean) => {
+    const p = requireProject();
+    const take = String(body.take ?? "");
+    const sb = (() => {
+      try {
+        const v = JSON.parse(
+          fs.readFileSync(path.join(p.dir, "takes", take, "take.json"), "utf8"),
+        ) as { storyboardVersion?: number };
+        return v.storyboardVersion ? readStoryboard(p.dir, v.storyboardVersion) : undefined;
+      } catch {
+        return undefined;
+      }
+    })();
+    const f: FailedTake | undefined = readFailedTake(p.dir, take, sb?.storyboard);
+    if (!f) throw new Error(`${take} did not fail: there is nothing to recommend on`);
+    const text = String(body.text ?? "").trim();
+    if (!text) throw new Error("write your recommendation first");
+    const note = addNote(p.dir, take, {
+      t: 0,
+      ...(f.failure.scene ? { scene: f.failure.scene } : {}),
+      text,
+    });
+    // the question "what now?" of this take is answered by the recommendation
+    for (const q of readQuestions(p.dir))
+      if (q.status === "pending" && q.takeFailed?.take === take) {
+        const r = answerQuestion(p.dir, q.id, "add", "panel");
+        if (r.ok)
+          deps.publish(
+            "question.answered",
+            {
+              id: q.id,
+              option: r.question.answer?.key,
+              by: "panel",
+              message: `answered ${q.id}: you wrote a recommendation on ${take}`,
+            },
+            p.slug,
+          );
+      }
+    if (send) {
+      markSent(p.dir, [{ ...note, take }], f.storyboardVersion);
+      recordInput(p.dir, {
+        stage: "recording",
+        version: f.storyboardVersion,
+        source: "panel",
+        kind: "review",
+        text: `recommendation on the failed ${take} (${f.words}): ${text}`,
+        refs: [`${take}#${note.id}`],
+      });
+      deps.notifyAgent(
+        `${PANEL_PREFIX} The user sent a RECOMMENDATION on the failed ${take} of storyboard v${f.storyboardVersion} for project "${p.slug}". What failed: ${f.words}.${f.verdict ? ` Diagnosis: ${f.verdict}.` : ""} Their recommendation: "${text}". Propose a storyboard fix as a new DRAFT that applies it (demo_rec_storyboard write), and say what you changed. Do NOT record a take and do NOT approve anything. If a changed target must be verified, a short discovery look (at most 10 actions) is fine: say so first. Stop after writing the draft.`,
+      );
+    }
+    deps.publish(
+      "take.recommended",
+      {
+        take,
+        note: note.id,
+        sent: send,
+        message: send
+          ? `recommendation on ${take} sent to the Director`
+          : `recommendation on ${take} saved for the next take`,
+      },
+      p.slug,
+    );
+    return { note, sent: send };
+  };
   return {
     get: {
       /** Every stage: versions, accepted (with orphan flags), working line, inputs to pick from, next step. */
@@ -260,6 +328,11 @@ export function stageRoutes(deps: StageRouteDeps): {
                 ? rel(p.dir, path.join(dir, "raw.mp4"))
                 : null,
               notes: readNotes(p.dir, t.id),
+              // a take that did not complete: why, in words, with a draft for your recommendation (the Recording tab's failed-take card)
+              failure: (() => {
+                const f = readFailedTake(p.dir, t.id, storyboardFor(t.storyboardVersion));
+                return f ? { ...f, draft: recommendationDraft(f) } : null;
+              })(),
               review: analysis
                 ? reviewScenes({
                     analysis,
@@ -363,6 +436,9 @@ export function stageRoutes(deps: StageRouteDeps): {
         return { line: state.line, lineText: formatLine(state.line) };
       },
       /** Notes on a take (item 7c): add, edit, delete (returns the note for Undo), restore. Review input: nothing reaches the Director until a take is requested. */
+      /** A recommendation on the scene a take failed in: kept as a note for the next take, or sent to the Director now (it starts a turn: you asked for it). */
+      "take-recommend-save": (body) => recommendOnFailedTake(body, false),
+      "take-recommend-send": (body) => recommendOnFailedTake(body, true),
       "take-note-add": (body) => {
         const p = requireProject();
         const take = String(body.take ?? "");

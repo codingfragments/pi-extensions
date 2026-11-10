@@ -339,6 +339,12 @@ suggest the next step.
 
 If the user asked for the browser window to be shown (the Recording tab's switch), the request message says `headed=true`: pass it to `demo_rec_record` (the engine also remembers it). A **frozen browser** is not a failing scene: every step has a deadline; a step that does not finish is diagnosed (the take's `diagnostics/stalled-N/`), the browser killed and replaced, and the scene shot again without using a retry (at most `recording.maxStalls` per take). If the take fails or is interrupted, read `diagnostics/*/README.txt` first (it says in words where the browser was stuck) and tell the user what it says; the `context.json` names the step. Do not retry a take that froze on the same step twice without telling the user.
 
+**A take that failed (or was cancelled) does not start you.** You are told in a note (no turn of your own): what failed, in words, and the diagnosis. The user decides what
+happens next: they write a recommendation on the failed scene in the Recording tab (kept as a note for the next take, or sent to you), or leave it. Until they do: do NOT
+start a discovery, do NOT start a new take and do NOT edit the storyboard on your own initiative. When a `[demo-panel] … RECOMMENDATION on the failed take-N` message
+arrives, apply it: propose a storyboard fix as a new **draft** (`demo_rec_storyboard write`), say what you changed, and stop; never record or approve. A short discovery look
+(at most 10 actions) is fine only when a changed target has to be verified, and you say so first. The same goes for a failed edit.
+
 A failing scene is retried automatically (up to `recording.maxRetriesPerScene`).
 The take is cut at that scene's start and the app is restored off-camera via
 the scene's `deep_link` (fast) or by replaying the previous scenes. Good

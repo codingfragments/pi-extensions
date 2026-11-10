@@ -235,8 +235,12 @@ export function startEdit(
             tail = `\n\nNext — Annotations: the separate Annotation designer (roles.annotationDesigner → ${rt.getConfig().roles.annotationDesigner?.model.join(" → ")}) is suggesting them now. Don't start it yourself; you'll get a note when the version is ready.`;
         }
         rt.reportToAgent(`${reportAs("Cutter")} ${editJobSummary(edit)}${tail}`);
-      } else
-        rt.reportToAgent(`${reportAs("Cutter")} Edit ${j.status}: ${j.error ?? "unknown error"}`);
+      }
+      // a failed edit is the user's to decide on (the strip shows it): a note for the Director's next turn, never a turn of its own
+      else
+        rt.tellAgent(
+          `${reportAs("Cutter")} Edit ${j.status}: ${j.error ?? "unknown error"}. Nothing is started by itself: the user decides what happens next.`,
+        );
     },
   );
 }

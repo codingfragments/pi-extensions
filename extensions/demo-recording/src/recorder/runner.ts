@@ -39,6 +39,7 @@ import { type Rng, createRng, randomSeed } from "../util/rng.ts";
 import { createNextNumberedDir } from "../workdir/versioning.ts";
 import { type DiagInfo, type DiagKind, collectDiagnostics } from "./diagnostics.ts";
 import { EventLog, type TakeEvent } from "./events.ts";
+import type { TakeFailure } from "./failure.ts";
 import type { Improviser } from "./improvise.ts";
 import { LayoutRecorder, captureLayout } from "./layout.ts";
 import {
@@ -818,6 +819,8 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     return m ? Number(m[1]) : undefined;
   };
   let faultReached = 0;
+  /** Why the take failed, set where the take is given up: the panel and the Director's note read it from take.json. */
+  let failureInfo: TakeFailure | undefined;
   const clearedUrls = new Set<string>();
   let failure: Error | undefined;
   try {
@@ -951,15 +954,42 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
           const expired = err instanceof SessionExpiredError;
           if (stalled) {
             stalls++;
-            if (stalls > maxStalls)
+            if (stalls > maxStalls) {
+              failureInfo = {
+                kind: "stalls",
+                scene: scene.id,
+                step: (err as StepStalledError).step,
+                stalls,
+                message,
+              };
               throw new Error(
                 `${message} (the browser froze ${stalls} times: more than the ${maxStalls} a take survives)`,
               );
+            }
           } else if (!expired) retriesUsed++;
-          if (!expired && !stalled && attempt > maxRetries)
+          if (!expired && !stalled && attempt > maxRetries) {
+            const step = failedStep(message);
+            failureInfo = {
+              kind: "retries",
+              scene: scene.id,
+              ...(step !== undefined ? { step } : {}),
+              attempts: attempt,
+              stalls,
+              message,
+            };
             throw new Error(`${message} (after ${attempt} attempt${attempt > 1 ? "s" : ""})`);
+          }
           const hazards = opts.allowUnsafeReplay ? [] : replayHazards(opts.storyboard.scenes, k);
           if (hazards.length) {
+            const step = failedStep(message);
+            failureInfo = {
+              kind: "no-resume",
+              scene: scene.id,
+              ...(step !== undefined ? { step } : {}),
+              attempts: attempt,
+              stalls,
+              message,
+            };
             throw new Error(
               `${message} — not resuming: scene ${scene.id} has no deep_link, and replaying earlier scenes would repeat ` +
                 `state changes (${hazards.map((h) => `${h.scene} step ${h.step}: ${h.reason}`).join("; ")}). ` +
@@ -1053,6 +1083,13 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
     report();
     takeMeta.status = failure instanceof CancelledError ? "cancelled" : "failed";
     takeMeta.error = failure.message;
+    // not a cancel: why it was given up, as data (the failed-take card and the Director's note read it)
+    if (takeMeta.status === "failed")
+      takeMeta.failure = failureInfo ?? {
+        kind: segments.length ? "error" : "setup",
+        stalls,
+        message: failure.message,
+      };
     if (diagnostics.length) takeMeta.diagnostics = diagnostics;
     takeMeta.durationMs = durationMs;
     writeMeta();

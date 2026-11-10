@@ -13,6 +13,8 @@ import { Type } from "typebox";
 import { sessionGuardFor } from "../auth/guard.ts";
 import { checkBeforeStart } from "../auth/session.ts";
 import type { Job } from "../jobs.ts";
+import { askAfterFailedTake } from "../question-flow.ts";
+import { readFailedTake } from "../recorder/failure.ts";
 import { createImproviser, modelAccessFrom } from "../recorder/improvise.ts";
 import { formatProgress } from "../recorder/progress.ts";
 import { type TakeResult, recordTake } from "../recorder/runner.ts";
@@ -21,11 +23,12 @@ import type { Runtime } from "../runtime.ts";
 import { readStoryboard } from "../storyboard/store.ts";
 import { firstLine, jobFacts, secs } from "../util/events.ts";
 import { briefFieldValue } from "../workdir/brief.ts";
-import { appDir } from "../workdir/layout.ts";
+import { type ProjectHandle, appDir } from "../workdir/layout.ts";
 import { readState, requireSelected, setPhase } from "../workdir/state.ts";
 import { clearTakeRequest, readTakeRequest } from "../workdir/take-request.ts";
 import { result } from "./common.ts";
 import { askFirst, notAllowed, spendTarget } from "./spend.ts";
+import { listTakes } from "./take.ts";
 
 /** One line of audience/goal context from brief.md for the improviser. */
 export function briefContext(brief: string): string | undefined {
@@ -64,6 +67,34 @@ export function takeSummary(take: TakeResult, version: number): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * A take that did not complete. The Director is told QUIETLY (a note for its next turn, never a turn of its own): a failure is the user's to decide on, and a Director
+ * that is woken goes looking for a fix by itself (it reopened discovery). A failed take (not a cancelled one) asks the user what now.
+ */
+export function takeEnded(
+  rt: Runtime,
+  p: ProjectHandle,
+  version: number,
+  status: string,
+  error: string | undefined,
+): void {
+  const take = listTakes(p.dir).at(-1);
+  if (status === "failed" && take) {
+    const sb = readStoryboard(p.dir, version)?.storyboard;
+    const f = readFailedTake(p.dir, take.id, sb);
+    if (f) {
+      rt.tellAgent(
+        `${reportAs("Operator")} Recording failed (${f.take}): ${f.words}.${f.verdict ? ` Diagnosis: ${f.verdict}.` : ""} Evidence: takes/${f.take} (take.json, attempts.jsonl${f.diagnostics.length ? `, ${f.diagnostics.at(-1)}/README.txt` : ""}). The user decides what happens next (a recommendation on the scene, or nothing): do NOT start a discovery or a new take, and do not edit the storyboard, until they ask you to.`,
+      );
+      askAfterFailedTake(rt, f.take, f.words);
+      return;
+    }
+  }
+  rt.tellAgent(
+    `${reportAs("Operator")} Recording ${status}${error ? `: ${firstLine(error)}` : ""}. Nothing is started by itself: the user decides what happens next.`,
+  );
 }
 
 export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
@@ -254,10 +285,7 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
           );
           if (j.result)
             rt.reportToAgent(`${reportAs("Operator")} ${takeSummary(j.result, version)}`);
-          else
-            rt.reportToAgent(
-              `${reportAs("Operator")} Recording ${j.status}: ${j.error ?? "unknown error"}. Evidence: takes/ (take.json, attempts.jsonl).`,
-            );
+          else takeEnded(rt, p, version, j.status, j.error);
         },
       );
       rt.bus.publish(

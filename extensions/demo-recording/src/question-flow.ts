@@ -125,6 +125,17 @@ export function answerFor(
         },
         p.slug,
       );
+  } else if (q.takeFailed) {
+    // what now, after a failed take: the answers only point at the Recording tab or close the question; no answer wakes the Director
+    if (a.word === "add")
+      rt.bus.publish(
+        "take.recommend-asked",
+        {
+          take: q.takeFailed.take,
+          message: `write your recommendation on ${q.takeFailed.take} in the Recording tab: the failed take has a card for it`,
+        },
+        p.slug,
+      );
   } else if (q.auth) {
     // a recording is paused for a new login (S7): "stop" ends it, "login" only says you will log in; neither is news for the Director
     if (a.word === "stop") {
@@ -225,6 +236,26 @@ export function offerDiscovery(rt: Runtime, appSlug: string): Question | undefin
       { label: "Not now" },
     ],
     discovery: { app: appSlug },
+  });
+  announceQuestion(rt, q);
+  return q;
+}
+
+/**
+ * A take failed (it ran out of retries, or the browser froze more often than a take survives): the decision is the user's, so ask. The Director is NOT woken: it is told
+ * quietly, and it must not start a discovery or a new take by itself (the question and the Recording tab's card are how the user answers). Once per take.
+ */
+export function askAfterFailedTake(rt: Runtime, take: string, words: string): Question | undefined {
+  const p = rt.activeProject();
+  if (!p) return undefined;
+  if (readQuestions(p.dir).some((q) => q.status === "pending" && q.takeFailed?.take === take))
+    return undefined;
+  const q = askQuestion(p.dir, {
+    role: "Operator",
+    what: `${take} failed: ${words}. What now?`.slice(0, 300),
+    why: "Nothing starts by itself. Add your recommendation on the failed scene in the Recording tab (it goes to the Director as a note for the next take, or straight away), or leave it.",
+    options: [{ label: "Add my recommendation" }, { label: "Leave it" }],
+    takeFailed: { take },
   });
   announceQuestion(rt, q);
   return q;

@@ -20,6 +20,7 @@ import {
   finalBlocker,
   normalizeOptions,
   planRender,
+  renderDefaultsWords,
   reuseKey,
   runRender,
 } from "../src/render/run.ts";
@@ -321,6 +322,70 @@ test("final gate: needs an accepted, usable annotation version; drafts don't", (
   assert.throws(
     () => planRender(dir, cfg, { kind: "draft", brands: ["nope"], by: "cli" }),
     /brand/,
+  );
+});
+
+test("config render.*: a FINAL starts from the configured brands, subtitles, logo bug and types; a request that names its own wins; a draft stays quick and plain", () => {
+  const dir = project();
+  const v = ANN(dir, [CALLOUT, CHAPTER]);
+  acceptStage(dir, "annotations", v.version);
+  const base = config();
+  const cfg = {
+    ...base,
+    render: {
+      ...base.render,
+      brands: ["neutral"],
+      subtitles: true,
+      logoBug: false,
+      annotationTypes: ["chapter"] as string[],
+    },
+  };
+  const final = planRender(dir, cfg, { kind: "final", by: "cli" });
+  assert.deepEqual(final.options, {
+    annotationTypes: ["chapter"],
+    subtitles: true,
+    logoBug: false,
+  });
+  assert.deepEqual(final.brands, ["neutral"]);
+  assert.deepEqual(
+    final.file?.items.map((x) => x.id),
+    ["ch"],
+    "only the configured type is rendered",
+  );
+  // what the request says wins, field by field
+  const own = planRender(dir, cfg, {
+    kind: "final",
+    by: "agent",
+    options: { subtitles: false, annotationTypes: "all" },
+  });
+  assert.deepEqual(own.options, { annotationTypes: "all", subtitles: false, logoBug: false });
+  // a draft ignores them: the quick, plain render of the `brand`
+  const draft = planRender(dir, cfg, { kind: "draft", by: "cli" });
+  assert.deepEqual(draft.options, { annotationTypes: "all", subtitles: false, logoBug: true });
+  assert.deepEqual(draft.brands, ["neutral"]);
+  // a configured brand that does not exist stops a final, clearly, and not a draft
+  const bad = { ...cfg, render: { ...cfg.render, brands: ["no-such-brand"] } };
+  assert.throws(() => planRender(dir, bad, { kind: "final", by: "cli" }), /brand/);
+  assert.doesNotThrow(() => planRender(dir, bad, { kind: "draft", by: "cli" }));
+  assert.deepEqual(
+    normalizeOptions(undefined, { subtitles: true, logoBug: false, annotationTypes: ["callout"] }),
+    {
+      annotationTypes: ["callout"],
+      subtitles: true,
+      logoBug: false,
+    },
+  );
+  assert.match(
+    renderDefaultsWords(cfg),
+    /^a final render uses the brand neutral, with burned-in subtitles, the logo bug off, only chapter$/,
+  );
+  assert.equal(
+    renderDefaultsWords(base),
+    "a final render uses the brand neutral, no burned-in subtitles, the logo bug on, all annotation types",
+  );
+  assert.match(
+    renderDefaultsWords({ ...base, render: { ...base.render, brands: ["a", "b"] } }),
+    /the brands a, b \(one variant each\)/,
   );
 });
 

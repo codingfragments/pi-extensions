@@ -164,7 +164,7 @@ export function registerRenderTool(pi: ExtensionAPI, rt: Runtime): void {
     description:
       "Render stage (background engine job, no LLM/TTS). start: a new render version — kind draft (any annotation version, full video only, " +
       "960×540, DRAFT tag) or final (needs an accepted annotation version; full + scenes + transcript VTT + callouts SRT + poster at full size). " +
-      'Options: brands (several → one variant each), annotationTypes ("all" or a list, e.g. ["chapter"] or [] for none — the annotation version ' +
+      'Options (all optional: a FINAL takes what is not given from the config, render.brands / subtitles / logoBug / annotationTypes, so do not ask the user for them): brands (several → one variant each), annotationTypes ("all" or a list, e.g. ["chapter"] or [] for none — the annotation version ' +
       "stays as approved), subtitles (also writes *.subtitled.mp4), logoBug. Every final gets QA automatically (values said vs. shown, error " +
       "toasts, sync drift, frozen/black/silent stretches, redaction gaps); qa: show a final's report. status / cancel / list. You get a [demo-recording] message when it's " +
       "done — don't poll. The user accepts the deliverable and deletes renders in the panel; you cannot.",

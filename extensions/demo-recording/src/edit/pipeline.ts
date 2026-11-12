@@ -23,7 +23,8 @@ import { readApp } from "../workdir/layout.ts";
 import { readState, requireSelected } from "../workdir/state.ts";
 import { writeNextVersion } from "../workdir/versioning.ts";
 import { type SceneFit, sceneFits } from "./fit.ts";
-import { type RenderBrand, fullJob, renderJob, sceneJob } from "./render.ts";
+import { PieceProgress } from "./progress.ts";
+import { type RenderBrand, type RenderJob, fullJob, renderJob, sceneJob } from "./render.ts";
 import { type Timeline, buildTimeline } from "./timeline.ts";
 
 export interface EditResult {
@@ -212,7 +213,7 @@ export async function renderCut(o: {
   timeline?: Timeline;
   cut: CutOptions;
   signal?: AbortSignal;
-  onProgress?: (p: { done: number; total: number; label: string }) => void;
+  onProgress?: (p: { done: number; total: number; label: string; etaSec?: number }) => void;
 }): Promise<CutResult> {
   const timelineFile = path.join(o.projectDir, "edit", `timeline.v${o.timelineVersion}.json`);
   if (!fs.existsSync(timelineFile))
@@ -264,23 +265,35 @@ export async function renderCut(o: {
     ...(o.cut.encode ? { encode: o.cut.encode } : {}),
     ...(stamp ? { stamp } : {}),
   };
-  const total = (o.cut.scenes ? timeline.scenes.length : 0) + 1;
   const scenes: CutResult["scenes"] = [];
+  const title0 = assets.title ? loaded.brand.title.durationMs + loaded.brand.title.dissolveMs : 0;
+  // the pieces are weighted by their length: the scenes (finals only), then the full video, which is all of them plus the title
+  const sceneJobs = o.cut.scenes
+    ? timeline.scenes.map((sc) => sceneJob(timeline, sc.id, o.projectDir))
+    : [];
+  const fullMs = fullJob(timeline, o.projectDir, { titleMs: title0 }).durationMs;
+  const progress = new PieceProgress([...sceneJobs.map((j) => j.durationMs), fullMs], (p) =>
+    o.onProgress?.(p),
+  );
   if (o.cut.scenes)
     for (const [i, sc] of timeline.scenes.entries()) {
       if (o.signal?.aborted) throw new Error("render cancelled");
-      o.onProgress?.({ done: i, total, label: `scene ${sc.id} (${label})` });
+      const piece = `scene ${sc.id} (${label})`;
+      progress.at(i, piece, 0);
       const file = path.join(o.cut.outDir, names.scene(sc.id, i));
       const ops = sceneOps(prepared, sc.id);
-      const r = await renderJob(sceneJob(timeline, sc.id, o.projectDir), raw, file, {
+      const r = await renderJob(sceneJobs[i] as RenderJob, raw, file, {
         ...base,
         brand: frame,
         ...(ops ? { annotations: ops } : {}),
+        onProgress: (p) => progress.at(i, piece, p.fraction, p.speed),
       });
       scenes.push({ id: sc.id, file, durationSec: r.durationSec });
     }
   if (o.signal?.aborted) throw new Error("render cancelled");
-  o.onProgress?.({ done: total - 1, total, label: `full video (${label})` });
+  const fullIndex = sceneJobs.length;
+  const fullPiece = `full video (${label})`;
+  progress.at(fullIndex, fullPiece, 0);
   const title = assets.title
     ? {
         file: assets.title,
@@ -311,8 +324,9 @@ export async function renderCut(o: {
     ...base,
     brand: fullBrand,
     ...(fops ? { annotations: fops } : {}),
+    onProgress: (p) => progress.at(fullIndex, fullPiece, p.fraction, p.speed),
   });
-  o.onProgress?.({ done: total, total, label: `done (${label})` });
+  progress.finish(`done (${label})`);
   return {
     timeline,
     timelineFile,

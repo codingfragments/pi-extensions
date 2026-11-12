@@ -195,8 +195,10 @@ working line (`… → annotations v4 → render v7`); the stage header then say
   background engine job — no agent turn, no cost. When it finishes, the agent
   gets a quiet note for its next turn, so it knows what exists.
 - **The agent** (`demo_rec_render`): it gets the report as a message when the
-  render is done. After you accept annotations, it offers a final and asks
-  which brands and whether to burn in subtitles.
+  render is done. After you accept annotations, it says in one line what a final
+  would render (the config's `render.brands`, `render.subtitles`, `render.logoBug`
+  and `render.annotationTypes`) and where the button is; it does not ask. A draft
+  is always the quick, plain one (the `brand` setting, no subtitles).
 - **The sync edit** (`demo_rec_edit`): always a draft.
 
 The agent can't accept or delete renders.

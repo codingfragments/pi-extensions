@@ -2565,6 +2565,20 @@ ol[data-next-steps] {
     position: static;
   }
 }
+/* the pinned box says what it is (R3-17): the scene and the time, one line above the video */
+.ds-rv-now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  font-weight: 600;
+  padding-block-start: var(--space-1);
+}
+.ds-rv-now-scene {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
 .ds-rv-video {
   inline-size: 100%;
   max-block-size: 40vh;

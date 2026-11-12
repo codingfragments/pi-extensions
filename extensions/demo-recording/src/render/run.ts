@@ -94,8 +94,13 @@ export function latestTimelineFor(projectDir: string, vo?: number): number | und
   return undefined;
 }
 
-export function normalizeOptions(o: Partial<RenderOptionsRec> | undefined): RenderOptionsRec {
-  const t = o?.annotationTypes;
+export function normalizeOptions(
+  o: Partial<RenderOptionsRec> | undefined,
+  /** What a field the request leaves out starts from (a final: the config's `render` section). */
+  defaults?: { subtitles?: boolean; logoBug?: boolean; annotationTypes?: "all" | string[] },
+): RenderOptionsRec {
+  const t =
+    o?.annotationTypes ?? (defaults?.annotationTypes as RenderOptionsRec["annotationTypes"]);
   if (
     t !== undefined &&
     t !== "all" &&
@@ -104,9 +109,16 @@ export function normalizeOptions(o: Partial<RenderOptionsRec> | undefined): Rend
     throw new Error(`annotationTypes must be "all" or a list of ${ANNOTATION_TYPES.join(", ")}`);
   return {
     annotationTypes: t === undefined ? "all" : Array.isArray(t) ? [...new Set(t)].sort() : "all",
-    subtitles: o?.subtitles === true,
-    logoBug: o?.logoBug !== false,
+    subtitles: (o?.subtitles ?? defaults?.subtitles) === true,
+    logoBug: (o?.logoBug ?? defaults?.logoBug) !== false,
   };
+}
+
+/** What a final render uses when nobody chooses (Config render.*), in a sentence the Director can say. */
+export function renderDefaultsWords(config: DemoRecConfig): string {
+  const r = config.render;
+  const brands = r.brands.length ? r.brands : [config.brand];
+  return `a final render uses ${brands.length > 1 ? `the brands ${brands.join(", ")} (one variant each)` : `the brand ${brands[0]}`}, ${r.subtitles ? "with burned-in subtitles" : "no burned-in subtitles"}, the logo bug ${r.logoBug ? "on" : "off"}, ${r.annotationTypes === "all" ? "all annotation types" : `only ${r.annotationTypes.join(", ")}`}`;
 }
 
 /** Why a final render isn't possible right now (undefined = it is). */
@@ -130,7 +142,8 @@ export function planRender(
 ): RenderPlan {
   const state = readState(projectDir);
   if (!state) throw new Error("project state missing");
-  const options = normalizeOptions(req.options);
+  // a FINAL starts from the config's choices; a draft is always the quick, plain one
+  const options = normalizeOptions(req.options, req.kind === "final" ? config.render : undefined);
   let file: AnnotationFile | undefined;
   let annotationVersion: number | undefined;
   const fromDraft = req.kind === "draft" && req.fromDraft === true;
@@ -198,7 +211,11 @@ export function planRender(
     included = file.items.length;
   }
   // a brand someone chose must exist (fail fast, clearly); the CONFIGURED default falls back to neutral and says so
-  const chosen = req.brands?.length ? req.brands : undefined;
+  const chosen = req.brands?.length
+    ? req.brands
+    : req.kind === "final" && config.render.brands.length
+      ? config.render.brands
+      : undefined;
   const fallback = chosen ? undefined : effectiveBrand(config.root, config.brand);
   const brands = [...new Set(chosen ?? [(fallback as { name: string }).name])];
   for (const b of brands) resolveBrand(config.root, b);
@@ -355,7 +372,11 @@ export async function runRender(o: {
             o.onProgress?.({
               done: bi + p.done / Math.max(1, p.total),
               total: plan.brands.length,
-              label: p.label,
+              // several brands: say which one (the percentage in the label is of this brand's cut)
+              label:
+                plan.brands.length > 1
+                  ? `brand ${bi + 1} of ${plan.brands.length}: ${p.label}`
+                  : p.label,
             }),
         });
         const side = await writeSidecars({

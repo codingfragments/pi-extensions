@@ -56,8 +56,24 @@ export interface StageRouteDeps {
   /** Note for the agent's next turn without starting one. */
   tellAgent: (text: string) => void;
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
+  /** Is a recording job running right now (then the newest unfinished take is the one being recorded, not an interrupted one)? */
+  recording?: () => boolean;
   /** The user just confirmed a spend in the panel (P1a): allow exactly that. Absent in tests that don't need it. */
   grant?: (kind: "tts" | "take", project: string, target: string) => void;
+}
+
+/**
+ * What happened to a take, in one word: `complete`; `recording` while a recording job runs on it; `interrupted` when it never finished and nothing records it any more
+ * (pi was closed or the browser hung: its take.json still says "recording" or "captured"); `failed`; `cancelled`.
+ */
+export function runState(
+  status: string | undefined,
+  beingRecorded: boolean,
+): "complete" | "recording" | "interrupted" | "failed" | "cancelled" {
+  if (status === "ok" || status === undefined) return "complete";
+  if (status === "failed") return "failed";
+  if (status === "cancelled") return "cancelled";
+  return beingRecorded ? "recording" : "interrupted";
 }
 
 /** Project-relative path for media URLs (`/media/project/<rel>`). */
@@ -291,7 +307,10 @@ export function stageRoutes(deps: StageRouteDeps): {
           findingsCache ??= listFindings(p.dir);
           return findingsCache;
         };
-        const takes = listTakes(p.dir)
+        const all = listTakes(p.dir);
+        const running = deps.recording?.() ?? false;
+        const newest = all.at(-1)?.id;
+        const takes = all
           .filter((t) => sb === undefined || t.storyboardVersion === sb)
           .reverse()
           .map((t) => {
@@ -303,6 +322,8 @@ export function stageRoutes(deps: StageRouteDeps): {
               id: t.id,
               version: n,
               status: t.status,
+              // what happened to it, in one word of one vocabulary (R3-16): complete, recording (now), interrupted (it never finished and nothing records it), failed, cancelled
+              state: runState(t.status, running && t.id === newest),
               storyboardVersion: t.storyboardVersion,
               durationMs: t.durationMs ?? null,
               startedAt: t.startedAt ?? null,

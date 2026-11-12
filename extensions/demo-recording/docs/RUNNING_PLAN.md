@@ -59,8 +59,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 18 | **A failed take stops the Director** (R3-14) | a failed take tells the Director quietly, asks you what now, and the Recording tab has a card for your recommendation (save for the next take, send to the Director) and **Heal it**: the autoheal, a bounded user-started repair run (read-only look, 15 actions, 6 minutes, a new draft storyboard as the only output) | R3-14 | done | 2 | 74 |
 | 19 | **Browser pool and fast previews** (R3-19) | one browser reused for overlays, previews and brand renders; cancel and de-duplicate requests, visible first, a cached lookup, render ahead | R3-19, R3-22 | done | 3 | 77 |
 | 20 | **Small fixes** (R3-21, R3-20, R3-17) | the render bar moves inside each piece from ffmpeg's own -progress, pieces weighted by length, with a percentage and a time left (R3-21); render.brands, subtitles, logoBug and annotationTypes in the config, the Render tab starts from them and the Director no longer asks (R3-20); the pinned player names its scene, time and take (R3-17) | R3-21, R3-20, R3-17 | done | 2 | 79 |
-| 21 | **Recording tab clarity** (R3-16) | one badge vocabulary, the selected take marked, unfinished takes labelled and without approve buttons | R3-16 | **next** | 2 | 81 |
-| 22 | **The budget in the recording** (R3-25) | one length budget with its source; the storyboard written to it (time hints, the engine's projection given to the Director); the recorder holds a still to meet a scene's time; the voice-over stretches and asks for a budget extension; discovery planned to time | R3-25 | planned | 5 | 86 |
+| 21 | **Recording tab clarity** (R3-16) | one word for what happened to a take (Complete, Recording now, Interrupted, Failed, Cancelled); Show puts the take in the address, marks its row "Shown below" and names it above the workspace with its standing and the production line; a take that did not complete has no approve buttons and says why (an interrupted one gets its own card) | R3-16 | done | 2 | 81 |
+| 22 | **The budget in the recording** (R3-25) | one length budget with its source; the storyboard written to it (time hints, the engine's projection given to the Director); the recorder holds a still to meet a scene's time; the voice-over stretches and asks for a budget extension; discovery planned to time | R3-25 | **next** | 5 | 86 |
 | 23 | **The language of voice and storyboard** (R3-24) | meaning over reading the screen: the skill's rules and examples, a POC voice direction, persona questions in the brief, why/meaning/so_what per scene, discovery that records meaning, a "mostly reads the screen" lint | R3-24 | planned | 5 | 91 |
 | 24 | **Cancel from the panel** (R3-15) | Cancel on the engine jobs and the discovery session; "ask the Director to stop" | R3-15 | planned | 3 | 94 |
 | 25 | **To discuss** (R3-18, R3-23) | the Voice over as one scrolling list; a stability check after navigation | R3-18, R3-23 | later | | |
@@ -389,7 +389,8 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
 The thin **early checks** (P1d; described in [FUTURE_IDEAS.md](FUTURE_IDEAS.md#early-checks-thin-config-gated-informational): informational only,
 a switch per phase, off by default), the **coherence review** (Q8), **extra QA checks** (Q9), **discovery checks** (QS-disc), **compare** for
 recording, annotations and render, a **stored suggestion history**, pending fixes **superseded** and **stale**, a **map node** for fix sets, a
-**setting for the draft after the voice**, and the two flaky tests ([KNOWN_ISSUES.md](KNOWN_ISSUES.md)). Each says in FUTURE_IDEAS what would make
+**setting for the draft after the voice**, **progress for the take encode and the quality check** (dropped from item 20: check after the
+first full GA), and the two flaky tests ([KNOWN_ISSUES.md](KNOWN_ISSUES.md)). Each says in FUTURE_IDEAS what would make
 it worth building.
 
 ## 7. Where the decisions are

@@ -1,6 +1,6 @@
 import { html, useEffect, useLayoutEffect, useRef, useState } from "/vendor/preact-htm.module.js";
 import { Chapters, chapterAt, clock } from "./chapters.js";
-import { media, mmss, post, useApi, useRouteVersion } from "./core.js";
+import { media, mmss, post, useApi, useHashRoute, useRouteVersion } from "./core.js";
 // demo-recording panel — Recording tab (S5 part 4, D44–D46; UX3): the takes of the production line's
 // storyboard (a take of another storyboard can be looked at via History), approve several, put one in
 // the production line, and ask for a new take of that storyboard.
@@ -17,20 +17,68 @@ import {
 } from "./version-ui.js";
 
 /** One line per take: its state and its actions. "Review" picks the take the workspace below shows. */
-function TakeRow({ t, row, events, viewed, selected, onSelect, reload }) {
-  return html`<section id=${`take-${t.version}`} aria-current=${viewed ? "true" : undefined} data-selected=${selected ? "true" : undefined} class=${`card take ${t.accepted ? "accepted" : ""} ${t.onLine ? "on-line" : ""}`}>
+/** One vocabulary for what happened to a take (R3-16): a word, a tone, a mark. */
+const RUN_STATE = {
+  complete: ["ok", "✓", "Complete"],
+  recording: ["info", "◔", "Recording now"],
+  interrupted: ["warn", "!", "Interrupted"],
+  failed: ["err", "!", "Failed"],
+  cancelled: ["neutral", "■", "Cancelled"],
+};
+const finished = (t) => (t.state ?? "complete") === "complete";
+
+function RunState({ state }) {
+  const [tone, ico, word] = RUN_STATE[state ?? "complete"] ?? RUN_STATE.complete;
+  return html`<span class="ds-badge" data-tone=${tone} data-run-state=${state ?? "complete"}><span class="ds-badge-ico" aria-hidden="true">${ico}</span>${word}</span>`;
+}
+
+/**
+ * One take: what happened to it (the run state), where it stands (approved, in the production line: only for a complete take), and whether it is the one shown below.
+ * A take that did not complete has no approve buttons (the server refuses it too) and says why instead.
+ */
+function TakeRow({ t, row, events, shown, onShow, reload }) {
+  const done = finished(t);
+  return html`<section id=${`take-${t.version}`} aria-current=${shown ? "true" : undefined} data-selected=${shown ? "true" : undefined} data-run-state=${t.state ?? "complete"} class=${`card take ${t.accepted ? "accepted" : ""} ${t.onLine ? "on-line" : ""} ${shown ? "shown" : ""}`}>
     <div class="row">
       <h3>${t.id}</h3>
-      ${row ? html`<${RowBadges} row=${row} viewing=${viewed} />` : null}
-      ${t.status ? html`<span class="ds-badge" data-tone=${t.status === "ok" ? "ok" : "err"}>${t.status === "ok" ? "complete" : t.status}</span>` : null}
-      <span class="muted small-text">${t.durationMs ? `raw ${mmss(t.durationMs)}` : ""}${t.startedAt ? ` · recorded ${new Date(t.startedAt).toLocaleString()}` : ""}</span>
+      <${RunState} state=${t.state} />
+      ${done && row ? html`<${RowBadges} row=${row} viewing=${false} />` : null}
+      ${shown ? html`<span class="ds-badge" data-tone="accent" data-shown><span class="ds-badge-ico" aria-hidden="true">▼</span>Shown below</span>` : null}
+      <span class="muted small-text">${t.durationMs ? `raw ${mmss(t.durationMs)}` : ""}${t.startedAt ? `${t.durationMs ? " · " : ""}recorded ${new Date(t.startedAt).toLocaleString()}` : ""}</span>
       <span class="grow"></span>
-      ${t.analyzed ? html`<span class="muted small-text">analyzed · ${t.scenes.length} scenes</span>` : html`<span class="muted small-text">not analyzed yet</span>`}
-      <span class="muted small-text" title="positions of visible elements, for annotations (S5 part 6)">${t.layoutSnapshots !== null && t.layoutSnapshots !== undefined ? `${t.layoutSnapshots} layout snapshots` : "no layout snapshots (recorded before S5 part 6)"}</span>
-      <button class="ds-btn ds-btn--ghost" type="button" data-act="review-take" aria-pressed=${selected} onClick=${onSelect}>${selected ? "Reviewing" : "Review"}</button>
-      <${VersionActions} stage="recording" row=${row} events=${events} eager=${false} compact label=${t.id} onDone=${reload} />
+      ${
+        done
+          ? html`${t.analyzed ? html`<span class="muted small-text">analyzed · ${t.scenes.length} scenes</span>` : html`<span class="muted small-text">not analyzed yet</span>`}
+      <span class="muted small-text" title="positions of visible elements, for annotations (S5 part 6)">${t.layoutSnapshots !== null && t.layoutSnapshots !== undefined ? `${t.layoutSnapshots} layout snapshots` : "no layout snapshots (recorded before S5 part 6)"}</span>`
+          : html`<span class="muted small-text">${t.state === "recording" ? "its progress is in the Activity drawer" : "it cannot be approved: it did not complete"}</span>`
+      }
+      <button class="ds-btn ds-btn--ghost" type="button" data-act="review-take" aria-pressed=${shown} onClick=${onShow}>${shown ? "Shown below" : "Show"}</button>
+      ${done ? html`<${VersionActions} stage="recording" row=${row} events=${events} eager=${false} compact label=${t.id} onDone=${reload} />` : null}
     </div>
   </section>`;
+}
+
+/** A take that never finished and that nothing records any more (pi was closed, or the browser hung): it says so, and where its traces are. */
+function InterruptedTake({ t }) {
+  return html`<section class="card ds-failed-take" data-interrupted-take=${t.id} aria-label=${`${t.id} was interrupted`}>
+    <div class="ds-row-flex"><span class="ds-status" data-tone="warn" aria-hidden="true">!</span><h2>${t.id} was interrupted</h2></div>
+    <p>It started${t.startedAt ? ` on ${new Date(t.startedAt).toLocaleString()}` : ""} and never finished: nothing records it any more (pi was closed, or the browser stopped answering). ${t.video ? "Its raw video is on disk, but it was not analyzed." : "No video was kept."} It cannot be approved.</p>
+    <p class="ds-small ds-muted">What it left is in <code>takes/${t.id}/</code> (take.json, attempts.jsonl${t.diagnostics?.length ? `, ${t.diagnostics.at(-1)}/README.txt` : ""}). Request a new take below; your notes on this storyboard go with it.</p>
+  </section>`;
+}
+
+/** The line above the workspace: which take it shows, what happened to it, where it stands, and what the production line has (R3-16). */
+function ShownLine({ t, takes }) {
+  const line = takes.find((x) => x.onLine);
+  const [, , word] = RUN_STATE[t.state ?? "complete"] ?? RUN_STATE.complete;
+  const standing = !finished(t)
+    ? "it cannot be approved"
+    : t.onLine
+      ? "approved, in the production line"
+      : t.accepted
+        ? "approved, not in the production line"
+        : "not approved";
+  return html`<p class="ds-rv-shown" data-shown-line><b>Shown below: ${t.id}</b> · ${word.toLowerCase()} · ${standing}${t.onLine ? "" : ` · the production line has ${line ? line.id : "no recording yet"}`}</p>`;
 }
 
 /**
@@ -340,7 +388,7 @@ export function Recording({ events, stages }) {
   const [flash, setFlash] = useState(null);
   const [note, setNote] = useState("");
   const [headed, setHeaded] = useState(false);
-  const [picked, setPicked] = useState(null);
+  const [, go] = useHashRoute();
   if (error) return html`<section class="card error">${error}</section>`;
   if (!data) return html`<section class="card muted">loading…</section>`;
   if (!data.project) return html`<section class="card muted">No active project.</section>`;
@@ -359,14 +407,15 @@ export function Recording({ events, stages }) {
     }
   };
   const sb = data.storyboard !== null ? `v${data.storyboard}` : "—";
-  // the take the workspace shows: the one you picked, else the one you are viewing, else the one in the production line, else the newest
+  // the take the workspace shows: the one in the address (Show puts it there, so the header, the row and the workspace name the same take), else the one in the
+  // production line, else the newest
+  const show = (t) => go({ screen: "recording", version: t.version }, { replace: true });
   const reviewed =
-    data.takes.find((t) => t.id === picked) ??
     data.takes.find((t) => t.version === routeVersion) ??
     data.takes.find((t) => t.onLine) ??
     data.takes[0];
   return html`
-    <${StageSummary} events=${events} stage="recording" row=${routeRow} rows=${rows} viewed=${routeVersion}
+    <${StageSummary} events=${events} stage="recording" row=${routeRow ?? (reviewed ? rows.find((r) => r.version === reviewed.version) : undefined)} rows=${rows} viewed=${routeVersion}
       onUse=${(v) => runVersionAction({ stage: "recording", version: v, intent: "use" }).then(reload)}
       meta=${html`<span>Takes of storyboard <strong style="color:var(--text-strong)">${sb}</strong></span><span>${data.takes.length} take(s)</span>`} />
     <p class="ds-small ds-muted ds-take-guide">Approve every take that is good enough to build on: each approved take can get its own voice-over. <b>Use for next steps</b> puts a take in the production line (the Voice over screen and the Director follow it).</p>
@@ -374,8 +423,8 @@ export function Recording({ events, stages }) {
       data.takes.length
         ? html`${data.takes.map(
             (t) =>
-              html`<${TakeRow} key=${t.id} t=${t} row=${rows.find((r) => r.version === t.version)} events=${events} viewed=${t.version === routeVersion} selected=${t.id === reviewed.id} onSelect=${() => setPicked(t.id)} reload=${reload} />`,
-          )}${reviewed.failure ? html`<${FailedTake} key=${reviewed.id} t=${reviewed} reload=${reload} />` : html`<${TakeWorkspace} key=${reviewed.id} t=${reviewed} reload=${reload} />`}`
+              html`<${TakeRow} key=${t.id} t=${t} row=${rows.find((r) => r.version === t.version)} events=${events} shown=${t.id === reviewed.id} onShow=${() => show(t)} reload=${reload} />`,
+          )}<${ShownLine} t=${reviewed} takes=${data.takes} />${reviewed.failure ? html`<${FailedTake} key=${reviewed.id} t=${reviewed} reload=${reload} />` : reviewed.state === "interrupted" ? html`<${InterruptedTake} key=${reviewed.id} t=${reviewed} />` : reviewed.state === "recording" ? html`<section class="card muted" data-recording-now>${reviewed.id} is being recorded: its progress is in the Activity drawer, and it shows here when it is done.</section>` : html`<${TakeWorkspace} key=${reviewed.id} t=${reviewed} reload=${reload} />`}`
         : html`<section class="card muted">${data.storyboard !== null ? `No takes of storyboard v${data.storyboard} yet — request one, the agent records it (its progress is in the Activity drawer).` : "Accept a storyboard first; its takes show up here."}</section>`
     }
     <section class="card review-foot ds-inflow" data-request-take>

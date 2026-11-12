@@ -49,6 +49,11 @@ export function rendersView(rt: Runtime) {
     finalBlocker: finalBlocker(p.dir) ?? null,
     defaults: {
       brand: cfg.brand,
+      // what a final render starts from (Config: render.*); the choice in the tab still wins for that render
+      brands: cfg.render.brands.length ? cfg.render.brands : [cfg.brand],
+      subtitles: cfg.render.subtitles,
+      logoBug: cfg.render.logoBug,
+      annotationTypes: cfg.render.annotationTypes,
       annotations: state.line.annotations ?? null,
       keepDrafts: cfg.render.keepDrafts,
     },

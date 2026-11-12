@@ -309,7 +309,9 @@ function TakeWorkspace({ t, reload }) {
       <${SceneContext} scene=${scenes[current]} onSeek=${t.video ? seek : () => undefined} />
       ${
         t.video
-          ? html`<div class="ds-rv-player"><video class="ds-rv-video" ref=${video} controls preload="metadata" aria-label=${`Raw recording ${t.id}`} src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>
+          ? html`<div class="ds-rv-player">
+            <div class="ds-rv-now" data-rv-now aria-live="off"><span class="ds-rv-now-scene"><span class="mono ds-muted">${scenes[current]?.id ?? ""}</span> ${scenes[current]?.title ?? ""}</span><span class="ds-small ds-muted mono">${clock(time ?? 0)} / ${clock(t.durationMs ?? 0)} · ${t.id}</span></div>
+            <video class="ds-rv-video" ref=${video} controls preload="metadata" aria-label=${`Raw recording ${t.id}`} src=${media("project", t.video)} onTimeUpdate=${(e) => setTime(Math.round(e.currentTarget.currentTime * 1000))}></video>
             <${ChapterBar} scenes=${scenes} durationMs=${t.durationMs ?? 0} time=${time} current=${current} onSeek=${seek} />
             <div class="ds-row-flex"><button class="ds-btn ds-btn--sm" type="button" data-act="add-note" onClick=${startNote}>Add note at ${clock(time ?? 0)}${scenes[current] ? ` · ${scenes[current].id}` : ""}</button>
               <span class="ds-small ds-muted">On this whole tab: <kbd class="ds-kbd">N</kbd> adds a note · <kbd class="ds-kbd">[</kbd> <kbd class="ds-kbd">]</kbd> chapter · <kbd class="ds-kbd">&lt;</kbd> <kbd class="ds-kbd">&gt;</kbd> finding · <kbd class="ds-kbd">←</kbd> <kbd class="ds-kbd">→</kbd> 10 s (Shift: 1 s)</span></div>

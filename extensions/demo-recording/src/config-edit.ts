@@ -94,6 +94,14 @@ export const CONFIG_DOCS: Record<string, string> = {
     "How many zooms one scene may have (0 to 5, whole number, 0 = no zooms). Both limits must hold.",
   "render.keepDrafts":
     "How many draft renders keep their video files; older drafts keep only their record (finals are never pruned).",
+  "render.brands":
+    'The brands a FINAL render makes, as a list of names, e.g. ["neutral", "acme"]: several give one variant each. Empty (the default) = just the "brand" setting. A draft always uses "brand". The Render tab starts from this list; a render request that names its own brands wins.',
+  "render.subtitles":
+    "Burn subtitles into a FINAL render too (it then also writes *.subtitled.mp4 next to the clean files). Off by default. The Render tab starts from it.",
+  "render.logoBug":
+    "Show the brand's logo bug in a FINAL render (when the brand has one). On by default. The Render tab starts from it.",
+  "render.annotationTypes":
+    'Which annotation types a FINAL render includes: "all" (the default) or a list such as ["chapter", "callout"]; the approved annotation version itself is not changed. Leaving out redactions asks for a confirmation at render time.',
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",

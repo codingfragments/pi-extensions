@@ -14,6 +14,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { ANNOTATION_TYPES } from "./annotations/types.ts";
 
 export type TtsEngine = "elevenlabs" | "openai" | "kokoro" | "say";
 
@@ -80,7 +81,18 @@ export interface DemoRecConfig {
   /** Annotations: auto-suggest after the sync edit, and the zoom limits (zooms per minute of the demo and per scene; item 12b). */
   annotations: { autoSuggest: boolean; zoomsPerMinute: number; zoomsPerScene: number };
   /** Render stage (S5 part 9): how many drafts keep their video files (D64). */
-  render: { keepDrafts: number };
+  /**
+   * Rendering: how many draft renders keep their video files, and the choices a FINAL render starts from (a draft always uses `brand`, no subtitles): the brands (a list;
+   * several give one variant each; empty = just `brand`), burned-in subtitles, the logo bug, and which annotation types to include ("all" or a list). The Render tab starts
+   * from them, a render request that names its own choice wins, and the Director does not ask for any of them.
+   */
+  render: {
+    keepDrafts: number;
+    brands: string[];
+    subtitles: boolean;
+    logoBug: boolean;
+    annotationTypes: "all" | string[];
+  };
   /** Child tools (ffmpeg, uv/Python): how long one command may run before it is diagnosed and killed, in minutes (0 = never). */
   media: { toolTimeoutMin: number };
   /** Discovery budgets (S2). */
@@ -204,7 +216,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     align: { model: "base.en" },
     brand: "neutral",
     annotations: { autoSuggest: true, zoomsPerMinute: 1.5, zoomsPerScene: 1 },
-    render: { keepDrafts: 3 },
+    render: { keepDrafts: 3, brands: [], subtitles: false, logoBug: true, annotationTypes: "all" },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     media: { toolTimeoutMin: 30 },
     discovery: {
@@ -451,6 +463,37 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
     )
       throw new Error('demo-recording config: "render.keepDrafts" must be a whole number 0..100');
     cfg.render.keepDrafts = rd.keepDrafts as number;
+  }
+  if (rd !== undefined) {
+    if (rd.brands !== undefined) {
+      if (
+        !Array.isArray(rd.brands) ||
+        rd.brands.length > 12 ||
+        rd.brands.some((b) => typeof b !== "string" || !/^[a-z0-9][a-z0-9-]{0,40}$/.test(b))
+      )
+        throw new Error(
+          'demo-recording config: "render.brands" must be a list of brand names like ["neutral", "acme"] (lowercase, digits, dashes; at most 12; [] = just "brand")',
+        );
+      cfg.render.brands = [...new Set(rd.brands as string[])];
+    }
+    for (const key of ["subtitles", "logoBug"] as const) {
+      const v = rd[key];
+      if (v === undefined) continue;
+      if (typeof v !== "boolean")
+        throw new Error(`demo-recording config: "render.${key}" must be true or false`);
+      cfg.render[key] = v;
+    }
+    if (rd.annotationTypes !== undefined) {
+      const t = rd.annotationTypes;
+      if (
+        t !== "all" &&
+        (!Array.isArray(t) || t.some((x) => !(ANNOTATION_TYPES as readonly string[]).includes(x)))
+      )
+        throw new Error(
+          `demo-recording config: "render.annotationTypes" must be "all" or a list of ${ANNOTATION_TYPES.join(", ")}`,
+        );
+      cfg.render.annotationTypes = t === "all" ? "all" : [...new Set(t as string[])].sort();
+    }
   }
   const b = raw.budgets as Record<string, unknown> | undefined;
   if (b !== undefined) {

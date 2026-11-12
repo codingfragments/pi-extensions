@@ -47,6 +47,7 @@ import { ACTIVE_ENTRY } from "./projects/manage.ts";
 import { linkFixDraft } from "./qa/apply.ts";
 import { type Question, cancelAskedSince, questionText } from "./questions.ts";
 import { type ModelAccess, modelAccessFrom } from "./recorder/improvise.ts";
+import { renderDefaultsWords } from "./render/run.ts";
 import { PANEL_PREFIX } from "./roles.ts";
 import { startDesigner } from "./tools/designer.ts";
 import { readManifest } from "./tts/synthesize.ts";
@@ -469,6 +470,7 @@ export class Runtime {
           ? { id: this.discovery.id, dir: this.discovery.dir, budget: this.discovery.budget() }
           : undefined,
       notifyAgent: (text) => this.notifyAgent(text),
+      renderWords: () => renderDefaultsWords(this.getConfig()),
       autoSuggest: () => this.getConfig().annotations.autoSuggest,
       audio: (version) => {
         const p = this.activeProject();
@@ -539,6 +541,7 @@ export class Runtime {
       activeProject: () => this.activeProject(),
       notifyAgent: (text) => this.notifyAgent(text),
       tellAgent: (text) => this.tellAgent(text),
+      renderWords: () => renderDefaultsWords(this.getConfig()),
       publish: (type, data, project) => this.bus.publish(type, data, project),
     });
     return {

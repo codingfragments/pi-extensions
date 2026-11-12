@@ -40,6 +40,7 @@ export interface VersionRouteDeps {
   activeProject: () => ProjectHandle | undefined;
   notifyAgent: (text: string) => void;
   tellAgent: (text: string) => void;
+  renderWords?: () => string;
   publish: (type: string, data: Record<string, unknown>, project?: string) => void;
 }
 
@@ -228,7 +229,9 @@ export function versionRoutes(deps: VersionRouteDeps): {
                     : undefined;
             if (next && PHASES.indexOf(next) > PHASES.indexOf(state.phase)) setPhase(p.dir, next);
           }
-          deps.notifyAgent(`${approvalMessage(p.slug, stage, version)}\nProduction line: ${line}.`);
+          deps.notifyAgent(
+            `${approvalMessage(p.slug, stage, version, deps.renderWords?.())}\nProduction line: ${line}.`,
+          );
         } else if (intent === "approve-only") {
           deps.tellAgent(
             `${PANEL_PREFIX} The user APPROVED ${label} in project "${p.slug}" as an alternative and left the production line unchanged: ${line}. Nothing to start; keep working on the production line.`,

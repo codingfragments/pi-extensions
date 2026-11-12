@@ -674,7 +674,15 @@ test(
     const base = { fps: 30, ...out, source: { w: 1600, h: 900 } };
     const clean = path.join(dir, "clean.mp4");
     const ann = path.join(dir, "ann.mp4");
-    await renderJob(job, raw, clean, base);
+    // the job says how far it is (ffmpeg's own progress), from a fraction of the job's length
+    const seen: number[] = [];
+    await renderJob(job, raw, clean, { ...base, onProgress: (p) => seen.push(p.fraction) });
+    assert.ok(seen.length >= 1, "ffmpeg reported progress");
+    assert.ok(
+      seen.every((f, i) => f >= 0 && f <= 1 && (i === 0 || f >= (seen[i - 1] as number))),
+      `monotone, within 0..1: ${seen}`,
+    );
+    assert.equal(seen.at(-1), 1, "the last report is 'end'");
     await renderJob(job, raw, ann, {
       ...base,
       annotations: prepared.scenes.s1 as RenderAnnotations,

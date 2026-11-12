@@ -34,10 +34,17 @@ function NewRender({ data, events, onStarted }) {
         ? String(data.annotationVersions[0].version)
         : "none",
   );
-  const [types, setTypes] = useState(null); // null = all
-  const [brands, setBrands] = useState([data.defaults.brand]);
-  const [subtitles, setSubtitles] = useState(false);
-  const [logoBug, setLogoBug] = useState(true);
+  // the choices start from Config (render.*): the brands, the subtitles, the logo bug and the annotation types of a final
+  const [types, setTypes] = useState(
+    Array.isArray(data.defaults.annotationTypes) ? data.defaults.annotationTypes : null,
+  ); // null = all
+  const [brands, setBrands] = useState(() => {
+    const known = data.brands.map((b) => b.name);
+    const wanted = (data.defaults.brands ?? [data.defaults.brand]).filter((b) => known.includes(b));
+    return wanted.length ? wanted : [data.defaults.brand];
+  });
+  const [subtitles, setSubtitles] = useState(data.defaults.subtitles === true);
+  const [logoBug, setLogoBug] = useState(data.defaults.logoBug !== false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
   const bugNote = logoBugNote(data.brands, brands);

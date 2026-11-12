@@ -223,3 +223,61 @@ test(
     }
   },
 );
+
+test(
+  "in the browser: the pinned box names the scene and the time, follows the playhead, and stays in view when the page is scrolled (R3-17)",
+  { skip: !browserType && "needs Playwright Chromium", timeout: 150_000 },
+  async () => {
+    process.env.DEMO_REC_NO_OPEN = "1";
+    const seed = seedPanelProject();
+    seedReviewTakes(seed);
+    const rt = new Runtime(() => ({
+      ...resolveConfig({ env: { DEMO_REC_CONFIG: path.join(seed.root, "none.json") } }),
+      root: seed.root,
+      panelPort: 0,
+    }));
+    rt.tellAgent = () => undefined;
+    rt.setActiveProject(seed.slug);
+    const panel = await rt.ensurePanel();
+    const browser = await (browserType as NonNullable<typeof browserType>).launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1400, height: 600 } });
+      await page.goto(`${panel.url}#/recording`);
+      await page.waitForSelector("[data-rv-now]");
+      const now = page.locator("[data-rv-now]");
+      const first = await now.innerText();
+      assert.match(
+        first,
+        /\d+:\d\d(\.\d)? \/ \d+:\d\d(\.\d)? · take-\d+/,
+        `the time and the take: ${first}`,
+      );
+      assert.match(first, /^\S+/, "the scene id comes first");
+      const sceneOf = async () => (await now.locator(".ds-rv-now-scene").innerText()).trim();
+      assert.ok((await sceneOf()).length > 0, "a scene is named");
+      // it is inside the pinned box: it moves with the video, and stays on screen when the page is scrolled down
+      await page.evaluate(
+        "window.scrollTo(0, 400); document.querySelector('.ds-rv-pane')?.scrollTo?.(0, 400)",
+      );
+      await page.waitForTimeout(150);
+      const inView = await page.evaluate(`(() => {
+        const r = document.querySelector('[data-rv-now]').getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= window.innerHeight;
+      })()`);
+      assert.equal(inView, true, "the header is still in view after scrolling");
+      // seeking to another scene changes what it names
+      const before = await sceneOf();
+      await page.evaluate(
+        "document.querySelector('.ds-rv-video').currentTime = document.querySelector('.ds-rv-video').duration - 0.2",
+      );
+      await page.waitForFunction(
+        `document.querySelector('.ds-rv-now-scene').innerText.trim() !== ${JSON.stringify(before)}`,
+        undefined,
+        { timeout: 8000 },
+      );
+    } finally {
+      await browser.close();
+      await rt.shutdown();
+      fs.rmSync(seed.root, { recursive: true, force: true });
+    }
+  },
+);

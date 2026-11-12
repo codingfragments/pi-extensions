@@ -153,6 +153,8 @@ export interface RenderOpts {
   stamp?: { file: string; x: number; y: number };
   /** Encoder settings (default medium / crf 20; drafts use a fast preset). */
   encode?: { preset: string; crf: number };
+  /** How far this job is (0 to 1) and, when ffmpeg's speed is known, how many seconds it still needs. About twice a second. */
+  onProgress?: (p: { fraction: number; etaSec?: number; speed?: number }) => void;
 }
 
 /** A run of consecutive pieces rendered the same way. hi = source resolution (page ops/zoom). */
@@ -394,50 +396,67 @@ export async function renderJob(
   const script = `${out}.filter.txt`;
   fs.writeFileSync(script, filterGraph(job, opts, audioInputs));
   try {
-    const { ms } = await ffmpeg([
-      "-i",
-      rawVideo,
-      ...audioInputs.flatMap((f) => ["-i", f]),
-      ...images.flatMap((im) => [
-        "-loop",
-        "1",
-        "-framerate",
-        String(opts.fps),
-        "-t",
-        im.key === "title" && opts.brand?.title
-          ? ((opts.brand.title.durationMs + opts.brand.title.dissolveMs) / 1000 + 0.1).toFixed(3)
-          : D,
+    const { ms } = await ffmpeg(
+      [
         "-i",
-        im.file,
-      ]),
-      ...annotationInputs(opts.annotations).flatMap((f) => ["-i", f]),
-      ...(opts.stamp ? ["-i", opts.stamp.file] : []),
-      "-/filter_complex", // value read from a file (ffmpeg ≥ 7)
-      script,
-      "-map",
-      "[vout]",
-      "-map",
-      "[aout]",
-      "-c:v",
-      "libx264",
-      "-preset",
-      opts.encode?.preset ?? "medium",
-      "-crf",
-      String(opts.encode?.crf ?? 20),
-      "-pix_fmt",
-      "yuv420p",
-      "-r",
-      String(opts.fps),
-      "-c:a",
-      "aac",
-      "-b:a",
-      "192k",
-      "-t",
-      D,
-      "-movflags",
-      "+faststart",
-      out,
-    ]);
+        rawVideo,
+        ...audioInputs.flatMap((f) => ["-i", f]),
+        ...images.flatMap((im) => [
+          "-loop",
+          "1",
+          "-framerate",
+          String(opts.fps),
+          "-t",
+          im.key === "title" && opts.brand?.title
+            ? ((opts.brand.title.durationMs + opts.brand.title.dissolveMs) / 1000 + 0.1).toFixed(3)
+            : D,
+          "-i",
+          im.file,
+        ]),
+        ...annotationInputs(opts.annotations).flatMap((f) => ["-i", f]),
+        ...(opts.stamp ? ["-i", opts.stamp.file] : []),
+        "-/filter_complex", // value read from a file (ffmpeg ≥ 7)
+        script,
+        "-map",
+        "[vout]",
+        "-map",
+        "[aout]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        opts.encode?.preset ?? "medium",
+        "-crf",
+        String(opts.encode?.crf ?? 20),
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        String(opts.fps),
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-t",
+        D,
+        "-movflags",
+        "+faststart",
+        out,
+      ],
+      opts.onProgress
+        ? {
+            onProgress: (p) => {
+              const total = job.durationMs;
+              const fraction = p.end ? 1 : Math.max(0, Math.min(1, p.outTimeMs / total));
+              const etaSec =
+                p.speed && !p.end ? Math.max(0, (total - p.outTimeMs) / 1000 / p.speed) : undefined;
+              opts.onProgress?.({
+                fraction,
+                ...(etaSec !== undefined ? { etaSec } : {}),
+                ...(p.speed ? { speed: p.speed } : {}),
+              });
+            },
+          }
+        : {},
+    );
     return { ms, durationSec: (await ffprobe(out)).duration };
   } finally {
     fs.rmSync(script, { force: true });

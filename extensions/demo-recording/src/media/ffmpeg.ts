@@ -19,6 +19,49 @@ export interface RunOptions {
   timeoutMs?: number;
   /** Kill the command when this aborts. */
   signal?: AbortSignal;
+  /** ffmpeg only: how far the output is (`-progress pipe:1`, about twice a second). */
+  onProgress?: (p: FfmpegProgress) => void;
+}
+
+export interface FfmpegProgress {
+  /** Output time reached, in ms. */
+  outTimeMs: number;
+  /** How fast it runs, in x real time (null while ffmpeg does not know yet). */
+  speed: number | null;
+  /** ffmpeg said `progress=end`. */
+  end: boolean;
+}
+
+/**
+ * Reads the `key=value` lines of `-progress pipe:1`. A block ends with `progress=continue|end`; `out_time_us` (microseconds; `out_time_ms` is the same number, a long-standing
+ * misnomer) and `speed=1.23x` are what is kept. Returns one function: feed it text as it arrives.
+ */
+export function progressParser(onProgress: (p: FfmpegProgress) => void): (chunk: string) => void {
+  let rest = "";
+  let outUs: number | undefined;
+  let speed: number | null = null;
+  return (chunk) => {
+    rest += chunk;
+    const lines = rest.split("\n");
+    rest = lines.pop() ?? "";
+    for (const raw of lines) {
+      const line = raw.trim();
+      const eq = line.indexOf("=");
+      if (eq < 0) continue;
+      const key = line.slice(0, eq);
+      const value = line.slice(eq + 1);
+      if (key === "out_time_us" || key === "out_time_ms") {
+        const n = Number(value);
+        if (Number.isFinite(n) && n >= 0) outUs = n;
+      } else if (key === "speed") {
+        const n = Number.parseFloat(value);
+        speed = Number.isFinite(n) && n > 0 ? n : null;
+      } else if (key === "progress") {
+        if (outUs !== undefined)
+          onProgress({ outTimeMs: outUs / 1000, speed, end: value === "end" });
+      }
+    }
+  };
 }
 
 export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise<RunResult> {
@@ -37,8 +80,10 @@ export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise
       ...(opts.signal ? { signal: opts.signal } : {}),
       stderrTail: () => stderr,
     });
+    const feed = opts.onProgress ? progressParser(opts.onProgress) : undefined;
     child.stdout.on("data", (c) => {
-      stdout += c;
+      if (feed) feed(String(c));
+      else stdout += c;
     });
     child.stderr.on("data", (c) => {
       stderr += c;
@@ -60,7 +105,19 @@ export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise
 }
 
 export function ffmpeg(args: string[], opts: RunOptions = {}): Promise<RunResult> {
-  return run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...args], opts);
+  return run(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      // the progress goes to stdout (the output is a file): about twice a second, parsed by `progressParser`
+      ...(opts.onProgress ? ["-progress", "pipe:1", "-nostats"] : []),
+      ...args,
+    ],
+    opts,
+  );
 }
 
 export interface ProbeStream {

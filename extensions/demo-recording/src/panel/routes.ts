@@ -70,6 +70,8 @@ export interface RouteDeps {
   /** Current discovery session dir + id, if one is open. */
   discovery: () => { id: string; dir: string; budget: unknown } | undefined;
   notifyAgent: (text: string) => void;
+  /** What a final render uses, in words (for the approval message to the Director). */
+  renderWords?: () => string;
 }
 
 const STATUSES: readonly SceneReviewStatus[] = ["approved", "changes", "rerun"];
@@ -527,7 +529,7 @@ export function panelRoutes(deps: RouteDeps): {
           p.slug,
         );
         deps.notifyAgent(
-          `${approvalMessage(p.slug, artifact, version)}${onLine ? "" : `\nIt is not on the working line (${formatLine(state.line)}); the user can switch to it in the panel.`}`,
+          `${approvalMessage(p.slug, artifact, version, deps.renderWords?.())}${onLine ? "" : `\nIt is not on the working line (${formatLine(state.line)}); the user can switch to it in the panel.`}`,
         );
         return { accepted: version, onLine, line: state.line };
       },

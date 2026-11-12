@@ -396,7 +396,7 @@ The narrated video is produced with the **demo-voiceover** skill:
 Then the **demo-annotations** skill suggests the visual emphasis
 (`demo_rec_annotations context` → `suggest`); the user reviews and approves it in
 the Annotations tab. Then offer a **final render** (`demo_rec_render action=start
-kind=final`, asking which brands and whether to burn in subtitles); the edit
+kind=final`; the brands, subtitles, logo bug and annotation types are settings (`render.*` in the config), so do not ask the user for them: the approval message says what a final would use); the edit
 itself only makes drafts. The user approves the deliverable in the Render tab.
 Shortcuts the user may type: `/demo voiceover`, `/demo render`, `/demo voices`,
 `/demo config`. For settings questions use the **demo-config** skill.

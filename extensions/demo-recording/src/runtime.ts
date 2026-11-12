@@ -490,6 +490,7 @@ export class Runtime {
     });
     const brand = brandRoutes(this);
     const stages = stageRoutes({
+      recording: () => !!this.jobs.running("record"),
       grant: (kind, project, target) => {
         this.grants.issue(kind, project, target, "panel");
       },

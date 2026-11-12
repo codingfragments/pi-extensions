@@ -2565,6 +2565,14 @@ ol[data-next-steps] {
     position: static;
   }
 }
+/* the take shown in the workspace below (R3-16): its row is marked, and a line above the workspace names it */
+.card.take.shown {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ds-rv-shown {
+  margin-block: var(--space-2) 0;
+}
 /* the pinned box says what it is (R3-17): the scene and the time, one line above the video */
 .ds-rv-now {
   display: flex;

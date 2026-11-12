@@ -117,7 +117,7 @@ function briefStub(input: NewProjectInput, app: AppInfo): string {
 - **Depth:** _poc | showcase | sales_
 - **Stance:** _champion | evaluator | teacher (default from depth)_
 - **Goal / key message:** _TODO_
-- **Target length:** _TODO (min–max, default from depth)_
+- **Target length:** _TODO (one number, e.g. 10 min; default from depth)_
 - **Must show:** _TODO_
 - **Must avoid:** _TODO_
 - **Language:** English

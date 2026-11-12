@@ -7,6 +7,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { projectFacts, savePlannedFor, timingInputs } from "../budget/project.ts";
 import { formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence, writeStoryboardChecks } from "../confidence/storyboard.ts";
 import { coverageMessage, coverageProblem, dropInLog } from "../discovery/coverage.ts";
@@ -18,6 +19,7 @@ import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatDiff, storyboardTargets } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions, writeStoryboard } from "../storyboard/store.ts";
+import { storyboardTiming, timingForDirector } from "../storyboard/timing.ts";
 import { appDirOf } from "../workdir/context.ts";
 import { listFindings, uncoveredUseFindings } from "../workdir/findings.ts";
 import { acceptedVersions } from "../workdir/stages.ts";
@@ -141,6 +143,27 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
             `${scene.id}: no screen thumbnail (set screen: <id from a look>) — the review card will be blank`,
           );
       }
+      // the length budget (item 22): the projection of the FINAL video against the brief's budget, and what to do about a gap, before the user sees the draft
+      const cfgNow = rt.getConfig();
+      const inputs = timingInputs(p.dir, cfgNow);
+      const facts = projectFacts(p.dir, cfgNow);
+      if (inputs.budget) savePlannedFor(p.dir, written.version, inputs.budget);
+      const timing = storyboardTiming(written.storyboard, inputs);
+      const lengthNote = [
+        timingForDirector(timing),
+        ...(facts?.needsTarget
+          ? [
+              "The brief names only a limit (No shorter than / No longer than) and no Target length: ask the user what to aim for (one number).",
+            ]
+          : []),
+        ...(inputs.budget?.conflict
+          ? [
+              `The length budget contradicts itself: ${inputs.budget.conflict}. Ask the user; do not guess.`,
+            ]
+          : []),
+      ].join("\n");
+      if (timing.verdict === "short" || timing.verdict === "long")
+        warnings.push(`length: ${timing.words}`);
       // Measured now (discovery is live), read by the panel's confidence badges (D78).
       writeStoryboardChecks(p.dir, written.version, {
         discovery: !!d && !d.isClosed,
@@ -167,6 +190,7 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
           `Stored storyboard v${written.version} (${written.storyboard.scenes.length} scenes) at ${written.file}.`,
           written.diff ? formatDiff(written.diff) : "First version.",
           warnings.length ? `Warnings:\n- ${warnings.join("\n- ")}` : "No warnings.",
+          lengthNote,
           ...(conf ? [formatConfidence(conf, "scene")] : []),
           `The user reviews it in the panel (Review tab): ${panel.url}. Wait for their [demo-panel] feedback; do not record before approval.`,
         ].join("\n") + pendingReminder(p.dir, "storyboard", written.version),

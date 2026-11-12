@@ -7,6 +7,7 @@ import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { lengthDirection } from "../budget/length.ts";
 import { ACTIVE_ENTRY } from "../commands/demo.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
@@ -300,8 +301,10 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
             },
             p.slug,
           );
+          // a length in the user's words is the budget (item 22, D-R3-25-2/-3): it goes into the brief now, or it is asked
+          const len = params.from === "agent" ? undefined : lengthDirection(params.text);
           return result(
-            `Recorded ${e?.id} (${e?.stage}, ${e?.kind}). It's part of the project's memory from now on.`,
+            `Recorded ${e?.id} (${e?.stage}, ${e?.kind}). It's part of the project's memory from now on.${len ? `\n${lengthNoteFor(len)}` : ""}`,
           );
         }
         case "mark": {
@@ -400,4 +403,16 @@ export function changedBriefFields(before: string, after: string): string[] {
   const a = fields(before);
   const b = fields(after);
   return [...new Set([...a.keys(), ...b.keys()])].filter((k) => a.get(k) !== b.get(k));
+}
+
+/** What the Director must do with a length the user named (item 22): the brief carries it in the same turn, or one question when it is only a limit. */
+export function lengthNoteFor(l: { floor?: number; ceiling?: number; target?: number }): string {
+  const c = (sec: number) =>
+    `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+  const set = [
+    l.target !== undefined ? `Target length: ${c(l.target)} min` : "",
+    l.floor !== undefined ? `No shorter than: ${c(l.floor)} min` : "",
+    l.ceiling !== undefined ? `No longer than: ${c(l.ceiling)} min` : "",
+  ].filter(Boolean);
+  return `This names a LENGTH, and the length is the budget of the final video: write it into the brief NOW (demo_rec_project write_brief: ${set.join(", ")}; one number for the target, never a range).${l.target === undefined ? " It gives only a limit: ask the user what to aim for (one number) with demo_rec_ask, and stop." : ""} The brief wins over older numbers; say what you changed.`;
 }

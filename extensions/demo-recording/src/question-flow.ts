@@ -127,6 +127,26 @@ export function answerFor(
         },
         p.slug,
       );
+  } else if (q.takeLength) {
+    const t = q.takeLength;
+    if (a.word === "extend")
+      rt.notifyAgent(
+        `${PANEL_PREFIX} The user wants the storyboard EXTENDED to meet the length budget: ${t.take} is projected at ${clockOf(t.finalMs)} for a target of ${clockOf(t.targetSec * 1000)}. Write a new storyboard DRAFT (demo_rec_storyboard write) that closes the gap: depth first (more of what matters, another relevant path), scene times that add up to the target, holds only for the rest; say what you added. If the app has no more real content, say so with evidence and propose a shorter target instead. Do NOT record and do NOT approve anything.`,
+      );
+    else if (a.word === "record")
+      rt.bus.publish(
+        "take.record-again-asked",
+        {
+          take: t.take,
+          message:
+            "record again: use “Request a new take” in the Recording tab (it asks for your Allow)",
+        },
+        p.slug,
+      );
+    else
+      rt.tellAgent(
+        `${reportAs("Operator")} The user ACCEPTS ${t.take} at its length (${clockOf(t.finalMs)} against a target of ${clockOf(t.targetSec * 1000)}): go on with it as usual (propose it, then the voice-over).`,
+      );
   } else if (q.takeFailed) {
     if (a.word === "heal") {
       try {
@@ -281,6 +301,36 @@ export function askAfterFailedTake(rt: Runtime, take: string, words: string): Qu
       { label: "Leave it" },
     ],
     takeFailed: { take },
+  });
+  announceQuestion(rt, q);
+  return q;
+}
+
+const clockOf = (ms: number) => {
+  const t = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+};
+
+/** A take misses the length budget (item 22, D-R3-25-11): the user decides, once per take. Nothing re-records by itself. */
+export function askAboutLength(
+  rt: Runtime,
+  take: string,
+  l: { finalMs: number; words?: string; verdict?: string; budget?: { targetSec: number } },
+): Question | undefined {
+  const p = rt.activeProject();
+  if (!p || !l.budget || (l.verdict !== "short" && l.verdict !== "long")) return undefined;
+  if (readQuestions(p.dir).some((q) => q.status === "pending" && q.takeLength?.take === take))
+    return undefined;
+  const q = askQuestion(p.dir, {
+    role: "Operator",
+    what: `${take} misses the length budget: ${l.words}. What now?`.slice(0, 300),
+    why: "The budget is the final video (title card in, loading cut out). Accept it as it is, have the Director extend the storyboard (a new draft, depth first), or record again.",
+    options: [
+      { label: "Accept it as it is" },
+      { label: "Extend the storyboard" },
+      { label: "Record again" },
+    ],
+    takeLength: { take, finalMs: l.finalMs, targetSec: l.budget.targetSec, verdict: l.verdict },
   });
   announceQuestion(rt, q);
   return q;

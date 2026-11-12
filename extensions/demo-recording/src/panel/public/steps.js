@@ -117,6 +117,7 @@ export const STEPS = {
   "take.accepted": { class: "quiet" },
   "take.recommend-asked": { class: "run-and-tell", tab: "recording" },
   "take.recommended": { class: "quiet" },
+  "take.record-again-asked": { class: "run-and-tell", tab: "recording" },
   "take.heal-requested": { class: "run-and-tell", tab: "recording" },
   "take.heal-refused": { class: "run-and-tell", tab: "recording" },
   "take.analyzed": { class: "run-and-tell", tab: "recording" },

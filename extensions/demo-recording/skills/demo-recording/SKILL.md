@@ -172,10 +172,33 @@ a login page and there is no saved login, say so and ask them to log in the same
    One finding per observation, in a sentence the user can judge without
    context. The engine adds its own findings (errors, fallbacks, retries, dead
    time, blocked or state-changing actions).
-10. **Length check.** Estimate the demo's length from the planned scenes. If
-    it is clearly outside the brief's target length (or the depth default),
-    say so and record a `length` finding with a `suggestion` (a new min–max,
-    or which scenes to cut or add).
+10. **The length budget.** The brief's `Target length` is THE budget of the
+    FINAL video (title card in, loading cut out), one number such as `10 min`,
+    and it means "hit it", not "stay under it". The window around it comes
+    from the config (default −15 % / +10 %); `No shorter than` and
+    `No longer than` in the brief replace one side each. Rules:
+    - **A length the user names** in chat or a review ("15–20 min is fine",
+      "no shorter than 9", "not longer than 12") goes into the brief in the
+      SAME turn (`demo_rec_project write_brief`): one number for the target,
+      the limits as their own fields. A limit without a target: ask for the
+      target (one number) with `demo_rec_ask`, and stop. A floor above the
+      ceiling: ask, never guess. The brief wins over older numbers.
+    - **Do not guess the length.** `demo_rec_storyboard write` returns the
+      engine's projection ("projected final 6:10 for a target of 10:00 (8:30
+      to 11:00): 2:20 short of the floor"). Plan the difference BEFORE the
+      user sees the draft and say what you did.
+    - **Give every scene a `time:`**, weighted by importance (the payoff
+      scenes get more), so the times add up to the target. When a scene's
+      steps end early the recorder holds (at the steps with `hold:`, else at
+      the end) until the time is met: at most 6 s per hold and a third of the
+      scene. Past that the scene is too thin and is reported short.
+    - **Depth first, holds last**: fill a gap with more of what matters (more
+      steps on the payoff, another relevant path), never with stills. If the
+      app has no more real content, say so with evidence and propose a shorter
+      target or areas to add: never pad to the number.
+    - **A take that misses the budget** is flagged and the user is asked
+      (accept, extend the storyboard, record again): do not propose it or
+      write its voice-over until they answer.
 11. **Respect the marks.** The user marks findings in the Project tab:
     - **use:** must appear in the recording *and* the narration. List the
       finding's id in the covering scene's `findings:`. The storyboard write
@@ -253,6 +276,7 @@ start_url: /
 scenes:
   - id: 01-dashboard            # kebab-case, ordered prefix
     title: Where churn hides
+    time: 45s                     # this scene's share of the length budget
     takeaway: Headline churn looks fine; the regional split does not
     screen: 20260612-101233/s001
     narration_outline:
@@ -262,7 +286,7 @@ scenes:
     # confidence: { score: 2, why: the chart sometimes loads late }   # only where YOU doubt the scene
     steps:
       - { do: hover, target: { css: '[data-kpi="churn"]' }, mark: churn-kpi, dwell: 1.2s }
-      - { do: hover, target: { text: EMEA }, mark: emea-bar, dwell: 1.4s, emphasis: the EMEA outlier is the story }
+      - { do: hover, target: { text: EMEA }, mark: emea-bar, dwell: 1.4s, hold: 4s, emphasis: the EMEA outlier is the story }
   - id: 02-search
     title: Ask in plain language
     takeaway: NL search gets the grouping right first try
@@ -281,7 +305,7 @@ scenes:
 `type {target?, text, clear?}`, `press {key}`,
 `wait {for: target | {ms}, timeout}`, `scroll {target | dy}`, `pause {ms}`,
 `improvise {kind: type, target, prompt, max_chars, submit, fallback?, vision?}`.
-**Shared flags:** `mark`, `dwell`, `emphasis`. A scene can carry its own `emphasis` too. The recorder logs a layout snapshot after every step and at every mark (`takes/take-NNN/layout.jsonl`), so later stages can point at anything on screen. You don't need to plan for that.
+**Shared flags:** `mark`, `dwell`, `emphasis`, `hold` (a payoff: stay on the result, at most `6s`; it is also where the recorder holds to meet the scene's time). A scene can carry its own `emphasis` too, and `time:` (how long it should be in the take, e.g. `time: 75s` or `time: "1:15"`; plan the scenes' times to the length budget). The recorder logs a layout snapshot after every step and at every mark (`takes/take-NNN/layout.jsonl`), so later stages can point at anything on screen. You don't need to plan for that.
 **Targets:** prefer `{role, name}` exactly as the aria digest shows them. Fall
 back to `{text}`, `{label}`, and `{css}` last.
 

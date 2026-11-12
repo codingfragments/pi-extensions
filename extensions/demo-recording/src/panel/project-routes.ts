@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { lineDiff } from "../config-edit.ts";
+import type { DemoRecConfig } from "../config.ts";
 import { PANEL_PREFIX } from "../roles.ts";
 import {
   BRIEF_FIELDS,
@@ -43,6 +44,8 @@ export interface ProjectRouteDeps {
   tellAgent: (text: string) => void;
   /** Start an agent turn with this message (the usual hint on the panel button). */
   notifyAgent: (text: string) => void;
+  /** The config (the length tolerances). */
+  config?: () => DemoRecConfig;
 }
 
 const rel = (base: string, file: string) => path.relative(base, file).split(path.sep).join("/");
@@ -60,7 +63,13 @@ export function validateFactsPatch(patch: Record<string, unknown>): Record<strin
       if (k === "stance" && !parseStance(val))
         throw new Error('stance must be "champion", "evaluator" or "teacher"');
       if (k === "length" && !parseTargetLength(val))
-        throw new Error('target length must look like "3–4 min", "60–90 s" or "2:30–3:30"');
+        throw new Error(
+          'target length must look like "10 min", "90 s" or "2:30" (one number; "3–4 min" still reads as its middle)',
+        );
+      if ((k === "noShorterThan" || k === "noLongerThan") && !parseTargetLength(val))
+        throw new Error(
+          `"${k === "noShorterThan" ? "No shorter than" : "No longer than"}" must be a length like "9 min" or "12:30"`,
+        );
       if (k === "url" && !/^https?:\/\/\S+$/.test(val))
         throw new Error("URL must start with http(s)://");
       if (k === "extraUrls" && val.split(/[\s,]+/).some((u) => u && !/^https?:\/\//.test(u)))
@@ -121,7 +130,11 @@ export function projectRoutes(deps: ProjectRouteDeps): {
         const p = deps.activeProject();
         if (!p) return { project: null };
         const brief = briefOf(p);
-        const e = effectiveFacts(brief);
+        const cfg = deps.config?.();
+        const tolerance = cfg
+          ? { underPct: cfg.length.toleranceUnderPct, overPct: cfg.length.toleranceOverPct }
+          : undefined;
+        const e = effectiveFacts(brief, tolerance);
         const auth = path.join(appDirOf(p.dir, p.app.slug), "auth", "state.json");
         return {
           project: p.slug,
@@ -135,6 +148,9 @@ export function projectRoutes(deps: ProjectRouteDeps): {
             length: e.length ? formatLength(e.length) : null,
             lengthSec: e.length ?? null,
             lengthFromDepth: e.lengthFromDepth,
+            budget: e.budget ?? null,
+            needsTarget: e.needsTarget,
+            tolerance: tolerance ?? { underPct: 15, overPct: 10 },
             extraUrls: e.extraUrls,
           },
           depthDefaults: Object.fromEntries(

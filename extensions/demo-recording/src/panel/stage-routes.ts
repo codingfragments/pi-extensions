@@ -349,6 +349,20 @@ export function stageRoutes(deps: StageRouteDeps): {
                 ? rel(p.dir, path.join(dir, "raw.mp4"))
                 : null,
               notes: readNotes(p.dir, t.id),
+              // the take against the length budget (item 22), as measured when it was recorded
+              length: (() => {
+                try {
+                  return (
+                    (
+                      JSON.parse(fs.readFileSync(path.join(dir, "take.json"), "utf8")) as {
+                        length?: unknown;
+                      }
+                    ).length ?? null
+                  );
+                } catch {
+                  return null;
+                }
+              })(),
               // a take that did not complete: why, in words, with a draft for your recommendation (the Recording tab's failed-take card)
               failure: (() => {
                 const f = readFailedTake(p.dir, t.id, storyboardFor(t.storyboardVersion));

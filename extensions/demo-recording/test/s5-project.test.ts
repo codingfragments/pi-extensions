@@ -83,7 +83,7 @@ test("brief facts: aliases, placeholders, depth defaults, length parsing", () =>
   assert.deepEqual(parseTargetLength("3–4 min total"), [180, 240]);
   assert.deepEqual(parseTargetLength("60-90 s"), [60, 90]);
   assert.deepEqual(parseTargetLength("2:30–3:30"), [150, 210]);
-  assert.deepEqual(parseTargetLength("90s"), [77, 103], "single value = ±15 %");
+  assert.deepEqual(parseTargetLength("90s"), [77, 99], "one number: −15 % / +10 % (item 22)");
   assert.equal(parseTargetLength("soon"), undefined);
   assert.equal(parseDepth("PoC"), "poc");
   assert.equal(parseDepth("Sales demo"), "sales");
@@ -489,21 +489,18 @@ test(
         "Keyboards that sell",
         "live title-card preview",
       );
-      await page.locator(".length-picker .ds-chip", { hasText: /^1 min–1:30$/ }).click();
-      await page.locator(".length-picker .sliders input").nth(1).fill("1800");
+      // one target (item 22): a preset, the slider up to 30 min, the window it gives
+      await page.locator(".length-picker .ds-chip", { hasText: /^5 min$/ }).click();
+      await page.locator(".length-picker .sliders input").fill("1800");
       assert.match(
         (await page.locator(".length-picker small").textContent()) ?? "",
-        /target 1 min–30 min/,
-        "max goes up to 30 min",
+        /the final video should be 30 min/,
+        "the target goes up to 30 min",
       );
-      assert.equal(
-        await page.locator(".length-picker .ds-chip", { hasText: /^15 min–30 min$/ }).count(),
-        1,
-      );
-      await page.locator(".length-picker .sliders input").nth(1).fill("120");
+      await page.locator(".length-picker .sliders input").fill("120");
       assert.match(
         (await page.locator(".length-picker small").textContent()) ?? "",
-        /target 1 min–2 min/,
+        /the final video should be 2 min/,
       );
       await page.locator(".url-add input").fill("https://k.test/admin");
       await page.locator(".url-add button").click();
@@ -516,7 +513,7 @@ test(
       const brief = fs.readFileSync(path.join(p.dir, "brief.md"), "utf8");
       assert.match(brief, /\*\*Depth:\*\* sales/);
       assert.match(brief, /\*\*Title:\*\* Keyboards that sell/);
-      assert.match(brief, /\*\*Target length:\*\* 1–2 min/);
+      assert.match(brief, /\*\*Target length:\*\* 2 min/);
       assert.match(brief, /\*\*Extra URLs:\*\* https:\/\/k\.test\/admin/);
       assert.match(brief, /\*\*Goal \/ key message:\*\* KeyCraft's cart is solid, its data is not/);
 

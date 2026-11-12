@@ -51,29 +51,41 @@ const dur = (ms) => {
   const s = Math.max(1, Math.round(ms / 1000));
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`;
 };
-const span = (t) => `${dur(t.lo * 1000)}–${dur(t.hi * 1000)}`;
 
-const VERDICT_WORDS = {
-  short: (p) =>
-    `well under the target (${p} % of its low end). The finished video follows the voice-over, so a storyboard this short usually means thin scenes: add scenes, or stay longer on what matters, or lower the target in the brief.`,
-  fits: () => "within the target. The edit absorbs the rest.",
-  long: () => "over the target. Trim scenes or steps, or raise the target in the brief.",
+const clock = (ms) => {
+  const t = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 
-/** How long this storyboard takes to record, against the length the brief asks for. */
+const VERDICT_WORDS = {
+  short:
+    "short of the budget. Add depth where it matters (more of the payoff, another relevant path), or lower the target in the brief.",
+  fits: "within the budget.",
+  long: "over the budget. Trim scenes or steps, or raise the target in the brief.",
+};
+
+const SOURCE_WORDS = {
+  brief: "from the brief",
+  range: "the middle of the brief's range",
+  depth: "the depth's default: set “Target length” in the brief",
+};
+
+/** How long the final video of this storyboard will be, against the length budget (item 22), and the raw take it comes from. */
 function Timing({ timing }) {
   if (!timing) return null;
-  const t = timing.target;
-  return html`<p class="ds-small" data-timing data-verdict=${timing.verdict}>
-    <strong>Projected recording ${dur(timing.totalMs)}</strong> · ${timing.steps} step${timing.steps === 1 ? "" : "s"} in ${timing.scenes.length} scene${timing.scenes.length === 1 ? "" : "s"}
-    ${timing.openWaits ? html` <span class="ds-muted">(${timing.openWaits} wait${timing.openWaits === 1 ? "" : "s"} for the app counted at 1.5 s: they may take longer)</span>` : null}
-    ${
-      t
-        ? html` · target <strong>${span(t)}</strong> ${t.fromDepth ? html`<span class="ds-muted">(the depth's default: set “Target length” in the brief)</span>` : html`<span class="ds-muted">(from the brief)</span>`}: ${VERDICT_WORDS[timing.verdict]?.(timing.percentOfTarget)}`
+  const b = timing.budget;
+  const timed = timing.scenes.filter((s) => s.timeMs !== undefined).length;
+  return html`<div class="ds-small ds-stack" data-timing data-verdict=${timing.verdict} style="gap:var(--space-1)">
+    <p><strong>Projected final ${clock(timing.final.ms)}</strong>${
+      b
+        ? html` · target <strong data-target>${clock(b.targetSec * 1000)}</strong> (${clock(b.floorSec * 1000)} to ${clock(b.ceilingSec * 1000)}) <span class="ds-muted">(${SOURCE_WORDS[b.source.target] ?? "from the brief"}${b.source.floor === "limit" ? ", your “no shorter than”" : ""}${b.source.ceiling === "limit" ? ", your “no longer than”" : ""})</span>: ${VERDICT_WORDS[timing.verdict]}`
         : html` · <span class="ds-muted">no target length in the brief</span>`
-    }
-    ${timing.lastTake ? html` · <span class="ds-muted">the last take of this storyboard (${timing.lastTake.id}) ran ${dur(timing.lastTake.ms)}</span>` : null}
-  </p>`;
+    }</p>
+    <p class="ds-muted">Raw take ${clock(timing.totalMs)} · ${timing.steps} step${timing.steps === 1 ? "" : "s"} in ${timing.scenes.length} scene${timing.scenes.length === 1 ? "" : "s"} · less about ${Math.round(timing.final.cutShare * 100)} % dead time${timing.final.cutFrom === "takes" ? " (measured on this project's takes)" : ""}${timing.final.titleMs ? `, plus the ${clock(timing.final.titleMs)} title card` : ""}${timed ? ` · scene times add up to ${clock(timing.timesMs)} (${timed} of ${timing.scenes.length} scenes have one)` : " · no scene has a time yet"}${timing.openWaits ? ` · ${timing.openWaits} wait${timing.openWaits === 1 ? "" : "s"} for the app counted at 1.5 s` : ""}</p>
+    ${timing.plannedFor ? html`<p class="ds-notice" data-planned-for role="note">Planned for ${clock(timing.plannedFor.targetSec * 1000)}; the target is now ${clock(b.targetSec * 1000)}. Ask the Director for a new draft.</p>` : null}
+    ${b?.conflict ? html`<p class="ds-notice" data-tone="warn" role="note">The length budget contradicts itself: ${b.conflict}. Fix it in the brief.</p>` : null}
+    ${timing.lastTake ? html`<p class="ds-muted">The last take of this storyboard (${timing.lastTake.id}) ran ${clock(timing.lastTake.ms)} raw.</p>` : null}
+  </div>`;
 }
 
 function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, conf, ms }) {
@@ -87,7 +99,7 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
     <div class="ds-row-flex">
       <h2>${index + 1}. ${scene.title}</h2>
       <span class="ds-badge ds-mono" data-tone="neutral">${scene.id}</span>
-      ${ms ? html`<span class="ds-badge" data-tone="neutral" data-scene-time title="projected recording time of this scene">~${dur(ms)}</span>` : null}
+      ${ms ? html`<span class="ds-badge" data-tone=${ms.shortMs ? "warn" : "neutral"} data-scene-time title="the scene's time in the take: what the storyboard asks for, and what the recorder will make of it with its holds">${ms.timeMs !== undefined ? `time ${dur(ms.timeMs)} · ` : ""}~${dur(ms.ms)}${ms.heldMs ? ` (${dur(ms.heldMs)} held)` : ""}${ms.shortMs ? ` · ${dur(ms.shortMs)} short` : ""}</span>` : null}
       ${diffKind ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">${diffKind === "new" ? "+" : "~"}</span>${diffKind === "new" ? "New" : "Changed"}</span>` : null}
       <${ReviewBadge} status=${r?.status} />
       <${ConfPill} c=${conf} long />
@@ -179,7 +191,7 @@ export function Review({ events }) {
       { replace: true },
     );
   const row = hist.data?.rows?.find((r) => r.version === data.version);
-  const sceneMs = (id) => data.timing?.scenes?.find((s) => s.id === id)?.ms ?? 0;
+  const sceneMs = (id) => data.timing?.scenes?.find((s) => s.id === id);
 
   return html`
     <${StageSummary} events=${events} stage="storyboard" row=${row} rows=${hist.data?.rows}
@@ -222,7 +234,7 @@ export function Review({ events }) {
               const c = confOf(data.confidence, s.id);
               const dk = diffKind(s.id);
               return html`<${ListRow} key=${s.id} itemKey=${s.id} title=${`${scenes.indexOf(s) + 1}. ${s.title}`} review=${rv} current=${scene?.id === s.id} onSelect=${select}
-                meta=${`${s.id}${sceneMs(s.id) ? ` · ~${dur(sceneMs(s.id))}` : ""} · ${rv ? STATE_WORD[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
+                meta=${`${s.id}${sceneMs(s.id)?.ms ? ` · ~${dur(sceneMs(s.id).ms)}${sceneMs(s.id).timeMs !== undefined ? ` of ${dur(sceneMs(s.id).timeMs)}` : ""}` : ""} · ${rv ? STATE_WORD[rv.status] : "not reviewed"}${c?.approvedIn !== undefined ? ` · unchanged since v${c.approvedIn}` : ""}`}
                 badges=${html`${dk ? html`<span class="ds-badge" data-tone="info"><span class="ds-badge-ico" aria-hidden="true">${dk === "new" ? "+" : "~"}</span>${dk === "new" ? "New" : "Changed"}</span>` : null}${c && c.level !== "high" ? html`<${ConfPill} c=${c} />` : null}`} />`;
             })}
           </ul>

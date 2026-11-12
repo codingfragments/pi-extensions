@@ -95,6 +95,8 @@ export interface DemoRecConfig {
   };
   /** Child tools (ffmpeg, uv/Python): how long one command may run before it is diagnosed and killed, in minutes (0 = never). */
   media: { toolTimeoutMin: number };
+  /** The length budget's default window around the target length (item 22): how far under and over the target still fits, in percent. */
+  length: { toleranceUnderPct: number; toleranceOverPct: number };
   /** Discovery budgets (S2). */
   budgets: { discoveryScreens: number; discoveryActions: number; discoveryMinutes: number };
   /**
@@ -217,6 +219,7 @@ export function defaultConfig(home: string): DemoRecConfig {
     brand: "neutral",
     annotations: { autoSuggest: true, zoomsPerMinute: 1.5, zoomsPerScene: 1 },
     render: { keepDrafts: 3, brands: [], subtitles: false, logoBug: true, annotationTypes: "all" },
+    length: { toleranceUnderPct: 15, toleranceOverPct: 10 },
     budgets: { discoveryScreens: 40, discoveryActions: 150, discoveryMinutes: 20 },
     media: { toolTimeoutMin: 30 },
     discovery: {
@@ -493,6 +496,18 @@ function applyFile(cfg: DemoRecConfig, raw: Record<string, unknown>, home: strin
           `demo-recording config: "render.annotationTypes" must be "all" or a list of ${ANNOTATION_TYPES.join(", ")}`,
         );
       cfg.render.annotationTypes = t === "all" ? "all" : [...new Set(t as string[])].sort();
+    }
+  }
+  const ln = raw.length as Record<string, unknown> | undefined;
+  if (ln !== undefined) {
+    for (const key of ["toleranceUnderPct", "toleranceOverPct"] as const) {
+      const v = ln[key];
+      if (v === undefined) continue;
+      if (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 50)
+        throw new Error(
+          `demo-recording config: "length.${key}" must be a number of percent from 0 to 50`,
+        );
+      cfg.length[key] = v;
     }
   }
   const b = raw.budgets as Record<string, unknown> | undefined;

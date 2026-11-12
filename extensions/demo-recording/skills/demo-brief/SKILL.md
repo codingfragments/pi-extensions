@@ -47,7 +47,9 @@ told you.
 - **Depth:** poc | showcase | sales
 - **Stance:** champion | evaluator | teacher (omit to use the depth default)
 - **Goal / key message:** <the one thing the viewer should believe afterwards>
-- **Target length:** <min–max, e.g. 3–4 min; omit to use the depth default>
+- **Target length:** <ONE number, the length of the final video, e.g. 10 min (the window around it comes from the config, default −15 % / +10 %); omit to use the depth default>
+- **No shorter than:** <optional: only when the user named a floor, e.g. 9 min>
+- **No longer than:** <optional: only when the user named a ceiling, e.g. 12 min>
 - **Must show:** <features/flows that are non-negotiable>
 - **Must avoid:** <areas, data, or claims to keep out>
 - **Language:** English

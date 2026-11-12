@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readAnalysis } from "../analysis/take.ts";
+import { measuredWordsPerSecond } from "../budget/voice-rate.ts";
 import { latestVersion, listVersions, writeNextVersion } from "../workdir/versioning.ts";
 import { type ValidatedVo, parseVo, validateVo } from "./script.ts";
 
@@ -28,7 +29,12 @@ function validate(projectDir: string, text: string): ValidatedVo {
   const analysis = readAnalysis(takeDir);
   if (!analysis)
     throw new Error(`${script.take} has not been analyzed — run demo_rec_take analyze first`);
-  return validateVo(script, analysis, path.join(takeDir, "dom"));
+  return validateVo(
+    script,
+    analysis,
+    path.join(takeDir, "dom"),
+    measuredWordsPerSecond(projectDir)?.wordsPerSecond,
+  );
 }
 
 export function readVo(projectDir: string, version?: number): StoredVo | undefined {

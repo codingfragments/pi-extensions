@@ -213,8 +213,8 @@ export function wordCount(text: string): number {
     .filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 }
 
-export function speechSeconds(text: string): number {
-  return +(wordCount(text) / WORDS_PER_SECOND).toFixed(1);
+export function speechSeconds(text: string, wordsPerSecond = WORDS_PER_SECOND): number {
+  return +(wordCount(text) / wordsPerSecond).toFixed(1);
 }
 
 /** Resolve `{{dom:mark|regex}}` against page-text snapshots. */
@@ -261,7 +261,13 @@ export interface ValidatedVo {
   timing: SceneTiming[];
 }
 
-export function validateVo(script: VoScript, analysis: TakeAnalysis, domDir: string): ValidatedVo {
+export function validateVo(
+  script: VoScript,
+  analysis: TakeAnalysis,
+  domDir: string,
+  /** The voice's speed: 155 wpm until this project's voice has been measured (item 22, D-R3-25-13). */
+  wordsPerSecond = WORDS_PER_SECOND,
+): ValidatedVo {
   const issues: VoIssue[] = [];
   const err = (section: string, message: string) =>
     issues.push({ level: "error", section, message });
@@ -350,7 +356,7 @@ export function validateVo(script: VoScript, analysis: TakeAnalysis, domDir: str
     if (section.kind === "scene" && scene) {
       const dead = scene.idle.reduce((n, r) => n + (r.end - r.start), 0);
       const usableSec = +((scene.end - scene.start - dead) / 1000).toFixed(1);
-      const speechSec = speechSeconds(full);
+      const speechSec = speechSeconds(full, wordsPerSecond);
       const ratio = usableSec > 0 ? +(speechSec / usableSec).toFixed(2) : 99;
       timing.push({ section: section.key, speechSec, usableSec, ratio });
       if (ratio > 1.35)

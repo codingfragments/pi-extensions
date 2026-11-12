@@ -7,10 +7,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readAnnotations } from "../annotations/file.ts";
+import { plannedFor, timingInputs } from "../budget/project.ts";
 import type { EventBus } from "../bus.ts";
 import { type ConfidenceSummary, formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence } from "../confidence/storyboard.ts";
 import { normText, voBase, voConfidence } from "../confidence/vo.ts";
+import type { DemoRecConfig } from "../config.ts";
 import { reportFor, reportVersions } from "../discovery/report.ts";
 import { qaBlocker } from "../qa/run.ts";
 import { readRender } from "../render/store.ts";
@@ -70,6 +72,8 @@ export interface RouteDeps {
   /** Current discovery session dir + id, if one is open. */
   discovery: () => { id: string; dir: string; budget: unknown } | undefined;
   notifyAgent: (text: string) => void;
+  /** The config (the length tolerances, the brand's title card for the projection). */
+  config?: () => DemoRecConfig;
   /** What a final render uses, in words (for the approval message to the Director). */
   renderWords?: () => string;
 }
@@ -149,22 +153,30 @@ export function panelRoutes(deps: RouteDeps): {
           // how long this storyboard takes to record (the raw take), against the length the brief asks for
           timing: (() => {
             try {
-              const brief = fs.existsSync(path.join(p.dir, "brief.md"))
-                ? effectiveFacts(fs.readFileSync(path.join(p.dir, "brief.md"), "utf8"))
-                : undefined;
               const done = listTakes(p.dir)
                 .filter(
                   (t) =>
                     t.status === "ok" && t.storyboardVersion === current.version && t.durationMs,
                 )
                 .at(-1);
-              return storyboardTiming(
-                current.storyboard,
-                brief?.length
-                  ? { lo: brief.length[0], hi: brief.length[1], fromDepth: brief.lengthFromDepth }
-                  : undefined,
-                done?.durationMs ? { id: done.id, ms: done.durationMs } : undefined,
-              );
+              const cfg = deps.config?.();
+              const inputs = cfg
+                ? timingInputs(p.dir, cfg)
+                : (() => {
+                    const brief = fs.existsSync(path.join(p.dir, "brief.md"))
+                      ? effectiveFacts(fs.readFileSync(path.join(p.dir, "brief.md"), "utf8"))
+                      : undefined;
+                    return {
+                      ...(brief?.budget ? { budget: brief.budget } : {}),
+                      budgetFromDepth: brief?.lengthFromDepth ?? false,
+                    };
+                  })();
+              const planned = plannedFor(p.dir, current.version);
+              return storyboardTiming(current.storyboard, {
+                ...inputs,
+                ...(done?.durationMs ? { lastTake: { id: done.id, ms: done.durationMs } } : {}),
+                ...(planned ? { plannedFor: planned } : {}),
+              });
             } catch {
               return null;
             }

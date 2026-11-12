@@ -12,8 +12,9 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { sessionGuardFor } from "../auth/guard.ts";
 import { checkBeforeStart } from "../auth/session.ts";
+import { type TakeLength, measureTake } from "../budget/take.ts";
 import type { Job } from "../jobs.ts";
-import { askAfterFailedTake } from "../question-flow.ts";
+import { askAboutLength, askAfterFailedTake } from "../question-flow.ts";
 import { readFailedTake } from "../recorder/failure.ts";
 import { createImproviser, modelAccessFrom } from "../recorder/improvise.ts";
 import { formatProgress } from "../recorder/progress.ts";
@@ -95,6 +96,13 @@ export function takeEnded(
   rt.tellAgent(
     `${reportAs("Operator")} Recording ${status}${error ? `: ${firstLine(error)}` : ""}. Nothing is started by itself: the user decides what happens next.`,
   );
+}
+
+/** The take's length, in a line for the Director and the user. */
+export function lengthLine(l: TakeLength): string {
+  const sec = (ms: number) =>
+    `${Math.floor(ms / 60_000)}:${String(Math.round((ms % 60_000) / 1000)).padStart(2, "0")}`;
+  return `length: raw ${sec(l.rawMs)}${l.cutMs ? `, less ${sec(l.cutMs)} of loading the edit cuts` : ""}${l.titleMs ? `, plus a ${sec(l.titleMs)} title card` : ""}: ${l.words ?? `final about ${sec(l.finalMs)} (the brief has no target length)`}${l.thinScenes?.length ? `; short of their time even with the holds: ${l.thinScenes.map((t) => `${t.id} (${sec(t.shortMs)})`).join(", ")}` : ""}`;
 }
 
 export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
@@ -283,9 +291,20 @@ export function registerRecordTool(pi: ExtensionAPI, rt: Runtime): void {
             },
             p.slug,
           );
-          if (j.result)
-            rt.reportToAgent(`${reportAs("Operator")} ${takeSummary(j.result, version)}`);
-          else takeEnded(rt, p, version, j.status, j.error);
+          if (j.result) {
+            // the take against the length budget (item 22): flagged before it is offered, and the user is asked what to do about a miss
+            let length: TakeLength | undefined;
+            try {
+              length = measureTake(p.dir, rt.getConfig(), j.result);
+            } catch {
+              length = undefined;
+            }
+            const miss = length?.verdict === "short" || length?.verdict === "long";
+            rt.reportToAgent(
+              `${reportAs("Operator")} ${takeSummary(j.result, version)}${length ? `\n${lengthLine(length)}` : ""}${miss ? "\nThe take MISSES the length budget: the user is asked (accept it, extend the storyboard, or record again). Do not propose this take or write its voice-over until they answer." : ""}`,
+            );
+            if (miss && length) askAboutLength(rt, j.result.takeId, length);
+          } else takeEnded(rt, p, version, j.status, j.error);
         },
       );
       rt.bus.publish(

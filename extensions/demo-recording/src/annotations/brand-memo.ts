@@ -28,6 +28,8 @@ export function prepareBrandMemo(
   take: string,
   brandName: string,
   now = Date.now(),
+  /** How the brand is prepared (tests give a stub: preparing needs a browser). */
+  make: typeof prepareBrand = prepareBrand,
 ): Promise<Prepared> {
   for (const [k, v] of memo) if (now - v.at > BRAND_MEMO_MS) memo.delete(k);
   const key = JSON.stringify([projectDir, config.root, take, brandName, config.output]);
@@ -37,7 +39,7 @@ export function prepareBrandMemo(
     return hit.made;
   }
   brandMemoStats.made++;
-  const made = prepareBrand(projectDir, config, take, brandName);
+  const made = make(projectDir, config, take, brandName);
   memo.set(key, { at: now, made });
   made.catch(() => {
     if (memo.get(key)?.made === made) memo.delete(key);

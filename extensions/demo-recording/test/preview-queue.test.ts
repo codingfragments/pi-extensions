@@ -196,49 +196,45 @@ test("the tab's queue: the thumbnails in view go first, then the rest in the ord
 });
 
 test("brand memo: prepared once per burst and shared; dropped after the memo time, when a brand changes, and when it failed", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "brand-memo-"));
-  try {
-    const dir = path.join(root, "p");
-    fs.mkdirSync(path.join(dir, "takes", "take-001"), { recursive: true });
-    const cfg = { root, output: { width: 960, height: 540 }, brand: "neutral" } as never;
-    const base = { ...brandMemoStats };
-    const t = 1_000_000;
-    const [a, b] = await Promise.all([
-      prepareBrandMemo(dir, cfg, "take-001", "neutral", t),
-      prepareBrandMemo(dir, cfg, "take-001", "neutral", t + 5),
-    ]);
-    assert.equal(a, b, "the same prepared brand");
-    assert.equal(brandMemoStats.made - base.made, 1);
-    assert.equal(brandMemoStats.reused - base.reused, 1);
-    assert.equal(await prepareBrandMemo(dir, cfg, "take-001", "neutral", t + BRAND_MEMO_MS - 1), a);
-    assert.notEqual(
-      await prepareBrandMemo(dir, cfg, "take-001", "neutral", t + BRAND_MEMO_MS + 1),
-      a,
-      "after the memo time: new",
-    );
-    const c = await prepareBrandMemo(dir, cfg, "take-001", "neutral", t + BRAND_MEMO_MS + 2);
-    notifyBrandChanged();
-    assert.notEqual(
-      await prepareBrandMemo(dir, cfg, "take-001", "neutral", t + BRAND_MEMO_MS + 3),
-      c,
-      "a brand changed: new",
-    );
-    // another size or another take is another entry
-    const other = await prepareBrandMemo(
-      dir,
-      { ...(cfg as object), output: { width: 480, height: 270 } } as never,
-      "take-001",
-      "neutral",
-      t + BRAND_MEMO_MS + 4,
-    );
-    assert.notEqual(other, c);
-    // a brand that does not exist fails, and is not kept as a failure
-    await assert.rejects(prepareBrandMemo(dir, cfg, "take-001", "no-such-brand", t + 1));
-    await assert.rejects(prepareBrandMemo(dir, cfg, "take-001", "no-such-brand", t + 2));
-    assert.equal(brandMemoStats.made - base.made >= 5, true);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
+  const cfg = { root: "/r", output: { width: 960, height: 540 }, brand: "neutral" } as never;
+  let made = 0;
+  const make = (async (_d: string, _c: unknown, _t: string, brand: string) => {
+    made++;
+    await sleep(5);
+    if (brand === "no-such-brand") throw new Error("no such brand");
+    return { made } as never;
+  }) as never;
+  const get = (take: string, brand: string, at: number, c: never = cfg) =>
+    prepareBrandMemo("/p", c, take, brand, at, make);
+  const t = 1_000_000;
+  const [a, b] = await Promise.all([
+    get("take-001", "neutral", t),
+    get("take-001", "neutral", t + 5),
+  ]);
+  assert.equal(a, b, "the same prepared brand, shared by whoever asked meanwhile");
+  assert.equal(made, 1);
+  assert.equal(await get("take-001", "neutral", t + BRAND_MEMO_MS - 1), a);
+  assert.equal(made, 1, "still within the memo time");
+  const later = await get("take-001", "neutral", t + BRAND_MEMO_MS + 1);
+  assert.notEqual(later, a, "after the memo time: prepared again");
+  notifyBrandChanged();
+  assert.notEqual(
+    await get("take-001", "neutral", t + BRAND_MEMO_MS + 2),
+    later,
+    "a brand changed: prepared again",
+  );
+  const n = made;
+  await get("take-002", "neutral", t + BRAND_MEMO_MS + 3);
+  await get("take-001", "neutral", t + BRAND_MEMO_MS + 4, {
+    ...(cfg as object),
+    output: { width: 480, height: 270 },
+  } as never);
+  assert.equal(made, n + 2, "another take or another size is another entry");
+  // a brand that fails is not kept as a failure
+  await assert.rejects(get("take-001", "no-such-brand", t + BRAND_MEMO_MS + 5), /no such brand/);
+  await assert.rejects(get("take-001", "no-such-brand", t + BRAND_MEMO_MS + 6), /no such brand/);
+  assert.equal(made, n + 4, "both attempts ran");
+  assert.ok(brandMemoStats.made >= 5 && brandMemoStats.reused >= 2);
 });
 
 test("the log: one line per preview with where the time went", () => {

@@ -8,6 +8,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { lengthDirection } from "../budget/length.ts";
+import { PRICE_IT, changesScope } from "../budget/scope.ts";
 import { ACTIVE_ENTRY } from "../commands/demo.ts";
 import type { Runtime } from "../runtime.ts";
 import { readStoryboard, storyboardVersions } from "../storyboard/store.ts";
@@ -303,8 +304,13 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
           );
           // a length in the user's words is the budget (item 22, D-R3-25-2/-3): it goes into the brief now, or it is asked
           const len = params.from === "agent" ? undefined : lengthDirection(params.text);
+          // a direction that adds or drops scope before the take: priced in minutes before it is built (D-R3-25-15)
+          const scope =
+            params.from !== "agent" &&
+            (e?.stage === "discovery" || e?.stage === "storyboard" || e?.stage === "brief") &&
+            changesScope(params.text);
           return result(
-            `Recorded ${e?.id} (${e?.stage}, ${e?.kind}). It's part of the project's memory from now on.${len ? `\n${lengthNoteFor(len)}` : ""}`,
+            `Recorded ${e?.id} (${e?.stage}, ${e?.kind}). It's part of the project's memory from now on.${len ? `\n${lengthNoteFor(len)}` : ""}${scope ? `\n${PRICE_IT}` : ""}`,
           );
         }
         case "mark": {

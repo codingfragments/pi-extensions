@@ -119,7 +119,12 @@ a login page and there is no saved login, say so and ask them to log in the same
    not from your flags: marking an area done (`done: <area>`) does not move the
    bar, and an area marked done with nothing seen is shown as such. Re-declare
    the plan if you change course. An area you will not explore is left out on
-   purpose with `drop: <area>` and `why`. **The storyboard is refused** while a
+   purpose with `drop: <area>` and `why`. **Plan to the length budget**: the
+   open message and the plan's answer say how many scenes the target holds
+   (about 60 to 90 s each) and what the declared areas cost in minutes. A
+   direction that adds or drops scope ("add the Explore path", "skip billing")
+   comes back with its price first ("adds about 6:30, total 11:20 against
+   10:00 (8:30 to 11:00): over") before you build it. **The storyboard is refused** while a
    declared area was never seen and not dropped (the refusal names them): explore
    them, or pass `skipAreas: [{ area, why }]` with the write.
 4. **Survey first, then go deep.** Right after the plan call
@@ -196,6 +201,11 @@ a login page and there is no saved login, say so and ask them to log in the same
       steps on the payoff, another relevant path), never with stills. If the
       app has no more real content, say so with evidence and propose a shorter
       target or areas to add: never pad to the number.
+    - **The engine checks the draft too**: holds that carry more than a fifth
+      of the take ("depth first, holds last"), and a draft still short after
+      an earlier short one for the same target (then ask the user whether to
+      lower the target or add areas, with the evidence; never pad). The
+      engine also keeps the `length` finding: do not guess one.
     - **A take that misses the budget** is flagged and the user is asked
       (accept, extend the storyboard, record again): do not propose it or
       write its voice-over until they answer.

@@ -128,7 +128,15 @@ hints in the panel (the Voice over screen, under each anchor's picture).
 ## Timing
 
 - The template shows each scene's **usable footage** (dead time removed) and a
-  word budget (~2.4 words per second). Stay at or a little under it.
+  word budget (~2.4 words per second, or this project's voice once it has been
+  measured: the template says so). Stay at or a little under it.
+- **The length budget** is the final video (item 22). The write says what the
+  final would be with this script ("with this voice-over the final is about
+  11:40 for a target of 10:00 (8:30 to 11:00): 0:40 over the ceiling").
+  Within the window the edit stretches the scenes to the voice. Past the
+  ceiling the user is asked: raise the ceiling or cut. Do not rewrite until
+  they answer; on "cut" you get a message naming where the speech overruns
+  the footage most.
 - More words than footage means the editor freezes frames, so keep it within
   ~1.3×. Much less means long silences. Fine in short bursts, but say
   something during long waits for streamed answers.

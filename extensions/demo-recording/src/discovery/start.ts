@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { projectBudget } from "../budget/project.ts";
 import { PANEL_PREFIX, reportAs } from "../roles.ts";
 import type { Runtime } from "../runtime.ts";
 import { listFindings } from "../workdir/findings.ts";
@@ -90,7 +91,10 @@ export function requestDiscovery(rt: Runtime, body: StartRequest): DiscoveryRequ
       { slug: p.slug, name: p.app.name ?? p.app.slug, url: p.app.baseUrl },
       req,
       { sessions: sessions.length, findings },
-      { briefDraft: briefIsDraft(p.dir) },
+      (() => {
+        const budget = projectBudget(p.dir, cfg);
+        return { briefDraft: briefIsDraft(p.dir), ...(budget ? { budget } : {}) };
+      })(),
     ),
   );
   return req;

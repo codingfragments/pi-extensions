@@ -116,6 +116,39 @@ export function storyboardTiming(
   };
 }
 
+/** Holds may make up to this share of the raw take before the draft is told "depth first" (D-R3-25-7). */
+export const HOLD_SHARE_WARN = 0.2;
+
+/** The share of the raw take that is holds. */
+export const holdShare = (t: StoryboardTiming) =>
+  t.totalMs > 0 ? t.scenes.reduce((n, s) => n + s.heldMs, 0) / t.totalMs : 0;
+
+/**
+ * The engine's checks of a draft against the budget beyond the projection (item 22 PR 2): holds that carry too much of it (depth first), and a draft that is still short
+ * after an earlier short one for the same target (the app may be too small: say so and propose a shorter target, never pad).
+ */
+export function budgetChecks(
+  t: StoryboardTiming,
+  previous?: { verdict?: string; targetSec: number; version: number },
+): string[] {
+  const out: string[] = [];
+  const share = holdShare(t);
+  if (share > HOLD_SHARE_WARN)
+    out.push(
+      `holds carry ${Math.round(share * 100)} % of the take (more than ${Math.round(HOLD_SHARE_WARN * 100)} %): depth first, holds last. Give the scenes more real content (more steps on the payoff, another relevant path) and shorter times, instead of stills.`,
+    );
+  if (
+    t.verdict === "short" &&
+    t.budget &&
+    previous?.verdict === "short" &&
+    previous.targetSec === t.budget.targetSec
+  )
+    out.push(
+      `still short of the budget, as v${previous.version} was: if the app has no more real content for this target, do NOT pad. Ask the user (demo_rec_ask) with the evidence (what you explored, what is left) whether to lower the target (propose a number) or add areas (name them).`,
+    );
+  return out;
+}
+
 /** What the Director is told when it writes a storyboard (D-R3-25-2, -7, -10): the projection, what is off, and what to do about it. */
 export function timingForDirector(t: StoryboardTiming): string {
   const lines = t.budget

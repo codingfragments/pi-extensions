@@ -259,7 +259,10 @@ test("findings: engine signals deduped across takes, discovery since project cre
   assert.equal(by("state-change").length, 1);
   assert.equal(by("state-change")[0]?.evidence.length, 2);
   assert.equal(by("length").length, 1);
-  assert.match(by("length")[0]?.text ?? "", /308 s, the target is 3–4 min/);
+  assert.match(
+    by("length")[0]?.text ?? "",
+    /the edited video is 5:08, the budget is 3:30 \(3:00 to 4:00\)/,
+  );
   assert.match(by("length")[0]?.suggestion ?? "", /target length/);
   assert.ok(
     list.every((x) => x.state === "auto"),

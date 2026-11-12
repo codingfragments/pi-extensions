@@ -9,10 +9,13 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { type TakeAnalysis, readAnalysis } from "../analysis/take.ts";
+import { projectBudget, titleCardMs } from "../budget/project.ts";
+import { voLength } from "../budget/vo.ts";
 import { measuredWordsPerSecond } from "../budget/voice-rate.ts";
 import { formatConfidence } from "../confidence/level.ts";
 import { voConfidence } from "../confidence/vo.ts";
 import { pendingBlock, pendingReminder } from "../qa/apply.ts";
+import { askAboutVoLength } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatIssues } from "../vo/script.ts";
 import { readPendingDirection, readVo, readVoMeta, voVersions, writeVo } from "../vo/store.ts";
@@ -124,6 +127,18 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         params.base !== undefined ? { base: params.base } : {},
       );
       const meta = readVoMeta(p.dir, stored.version);
+      // the script against the length budget (item 22 PR 2): within the window the edit stretches; past the ceiling the user decides
+      const cfgNow = rt.getConfig();
+      const budget = projectBudget(p.dir, cfgNow);
+      const rateNow = measuredWordsPerSecond(p.dir);
+      const vLen = budget
+        ? voLength(stored.validated, budget, {
+            titleMs: titleCardMs(cfgNow),
+            ...(rateNow ? { wordsPerSecond: rateNow.wordsPerSecond } : {}),
+          })
+        : undefined;
+      if (vLen?.verdict === "long" && budget)
+        askAboutVoLength(rt, stored.version, vLen, budget.ceilingSec);
       const conf = voConfidence(p.dir, stored.version);
       rt.bus.publish(
         "vo.written",
@@ -142,6 +157,11 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         [
           `Stored voice-over v${stored.version} for ${stored.validated.script.take} at ${stored.file}.`,
           formatIssues(stored.validated) || "No issues.",
+          ...(vLen
+            ? [
+                `Length: ${vLen.words}.${vLen.verdict === "long" ? " Past the ceiling: the user is asked (raise the ceiling, or cut). Do not rewrite it until they answer." : ""}`,
+              ]
+            : []),
           ...(meta?.base !== undefined
             ? [
                 `Based on v${meta.base}${meta.direction ? " (the user's direction)" : ""} — the panel shows the word diff.`,

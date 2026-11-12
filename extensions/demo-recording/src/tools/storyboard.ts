@@ -7,7 +7,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { projectFacts, savePlannedFor, timingInputs } from "../budget/project.ts";
+import { plannedRecord, projectFacts, savePlannedFor, timingInputs } from "../budget/project.ts";
 import { formatConfidence } from "../confidence/level.ts";
 import { storyboardConfidence, writeStoryboardChecks } from "../confidence/storyboard.ts";
 import { coverageMessage, coverageProblem, dropInLog } from "../discovery/coverage.ts";
@@ -19,7 +19,12 @@ import { describeTarget } from "../recorder/targets.ts";
 import type { Runtime } from "../runtime.ts";
 import { formatDiff, storyboardTargets } from "../storyboard/diff.ts";
 import { readStoryboard, storyboardVersions, writeStoryboard } from "../storyboard/store.ts";
-import { storyboardTiming, timingForDirector } from "../storyboard/timing.ts";
+import {
+  budgetChecks,
+  holdShare,
+  storyboardTiming,
+  timingForDirector,
+} from "../storyboard/timing.ts";
 import { appDirOf } from "../workdir/context.ts";
 import { listFindings, uncoveredUseFindings } from "../workdir/findings.ts";
 import { acceptedVersions } from "../workdir/stages.ts";
@@ -147,8 +152,20 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
       const cfgNow = rt.getConfig();
       const inputs = timingInputs(p.dir, cfgNow);
       const facts = projectFacts(p.dir, cfgNow);
-      if (inputs.budget) savePlannedFor(p.dir, written.version, inputs.budget);
       const timing = storyboardTiming(written.storyboard, inputs);
+      const previous = written.version > 1 ? plannedRecord(p.dir, written.version - 1) : undefined;
+      for (const w of budgetChecks(
+        timing,
+        previous ? { ...previous, version: written.version - 1 } : undefined,
+      ))
+        warnings.push(`length: ${w}`);
+      if (inputs.budget)
+        savePlannedFor(p.dir, written.version, inputs.budget, {
+          finalMs: timing.final.ms,
+          verdict: timing.verdict,
+          ...(timing.words ? { words: timing.words } : {}),
+          holdShare: holdShare(timing),
+        });
       const lengthNote = [
         timingForDirector(timing),
         ...(facts?.needsTarget

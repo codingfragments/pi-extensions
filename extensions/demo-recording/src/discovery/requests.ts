@@ -6,6 +6,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import type { LengthBudget } from "../budget/length.ts";
+import { budgetPlanWords } from "../budget/scope.ts";
 import { writeFileAtomic } from "../workdir/versioning.ts";
 import type { DiscoveryBudgets } from "./session.ts";
 
@@ -182,7 +184,7 @@ export function requestMessage(
   p: { slug: string; name: string; url: string },
   r: DiscoveryRequest,
   earlier: { sessions: number; findings: number },
-  extra: { briefDraft?: boolean } = {},
+  extra: { briefDraft?: boolean; budget?: LengthBudget } = {},
 ): string {
   const b = r.budget;
   const lines = [
@@ -197,6 +199,15 @@ export function requestMessage(
   if (r.headed)
     lines.push(
       "The user wants to WATCH: the browser window is shown in front and stays open when you close the session. Do not close it early, and do not ask them to open anything.",
+    );
+  // the length budget (item 22): what the exploration is sized to, and every scope change priced against it
+  if (extra.budget)
+    lines.push(
+      `The length budget of the final video is ${budgetPlanWords(extra.budget)}. Size the exploration to it (find enough real content for that many scenes, no more), and price every area you add or drop in minutes against it before you build it.`,
+    );
+  else
+    lines.push(
+      'The brief has no target length: ask the user for one (one number, e.g. "10 min") before you plan the scenes.',
     );
   if (extra.briefDraft)
     lines.push(

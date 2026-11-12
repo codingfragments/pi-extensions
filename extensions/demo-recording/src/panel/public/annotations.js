@@ -11,6 +11,7 @@ import { CostHint, confirmCost, getModels } from "./cost.js";
 import { confirmAsk } from "./dialog.js";
 import { CompareTable, TAB } from "./drafts.js";
 import { ConfPill, NarrowSelect } from "./inspector.js";
+import { createPreviewQueue } from "./preview-queue-core.js";
 import { formatRoute } from "./route.js";
 import { StageSummary, VersionActions, runVersionAction, useHistory } from "./version-ui.js";
 
@@ -34,13 +35,10 @@ const LABEL = {
 
 const sec = (ms) => `${(ms / 1000).toFixed(1)} s`;
 
-// One preview render at a time from this tab (the server serializes too).
-let previewChain = Promise.resolve();
-const queued = (fn) => {
-  const run = previewChain.then(fn, fn);
-  previewChain = run.catch(() => undefined);
-  return run;
-};
+// One preview render at a time from this tab (the server serializes too); the thumbnails in view go first and the ones that left the
+// screen are dropped (preview-queue-core.js).
+const previews = createPreviewQueue();
+const aborted = (e) => e?.name === "AbortError";
 
 function anchorLabel(a) {
   const off = a.offsetMs
@@ -78,6 +76,19 @@ function Preview({ version, item, onOpen }) {
   const [still, setStill] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [err, setErr] = useState(null);
+  // in view or not: the thumbnails in view are rendered first
+  const box = useRef(null);
+  const inView = useRef(false);
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver((es) => {
+      for (const e of es) inView.current = e.isIntersecting;
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const key = JSON.stringify([
     version,
     item.anchor,
@@ -91,29 +102,45 @@ function Preview({ version, item, onOpen }) {
   // the old still stays visible, dimmed, while the new one renders.
   useEffect(() => {
     let live = true;
+    // leaving the screen (or changing the annotation) drops this request: nobody waits for it any more
+    const ctl = new AbortController();
     setUpdating(true);
     setErr(null);
-    queued(() => post("/api/annotation-preview", { version, id: item.id, kind: "still" })).then(
-      (r) => {
-        if (!live) return;
-        setStill(r.still);
-        setUpdating(false);
-      },
-      (e) => {
-        if (!live) return;
-        setErr(e.message);
-        setUpdating(false);
-      },
-    );
+    setStarted(false);
+    previews
+      .enqueue(
+        (signal) => {
+          setStarted(true);
+          return post(
+            "/api/annotation-preview",
+            { version, id: item.id, kind: "still" },
+            { signal },
+          );
+        },
+        { signal: ctl.signal, visible: () => inView.current },
+      )
+      .then(
+        (r) => {
+          if (!live) return;
+          setStill(r.still);
+          setUpdating(false);
+        },
+        (e) => {
+          if (!live || aborted(e)) return;
+          setErr(e.message);
+          setUpdating(false);
+        },
+      );
     return () => {
       live = false;
+      ctl.abort();
     };
   }, [key]);
   if (err) return html`<div class="ann-thumb missing" title=${err}>no preview: ${err}</div>`;
-  return html`<button class=${`ann-thumb ${updating && still ? "updating" : ""}`} disabled=${!still}
+  return html`<button ref=${box} class=${`ann-thumb ${updating && still ? "updating" : ""}`} disabled=${!still}
       title="open larger — click the big image to play the clip" aria-label=${`open the preview of ${item.id}`}
       onClick=${() => still && onOpen({ item, version, still })}>
-    ${still ? html`<img src=${media("project", still)} alt=${`${item.type} preview`} loading="lazy" />` : html`<div class="ann-loading">rendering still…</div>`}
+    ${still ? html`<img src=${media("project", still)} alt=${`${item.type} preview`} loading="lazy" />` : html`<div class="ann-loading">${started ? "rendering still…" : "waiting…"}</div>`}
     ${still ? html`<span class="enlarge" aria-hidden="true">⤢</span>` : null}
   </button>`;
 }
@@ -134,8 +161,10 @@ function Lightbox({ open, onClose }) {
     setBusy(true);
     setErr(null);
     try {
-      const r = await queued(() =>
-        post("/api/annotation-preview", { version, id: item.id, kind: "clip" }),
+      const r = await previews.enqueue(
+        (signal) =>
+          post("/api/annotation-preview", { version, id: item.id, kind: "clip" }, { signal }),
+        { signal: new AbortController().signal, visible: () => true, first: true },
       );
       setClip(r.clip);
     } catch (e) {

@@ -42,7 +42,14 @@ const MEDIA_EXT = new Set([".jpg", ".jpeg", ".png", ".mp4", ".wav", ".vtt", ".sr
 const MAX_BODY = 64 * 1024;
 
 export type GetRoute = (query: URLSearchParams) => unknown | Promise<unknown>;
-export type PostRoute = (body: Record<string, unknown>) => unknown | Promise<unknown>;
+/** What a route may know about its request: `signal` aborts when the client went away before the answer was sent (a tab that left the screen). */
+export interface RouteContext {
+  signal: AbortSignal;
+}
+export type PostRoute = (
+  body: Record<string, unknown>,
+  ctx?: RouteContext,
+) => unknown | Promise<unknown>;
 
 export interface PanelOptions {
   bus: EventBus;
@@ -239,8 +246,12 @@ export async function startPanel(opts: PanelOptions): Promise<PanelHandle> {
         }
         const route = opts.post?.[name];
         if (!route) return sendJson(res, 404, { error: "not found" });
+        const gone = new AbortController();
+        res.on("close", () => {
+          if (!res.writableEnded) gone.abort();
+        });
         readJson(req)
-          .then((body) => route(body))
+          .then((body) => route(body, { signal: gone.signal }))
           .then(
             (result) => sendJson(res, 200, result ?? { ok: true }),
             (err: Error) => sendJson(res, 400, { error: err.message }),

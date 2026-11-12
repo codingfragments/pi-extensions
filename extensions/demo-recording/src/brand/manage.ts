@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { withBrowser } from "../browser/bounded.ts";
+import { withPooledPages } from "../browser/pool.ts";
 import { lineDiff } from "../config-edit.ts";
 import { type BrandAssets, type TitleInfo, insetBox, renderBrandAssets } from "./assets.ts";
 import {
@@ -19,6 +19,7 @@ import {
   resolveBrand,
   userBrandsDir,
 } from "./brand.ts";
+import { notifyBrandChanged } from "./changed.ts";
 import { edgeLuminance, resolveRim } from "./rim.ts";
 
 export interface InventoryFile {
@@ -110,7 +111,7 @@ export async function inspectSource(source: string, previewDir: string): Promise
   const previews: Inventory["previews"] = [];
   if (candidates.length) {
     fs.mkdirSync(previewDir, { recursive: true });
-    await withBrowser(
+    await withPooledPages(
       "brand source previews",
       async (browser) => {
         for (const [i, f] of candidates.entries()) {
@@ -175,6 +176,12 @@ export interface CreateBrandInput {
 
 /** Create a user brand package; validates before writing anything. */
 export function createBrand(root: string, input: CreateBrandInput): LoadedBrand {
+  const l = createBrandNow(root, input);
+  notifyBrandChanged();
+  return l;
+}
+
+function createBrandNow(root: string, input: CreateBrandInput): LoadedBrand {
   if (!BRAND_NAME.test(input.name))
     throw new Error(`brand name "${input.name}" must be lowercase letters, digits and dashes`);
   const dir = path.join(userBrandsDir(root), input.name);
@@ -300,10 +307,17 @@ export function updateBrand(
 ): LoadedBrand {
   const plan = planBrandUpdate(root, name, patch);
   fs.writeFileSync(plan.file, plan.after);
+  notifyBrandChanged();
   return loadBrandDir(path.dirname(plan.file), false);
 }
 
 export function duplicateBrand(root: string, from: string, to: string): LoadedBrand {
+  const l = duplicateBrandNow(root, from, to);
+  notifyBrandChanged();
+  return l;
+}
+
+function duplicateBrandNow(root: string, from: string, to: string): LoadedBrand {
   if (!BRAND_NAME.test(to))
     throw new Error(`brand name "${to}" must be lowercase letters, digits and dashes`);
   const src = resolveBrand(root, from);
@@ -366,7 +380,7 @@ ${assets.logoBug ? `<img src="${uri(assets.logoBug.file)}" style="position:absol
 </body></html>`;
   fs.mkdirSync(opts.outDir, { recursive: true });
   const framed = path.join(opts.outDir, `${loaded.brand.name}-framed.png`);
-  await withBrowser(
+  await withPooledPages(
     "brand preview",
     async (browser) => {
       const page = await browser.newPage({ viewport: opts.size });

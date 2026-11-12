@@ -13,7 +13,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { withBrowser } from "../browser/bounded.ts";
+import { withPooledPages } from "../browser/pool.ts";
 import type { Brand, LoadedBrand } from "./brand.ts";
 import type { Rim } from "./rim.ts";
 
@@ -300,7 +300,7 @@ export async function renderBrandAssets(
     (wantBug && !fs.existsSync(files.bugMeta));
   if (need) {
     fs.mkdirSync(dir, { recursive: true });
-    await withBrowser(
+    await withPooledPages(
       "brand assets",
       async (browser) => {
         const shot = async (

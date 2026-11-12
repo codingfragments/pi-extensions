@@ -18,6 +18,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { budgetWords, clock } from "../budget/length.ts";
 import { effectiveFacts, formatLength } from "./brief.ts";
 import { discoveryCutoff } from "./discovery-cutoff.ts";
 
@@ -272,11 +273,42 @@ export function engineFindings(
     }
   }
 
-  // Rendered length vs. the target length (latest edit timeline)
+  // The storyboard's projected final against the length budget, as the engine measured it when the newest version was written (item 22: the engine's length
+  // finding, not the Director's guess)
+  const sbDir = path.join(projectDir, "storyboard");
+  if (fs.existsSync(sbDir)) {
+    const newest = fs
+      .readdirSync(sbDir)
+      .map((f) => /^v(\d+)\.length\.json$/.exec(f)?.[1])
+      .filter(Boolean)
+      .map(Number)
+      .sort((x, y) => x - y)
+      .at(-1);
+    const rec = newest
+      ? readJson<{ verdict?: string; words?: string }>(path.join(sbDir, `v${newest}.length.json`))
+      : undefined;
+    if (rec?.words && (rec.verdict === "short" || rec.verdict === "long"))
+      add({
+        at: fs.statSync(path.join(sbDir, `v${newest}.length.json`)).mtime.toISOString(),
+        source: "engine",
+        // findings have no storyboard stage: the plan belongs to discovery's output
+        stage: "discovery",
+        kind: "length",
+        text: `storyboard v${newest}: ${rec.words}`,
+        suggestion:
+          rec.verdict === "short"
+            ? "add depth to the scenes that matter (or lower the target in the brief)"
+            : "trim scenes or steps (or raise the target in the brief)",
+        evidence: [{ type: "file", path: `storyboard/v${newest}.yaml` }],
+      });
+  }
+
+  // Rendered length vs. the length budget (latest edit timeline)
   const briefFile = path.join(projectDir, "brief.md");
-  const target = fs.existsSync(briefFile)
-    ? effectiveFacts(fs.readFileSync(briefFile, "utf8")).length
+  const facts = fs.existsSync(briefFile)
+    ? effectiveFacts(fs.readFileSync(briefFile, "utf8"))
     : undefined;
+  const target = facts?.length;
   const edit = path.join(projectDir, "edit");
   if (target && fs.existsSync(edit)) {
     const latest = fs
@@ -299,14 +331,17 @@ export function engineFindings(
           1000,
       );
       const [lo, hi] = target;
-      if (sec < lo * 0.8 || sec > hi * 1.2) {
+      // the budget's own window (item 22): the floor and the ceiling, no slack on top
+      if (sec < lo || sec > hi) {
         const round = (x: number) => Math.max(30, Math.round(x / 30) * 30);
         add({
           at: fs.statSync(path.join(edit, `timeline.v${latest}.json`)).mtime.toISOString(),
           source: "engine",
           stage: "render",
           kind: "length",
-          text: `the edited video is ${sec} s, the target is ${formatLength(target)}`,
+          text: facts?.budget
+            ? `the edited video is ${clock(sec)}, the budget is ${budgetWords(facts.budget)}`
+            : `the edited video is ${sec} s, the target is ${formatLength(target)}`,
           suggestion: `target length ${formatLength([round(sec * 0.9), round(sec * 1.1)])} — or cut/extend scenes`,
           evidence: [{ type: "file", path: `edit/timeline.v${latest}.json` }],
         });

@@ -10,6 +10,8 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { checkBeforeStart } from "../auth/session.ts";
+import { projectBudget } from "../budget/project.ts";
+import { priceAreas } from "../budget/scope.ts";
 import { formatDiscoveryProgress } from "../discovery/progress.ts";
 import { pendingRequest, startRequest } from "../discovery/requests.ts";
 import { type ActParams, DiscoverySession, type LookResult } from "../discovery/session.ts";
@@ -331,7 +333,15 @@ export function registerBrowserTool(pi: ExtensionAPI, rt: Runtime): void {
             throw new Error(
               "plan needs areas (declare, with routes if you can), done (an area is explored) or drop with why (leave an area out on purpose)",
             );
-          return result(progressLine(rt) ?? "plan updated");
+          // the areas against the length budget (item 22): what they cost in minutes, at one scene each
+          const budget = params.areas?.length
+            ? projectBudget(rt.requireProject().dir, rt.getConfig())
+            : undefined;
+          const price =
+            budget && params.areas?.length
+              ? `\nLength: ${priceAreas(params.areas.length, budget)}. Price any area you add or drop the same way.`
+              : "";
+          return result(`${progressLine(rt) ?? "plan updated"}${price}`);
         }
         default: {
           const d = rt.discovery;

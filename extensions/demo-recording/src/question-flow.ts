@@ -8,6 +8,7 @@
  *    ones the Director always got for those, and the grant store stays the only thing that decides whether something may start.
  */
 
+import { writeBriefField } from "./budget/vo.ts";
 import { requestHeal } from "./discovery/heal.ts";
 import { pendingRequest, presetBudgets } from "./discovery/requests.ts";
 import { requestDiscovery } from "./discovery/start.ts";
@@ -126,6 +127,31 @@ export function answerFor(
             "choose the areas and the budget on the Project page: Discovery, Start discovery…",
         },
         p.slug,
+      );
+  } else if (q.voLength) {
+    const v = q.voLength;
+    if (a.word === "raise") {
+      const bv = writeBriefField(
+        p.dir,
+        { noLongerThan: `${clockOf(v.raiseToSec * 1000)} min` },
+        `the length ceiling raised to ${clockOf(v.raiseToSec * 1000)} for voice-over v${v.vo}`,
+      );
+      rt.bus.publish(
+        "brief.written",
+        {
+          version: bv,
+          by: "user",
+          changed: ["noLongerThan"],
+          message: `brief v${bv}: No longer than ${clockOf(v.raiseToSec * 1000)}`,
+        },
+        p.slug,
+      );
+      rt.tellAgent(
+        `${reportAs("Voice writer")} The user RAISED the length ceiling to ${clockOf(v.raiseToSec * 1000)} (brief v${bv}, No longer than): voice-over v${v.vo} (about ${clockOf(v.finalSec * 1000)}) fits now. Nothing to rewrite; it waits for their review.`,
+      );
+    } else
+      rt.notifyAgent(
+        `${PANEL_PREFIX} The user wants voice-over v${v.vo} CUT to the length ceiling: it makes the final about ${clockOf(v.finalSec * 1000)}, the ceiling is ${clockOf(v.ceilingSec * 1000)}. Write a new version (demo_rec_vo write, base ${v.vo}) that fits: cut where the speech is longer than the footage first${v.cut.length ? ` (${v.cut.join(", ")})` : ""}, keep the meaning, drop the least important sentences. Do NOT synthesize or approve anything.`,
       );
   } else if (q.takeLength) {
     const t = q.takeLength;
@@ -331,6 +357,45 @@ export function askAboutLength(
       { label: "Record again" },
     ],
     takeLength: { take, finalMs: l.finalMs, targetSec: l.budget.targetSec, verdict: l.verdict },
+  });
+  announceQuestion(rt, q);
+  return q;
+}
+
+/** A voice-over that would pass the length ceiling (item 22, D-R3-25-14): raise the ceiling, or cut. Once per version. */
+export function askAboutVoLength(
+  rt: Runtime,
+  vo: number,
+  l: {
+    finalSec: number;
+    words: string;
+    raiseToSec: number;
+    overruns: { section: string; overSec: number }[];
+  },
+  ceilingSec: number,
+): Question | undefined {
+  const p = rt.activeProject();
+  if (!p) return undefined;
+  if (readQuestions(p.dir).some((q) => q.status === "pending" && q.voLength?.vo === vo))
+    return undefined;
+  const q = askQuestion(p.dir, {
+    role: "Voice writer",
+    what: `Voice-over v${vo} is longer than the length ceiling: ${l.words}. Raise the ceiling, or cut the script?`.slice(
+      0,
+      300,
+    ),
+    why: "Within the budget the edit stretches the scenes to the voice; past the ceiling it is your call. Raising writes “No longer than” into the brief; cutting asks the Director for a shorter version.",
+    options: [
+      { label: `Raise the ceiling to ${clockOf(l.raiseToSec * 1000)}` },
+      { label: "Cut the script" },
+    ],
+    voLength: {
+      vo,
+      finalSec: l.finalSec,
+      ceilingSec,
+      raiseToSec: l.raiseToSec,
+      cut: l.overruns.slice(0, 3).map((o) => o.section),
+    },
   });
   announceQuestion(rt, q);
   return q;

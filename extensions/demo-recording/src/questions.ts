@@ -61,6 +61,14 @@ export interface Question {
   takeFailed?: { take: string };
   /** The question is what to do about a take that misses the length budget (item 22). Engine only. */
   takeLength?: { take: string; finalMs: number; targetSec: number; verdict: "short" | "long" };
+  /** The question is a voice-over that would pass the length ceiling (item 22): raise it, or cut. Engine only. */
+  voLength?: {
+    vo: number;
+    finalSec: number;
+    ceilingSec: number;
+    raiseToSec: number;
+    cut: string[];
+  };
 }
 
 const file = (projectDir: string) => path.join(projectDir, "questions.json");
@@ -106,6 +114,8 @@ export function askQuestion(
     takeFailed?: Question["takeFailed"];
     /** Engine only: a take that misses the length budget. Not counted against the limit of waiting questions. */
     takeLength?: Question["takeLength"];
+    /** Engine only: a voice-over over the length ceiling. Not counted against the limit of waiting questions. */
+    voLength?: Question["voLength"];
   },
   now = new Date(),
 ): Question {
@@ -154,6 +164,7 @@ export function askQuestion(
     !q.discovery &&
     !q.takeFailed &&
     !q.takeLength &&
+    !q.voLength &&
     waiting.length >= LIMITS.pending
   )
     problems.push(
@@ -177,6 +188,7 @@ export function askQuestion(
     ...(q.discovery ? { discovery: q.discovery } : {}),
     ...(q.takeFailed ? { takeFailed: q.takeFailed } : {}),
     ...(q.takeLength ? { takeLength: q.takeLength } : {}),
+    ...(q.voLength ? { voLength: q.voLength } : {}),
   };
   save(projectDir, [...list, question]);
   return question;

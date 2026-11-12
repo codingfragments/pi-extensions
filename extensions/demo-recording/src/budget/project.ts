@@ -69,23 +69,55 @@ export function timingInputs(projectDir: string, config: DemoRecConfig) {
 const plannedFile = (projectDir: string, version: number) =>
   path.join(projectDir, "storyboard", `v${version}.length.json`);
 
-export function savePlannedFor(projectDir: string, version: number, b: LengthBudget): void {
+export interface PlannedFor {
+  targetSec: number;
+  floorSec?: number;
+  ceilingSec?: number;
+  /** What the engine projected for the final video when the version was written, and its verdict (the engine's `length` finding). */
+  projectedFinalMs?: number;
+  verdict?: string;
+  words?: string;
+  /** The share of the raw take that is holds. */
+  holdShare?: number;
+}
+
+export function savePlannedFor(
+  projectDir: string,
+  version: number,
+  b: LengthBudget,
+  projection?: { finalMs: number; verdict: string; words?: string; holdShare?: number },
+): void {
   try {
-    fs.writeFileSync(
-      plannedFile(projectDir, version),
-      `${JSON.stringify({ targetSec: b.targetSec, floorSec: b.floorSec, ceilingSec: b.ceilingSec })}\n`,
-    );
+    const rec: PlannedFor = {
+      targetSec: b.targetSec,
+      floorSec: b.floorSec,
+      ceilingSec: b.ceilingSec,
+      ...(projection
+        ? {
+            projectedFinalMs: projection.finalMs,
+            verdict: projection.verdict,
+            ...(projection.words ? { words: projection.words } : {}),
+            ...(projection.holdShare !== undefined ? { holdShare: projection.holdShare } : {}),
+          }
+        : {}),
+    };
+    fs.writeFileSync(plannedFile(projectDir, version), `${JSON.stringify(rec)}\n`);
   } catch {
     // without it the tab only cannot say what it was planned for
   }
 }
 
+/** The budget a version was planned for (only the target: what the tab compares). */
 export function plannedFor(projectDir: string, version: number): { targetSec: number } | undefined {
+  const r = plannedRecord(projectDir, version);
+  return r ? { targetSec: r.targetSec } : undefined;
+}
+
+/** Everything stored about a version's length when it was written. */
+export function plannedRecord(projectDir: string, version: number): PlannedFor | undefined {
   try {
-    const j = JSON.parse(fs.readFileSync(plannedFile(projectDir, version), "utf8")) as {
-      targetSec?: number;
-    };
-    return typeof j.targetSec === "number" ? { targetSec: j.targetSec } : undefined;
+    const j = JSON.parse(fs.readFileSync(plannedFile(projectDir, version), "utf8")) as PlannedFor;
+    return typeof j.targetSec === "number" ? j : undefined;
   } catch {
     return undefined;
   }

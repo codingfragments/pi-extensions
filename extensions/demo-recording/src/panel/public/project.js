@@ -17,16 +17,8 @@ const PROJECT_EVENTS =
 
 // ---- facts editor building blocks ----
 
-const LENGTH_PRESETS = [
-  [30, 60],
-  [60, 90],
-  [90, 120],
-  [120, 180],
-  [180, 300],
-  [300, 480],
-  [480, 900],
-  [900, 1800],
-];
+/** One target each (item 22: the budget is one number, the window comes from the tolerances). */
+const LENGTH_PRESETS = [60, 120, 180, 300, 600, 900, 1200];
 const LEN_MIN = 15;
 const LEN_MAX = 1800; // 30 min
 const LEN_STEP = 15;
@@ -74,31 +66,45 @@ function Segmented({ options, value, onChange, title }) {
   )}</div>`;
 }
 
-function LengthPicker({ value, onChange, def }) {
+/** A length in seconds → the brief's one-number form ("10 min", "90 s", "2:30"). */
+export function targetText(sec) {
+  if (sec >= 60 && sec % 60 === 0) return `${sec / 60} min`;
+  if (sec < 120) return `${sec} s`;
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+
+/**
+ * The length budget (item 22): ONE target, and the window it gives (the config's tolerances, or your own limits). An old range in the brief shows as its middle; moving
+ * the slider writes one number.
+ */
+function LengthPicker({ value, onChange, def, budget, tolerance }) {
   const parsed = parseLen(value);
-  const range = parsed ?? def ?? [120, 180];
-  const fromDefault = !parsed;
+  const target = parsed ? Math.round((parsed[0] + parsed[1]) / 2) : null;
+  const shown = target ?? (def ? Math.round((def[0] + def[1]) / 2) : 180);
+  const fromDefault = target === null;
   const clamp = (x) => Math.max(LEN_MIN, Math.min(LEN_MAX, Math.round(x / LEN_STEP) * LEN_STEP));
-  const setRange = (lo, hi) => onChange(lengthText([clamp(lo), clamp(hi)]));
-  const isPreset = (p) => parsed && p[0] === parsed[0] && p[1] === parsed[1];
+  const set = (sec) => onChange(targetText(clamp(sec)));
+  // the window of what is on the slider now (not only of what was saved): the tolerance, or your own limit on that side
+  const tol = tolerance ?? { underPct: 15, overPct: 10 };
+  const floor =
+    budget?.source.floor === "limit"
+      ? budget.floorSec
+      : Math.round(shown * (1 - tol.underPct / 100));
+  const ceiling =
+    budget?.source.ceiling === "limit"
+      ? budget.ceilingSec
+      : Math.round(shown * (1 + tol.overPct / 100));
+  const win = target !== null || budget ? `${fmtSec(floor)} to ${fmtSec(ceiling)}` : null;
   return html`<div class="length-picker">
     <div class="presets">
-      ${LENGTH_PRESETS.map((p) => html`<button type="button" class="ds-chip" aria-pressed=${isPreset(p)} onClick=${() => setRange(p[0], p[1])}>${fmtSec(p[0])}–${fmtSec(p[1])}</button>`)}
-      ${def ? html`<button type="button" class="ds-chip" aria-pressed=${fromDefault} title="no length in the brief: use the depth default" onClick=${() => onChange("")}>depth default (${fmtSec(def[0])}–${fmtSec(def[1])})</button>` : null}
+      ${LENGTH_PRESETS.map((p) => html`<button type="button" class="ds-chip" aria-pressed=${target === p} onClick=${() => set(p)}>${fmtSec(p)}</button>`)}
+      ${def ? html`<button type="button" class="ds-chip" aria-pressed=${fromDefault} title="no length in the brief: use the depth default" onClick=${() => onChange("")}>depth default (${fmtSec(Math.round((def[0] + def[1]) / 2))})</button>` : null}
     </div>
     <div class=${`sliders ${fromDefault ? "from-default" : ""}`}>
-      <label>min <input type="range" min=${LEN_MIN} max=${LEN_MAX} step=${LEN_STEP} value=${range[0]}
-        onInput=${(e) => {
-          const lo = Number(e.target.value);
-          setRange(lo, Math.max(lo, range[1]));
-        }} /><output>${fmtSec(range[0])}</output></label>
-      <label>max <input type="range" min=${LEN_MIN} max=${LEN_MAX} step=${LEN_STEP} value=${range[1]}
-        onInput=${(e) => {
-          const hi = Number(e.target.value);
-          setRange(Math.min(range[0], hi), hi);
-        }} /><output>${fmtSec(range[1])}</output></label>
+      <label>target <input type="range" min=${LEN_MIN} max=${LEN_MAX} step=${LEN_STEP} value=${shown}
+        onInput=${(e) => set(Number(e.target.value))} /><output>${fmtSec(shown)}</output></label>
     </div>
-    <small class="muted">${fromDefault ? (def ? `using the depth default ${fmtSec(def[0])}–${fmtSec(def[1])} — move a slider or pick a preset to set your own` : "not set — pick a preset or move a slider") : `target ${fmtSec(range[0])}–${fmtSec(range[1])}`}</small>
+    <small class="muted" data-length-window>${fromDefault ? (def ? "using the depth default: pick a target to set your own" : "not set: pick a target") : `the final video should be ${fmtSec(shown)}`}${win ? `; it fits from ${win}` : ""}${budget && budget.source.floor !== "limit" && budget.source.ceiling !== "limit" && tolerance ? ` (−${tolerance.underPct} % / +${tolerance.overPct} %, Config: length.*)` : ""}</small>
   </div>`;
 }
 
@@ -238,7 +244,13 @@ function Facts({ events, focus }) {
           <${VoiceInput} value=${value("voice")} onChange=${(v) => set("voice", v)} emptyLabel="Project default (from Config)" />
         </${Field}>
         <${Field} fact="length" label="Target length">
-          <${LengthPicker} value=${value("length")} def=${def?.lengthSec ?? null} onChange=${(v) => set("length", v)} />
+          <${LengthPicker} value=${value("length")} def=${def?.lengthSec ?? null} budget=${data.effective.budget} tolerance=${data.effective.tolerance} onChange=${(v) => set("length", v)} />
+        </${Field}>
+        <${Field} fact="noShorterThan" label="No shorter than" hint="only when you want a floor other than the tolerance, e.g. 9 min">
+          <input type="text" value=${value("noShorterThan")} placeholder="e.g. 9 min" onInput=${(e) => set("noShorterThan", e.target.value)} />
+        </${Field}>
+        <${Field} fact="noLongerThan" label="No longer than" hint="only when you want a ceiling other than the tolerance, e.g. 12 min">
+          <input type="text" value=${value("noLongerThan")} placeholder="e.g. 12 min" onInput=${(e) => set("noLongerThan", e.target.value)} />
         </${Field}>
       </fieldset>
 

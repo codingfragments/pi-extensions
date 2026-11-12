@@ -5,6 +5,9 @@
 
 import { parse as parseYaml } from "yaml";
 import { parseDuration } from "../util/duration.ts";
+/** The longest one hold may be (D-R3-25-8): longer reads as a stalled video. */
+export const HOLD_MAX_MS = 6000;
+
 import type { AgentConfidence, Scene, Step, Storyboard, Target, WaitFor } from "./types.ts";
 
 class StoryboardError extends Error {}
@@ -72,6 +75,7 @@ function parseStep(v: unknown, path: string): Step {
   const base: {
     mark?: string;
     dwell?: number;
+    hold?: number;
     emphasis?: string;
     zoom?: boolean;
     callout?: string;
@@ -83,6 +87,14 @@ function parseStep(v: unknown, path: string): Step {
     base.mark = mark;
   }
   if (v.dwell !== undefined) base.dwell = parseDuration(v.dwell, `${path}.dwell`);
+  if (v.hold !== undefined) {
+    base.hold = parseDuration(v.hold, `${path}.hold`);
+    if (base.hold > HOLD_MAX_MS)
+      fail(
+        `${path}.hold`,
+        `a hold is at most ${HOLD_MAX_MS / 1000} s (longer reads as a stalled video): add depth to the scene instead`,
+      );
+  }
   if (v.zoom !== undefined) {
     if (typeof v.zoom !== "boolean") fail(`${path}.zoom`, "must be true or false");
     if (v.zoom) base.zoom = true;
@@ -209,6 +221,14 @@ function parseScene(v: unknown, path: string): Scene {
   for (const key of ["takeaway", "deep_link", "narration", "emphasis"] as const) {
     const value = str(v, key, path, false);
     if (value) scene[key] = value;
+  }
+  if (v.time !== undefined) {
+    scene.time = parseDuration(v.time, `${path}.time`);
+    if (scene.time < 1000 || scene.time > 30 * 60_000)
+      fail(
+        `${path}.time`,
+        'must be between "1s" and "1800s" (the time this scene should take in the take)',
+      );
   }
   const screen = str(v, "screen", path, false);
   if (screen) {

@@ -32,6 +32,7 @@ import { installObservers } from "../browser/observers.ts";
 import { killMarker, newMarker } from "../browser/processes.ts";
 import { waitForDomQuiet } from "../browser/quiet.ts";
 import { type BrowserSession, openSession } from "../browser/session.ts";
+import { holdAt, holdPoints } from "../budget/holds.ts";
 import { CallStalledError, withDeadline } from "../discovery/watchdog.ts";
 import type { Scene, Step, Storyboard, Target } from "../storyboard/types.ts";
 import { sleep } from "../util/duration.ts";
@@ -323,6 +324,22 @@ class StepRunner {
           .catch(() => {}),
       );
     }
+  }
+
+  /** Stay on the result to meet the scene's time (item 22): the cursor drifts as a reader's would, and the hold is logged. */
+  async hold(
+    c: RunCtx,
+    scene: string,
+    index: number,
+    h: { ms: number; wantedMs: number; capped: boolean },
+  ): Promise<void> {
+    if (c.fast || h.ms <= 0) return;
+    this.emit(c, "hold", {
+      scene,
+      step: index,
+      data: { ms: h.ms, wantedMs: h.wantedMs, capped: h.capped },
+    });
+    await c.cursor.drift(h.ms);
   }
 
   private async dwell(c: RunCtx, ms: number): Promise<void> {
@@ -625,6 +642,11 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   let marker = newMarker();
   let capturing = false;
   let stalls = 0;
+  /** Per scene with a `time` or a hold: what it should be, what it was, what it held (item 22). The last attempt of a scene wins. */
+  const sceneTimes: Record<
+    string,
+    { timeMs?: number; madeMs: number; heldMs: number; shortMs: number }
+  > = {};
   let retriesUsed = 0;
   const diagnostics: string[] = [];
   const diagCounts: Record<DiagKind, number> = { stalled: 0, interrupted: 0, failed: 0 };
@@ -857,6 +879,10 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
             log,
             fast: false,
           };
+          // the scene's time (item 22): where it may hold, and what it held so far
+          const sceneStartedAt = Date.now();
+          const points = holdPoints(scene);
+          let heldMs = 0;
           for (const [i, step] of scene.steps.entries()) {
             checkCancel();
             progress.startStep(k, i);
@@ -919,9 +945,32 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
                 clearedUrls.add(url); // a page that looks like a login but is not: not asked again
               }
             }
+            const pk = points.indexOf(i);
+            if (pk >= 0) {
+              const h = holdAt({
+                ...(scene.time !== undefined ? { timeMs: scene.time } : {}),
+                ...(step.hold !== undefined ? { explicitMs: step.hold } : {}),
+                elapsedMs: Date.now() - sceneStartedAt,
+                remainingMs: scene.steps.slice(i + 1).reduce((n, s) => n + estimateStepMs(s), 0),
+                heldMs,
+                pointsLeft: points.length - pk,
+              });
+              await runner.hold(c, scene.id, i, h);
+              heldMs += h.ms;
+            }
             progress.finishStep(k, i);
           }
           await runner.flush();
+          if (scene.time !== undefined || heldMs > 0) {
+            const madeMs = Date.now() - sceneStartedAt;
+            sceneTimes[scene.id] = {
+              ...(scene.time !== undefined ? { timeMs: scene.time } : {}),
+              madeMs,
+              heldMs,
+              shortMs: scene.time !== undefined ? Math.max(0, scene.time - madeMs) : 0,
+            };
+            log.log("scene-time", { scene: scene.id, data: sceneTimes[scene.id] });
+          }
           log.log("scene-end", { scene: scene.id });
           report();
           break;
@@ -1075,6 +1124,7 @@ export async function recordTake(opts: RecordOptions): Promise<TakeResult> {
   }));
   takeMeta.segments = segmentInfo;
   takeMeta.stalls = stalls;
+  if (Object.keys(sceneTimes).length) takeMeta.sceneTimes = sceneTimes;
   if (diagnostics.length) takeMeta.diagnostics = diagnostics;
   const durationMs = segmentInfo.at(-1)?.end ?? 0;
 

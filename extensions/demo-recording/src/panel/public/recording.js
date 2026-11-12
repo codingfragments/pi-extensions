@@ -25,6 +25,10 @@ const RUN_STATE = {
   failed: ["err", "!", "Failed"],
   cancelled: ["neutral", "■", "Cancelled"],
 };
+const clockMs = (ms) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
 const finished = (t) => (t.state ?? "complete") === "complete";
 
 function RunState({ state }) {
@@ -43,6 +47,7 @@ function TakeRow({ t, row, events, shown, onShow, reload }) {
       <h3>${t.id}</h3>
       <${RunState} state=${t.state} />
       ${done && row ? html`<${RowBadges} row=${row} viewing=${false} />` : null}
+      ${done && t.length?.budget ? html`<span class="ds-badge" data-length=${t.length.verdict} data-tone=${t.length.verdict === "fits" ? "ok" : "warn"} title=${t.length.words}>final ~${clockMs(t.length.finalMs)} of ${clockMs(t.length.budget.targetSec * 1000)}</span>` : null}
       ${shown ? html`<span class="ds-badge" data-tone="accent" data-shown><span class="ds-badge-ico" aria-hidden="true">▼</span>Shown below</span>` : null}
       <span class="muted small-text">${t.durationMs ? `raw ${mmss(t.durationMs)}` : ""}${t.startedAt ? `${t.durationMs ? " · " : ""}recorded ${new Date(t.startedAt).toLocaleString()}` : ""}</span>
       <span class="grow"></span>
@@ -78,7 +83,10 @@ function ShownLine({ t, takes }) {
       : t.accepted
         ? "approved, not in the production line"
         : "not approved";
-  return html`<p class="ds-rv-shown" data-shown-line><b>Shown below: ${t.id}</b> · ${word.toLowerCase()} · ${standing}${t.onLine ? "" : ` · the production line has ${line ? line.id : "no recording yet"}`}</p>`;
+  const len = t.length?.budget
+    ? ` · raw ${clockMs(t.length.rawMs)}, final ~${clockMs(t.length.finalMs)} of a target of ${clockMs(t.length.budget.targetSec * 1000)} (${clockMs(t.length.budget.floorSec * 1000)} to ${clockMs(t.length.budget.ceilingSec * 1000)})${t.length.verdict === "fits" ? "" : t.length.verdict === "short" ? ": short" : ": long"}`
+    : "";
+  return html`<p class="ds-rv-shown" data-shown-line><b>Shown below: ${t.id}</b> · ${word.toLowerCase()} · ${standing}${t.onLine ? "" : ` · the production line has ${line ? line.id : "no recording yet"}`}${len}</p>`;
 }
 
 /**

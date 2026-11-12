@@ -464,6 +464,7 @@ export class Runtime {
   routeTables(): { get: Record<string, GetRoute>; post: Record<string, PostRoute> } {
     const routes = panelRoutes({
       bus: this.bus,
+      config: () => this.getConfig(),
       activeProject: () => this.activeProject(),
       discovery: () =>
         this.discovery && !this.discovery.isClosed
@@ -500,6 +501,7 @@ export class Runtime {
       publish: (type, data, project) => this.bus.publish(type, data, project),
     });
     const project = projectRoutes({
+      config: () => this.getConfig(),
       activeProject: () => this.activeProject(),
       publish: (type, data, slug) => this.bus.publish(type, data, slug),
       tellAgent: (text) => this.tellAgent(text),

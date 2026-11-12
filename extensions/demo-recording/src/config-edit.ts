@@ -102,6 +102,10 @@ export const CONFIG_DOCS: Record<string, string> = {
     "Show the brand's logo bug in a FINAL render (when the brand has one). On by default. The Render tab starts from it.",
   "render.annotationTypes":
     'Which annotation types a FINAL render includes: "all" (the default) or a list such as ["chapter", "callout"]; the approved annotation version itself is not changed. Leaving out redactions asks for a confirmation at render time.',
+  "length.toleranceUnderPct":
+    'How far the FINAL video may come out under the brief\'s target length and still fit, in percent (0 to 50; default 15: a 10 min target fits from 8:30). A "No shorter than" in the brief replaces it.',
+  "length.toleranceOverPct":
+    'How far the FINAL video may come out over the brief\'s target length and still fit, in percent (0 to 50; default 10: a 10 min target fits up to 11:00). A "No longer than" in the brief replaces it.',
   "budgets.discoveryScreens": "Max screenshots per discovery session.",
   "budgets.discoveryActions": "Max actions per discovery session.",
   "budgets.discoveryMinutes": "Max minutes per discovery session.",

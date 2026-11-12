@@ -59,6 +59,8 @@ export interface Question {
   discovery?: { app: string };
   /** The question is "what now?" after a take failed: answering it never wakes the Director (the user's recommendation, or nothing). Engine only. */
   takeFailed?: { take: string };
+  /** The question is what to do about a take that misses the length budget (item 22). Engine only. */
+  takeLength?: { take: string; finalMs: number; targetSec: number; verdict: "short" | "long" };
 }
 
 const file = (projectDir: string) => path.join(projectDir, "questions.json");
@@ -102,6 +104,8 @@ export function askQuestion(
     discovery?: Question["discovery"];
     /** Engine only: what now, after a take failed. Not counted against the limit of waiting questions. */
     takeFailed?: Question["takeFailed"];
+    /** Engine only: a take that misses the length budget. Not counted against the limit of waiting questions. */
+    takeLength?: Question["takeLength"];
   },
   now = new Date(),
 ): Question {
@@ -144,7 +148,14 @@ export function askQuestion(
   });
   const list = readQuestions(projectDir);
   const waiting = list.filter((x) => x.status === "pending");
-  if (!q.grant && !q.auth && !q.discovery && !q.takeFailed && waiting.length >= LIMITS.pending)
+  if (
+    !q.grant &&
+    !q.auth &&
+    !q.discovery &&
+    !q.takeFailed &&
+    !q.takeLength &&
+    waiting.length >= LIMITS.pending
+  )
     problems.push(
       `${waiting.length} questions are still waiting for the user (${waiting.map((x) => x.id).join(", ")}): wait for them`,
     );
@@ -165,6 +176,7 @@ export function askQuestion(
     ...(q.auth ? { auth: q.auth } : {}),
     ...(q.discovery ? { discovery: q.discovery } : {}),
     ...(q.takeFailed ? { takeFailed: q.takeFailed } : {}),
+    ...(q.takeLength ? { takeLength: q.takeLength } : {}),
   };
   save(projectDir, [...list, question]);
   return question;

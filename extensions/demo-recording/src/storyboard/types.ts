@@ -21,6 +21,11 @@ interface StepBase {
   /** Pause after the step completes (ms). */
   dwell?: number;
   /**
+   * A payoff: stay on the result this long after the step (ms, at most 6 s: HOLD_MAX_MS). It is also where the recorder holds to meet the scene's `time` (item 22); holds
+   * never add up to more than a third of a scene.
+   */
+  hold?: number;
+  /**
    * The director's intent for this moment, free text (S5 part 6, D32), e.g.
    * "the EMEA outlier is the story". Annotations are chosen later, in the
    * Annotations stage; this is only a hint for the annotation designer.
@@ -71,6 +76,11 @@ export interface Scene {
   /** The director's intent for the whole scene (D32), e.g. "show that search is name-only". */
   emphasis?: string;
   deep_link?: string;
+  /**
+   * How long this scene should be in the take, ms (item 22): the Director plans the scenes' times to the length budget, weighted by importance. When the steps end early
+   * the recorder holds (at the steps with `hold`, else at the end) until the time is met, within the hold caps; a scene that runs longer is never cut.
+   */
+  time?: number;
   /** Discovery screenshot id (`<session>/sNNN`) used as the scene thumbnail in the panel. */
   screen?: string;
   /** Talking points for the VO (the VO itself is written from the take in S4). */

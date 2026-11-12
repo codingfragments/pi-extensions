@@ -8,6 +8,14 @@
  * the brief can override both.
  */
 
+import {
+  DEFAULT_TOLERANCE,
+  type LengthBudget,
+  type Tolerance,
+  lengthBudget,
+  needsTarget,
+} from "../budget/length.ts";
+
 export type Depth = "poc" | "showcase" | "sales";
 export type Stance = "champion" | "evaluator" | "teacher";
 
@@ -53,7 +61,12 @@ export const BRIEF_FIELDS: BriefField[] = [
   { key: "depth", label: "Depth" },
   { key: "stance", label: "Stance" },
   { key: "goal", label: "Goal / key message", aliases: ["Goal"] },
+  /** ONE number ("10 min"): the length budget of the final video (item 22). An old range ("3–5 min") still reads: its midpoint, with its edges as the limits. */
   { key: "length", label: "Target length" },
+  /** A floor you named ("no shorter than 9 min"): it replaces the tolerance below the target. */
+  { key: "noShorterThan", label: "No shorter than" },
+  /** A ceiling you named ("not longer than 12 min"): it replaces the tolerance above the target. */
+  { key: "noLongerThan", label: "No longer than" },
   { key: "mustShow", label: "Must show" },
   { key: "mustAvoid", label: "Must avoid" },
   { key: "language", label: "Language" },
@@ -108,32 +121,15 @@ export function parseStance(v: string | undefined): Stance | undefined {
 }
 
 /**
- * Parse a target length like "3–4 min", "60-90 s", "2:30–3:30", "90s",
- * "3 min". Returns seconds [min, max] (single value → ±15 %).
+ * A target length as the window it allows, in seconds [floor, ceiling]: "3–4 min" (a range: its own edges), "60-90 s", "2:30–3:30", "90s" and "10 min" (one number:
+ * the tolerance around it, default −15 % / +10 %). Undefined when it is not a length.
  */
-export function parseTargetLength(v: string | undefined): [number, number] | undefined {
-  if (!v) return undefined;
-  const s = v
-    .toLowerCase()
-    .replace(/total|about|approx\.?|~/g, "")
-    .trim();
-  const unitMin = /\bmin/.test(s);
-  const nums = [...s.matchAll(/(\d+(?::\d{2})?(?:[.,]\d+)?)/g)].map((m) => {
-    const t = m[1] as string;
-    if (t.includes(":")) {
-      const [mm, ss] = t.split(":").map(Number);
-      return (mm as number) * 60 + (ss as number);
-    }
-    const n = Number(t.replace(",", "."));
-    return unitMin ? n * 60 : n;
-  });
-  if (!nums.length) return undefined;
-  const a = nums[0] as number;
-  const b = nums[1] ?? a;
-  const [lo, hi] = a <= b ? [a, b] : [b, a];
-  return lo === hi
-    ? [Math.round(lo * 0.85), Math.round(hi * 1.15)]
-    : [Math.round(lo), Math.round(hi)];
+export function parseTargetLength(
+  v: string | undefined,
+  tolerance: Tolerance = DEFAULT_TOLERANCE,
+): [number, number] | undefined {
+  const b = lengthBudget({ ...(v ? { length: v } : {}) }, { tolerance });
+  return b ? [b.floorSec, b.ceilingSec] : undefined;
 }
 
 export const formatLength = ([lo, hi]: [number, number]) => {
@@ -149,24 +145,45 @@ export interface EffectiveFacts {
   /** Stance from the brief, else the depth default. */
   stance?: Stance;
   stanceFromDepth: boolean;
-  /** Target length in seconds from the brief, else the depth default. */
+  /** The window of the target length in seconds [floor, ceiling], from the brief, else the depth default (see `budget` for the target itself). */
   length?: [number, number];
+  /** The length budget (item 22): the target, the floor and the ceiling, and where each came from. */
+  budget?: LengthBudget;
+  /** Only a limit is given ("no longer than 12 min"): ask what to aim for. */
+  needsTarget: boolean;
   lengthFromDepth: boolean;
   extraUrls: string[];
 }
 
-export function effectiveFacts(brief: string): EffectiveFacts {
+export function effectiveFacts(
+  brief: string,
+  tolerance: Tolerance = DEFAULT_TOLERANCE,
+): EffectiveFacts {
   const facts = readBriefFacts(brief);
   const depth = parseDepth(facts.depth);
   const explicitStance = parseStance(facts.stance);
-  const explicitLength = parseTargetLength(facts.length);
+  const explicitLength = parseTargetLength(facts.length, tolerance);
   const def = depth ? DEPTH_DEFAULTS[depth] : undefined;
+  const budget = lengthBudget(
+    {
+      ...(facts.length ? { length: facts.length } : {}),
+      ...(facts.noShorterThan ? { noShorterThan: facts.noShorterThan } : {}),
+      ...(facts.noLongerThan ? { noLongerThan: facts.noLongerThan } : {}),
+    },
+    { tolerance, ...(def ? { depthDefault: def.length } : {}) },
+  );
   return {
+    ...(budget ? { budget } : {}),
+    needsTarget: needsTarget(facts),
     facts,
     ...(depth ? { depth } : {}),
     ...(explicitStance ? { stance: explicitStance } : def ? { stance: def.stance } : {}),
     stanceFromDepth: !explicitStance && !!def,
-    ...(explicitLength ? { length: explicitLength } : def ? { length: def.length } : {}),
+    ...(budget
+      ? { length: [budget.floorSec, budget.ceilingSec] as [number, number] }
+      : explicitLength
+        ? { length: explicitLength }
+        : {}),
     lengthFromDepth: !explicitLength && !!def,
     extraUrls: (facts.extraUrls ?? "")
       .split(/[\s,]+/)

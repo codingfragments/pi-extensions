@@ -7,10 +7,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { lengthBudget } from "../src/budget/length.ts";
 import { resolveConfig } from "../src/config.ts";
 import { Runtime } from "../src/runtime.ts";
 import { parseStoryboard } from "../src/storyboard/parse.ts";
-import { storyboardTiming, timingVerdict } from "../src/storyboard/timing.ts";
+import { storyboardTiming, timingForDirector } from "../src/storyboard/timing.ts";
 import { setBriefFacts } from "../src/workdir/brief.ts";
 import { seedPanelProject } from "./helpers/panel-seed.ts";
 
@@ -27,7 +28,7 @@ scenes:
       - { do: pause, ms: 20s }
 `;
 
-test("the projection: the scenes' steps by the recorder's own estimates plus the lead-in and the tail, open waits named", () => {
+test("the projection: the scenes' steps by the recorder's own estimates plus the lead-in and the tail; the final video is that less the dead time, plus the title card", () => {
   const sb = parseStoryboard(SB, { version: 1 });
   const t = storyboardTiming(sb);
   assert.deepEqual(
@@ -43,23 +44,84 @@ test("the projection: the scenes' steps by the recorder's own estimates plus the
   assert.equal(t.openWaits, 1);
   assert.equal(t.verdict, "no-target");
   assert.equal(t.target, undefined);
+  assert.equal(
+    t.final.ms,
+    Math.round(t.totalMs * 0.9),
+    "10 % dead time by default, no title card given",
+  );
+  const withTitle = storyboardTiming(sb, { cutShare: 0.2, cutFrom: "takes", titleMs: 3300 });
+  assert.equal(withTitle.final.ms, Math.round(t.totalMs * 0.8 + 3300));
+  assert.equal(withTitle.final.cutFrom, "takes");
 });
 
-test("against a target: short under 70 % of its low end, long over 115 % of its high end, else it fits; the last take is carried along", () => {
-  assert.equal(timingVerdict(100_000, { lo: 600, hi: 720 }), "short");
-  assert.equal(timingVerdict(420_000, { lo: 600, hi: 720 }), "fits", "exactly 70 %");
-  assert.equal(timingVerdict(800_000, { lo: 600, hi: 720 }), "fits");
-  assert.equal(timingVerdict(830_000, { lo: 600, hi: 720 }), "long");
-  assert.equal(timingVerdict(1, undefined), "no-target");
+test("against the budget: the FINAL against its floor and ceiling; the words say how far off; the last take is carried along", () => {
   const sb = parseStoryboard(SB, { version: 1 });
-  const t = storyboardTiming(
-    sb,
-    { lo: 600, hi: 720, fromDepth: false },
-    { id: "take-002", ms: 41_000 },
-  );
+  const budget = lengthBudget({ length: "10 min" }) as NonNullable<ReturnType<typeof lengthBudget>>;
+  const t = storyboardTiming(sb, { budget, lastTake: { id: "take-002", ms: 41_000 } });
   assert.equal(t.verdict, "short");
-  assert.equal(t.percentOfTarget, 6, "33.7 s of a 10 minute low end");
+  assert.deepEqual([t.target?.lo, t.target?.hi], [510, 660], "10 min: 8:30 to 11:00");
+  assert.equal(t.percentOfTarget, 5);
+  assert.match(
+    t.words ?? "",
+    /^projected final 0:30 for a target of 10:00 \(8:30 to 11:00\): 8:00 short of the floor$/,
+  );
   assert.deepEqual(t.lastTake, { id: "take-002", ms: 41_000 });
+  const note = timingForDirector(t);
+  assert.match(note, /Length: projected final 0:30/);
+  assert.match(note, /2 of 2 scenes have no `time:` yet/);
+  assert.match(
+    note,
+    /Short of the budget: plan the difference BEFORE the user sees this draft, depth first/,
+  );
+  assert.match(note, /never pad/);
+  // a budget that changed since the version was written
+  const moved = storyboardTiming(sb, { budget, plannedFor: { targetSec: 240 } });
+  assert.deepEqual(moved.plannedFor, { targetSec: 240 });
+  assert.match(timingForDirector(moved), /planned for 4:00; the target is now 10:00/);
+  assert.equal(
+    storyboardTiming(sb, { budget, plannedFor: { targetSec: 600 } }).plannedFor,
+    undefined,
+    "same target: nothing to say",
+  );
+  // within, and over
+  const fits = lengthBudget({ length: "30 s" }) as NonNullable<ReturnType<typeof lengthBudget>>;
+  assert.equal(storyboardTiming(sb, { budget: fits }).verdict, "fits");
+  const over = lengthBudget({ length: "20 s" }) as NonNullable<ReturnType<typeof lengthBudget>>;
+  assert.equal(storyboardTiming(sb, { budget: over }).verdict, "long");
+});
+
+test("scene times and holds: a scene that ends early holds up to its time within the caps; a thin one is reported short", () => {
+  const timed = parseStoryboard(
+    `start_url: /
+scenes:
+  - id: 01-a
+    title: A
+    time: 20s
+    steps:
+      - { do: pause, ms: 15s }
+  - id: 02-b
+    title: B
+    time: 30s
+    steps:
+      - { do: pause, ms: 5s, hold: 2s }
+      - { do: pause, ms: 5s }
+`,
+    { version: 1 },
+  );
+  const t = storyboardTiming(timed);
+  const [a, b] = t.scenes;
+  assert.deepEqual(
+    [a?.timeMs, a?.stepsMs, a?.heldMs, a?.ms, a?.shortMs],
+    [20_000, 15_000, 5000, 20_000, 0],
+    "15 s of steps, 5 s held at the end",
+  );
+  // B: 10 s of steps for 30 s; one hold point (the step with hold), at most 6 s: thin
+  assert.deepEqual([b?.heldMs, b?.ms, b?.shortMs], [6000, 16_000, 14_000]);
+  assert.equal(t.timesMs, 50_000);
+  assert.match(
+    timingForDirector(t),
+    /Too thin for their time even with the holds .*02-b \(0:14 short\)/,
+  );
 });
 
 async function chromiumOk() {
@@ -87,7 +149,7 @@ test(
         fs.existsSync(briefFile)
           ? fs.readFileSync(briefFile, "utf8")
           : "# brief\n\n- **Depth:** poc\n",
-        { length: "10-12 min" },
+        { length: "10 min" },
       ),
     );
     const rt = new Runtime(() => ({
@@ -111,7 +173,11 @@ test(
         };
       };
       assert.ok(data.timing.totalMs > 1000);
-      assert.deepEqual([data.timing.target.lo, data.timing.target.hi], [600, 720]);
+      assert.deepEqual(
+        [data.timing.target.lo, data.timing.target.hi],
+        [510, 660],
+        "10 min, −15 % / +10 %",
+      );
       assert.equal(data.timing.verdict, "short", "a three-scene seed against ten minutes");
       const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
       const errors: string[] = [];
@@ -119,8 +185,12 @@ test(
       await page.goto(`${panel.url}#/storyboard`);
       await page.waitForSelector("[data-timing]");
       const text = await page.locator("[data-timing]").innerText();
-      assert.match(text, /^Projected recording \d+ s?/);
-      assert.match(text, /target 10 min–12 min \(from the brief\): well under the target/);
+      assert.match(text, /^Projected final \d+:\d\d/);
+      assert.match(text, /target 10:00 \(8:30 to 11:00\) \(from the brief\): short of the budget/);
+      assert.match(
+        text,
+        /Raw take \d+:\d\d · \d+ steps? in \d+ scenes? · less about \d+ % dead time( \(measured on this project's takes\))?, plus the 0:03 title card/,
+      );
       assert.equal(await page.locator("[data-timing]").getAttribute("data-verdict"), "short");
       assert.ok(
         (await page.locator("[data-scene-time]").count()) >= 1,

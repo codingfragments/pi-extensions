@@ -75,7 +75,7 @@ myself** in the Project facts form. What the brief holds:
 | **Audience** (persona) | who watches and what they already know |
 | **Goal / key message** | the one thing the viewer should believe afterwards: the demo is built around it |
 | **Depth** | `poc`, `showcase` or `sales`: sets the stance and the length by default |
-| **Target length** | e.g. 2 to 3 min; the edit is compared with it |
+| **Target length** | ONE number, e.g. 10 min: the length of the final video. It fits from −15 % to +10 % (Config `length.*`); **No shorter than** / **No longer than** set a side yourself. The storyboard is planned to it, the recorder holds to meet each scene's time, and a take that misses it asks you what to do |
 | **Voice** | an ElevenLabs voice by name (a picker lists your account's voices); empty uses the Config default |
 | **Title, subtitle, app URL, extra URLs** | the title card and where recording starts |
 

@@ -9,6 +9,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { type TakeAnalysis, readAnalysis } from "../analysis/take.ts";
+import { measuredWordsPerSecond } from "../budget/voice-rate.ts";
 import { formatConfidence } from "../confidence/level.ts";
 import { voConfidence } from "../confidence/vo.ts";
 import { pendingBlock, pendingReminder } from "../qa/apply.ts";
@@ -20,7 +21,11 @@ import { acceptedTakeId, getReview, readState } from "../workdir/state.ts";
 import { result } from "./common.ts";
 import { defaultTake } from "./take.ts";
 
-export function voTemplate(a: TakeAnalysis): string {
+export function voTemplate(
+  a: TakeAnalysis,
+  /** Words per second of footage: this project's measured voice when it is known (item 22), else about 2.4 (a little under 155 wpm, room for pauses). */
+  wordsPerSecond = 2.4,
+): string {
   const lines = [
     "---",
     `take: ${a.take}`,
@@ -41,7 +46,7 @@ export function voTemplate(a: TakeAnalysis): string {
       );
     lines.push(
       `## ${s.id} — ${s.title}`,
-      `<!-- ~${usable.toFixed(1)}s usable footage → ~${Math.round(usable * 2.4)} words max. Marks: ${s.marks.map((m) => `[@${m.mark}] ${(m.t / 1000).toFixed(1)}s`).join(", ") || "none"} -->`,
+      `<!-- ~${usable.toFixed(1)}s usable footage → ~${Math.round(usable * wordsPerSecond)} words max. Marks: ${s.marks.map((m) => `[@${m.mark}] ${(m.t / 1000).toFixed(1)}s`).join(", ") || "none"} -->`,
       "",
     );
   });
@@ -85,7 +90,18 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         const analysis = readAnalysis(path.join(p.dir, "takes", take));
         if (!analysis)
           throw new Error(`${take} has not been analyzed — run demo_rec_take analyze first`);
-        return result([voTemplate(analysis), ...pendingBlock(p.dir, "vo")].join("\n"));
+        const rate = measuredWordsPerSecond(p.dir);
+        return result(
+          [
+            voTemplate(analysis, rate ? rate.wordsPerSecond * 0.93 : undefined),
+            ...(rate
+              ? [
+                  `<!-- word budgets use this project's voice, measured at ${Math.round(rate.wordsPerSecond * 60)} wpm over ${Math.round(rate.seconds)} s of speech -->`,
+                ]
+              : []),
+            ...pendingBlock(p.dir, "vo"),
+          ].join("\n"),
+        );
       }
       if (params.action === "get") {
         const vo = readVo(p.dir, params.version);

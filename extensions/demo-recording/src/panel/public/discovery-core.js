@@ -104,6 +104,7 @@ export const KIND_ICON = {
   value: "#",
   "use-case": "◆",
   length: "⏱",
+  meaning: "◎",
   other: "•",
   error: "▲",
   fallback: "↺",

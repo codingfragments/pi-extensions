@@ -363,7 +363,7 @@ export function reportBrief(projectDir: string, appDir: string): string {
   return [
     "# Discovery report: what you may cite and the rules",
     "",
-    `## Findings (${findings.length}). Cite by id.`,
+    `## Findings (${findings.length}). Cite by id.${findings.some((f) => f.kind === "meaning") ? "" : " There is no `meaning` finding yet: record one per explored area (what it means for the viewer) before the report."}`,
     ...findings.map(
       (f) =>
         `- ${f.id} [${f.kind}] ${f.text.slice(0, 160)}${f.state === "use" ? " (the user marked it USE)" : f.state === "ignore" ? " (the user marked it IGNORE)" : ""}`,
@@ -399,7 +399,7 @@ export function reportBrief(projectDir: string, appDir: string): string {
     "",
     "## How to answer (demo_rec_discovery report)",
     `- summary: what discovery found, a few sentences (at most ${LIMITS.summary} characters).`,
-    `- found: ${LIMITS.found[0]}-${LIMITS.found[1]} items { text, evidence } about the APP; each cites findings (f-…) or screens (<session>/s…), at most ${LIMITS.text} characters.`,
+    `- found: ${LIMITS.found[0]}-${LIMITS.found[1]} items { text, evidence } about the APP; each cites findings (f-…) or screens (<session>/s…), at most ${LIMITS.text} characters. Say what each explored area MEANS for the viewer (cite its \`meaning\` finding), not only what it shows.`,
     "- research: items about what the SOURCES added, each citing file:/ref:/input: ids; give none if the project has no sources, and some if it has.",
     `- guidance: { useCases (${LIMITS.useCases[0]}-${LIMITS.useCases[1]}), mustShow, risks, avoid } each an item { title (≤ ${LIMITS.title}), why (≤ ${LIMITS.why}), evidence } citing any finding, screen or source. Use cases are what the storyboard should build scenes from; risks are what could go wrong on camera; avoid is what not to show.`,
     "A claim without evidence, or with an id that does not exist, is refused with the reason; fix it and answer again. Respect the user's USE and IGNORE marks. You cannot write the storyboard from here: stop after report.",

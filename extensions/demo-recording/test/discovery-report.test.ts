@@ -470,6 +470,27 @@ test("the tool: context, a refused report, a stored one with its event, get; the
     const yaml = fs.readFileSync(path.join(w.seed.dir, "storyboard", "v2.yaml"), "utf8");
     const sbStale = await run("demo_rec_storyboard", { action: "write", yaml, skipAreas: [] });
     assert.doesNotMatch(sbStale, /no discovery report yet/, "there is a report");
+    // item 23: no meaning finding yet, then one that no scene uses
+    assert.match(sbStale, /no `meaning` finding: record one per explored area/);
+    assert.match(
+      await run("demo_rec_discovery", { action: "context" }),
+      /There is no `meaning` finding yet: record one per explored area/,
+    );
+    const m = recordFinding(w.seed.dir, {
+      stage: "discovery",
+      kind: "meaning",
+      text: "Search answers a question in plain language: nobody builds a report first.",
+    });
+    const sbMeaning = await run("demo_rec_storyboard", { action: "write", yaml });
+    assert.doesNotMatch(sbMeaning, /no `meaning` finding: record/);
+    assert.match(
+      sbMeaning,
+      new RegExp(`no scene lists a \`meaning\` finding in its findings: \\(${m.id}\\)`),
+    );
+    assert.doesNotMatch(
+      await run("demo_rec_discovery", { action: "context" }),
+      /There is no `meaning` finding yet/,
+    );
     fs.rmSync(path.join(w.seed.dir, "discovery-report"), { recursive: true });
     assert.match(
       await run("demo_rec_storyboard", { action: "write", yaml }),

@@ -172,11 +172,21 @@ a login page and there is no saved login, say so and ask them to log in the same
    targets you never saw.
 9. **Record findings as you go.** Whenever something is notable, call
    `demo_rec_project finding` with:
-   - **kind:** strength, weakness, friction, value, use-case or length;
+   - **kind:** strength, weakness, friction, value, use-case, length or
+     **meaning**: one `meaning` finding per explored area, saying what problem
+     it solves for this viewer, how it works as far as the screen shows, and
+     what they would conclude ("The issue page keeps the context in one place:
+     an engineer does not switch tools to build the picture"). The scenes'
+     `why` and `so_what` are built from these;
    - **evidence:** `screen:<id from the look>`, a URL, or later
      `take:take-006@71.5`.
    One finding per observation, in a sentence the user can judge without
-   context. The engine adds its own findings (errors, fallbacks, retries, dead
+   context.
+   **Research to explain meaning** is allowed without being asked: the app's
+   public docs and well-known references, to explain a domain term or how a
+   feature works. Each page you use goes on the finding as `url:` evidence (a
+   cited source), and what you take from it is marked as such in the
+   narration. Never put private details from the app or the brief into a query. The engine adds its own findings (errors, fallbacks, retries, dead
    time, blocked or state-changing actions).
 10. **The length budget.** The brief's `Target length` is THE budget of the
     FINAL video (title card in, loading cut out), one number such as `10 min`,

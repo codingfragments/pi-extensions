@@ -121,7 +121,7 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
       "Demo-recording project management: status of the active project (phase, stage lineage, approvals), create/open a project, read or write its brief (brief.md, versioned). " +
       "context: the project's memory (brief, stage lineage, every active input from commands, panel reviews and chat) — read it when you (re)open a project or after a restart, and follow it. " +
       "note: record a project-relevant direction, source or asset the user gave in chat (so it survives the session). mark: mark an input outdated (with reason) or restore it, when the user withdraws a direction. " +
-      "finding: record something notable you found (strength, weakness, friction, value, use-case, length) with evidence — the user marks findings auto/use/ignore in the Project tab; USE findings must appear in the recording and the narration. findings: list them. mark_finding: only when the user asks in chat.",
+      "finding: record something notable you found (strength, weakness, friction, value, use-case, length, meaning) with evidence — the user marks findings auto/use/ignore in the Project tab; USE findings must appear in the recording and the narration. findings: list them. mark_finding: only when the user asks in chat.",
     parameters: Type.Object({
       action: StringEnum([
         "status",
@@ -176,7 +176,7 @@ export function registerProjectTool(pi: ExtensionAPI, rt: Runtime): void {
       finding_kind: Type.Optional(
         StringEnum(AGENT_KINDS as unknown as (typeof AGENT_KINDS)[number][], {
           description:
-            "finding: strength | weakness | friction | value | use-case | length | other",
+            "finding: strength | weakness | friction | value | use-case | length | meaning (what an area means for the viewer: the problem it solves, how it works, what they would conclude) | other",
         }),
       ),
       finding_stage: Type.Optional(

@@ -27,9 +27,11 @@ told you.
    narration is built on). If a structured question tool is
    available (e.g. `ask_user_question`), use it with concrete options and a
    recommended choice. Ask at most 4 questions per round.
-3. **Research only on request.** Use web search for the product or company
-   only when the user explicitly asks for it. Never put private details from
-   the app or brief into a search query.
+3. **Research only on request** for the brief itself: search the product or
+   company only when the user explicitly asks for it. (Discovery may look up
+   the app's public docs to explain what a feature means, citing each page;
+   see the demo-recording skill.) Never put private details from the app or
+   brief into a search query.
 4. **Save** the complete brief with `demo_rec_project` (`action: write_brief`)
    using the template below. Every save is versioned.
 5. **Hand off:** summarize the brief in 3 lines and suggest running

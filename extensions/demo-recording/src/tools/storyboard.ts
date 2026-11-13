@@ -142,6 +142,23 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         for (const id of scene.findings ?? [])
           if (!known.has(id))
             warnings.push(`${scene.id}: findings lists ${id}, which doesn't exist`);
+      // the meaning findings (item 23): the scenes' why and so_what are built from them
+      const meaningFindings = findings.filter((f) => f.kind === "meaning" && f.state !== "ignore");
+      const usedIds = new Set(written.storyboard.scenes.flatMap((sc) => sc.findings ?? []));
+      if (
+        !meaningFindings.length &&
+        findings.some((f) => f.stage === "discovery" && f.source === "agent")
+      )
+        warnings.push(
+          "no `meaning` finding: record one per explored area (what problem it solves for this viewer, how it works, what they would conclude) and build the scenes' why and so_what on them",
+        );
+      else {
+        const unused = meaningFindings.filter((f) => !usedIds.has(f.id));
+        if (unused.length && unused.length === meaningFindings.length)
+          warnings.push(
+            `no scene lists a \`meaning\` finding in its findings: (${unused.map((f) => f.id).join(", ")}): link each scene to the meaning it explains`,
+          );
+      }
       // the narrative layer (item 23): what the voice-over explains with
       const thin = written.storyboard.scenes.filter((sc) => !sc.why || !sc.so_what);
       if (thin.length)

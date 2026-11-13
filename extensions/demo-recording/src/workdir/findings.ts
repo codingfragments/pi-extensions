@@ -34,6 +34,8 @@ export const AGENT_KINDS = [
   "value",
   "use-case",
   "length",
+  /** What an explored area MEANS for the viewer (item 23): the problem it solves, how it works as far as visible, what they would conclude. */
+  "meaning",
   "other",
 ] as const;
 export const ENGINE_KINDS = [

@@ -58,6 +58,12 @@ export const BRIEF_FIELDS: BriefField[] = [
   { key: "title", label: "Title" },
   { key: "subtitle", label: "Subtitle" },
   { key: "persona", label: "Persona", aliases: ["Audience"] },
+  /** What the viewer is trying to decide (item 23): the intro states it, the outro answers it. */
+  { key: "viewerQuestions", label: "Viewer's questions" },
+  /** What they know already: nothing in it gets explained. */
+  { key: "alreadyKnows", label: "Already knows" },
+  /** The anchor they compare with (their own tool, a competitor, "the way we do it today"): the scenes' contrast. */
+  { key: "compareWith", label: "Compare with" },
   { key: "depth", label: "Depth" },
   { key: "stance", label: "Stance" },
   { key: "goal", label: "Goal / key message", aliases: ["Goal"] },

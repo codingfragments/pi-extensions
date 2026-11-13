@@ -54,7 +54,12 @@ fails, even when every value in it is right.
 - **Knowledge from outside the screen** is allowed to explain meaning, each claim with a source (a finding with a URL, the brief's Background) or
   a confidence mark in the section (`<!-- confidence: 3 — why -->`). Nothing unsourced about the viewer's own product. A proposal is said to be
   one ("This is a proposal, not something we have built.").
-- **The intro states the viewer's question and your position; the outro answers it.** No recap of the scenes.
+- **The intro states the viewer's question and your position; the outro answers it.** No recap of the scenes. The questions, what the viewer
+  already knows and what they compare with are the brief's **Viewer's questions**, **Already knows** and **Compare with**; the template puts them
+  in the intro and outro comments.
+- **Build each scene section** as claim → why it matters → how it works → one piece of evidence → so what. The template's comment for the scene
+  carries the storyboard's `takeaway` (the claim), `why`, `so_what` and `contrast`: use them, in your words, and drop a part the footage does not
+  support.
 - **USE findings** (see `demo_rec_project context`) must be said in the narration of the scene that covers them. **IGNORE findings** are never
   mentioned.
 

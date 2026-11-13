@@ -22,7 +22,9 @@ told you.
    Reuse everything the user has already said in this conversation.
 2. **Draft first, then ask.** Fill every field you reasonably can and mark
    your guesses. Then ask only for the gaps and the guesses that matter most
-   (audience, stance, goal, length). If a structured question tool is
+   (audience, stance, goal, length, and what the viewer is trying to decide:
+   **Viewer's questions**, **Already knows**, **Compare with**, which the
+   narration is built on). If a structured question tool is
    available (e.g. `ask_user_question`), use it with concrete options and a
    recommended choice. Ask at most 4 questions per round.
 3. **Research only on request.** Use web search for the product or company
@@ -43,7 +45,10 @@ told you.
 - **Extra URLs:** <other entry points, e.g. admin or docs — space-separated, or "none">
 - **Title:** <short demo title for the video's title card, ≤ 60 chars; ask for one, or propose one from the goal>
 - **Subtitle:** <optional second line on the title card, ≤ 90 chars>
-- **Persona:** <who watches, what they already know>
+- **Persona:** <who watches>
+- **Viewer's questions:** <what they are trying to decide, one or two questions; the intro states them, the outro answers them>
+- **Already knows:** <what this audience needs no explaining, e.g. APM, error tracking>
+- **Compare with:** <their own tool or way of working, the anchor each scene is set against>
 - **Depth:** poc | showcase | sales
 - **Stance:** champion | evaluator | teacher (omit to use the depth default)
 - **Goal / key message:** <the one thing the viewer should believe afterwards>

@@ -476,6 +476,7 @@ test(
         "Title card",
         "Audience & length",
         "App & access",
+        "The viewer",
         "Goal / key message",
       ]);
       await page.locator(".ds-seg button", { hasText: "sales" }).click();

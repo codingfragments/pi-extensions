@@ -289,6 +289,9 @@ scenes:
     title: Where churn hides
     time: 45s                     # this scene's share of the length budget
     takeaway: Headline churn looks fine; the regional split does not
+    why: a healthy average hides the region that is leaving   # the problem it addresses, who feels it (one line)
+    so_what: look at churn by region before trusting the KPI  # what the viewer should conclude (one line)
+    contrast: the BI dashboard they use today shows only the average   # optional: against their tool or expectation
     screen: 20260612-101233/s001
     narration_outline:
       - churn KPI looks harmless at 3.1%
@@ -316,7 +319,7 @@ scenes:
 `type {target?, text, clear?}`, `press {key}`,
 `wait {for: target | {ms}, timeout}`, `scroll {target | dy}`, `pause {ms}`,
 `improvise {kind: type, target, prompt, max_chars, submit, fallback?, vision?}`.
-**Shared flags:** `mark`, `dwell`, `emphasis`, `hold` (a payoff: stay on the result, at most `6s`; it is also where the recorder holds to meet the scene's time). A scene can carry its own `emphasis` too, and `time:` (how long it should be in the take, e.g. `time: 75s` or `time: "1:15"`; plan the scenes' times to the length budget). The recorder logs a layout snapshot after every step and at every mark (`takes/take-NNN/layout.jsonl`), so later stages can point at anything on screen. You don't need to plan for that.
+**Shared flags:** `mark`, `dwell`, `emphasis`, `hold` (a payoff: stay on the result, at most `6s`; it is also where the recorder holds to meet the scene's time). A scene can carry its own `emphasis` too, and `time:` (how long it should be in the take, e.g. `time: 75s` or `time: "1:15"`; plan the scenes' times to the length budget). **Every scene gets the narrative layer**: `why` (the problem it addresses, who feels it) and `so_what` (what the viewer should conclude), one line each, and `contrast` when the brief's **Compare with** gives an anchor; build them from the brief's **Viewer's questions** and the discovery findings. The voice-over is built on them, and the write warns about a scene without them. The recorder logs a layout snapshot after every step and at every mark (`takes/take-NNN/layout.jsonl`), so later stages can point at anything on screen. You don't need to plan for that.
 **Targets:** prefer `{role, name}` exactly as the aria digest shows them. Fall
 back to `{text}`, `{label}`, and `{css}` last.
 

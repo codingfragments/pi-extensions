@@ -103,6 +103,9 @@ function sceneDetail(a: Scene, b: Scene): string {
     parts.push(`findings ${(a.findings ?? []).length} → ${(b.findings ?? []).length}`);
   if (JSON.stringify(a.narration_outline ?? []) !== JSON.stringify(b.narration_outline ?? []))
     parts.push("narration outline changed");
+  for (const k of ["why", "so_what", "contrast"] as const)
+    if ((a[k] ?? "") !== (b[k] ?? ""))
+      parts.push(`${k} ${a[k] ? (b[k] ? "changed" : "removed") : "added"}`);
   if (!parts.length)
     parts.push(
       a.steps.length === b.steps.length && JSON.stringify(a.steps) !== JSON.stringify(b.steps)

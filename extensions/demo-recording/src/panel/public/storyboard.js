@@ -108,6 +108,15 @@ function SceneInspector({ scene, index, review, diffKind, readOnly, onReview, co
     ${conf?.approvedIn !== undefined ? html`<p class="ds-small ds-muted carried">Unchanged since v${conf.approvedIn}, where you approved it.</p>` : null}
     ${scene.screen ? null : html`<p class="ds-muted ds-small">No screenshot for this scene.</p>`}
     ${scene.takeaway ? html`<p class="takeaway">${scene.takeaway}</p>` : null}
+    ${
+      scene.why || scene.so_what || scene.contrast
+        ? html`<dl class="ds-sb-narrative" data-narrative>
+            ${scene.why ? html`<dt>Why</dt><dd data-why>${scene.why}</dd>` : null}
+            ${scene.so_what ? html`<dt>So what</dt><dd data-so-what>${scene.so_what}</dd>` : null}
+            ${scene.contrast ? html`<dt>Against</dt><dd data-contrast>${scene.contrast}</dd>` : null}
+          </dl>`
+        : html`<p class="ds-small ds-muted" data-narrative-missing>No why or so what for this scene: the voice-over has less to explain with.</p>`
+    }
     ${scene.emphasis ? html`<p class="emphasis" title="the director's intent — annotations are chosen later, in the Annotations stage">✦ ${scene.emphasis}</p>` : null}
     ${scene.narration_outline?.length ? html`<ul class="outline">${scene.narration_outline.map((o) => html`<li>${o}</li>`)}</ul>` : null}
     <details open class="ds-small">

@@ -73,6 +73,12 @@ export interface Scene {
   id: string;
   title: string;
   takeaway?: string;
+  /** The narrative layer (item 23): the problem this scene addresses and who feels it. */
+  why?: string;
+  /** What the viewer should conclude from it. */
+  so_what?: string;
+  /** Optional: against the viewer's own tool or what they expect (the brief's "Compare with"). */
+  contrast?: string;
   /** The director's intent for the whole scene (D32), e.g. "show that search is name-only". */
   emphasis?: string;
   deep_link?: string;

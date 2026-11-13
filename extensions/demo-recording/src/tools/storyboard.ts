@@ -142,6 +142,12 @@ export function registerStoryboardTool(pi: ExtensionAPI, rt: Runtime): void {
         for (const id of scene.findings ?? [])
           if (!known.has(id))
             warnings.push(`${scene.id}: findings lists ${id}, which doesn't exist`);
+      // the narrative layer (item 23): what the voice-over explains with
+      const thin = written.storyboard.scenes.filter((sc) => !sc.why || !sc.so_what);
+      if (thin.length)
+        warnings.push(
+          `no why/so_what in ${thin.map((sc) => `${sc.id} (${[!sc.why ? "why" : "", !sc.so_what ? "so_what" : ""].filter(Boolean).join(", ")})`).join(", ")}: give each scene why (the problem it addresses, who feels it) and so_what (what the viewer should conclude), one line each; the voice-over explains with them`,
+        );
       for (const scene of written.storyboard.scenes) {
         if (!scene.screen)
           warnings.push(

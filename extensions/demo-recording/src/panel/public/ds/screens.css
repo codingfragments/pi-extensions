@@ -258,6 +258,20 @@ code,
   margin: var(--space-2) 0;
   font-style: italic;
 }
+/* the scene's narrative layer (item 23): why it matters, what to conclude, against what */
+.ds-sb-narrative {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+.ds-sb-narrative dt {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.ds-sb-narrative dd {
+  margin: 0;
+}
 
 .outline {
   margin: var(--space-2) 0;

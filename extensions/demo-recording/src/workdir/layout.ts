@@ -114,6 +114,9 @@ function briefStub(input: NewProjectInput, app: AppInfo): string {
 - **Title:** _TODO_
 - **Subtitle:** _TODO_
 - **Persona:** _TODO (who watches, what they already know)_
+- **Viewer's questions:** _TODO (what they are trying to decide)_
+- **Already knows:** _TODO (what needs no explaining)_
+- **Compare with:** _TODO (their own tool or way of working)_
 - **Depth:** _poc | showcase | sales_
 - **Stance:** _champion | evaluator | teacher (default from depth)_
 - **Goal / key message:** _TODO_

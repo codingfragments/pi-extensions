@@ -5,6 +5,9 @@
 
 import { parse as parseYaml } from "yaml";
 import { parseDuration } from "../util/duration.ts";
+/** The most a scene's why / so_what / contrast may say (one line each, item 23). */
+export const NARRATIVE_MAX = 200;
+
 /** The longest one hold may be (D-R3-25-8): longer reads as a stalled video. */
 export const HOLD_MAX_MS = 6000;
 
@@ -221,6 +224,17 @@ function parseScene(v: unknown, path: string): Scene {
   for (const key of ["takeaway", "deep_link", "narration", "emphasis"] as const) {
     const value = str(v, key, path, false);
     if (value) scene[key] = value;
+  }
+  // the narrative layer (item 23): one short line each, the voice-over builds the section from them
+  for (const key of ["why", "so_what", "contrast"] as const) {
+    const value = str(v, key, path, false);
+    if (!value) continue;
+    if (value.length > NARRATIVE_MAX)
+      fail(
+        `${path}.${key}`,
+        `keep it to one line (${NARRATIVE_MAX} characters at most): the narration says the rest`,
+      );
+    scene[key] = value.trim();
   }
   if (v.time !== undefined) {
     scene.time = parseDuration(v.time, `${path}.time`);

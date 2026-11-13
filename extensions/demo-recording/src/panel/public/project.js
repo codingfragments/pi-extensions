@@ -269,6 +269,18 @@ function Facts({ events, focus }) {
       </fieldset>
     </div>
 
+    <fieldset class="fact-group viewer" data-facts="viewer">
+      <legend>The viewer</legend>
+      <${Field} fact="viewerQuestions" label="Viewer's questions" hint="what they are trying to decide: the intro states it, the outro answers it">
+        <textarea rows="2" value=${value("viewerQuestions")} placeholder="e.g. Is this a good implementation of error tracking? Where does it fit next to ours?" onInput=${(e) => set("viewerQuestions", e.target.value)}></textarea>
+      </${Field}>
+      <${Field} fact="alreadyKnows" label="Already knows" hint="nothing in here gets explained">
+        <input type="text" value=${value("alreadyKnows")} placeholder="e.g. APM, error tracking, logs" onInput=${(e) => set("alreadyKnows", e.target.value)} />
+      </${Field}>
+      <${Field} fact="compareWith" label="Compare with" hint="their own tool or way of working: what each scene is set against">
+        <input type="text" value=${value("compareWith")} placeholder="e.g. Datadog Error Tracking" onInput=${(e) => set("compareWith", e.target.value)} />
+      </${Field}>
+    </fieldset>
     <fieldset class="fact-group goal" data-fact="goal">
       <legend>Goal / key message</legend>
       <textarea rows="4" value=${value("goal")} placeholder="The one thing the viewer should believe afterwards — the demo is built around it." onInput=${(e) => set("goal", e.target.value)}></textarea>

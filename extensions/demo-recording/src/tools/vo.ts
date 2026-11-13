@@ -4,6 +4,7 @@
  * action: VO approval is a human gate in the panel (it unlocks paid TTS).
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -17,8 +18,10 @@ import { voConfidence } from "../confidence/vo.ts";
 import { pendingBlock, pendingReminder } from "../qa/apply.ts";
 import { askAboutVoLength } from "../question-flow.ts";
 import type { Runtime } from "../runtime.ts";
+import { readStoryboard } from "../storyboard/store.ts";
 import { formatIssues } from "../vo/script.ts";
 import { readPendingDirection, readVo, readVoMeta, voVersions, writeVo } from "../vo/store.ts";
+import { readBriefFacts } from "../workdir/brief.ts";
 import { acceptedVersions } from "../workdir/stages.ts";
 import { acceptedTakeId, getReview, readState } from "../workdir/state.ts";
 import { result } from "./common.ts";
@@ -28,14 +31,25 @@ export function voTemplate(
   a: TakeAnalysis,
   /** Words per second of footage: this project's measured voice when it is known (item 22), else about 2.4 (a little under 155 wpm, room for pauses). */
   wordsPerSecond = 2.4,
+  /** The narrative the script is built on (item 23): the brief's viewer and each scene's why / so_what / contrast. */
+  narrative: {
+    viewerQuestions?: string;
+    alreadyKnows?: string;
+    compareWith?: string;
+    scenes?: Record<
+      string,
+      { takeaway?: string; why?: string; so_what?: string; contrast?: string }
+    >;
+  } = {},
 ): string {
+  const clean = (t: string) => t.replace(/-->/g, "→").replace(/\s+/g, " ").trim();
   const lines = [
     "---",
     `take: ${a.take}`,
     "---",
     "",
     "## _intro",
-    "<!-- full video only: 1–2 sentences, the hook from the brief -->",
+    `<!-- full video only: 1–2 sentences. State the viewer's question and your position.${narrative.viewerQuestions ? ` Their questions: ${clean(narrative.viewerQuestions)}` : ""}${narrative.alreadyKnows ? ` They already know: ${clean(narrative.alreadyKnows)} (don't explain it).` : ""} -->`,
     "",
   ];
   a.scenes.forEach((s, i) => {
@@ -50,11 +64,57 @@ export function voTemplate(
     lines.push(
       `## ${s.id} — ${s.title}`,
       `<!-- ~${usable.toFixed(1)}s usable footage → ~${Math.round(usable * wordsPerSecond)} words fit the footage, up to ~${Math.round(usable * wordsPerSecond * 2)} to explain (the edit holds frames). Say what it means, not what it shows. Marks: ${s.marks.map((m) => `[@${m.mark}] ${(m.t / 1000).toFixed(1)}s`).join(", ") || "none"} -->`,
-      "",
     );
+    const n = narrative.scenes?.[s.id];
+    const parts = [
+      n?.takeaway ? `claim: ${clean(n.takeaway)}` : "",
+      n?.why ? `why it matters: ${clean(n.why)}` : "",
+      n?.so_what ? `so what: ${clean(n.so_what)}` : "",
+      n?.contrast || narrative.compareWith
+        ? `against: ${clean(n?.contrast ?? `the viewer's ${narrative.compareWith}`)}`
+        : "",
+    ].filter(Boolean);
+    if (parts.length)
+      lines.push(
+        `<!-- build it as claim → why it matters → how it works → one piece of evidence → so what. ${parts.join(" · ")} -->`,
+      );
+    lines.push("");
   });
-  lines.push("## _outro", "<!-- full video only: the key message, one or two sentences -->", "");
+  lines.push(
+    "## _outro",
+    `<!-- full video only: one or two sentences that answer the viewer's question (your verdict), no recap.${narrative.viewerQuestions ? ` The question: ${clean(narrative.viewerQuestions)}` : ""} -->`,
+    "",
+  );
   return lines.join("\n");
+}
+
+/** The brief's viewer fields and the take's storyboard scenes, for the template (item 23). */
+function narrativeFor(projectDir: string, a: TakeAnalysis): Parameters<typeof voTemplate>[2] {
+  const briefFile = path.join(projectDir, "brief.md");
+  const facts = fs.existsSync(briefFile) ? readBriefFacts(fs.readFileSync(briefFile, "utf8")) : {};
+  let scenes: NonNullable<Parameters<typeof voTemplate>[2]>["scenes"] = {};
+  try {
+    const sb = readStoryboard(projectDir, a.storyboardVersion)?.storyboard;
+    scenes = Object.fromEntries(
+      (sb?.scenes ?? []).map((s) => [
+        s.id,
+        {
+          ...(s.takeaway ? { takeaway: s.takeaway } : {}),
+          ...(s.why ? { why: s.why } : {}),
+          ...(s.so_what ? { so_what: s.so_what } : {}),
+          ...(s.contrast ? { contrast: s.contrast } : {}),
+        },
+      ]),
+    );
+  } catch {
+    scenes = {};
+  }
+  return {
+    ...(facts.viewerQuestions ? { viewerQuestions: facts.viewerQuestions } : {}),
+    ...(facts.alreadyKnows ? { alreadyKnows: facts.alreadyKnows } : {}),
+    ...(facts.compareWith ? { compareWith: facts.compareWith } : {}),
+    scenes,
+  };
 }
 
 export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
@@ -96,7 +156,11 @@ export function registerVoTool(pi: ExtensionAPI, rt: Runtime): void {
         const rate = measuredWordsPerSecond(p.dir);
         return result(
           [
-            voTemplate(analysis, rate ? rate.wordsPerSecond * 0.93 : undefined),
+            voTemplate(
+              analysis,
+              rate ? rate.wordsPerSecond * 0.93 : undefined,
+              narrativeFor(p.dir, analysis),
+            ),
             ...(rate
               ? [
                   `<!-- word budgets use this project's voice, measured at ${Math.round(rate.wordsPerSecond * 60)} wpm over ${Math.round(rate.seconds)} s of speech -->`,

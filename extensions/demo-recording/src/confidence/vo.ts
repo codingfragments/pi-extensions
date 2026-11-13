@@ -1,8 +1,8 @@
 /**
  * Voice-over section confidence (D78):
  *   low    a validation error · a number the page never shows in that scene ·
- *          speech/footage > 1.15 or < 0.5
- *   medium a warning · new/changed vs the base version · ratio 1.0–1.15 ·
+ *          speech/footage > 2 or < 0.5 (narration may run up to 2× to explain, item 23)
+ *   medium a warning · new/changed vs the base version · ratio 1.5–2 ·
  *          a name not on the page · a scene section without any [@mark]
  *   high   none of these (+ "unchanged since vN, where you approved it", D79)
  *
@@ -14,6 +14,7 @@ import path from "node:path";
 import { readAnalysis } from "../analysis/take.ts";
 import { pageHas, spokenValues } from "../qa/numbers.ts";
 import { readLayout } from "../recorder/layout.ts";
+import { MAX_SPEECH_RATIO } from "../vo/script.ts";
 import { readVo, readVoMeta, voVersions } from "../vo/store.ts";
 import { readState } from "../workdir/state.ts";
 import { type ConfidenceSummary, type Reason, judge, summarize } from "./level.ts";
@@ -75,7 +76,7 @@ export function voConfidence(projectDir: string, version: number): ConfidenceSum
       r.push({ level: is.level === "error" ? "low" : "medium", text: is.message });
     const t = v.timing.find((x) => x.section === sec.key);
     if (t && sec.kind === "scene") {
-      if (t.ratio > 1.15)
+      if (t.ratio > MAX_SPEECH_RATIO)
         r.push({
           level: "low",
           text: `${t.speechSec.toFixed(0)} s of speech for ${t.usableSec.toFixed(0)} s of footage — the edit has to freeze`,
@@ -85,10 +86,10 @@ export function voConfidence(projectDir: string, version: number): ConfidenceSum
           level: "low",
           text: `only ${t.speechSec.toFixed(0)} s of speech for ${t.usableSec.toFixed(0)} s of footage — long silence`,
         });
-      else if (t.ratio > 1)
+      else if (t.ratio > 1.5)
         r.push({
           level: "medium",
-          text: `speech is a bit longer than the footage (${Math.round(t.ratio * 100)} %)`,
+          text: `speech is well past the footage (${Math.round(t.ratio * 100)} %): the edit holds frames to explain`,
         });
     }
     if (sec.kind === "scene") {

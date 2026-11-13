@@ -69,6 +69,7 @@ function DiffText({ parts }) {
 
 const DIR_STANCES = ["champion", "evaluator", "teacher"];
 const DIR_TONES = ["calm", "energetic", "conversational", "crisp"];
+const DIR_STYLES = [["meaning", "meaning over description"]];
 const DIR_LENGTHS = [
   ["shorter", "−20 %"],
   ["same", "same"],
@@ -89,6 +90,7 @@ function Direction({ data, onSent }) {
     stance: def.stance ?? "",
     tone: def.tone ?? "",
     length: def.length ?? "same",
+    style: def.style ?? "",
     focus: def.focus ?? "",
     notes: def.notes ?? "",
   });
@@ -120,6 +122,7 @@ function Direction({ data, onSent }) {
     <${Chips} label="Stance" options=${DIR_STANCES.map((x) => [x, x])} value=${d.stance} onChange=${set("stance")} />
     <${Chips} label="Tone" options=${DIR_TONES.map((x) => [x, x])} value=${d.tone} onChange=${set("tone")} />
     <${Chips} label="Length" options=${DIR_LENGTHS} value=${d.length} onChange=${set("length")} />
+    <${Chips} label="Style" options=${DIR_STYLES} value=${d.style} onChange=${set("style")} />
     <div class="dir-row"><span class="dir-label">Focus</span><input class="ds-input grow" value=${d.focus} placeholder="what the story should lean on, e.g. the EMEA churn drill-down" onInput=${(e) => set("focus")(e.target.value)} aria-label="focus" /></div>
     <div class="dir-row"><span class="dir-label">Notes</span><textarea class="grow" value=${d.notes} placeholder="anything else: less hype, say each number once, …" onInput=${(e) => set("notes")(e.target.value)} aria-label="direction notes"></textarea></div>
     <div class="row">

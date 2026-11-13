@@ -127,6 +127,8 @@ export interface VoDirection {
   stance?: string;
   tone?: string;
   length?: string;
+  /** "meaning": meaning over description (item 23). */
+  style?: string;
   focus?: string;
   notes?: string;
 }

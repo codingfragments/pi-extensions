@@ -49,7 +49,7 @@ export function voTemplate(
       );
     lines.push(
       `## ${s.id} — ${s.title}`,
-      `<!-- ~${usable.toFixed(1)}s usable footage → ~${Math.round(usable * wordsPerSecond)} words max. Marks: ${s.marks.map((m) => `[@${m.mark}] ${(m.t / 1000).toFixed(1)}s`).join(", ") || "none"} -->`,
+      `<!-- ~${usable.toFixed(1)}s usable footage → ~${Math.round(usable * wordsPerSecond)} words fit the footage, up to ~${Math.round(usable * wordsPerSecond * 2)} to explain (the edit holds frames). Say what it means, not what it shows. Marks: ${s.marks.map((m) => `[@${m.mark}] ${(m.t / 1000).toFixed(1)}s`).join(", ") || "none"} -->`,
       "",
     );
   });

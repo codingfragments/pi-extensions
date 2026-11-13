@@ -25,6 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { TakeAnalysis } from "../analysis/take.ts";
 import type { AgentConfidence } from "../storyboard/types.ts";
+import { readingWarning, readsTheScreen } from "./lint.ts";
 
 export type SectionKind = "scene" | "intro" | "outro" | "bridge";
 
@@ -356,6 +357,15 @@ export function validateVo(
     const full = segments.map((s) => s.text).join(" ");
     if (!full.trim()) warn(section.key, "empty section");
     resolved.push({ ...section, body: full, segments });
+    // "mostly reads the screen" (item 23 PR 4): against the page text at the section's anchors (else at the scene's marks); a warning, never an error
+    if (section.kind === "scene" && scene && full.trim()) {
+      const anchors = section.segments.flatMap((g) => (g.anchor ? [g.anchor] : []));
+      const page = (anchors.length ? anchors : scene.marks.map((m) => m.mark))
+        .map((m) => domFor(m) ?? "")
+        .join("\n");
+      const r = readsTheScreen(full, page);
+      if (r.signals.length) warn(section.key, readingWarning(r));
+    }
     if (section.kind === "scene" && scene) {
       const dead = scene.idle.reduce((n, r) => n + (r.end - r.start), 0);
       const usableSec = +((scene.end - scene.start - dead) / 1000).toFixed(1);

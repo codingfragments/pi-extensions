@@ -249,7 +249,7 @@ test("template: one section per scene with marks and word budget", () => {
   assert.match(t, /^---\ntake: take-001\n---/);
   assert.match(
     t,
-    /## 02-search — 02-search\n<!-- ~6\.0s usable footage → ~14 words max\. Marks: \[@type-start\] 6\.0s, \[@results\] 12\.0s -->/,
+    /## 02-search — 02-search\n<!-- ~6\.0s usable footage → ~14 words fit the footage, up to ~29 to explain \(the edit holds frames\)\. Say what it means, not what it shows\. Marks: \[@type-start\] 6\.0s, \[@results\] 12\.0s -->/,
   );
   assert.match(t, /## _bridge:02-search/);
   assert.ok(!/_bridge:01-dash/.test(t), "no bridge before the first scene");

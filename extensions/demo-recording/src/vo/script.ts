@@ -63,6 +63,9 @@ export interface VoIssue {
   message: string;
 }
 
+/** How far narration may run past a scene's usable footage (item 23, D-R3-24-7): the edit holds frames to explain, within the length budget. */
+export const MAX_SPEECH_RATIO = 2;
+
 /** ~155 wpm (D18) → seconds of speech. */
 export const WORDS_PER_SECOND = 155 / 60;
 
@@ -359,10 +362,11 @@ export function validateVo(
       const speechSec = speechSeconds(full, wordsPerSecond);
       const ratio = usableSec > 0 ? +(speechSec / usableSec).toFixed(2) : 99;
       timing.push({ section: section.key, speechSec, usableSec, ratio });
-      if (ratio > 1.35)
+      // narration may run up to 2× the footage to explain (item 23, D-R3-24-7): the edit holds frames; past that the scene is too thin for it
+      if (ratio > MAX_SPEECH_RATIO)
         warn(
           section.key,
-          `~${speechSec}s of speech for ~${usableSec}s of footage — the editor will freeze frames; consider trimming`,
+          `~${speechSec}s of speech for ~${usableSec}s of footage (×${ratio}, more than ×${MAX_SPEECH_RATIO}) — too much for the scene: say less, or ask for a longer scene (its time:)`,
         );
       if (ratio < 0.35 && usableSec > 6)
         warn(

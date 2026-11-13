@@ -1,6 +1,6 @@
 ---
 name: demo-voiceover
-description: Writes the voice-over for a recorded demo take — dense, opinionated, first-person narration written FROM THE ACTUAL RUN, anchored to on-screen events with [@mark] and quoting real page values — and handles the panel review of it. Use after a take is recorded (a [demo-recording] result arrived), when the user asks for narration or a voice-over, and for [demo-panel] voice-over review messages.
+description: Writes the voice-over for a recorded demo take — first-person narration that says what the screen MEANS for the viewer (not what it shows), in a plain, positioned expert voice, written FROM THE ACTUAL RUN and anchored to on-screen events with [@mark] — and handles the panel review of it. Use after a take is recorded (a [demo-recording] result arrived), when the user asks for narration or a voice-over, and for [demo-panel] voice-over review messages.
 ---
 
 # Demo voice-over
@@ -37,37 +37,64 @@ clock.
 6. Tell the user in 2–3 lines what the narrative is, then **stop and wait**
    for the panel review.
 
-## Voice and style (D18)
+## Meaning over reading the screen (D-R3-24)
 
-- **First person, expert guide.** You're a practitioner showing a colleague
-  something worth their time: "I'll ask it directly", not "the user can".
-- **Depth sets the register** (brief `Depth:`; see the demo-brief skill):
-  - **poc:** facts, numbers, honest limits.
-  - **showcase:** feature-forward, neutral.
-  - **sales:** the persona's pain → outcome, a call to action in `_outro`.
+The viewer can read the screen. Your job is what it **means**: why the thing exists, how to read it, and what this viewer should conclude.
+A script that names what is visible ("Explore is one query screen per entity type. Traces hold real span data. Logs and metrics are empty here.")
+fails, even when every value in it is right.
 
-  **USE findings** (see `demo_rec_project context`) must be said in the
-  narration of the scene that covers them. **IGNORE findings** are never
+- **Say what it means before (or instead of) what it shows.** Name an element only to explain it, never to list it.
+- **One proof number per scene**, the one that carries the argument, and say what it implies ("768 events from only 9 users, so it is frequent
+  but narrow"). More than two numbers in a section is a warning.
+- **One mechanism or design choice per scene** ("the issue page keeps the context in one place").
+- **Take a position tied to the viewer's question**: a verdict, a risk, a surprise against what this audience expects.
+- **A limit is a consequence, not a fact**: "profiles are empty in this org" becomes "in this org it is not used as a full observability
+  platform".
+- **Bridge to the viewer's own world** where the evidence allows it (their product, their team).
+- **Knowledge from outside the screen** is allowed to explain meaning, each claim with a source (a finding with a URL, the brief's Background) or
+  a confidence mark in the section (`<!-- confidence: 3 — why -->`). Nothing unsourced about the viewer's own product. A proposal is said to be
+  one ("This is a proposal, not something we have built.").
+- **The intro states the viewer's question and your position; the outro answers it.** No recap of the scenes.
+- **USE findings** (see `demo_rec_project context`) must be said in the narration of the scene that covers them. **IGNORE findings** are never
   mentioned.
-- **The stance comes from the brief** (or the depth default):
-  - **Champion:** outcomes first, confident, no hedging. Still concrete, never
-    salesy.
-  - **Evaluator:** strengths *and* limits. Name friction plainly ("the
-    drill-down is thinner") and quote the evidence.
-  - **Teacher:** what to do and *why*, step by step, calm.
-- **Dense:** ~155 words per minute, zero filler. Every sentence either orients,
-  reveals, or interprets. Cut "as you can see", "let's go ahead and",
-  "basically", "simply".
-- **One takeaway per scene.** Usually it's the storyboard's `takeaway`, now
-  stated with the real numbers.
-- **Opinionated:** say what a number *means* ("EMEA is the outlier at 14.2 %,
-  six times North America"), not just what it is.
-- **No marketing words:** seamless, powerful, robust, cutting-edge,
-  revolutionary, game-changer, leverage, unlock, supercharge… The tool warns
-  about these.
-- **Numbers are said as they're shown:** "14.2 %", "$4.82M". The voice engine
-  reads them naturally. Never invent a value. Quote it from the page text at
-  a mark, or bind it.
+
+**Depth sets the emphasis** (brief `Depth:`; see the demo-brief skill), the rules above hold for all three:
+- **poc:** a verdict, the risks and the honest limits, the evidence for each.
+- **showcase:** how it works and why that design is good.
+- **sales:** the outcome for this buyer, and a call to action in `_outro`.
+
+**The stance comes from the brief** (or the depth default):
+- **Champion:** outcomes first, confident, still concrete, never salesy.
+- **Evaluator:** strengths *and* limits, friction named plainly, with the evidence.
+- **Teacher:** what to do and *why*, step by step, calm.
+
+## Voice and register
+
+Write the way an expert colleague talks to an expert audience that is short on time.
+
+- **Position first.** The intro's first two sentences say what you think ("My view up front: …"). First person when it is your view ("The way I
+  see it, …"), calibrated: say what the evidence carries ("usually makes the fix clear", "configured but not proven in this evaluation"), never more.
+- **Plain words over vivid ones.** "a busy issue list", not "a flood of issues"; "the volume overstates the impact", not "loud". No metaphors.
+- **"We" is the viewer's company** (from the brief's Persona and Background), so "the link to our side" is the link to their product.
+- **Fair to the other side**, firm on the conclusion: acknowledge what works, then the condition.
+- **Don't explain basics** this audience knows (what a stack trace is), and don't restate what the screen says.
+- **Short spoken sentences**, one idea each. Normal capitalization and punctuation.
+- **Never:** em dashes or en dashes as punctuation; the "not X but Y" cadence ("set by rules, not by a person"); groups of three for rhythm;
+  openers like "Here's the thing", "The reality is"; drama words like "crucially", "honestly", "genuinely"; machine words like delve, robust,
+  leverage, seamless, unlock, landscape, game-changer, straightforward; marketing words (powerful, cutting-edge, revolutionary, supercharge; the
+  tool warns about these); filler ("as you can see", "let's go ahead and", "basically", "simply"); invented numbers.
+- **Numbers are said as they're shown** ("14.2 %", "1.5K"). Never invent a value: quote it from the page text at a mark, or bind it.
+
+### Before and after (run 3, an evaluation of an error-tracking product for an observability team)
+
+| Reads the screen (don't) | Says what it means (do) |
+|---|---|
+| One feed for errors, cron failures and performance issues. Priority and owner sit on every row. | Sentry treats triage as ranking. Errors, cron failures and slow queries share one feed, and rules set the priority and the owner on each row. |
+| The store failed: 768 events, 9 users, High priority, owned by backend. Stack trace, breadcrumbs, correlated logs and metrics, all on one page. | This error has 768 events from only 9 users, so it is frequent but narrow. The issue page keeps the context in one place: the steps before the failure and the logs and metrics around the event. You don't switch tools to build the picture. |
+| A missed cron check-in becomes an issue: 1.5K events, zero users, High priority, unassigned. | A missed cron check-in becomes a regular issue. The count needs care: one broken schedule shows 1.5K events and zero users, so the volume overstates the impact. |
+| Explore is one query screen per entity type. Traces hold real span data. Logs and metrics are empty here. Errors show 994 events. Profiles are empty. Replays list dead and rage clicks. Releases track adoption. | Explore gives each signal type its own query view. Traces have real data here, and profiles are empty in this org. The way I see it, this is the error product growing outward. In this org it is not used as a full observability platform. Agents is where it stands out. |
+| The prebuilt dashboard counts 1,351 LLM calls. create_proposal ran 666 times, get_route 64. That is a retry loop in aggregate. | create_proposal ran 666 times, the next tool 64, which points to a retry loop rather than real work. It does not tell you whether the answers were good. That is evaluation, and where an LLM observability product would add to it. |
+| Sentry's strengths are one triage surface and inspectable agents. The gaps are no code mapping and no Autofix run here. | In short, Sentry's strength is one ranked queue with the evidence attached, plus agent monitoring that shows behavior and cost. In this org there is no code mapping and no Autofix run. |
 
 ## Format
 
@@ -127,9 +154,8 @@ hints in the panel (the Voice over screen, under each anchor's picture).
 
 ## Timing
 
-- The template shows each scene's **usable footage** (dead time removed) and a
-  word budget (~2.4 words per second, or this project's voice once it has been
-  measured: the template says so). Stay at or a little under it.
+- The template shows each scene's **usable footage** (dead time removed), the words that fit it (~2.4 words per second, or this project's
+  voice once it has been measured: the template says so) and the most you may write to explain (2×).
 - **The length budget** is the final video (item 22). The write says what the
   final would be with this script ("with this voice-over the final is about
   11:40 for a target of 10:00 (8:30 to 11:00): 0:40 over the ceiling").
@@ -137,9 +163,9 @@ hints in the panel (the Voice over screen, under each anchor's picture).
   ceiling the user is asked: raise the ceiling or cut. Do not rewrite until
   they answer; on "cut" you get a message naming where the speech overruns
   the footage most.
-- More words than footage means the editor freezes frames, so keep it within
-  ~1.3×. Much less means long silences. Fine in short bursts, but say
-  something during long waits for streamed answers.
+- **Narration may run up to 2× a scene's usable footage** to explain (the edit holds frames, within the length budget); past 2× the scene is
+  too thin for what you want to say: say less, or ask for a longer scene (its `time:`). Much less speech than footage means long silences.
+  Fine in short bursts, but say something during long waits for streamed answers.
 - During **streaming content** (a chat answer arriving), narrate what is
   arriving. Don't talk over the payoff with unrelated context.
 - **Typing is never sped up.** Describing the query while it's typed works

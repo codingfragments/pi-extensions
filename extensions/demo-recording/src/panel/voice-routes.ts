@@ -1,7 +1,7 @@
 /**
  * Voice direction and "Make the voice" (formerly "Generate voice, edit and a draft to watch"; S5 part 11, D82–D84, D146).
  *
- *   POST vo-direction  { version, stance?, tone?, length?, focus?, notes?, saveDefault? }
+ *   POST vo-direction  { version, stance?, tone?, length?, style?, focus?, notes?, saveDefault? }
  *        → a pending direction (consumed by the agent's next VO version, which
  *          stores it as its base), an input (kind nudge), optionally the brief's
  *          "Voice direction", and a message that starts the agent's turn.
@@ -31,6 +31,8 @@ import type { PostRoute } from "./server.ts";
 
 export const TONES = ["calm", "energetic", "conversational", "crisp"] as const;
 export const LENGTHS = ["shorter", "same", "longer", "fit"] as const;
+/** The rewrite's style (item 23): "meaning" = the skill's "Meaning over reading the screen" and "Voice and register". */
+export const STYLES = ["meaning"] as const;
 
 const LENGTH_TEXT: Record<(typeof LENGTHS)[number], string> = {
   shorter: "about 20 % shorter",
@@ -41,7 +43,7 @@ const LENGTH_TEXT: Record<(typeof LENGTHS)[number], string> = {
 
 /** "stance: evaluator · tone: calm · length: same · focus: … · notes: …" (the brief's Voice direction). */
 export function formatDirection(d: VoDirection): string {
-  return (["stance", "tone", "length", "focus", "notes"] as const)
+  return (["stance", "tone", "length", "style", "focus", "notes"] as const)
     .filter((k) => d[k])
     .map((k) => `${k}: ${String(d[k]).replace(/\s*·\s*/g, ", ")}`)
     .join(" · ");
@@ -50,7 +52,7 @@ export function formatDirection(d: VoDirection): string {
 export function parseDirection(text: string | undefined): VoDirection {
   const out: VoDirection = {};
   for (const part of (text ?? "").split(/\s+·\s+/)) {
-    const m = /^(stance|tone|length|focus|notes):\s*(.+)$/i.exec(part.trim());
+    const m = /^(stance|tone|length|style|focus|notes):\s*(.+)$/i.exec(part.trim());
     if (m) out[(m[1] as string).toLowerCase() as keyof VoDirection] = (m[2] as string).trim();
   }
   return out;
@@ -68,6 +70,7 @@ export function validateDirection(body: Record<string, unknown>): VoDirection {
   pick("stance", STANCES);
   pick("tone", TONES);
   pick("length", LENGTHS);
+  pick("style", STYLES);
   for (const k of ["focus", "notes"] as const) {
     const v = body[k];
     if (v === undefined || v === null) continue;
@@ -76,7 +79,7 @@ export function validateDirection(body: Record<string, unknown>): VoDirection {
     if (v.trim()) d[k] = v.trim();
   }
   if (!Object.keys(d).length)
-    throw new Error("pick at least one direction (stance, tone, length, focus or notes)");
+    throw new Error("pick at least one direction (stance, tone, length, style, focus or notes)");
   return d;
 }
 
@@ -86,6 +89,9 @@ export function directionText(d: VoDirection): string {
     d.stance ? `stance: ${d.stance}` : "",
     d.tone ? `tone: ${d.tone}` : "",
     d.length ? `length: ${LENGTH_TEXT[d.length as (typeof LENGTHS)[number]] ?? d.length}` : "",
+    d.style === "meaning"
+      ? 'style: meaning over description: say what each scene MEANS for this viewer (why it exists, how to read it, what to conclude) and do not list what is visible; one proof number per scene; the position first, plain words, the demo-voiceover skill\'s "Meaning over reading the screen" and "Voice and register" rules'
+      : "",
     d.focus ? `focus: "${d.focus}"` : "",
     d.notes ? `notes: "${d.notes}"` : "",
   ]

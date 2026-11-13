@@ -159,8 +159,9 @@ a login page and there is no saved login, say so and ask them to log in the same
      it later if they want more.
 5. **Make the app do something.** Static dashboards make weak demos. Run real
    searches, open details, ask the assistant a question, and read what comes
-   back. Note concrete values (numbers, names, outliers): they become the
-   voice-over's hooks.
+   back. Note what each result MEANS for the viewer (what problem it solves,
+   how to read it, what they would conclude) and the one value that proves it:
+   the voice-over says one proof number per scene, not every number on screen.
 6. **Hunt for the "aha".** For each candidate scene ask: what changes on
    screen, and why would *this audience* care? Prefer contrasts (before/after,
    outlier vs. average, question → precise answer).

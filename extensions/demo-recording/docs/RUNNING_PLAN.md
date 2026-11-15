@@ -65,7 +65,8 @@ M 2 to 4, L about 5 to 6): an order of magnitude, never a date. Σ is the runnin
 | 24 | **Cancel from the panel** (R3-15) | Cancel on the engine jobs and the discovery session; "ask the Director to stop" | R3-15 | **next** | 3 | 94 |
 | 25 | **To discuss** (R3-18, R3-23) | the Voice over as one scrolling list; a stability check after navigation | R3-18, R3-23 | later | | |
 | 26 | **S6 Parallel discovery lanes** | opt-in, built on item 10's measured progress | F6 | later | 6 | 100 |
-| 27 | **S8 Native capture** | optional | | later | | |
+| 27 | **The run-3 long tail** | progress for the take encode and the quality check (check after the first full GA); a Discard button for a take that did not finish; editing a scene's `time:` directly on the Storyboard tab; a QA check of the rendered final against the length budget | R3-21, R3-16, R3-25 | later | 5 | 105 |
+| 28 | **S8 Native capture** | optional | | later | | |
 
 What moved on the way: L1, L3 and L6 are absorbed into items 3, 4 and 9; the early checks and the discovery checks left the plan (long tail,
 section 6); the filmstrip and step-through (8) follow the recording review (7) because they reuse its chapter and frame component.
@@ -381,7 +382,7 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
 - **P5 (12):** L4 the logo bug option explained (S), L5 zoom limits as settings (M). Compare (L6) moved to item 9.
 - **Run-3 prep (13) and E (14), decided with you (D146):** see section 4.
 - **S7 (15):** `/demo login`, a login probe, re-login on expiry, session checks before discovery and recording; needs the real app. **Run 3 (16):** a full run on that
-  more complicated app, every screen at 1400 and 900 px; its findings feed S6 and S8. **S6 (26):** parallel discovery lanes, opt-in, one bar per lane. **S8 (27):**
+  more complicated app, every screen at 1400 and 900 px; its findings feed S6 and S8. **S6 (26):** parallel discovery lanes, opt-in, one bar per lane. **The run-3 long tail (27):** the small things left over from items 20 to 22. **S8 (28):**
   native capture, optional.
 
 ## 6. Long tail (not scheduled)
@@ -389,9 +390,8 @@ Details and slice sizes are in [ROADMAP.md](ROADMAP.md#w3-discovery); only the s
 The thin **early checks** (P1d; described in [FUTURE_IDEAS.md](FUTURE_IDEAS.md#early-checks-thin-config-gated-informational): informational only,
 a switch per phase, off by default), the **coherence review** (Q8), **extra QA checks** (Q9), **discovery checks** (QS-disc), **compare** for
 recording, annotations and render, a **stored suggestion history**, pending fixes **superseded** and **stale**, a **map node** for fix sets, a
-**setting for the draft after the voice**, **progress for the take encode and the quality check** (dropped from item 20: check after the
-first full GA), and the two flaky tests ([KNOWN_ISSUES.md](KNOWN_ISSUES.md)). Each says in FUTURE_IDEAS what would make
-it worth building.
+**setting for the draft after the voice**, and the two flaky tests ([KNOWN_ISSUES.md](KNOWN_ISSUES.md)). Each says in FUTURE_IDEAS what would make
+it worth building. (The progress for the take encode and the quality check moved into item 27 with the other run-3 leftovers.)
 
 ## 7. Where the decisions are
 

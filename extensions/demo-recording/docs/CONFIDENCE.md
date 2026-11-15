@@ -18,7 +18,7 @@ worst signal wins:
 | Item | low | medium |
 |---|---|---|
 | **Storyboard scene** | a target never seen in discovery · a `css` target · the scene failed or was retried in a take · an improvised input without a fallback | new or changed since the previous version · an improvised input · no `deep_link` (a failure can't be re-shot safely) · no screen thumbnail |
-| **Voice-over section** | a validation error · a number the page never shows in that scene · speech vs footage > 1.15 or < 0.5 | a warning · new or changed vs the base version · speech a bit longer than the footage (ratio 1.0–1.15) · a name not on the page · a scene section without any `[@mark]` |
+| **Voice-over section** | a validation error · a number the page never shows in that scene · speech vs footage > 2 or < 0.5 (narration may run up to 2× to explain, item 23) | a warning (among them "reads the screen": more than two numbers, a run of on-screen labels, or mostly page words with nothing that explains) · new or changed vs the base version · speech well past the footage (ratio 1.5–2) · a name not on the page · a scene section without any `[@mark]` |
 | **Annotation** | a redaction (privacy always needs your eyes) · a fixed box target · it can't be placed | found by its text (no layout ref) · callout or chapter wording · new since the base version |
 
 An item with none of these signals is **high**.

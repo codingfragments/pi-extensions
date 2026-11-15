@@ -60,6 +60,9 @@ fails, even when every value in it is right.
 - **Build each scene section** as claim → why it matters → how it works → one piece of evidence → so what. The template's comment for the scene
   carries the storyboard's `takeaway` (the claim), `why`, `so_what` and `contrast`: use them, in your words, and drop a part the footage does not
   support.
+- **The write checks it**: a section that "reads the screen" (more than two numbers, a run of on-screen labels, or mostly words from the page
+  with nothing that explains) is a warning with the reason, and the Voice tab marks it "needs your eyes". It never blocks: fix it unless the
+  quote is the point.
 - **USE findings** (see `demo_rec_project context`) must be said in the narration of the scene that covers them. **IGNORE findings** are never
   mentioned.
 

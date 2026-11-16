@@ -77,8 +77,8 @@ export function startRender(rt: Runtime, request: RenderRequest): Job<RenderReco
       const text = rec
         ? `${rec?.qa ? reportAs("QA reviewer") : reportAs("Cutter")} ${formatRender(rec)}${q && rec.qa ? `\n${formatQa(q, rec.qa)}` : ""}${request.kind === "final" ? `\n${rec.qa?.status === "blocked" ? "QA blocks accepting it: the user fixes (Apply fixes) or confirms each blocking item in the Render tab." : "The user can accept it as the deliverable in the Render tab."}` : ""}`
         : `${reportAs("Cutter")} Render ${j.status}: ${j.error ?? "unknown error"}`;
-      // The agent asked → it gets the report as a turn; the panel asked → a quiet note (D63).
-      if (request.by === "agent") rt.reportToAgent(text);
+      // The agent asked → it gets the report as a turn; the panel asked → a quiet note (D63). A cancel is always quiet: the user stopped it (item 24).
+      if (request.by === "agent" && j.status !== "cancelled") rt.reportToAgent(text);
       else rt.tellAgent(text);
     },
   );
@@ -129,7 +129,7 @@ export function startQa(rt: Runtime, version: number, by: RenderRecord["by"]): J
         r?.qa && q
           ? `${reportAs("QA reviewer")} ${formatQa(q, r.qa)}`
           : `${reportAs("QA reviewer")} QA of render v${version} ${j.status}: ${j.error ?? ""}`;
-      if (by === "agent") rt.reportToAgent(text);
+      if (by === "agent" && j.status !== "cancelled") rt.reportToAgent(text);
       else rt.tellAgent(text);
     },
   );

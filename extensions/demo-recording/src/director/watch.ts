@@ -4,13 +4,15 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { Runtime } from "../runtime.ts";
+import type { AgentControl, Runtime } from "../runtime.ts";
 
 export function registerDirectorWatch(pi: ExtensionAPI, rt: Runtime): void {
   const watch = <E>(name: string, f: (e: E) => void) =>
     // biome-ignore lint/suspicious/noExplicitAny: pi's event-name union is wider than the events we list
-    (pi as any).on(name, async (e: E) => {
+    (pi as any).on(name, async (e: E, ctx?: AgentControl) => {
       try {
+        // the context of the running turn: the panel's "Stop the Director" aborts it (item 24)
+        if (ctx && typeof ctx.abort === "function") rt.setAgentControl(ctx);
         f(e);
       } catch {
         // see above

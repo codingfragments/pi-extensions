@@ -1,10 +1,12 @@
 import { html, useEffect, useRef, useState } from "/vendor/preact-htm.module.js";
-import { Modal, SegmentBar, api, copyText, media, mmss, summarize } from "./core.js";
+import { Modal, SegmentBar, api, copyText, media, mmss, post, summarize } from "./core.js";
+import { confirmAsk, errorToast, toast } from "./dialog.js";
 // demo-recording panel — the building blocks of the Activity drawer (UX2, D101): progress rows
 // for what runs, a frame preview, safety, and the log with its popups. The strip and the
 // drawer that arrange them are in frame.js.
 import { areaSegment } from "./discovery-core.js";
 import { collapseProgress } from "./logview.js";
+import { STOPPABLE } from "./stop-core.js";
 
 const last = (events, types) => events.filter((e) => types.includes(e.type)).at(-1);
 
@@ -218,12 +220,40 @@ export function activityRows(events) {
   return running.length ? running : finished.slice(0, 1);
 }
 
+function StopButton({ row }) {
+  const s = STOPPABLE[row.key];
+  const [busy, setBusy] = useState(false);
+  if (!s || row.state !== "running") return null;
+  const go = async () => {
+    if (
+      s.ask &&
+      !(await confirmAsk({
+        title: `${s.label} ${row.title.toLowerCase()}?`,
+        text: s.ask,
+        confirmLabel: s.label,
+        danger: true,
+      }))
+    )
+      return;
+    setBusy(true);
+    try {
+      const r = await post(s.route, s.body);
+      toast(r.message ?? `${row.title}: stopped`, { kind: "ok" });
+    } catch (e) {
+      errorToast(e, row.title);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return html`<button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-act="stop" data-stop=${row.key} disabled=${busy} aria-label=${`${s.label} ${row.title}`} onClick=${go}>${s.label}</button>`;
+}
+
 export function ProgressRows({ rows }) {
   if (!rows.length) return html`<p class="muted small-text">nothing running</p>`;
   return html`${rows.map(
-    (r) => html`<div class=${`prow ${r.state}`} key=${r.key}>
+    (r) => html`<div class=${`prow ${r.state}`} key=${r.key} data-row=${r.key}>
       <div class="prow-head"><strong>${r.title}</strong>
-        ${r.state === "running" ? (r.fraction !== null ? html`<span class="ds-badge" data-tone="info">${Math.round(r.fraction * 100)}%</span>` : html`<span class="ds-badge" data-tone="info">…</span>`) : html`<span class="ds-badge" data-tone=${r.state === "failed" ? "err" : "neutral"}>${r.state}</span>`}</div>
+        ${r.state === "running" ? (r.fraction !== null ? html`<span class="ds-badge" data-tone="info">${Math.round(r.fraction * 100)}%</span>` : html`<span class="ds-badge" data-tone="info">…</span>`) : html`<span class="ds-badge" data-tone=${r.state === "failed" ? "err" : "neutral"}>${r.state}</span>`}<span class="grow"></span><${StopButton} row=${r} /></div>
       ${r.segments ? html`<${SegmentBar} segments=${r.segments} />` : r.fraction !== null ? html`<div class="minibar"><div style=${`width:${Math.round(r.fraction * 100)}%`}></div></div>` : null}
       ${r.detail ? html`<p class="small-text muted">${r.detail}</p>` : null}
     </div>`,

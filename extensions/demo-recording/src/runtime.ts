@@ -23,6 +23,7 @@ import { Jobs } from "./jobs.ts";
 import type { RegistryLike } from "./models.ts";
 import { annotationRoutes } from "./panel/annotation-routes.ts";
 import { brandRoutes } from "./panel/brand-routes.ts";
+import { cancelRoutes } from "./panel/cancel-routes.ts";
 import { compareRoutes } from "./panel/compare-routes.ts";
 import { configRoutes } from "./panel/config-routes.ts";
 import { costRoutes } from "./panel/cost.ts";
@@ -109,6 +110,12 @@ const FIX_DRAFT_EVENTS: Record<string, string> = {
   "storyboard.written": "storyboard",
   "annotations.updated": "annotations",
 };
+
+/** What the panel may do to the Director's running turn (item 24): pi's extension context of the turn. */
+export interface AgentControl {
+  abort(): void;
+  isIdle(): boolean;
+}
 
 export class Runtime {
   readonly bus = new EventBus();
@@ -298,6 +305,24 @@ export class Runtime {
   }
 
   /** Remember the latest UI context (for footer status from background jobs). */
+  private agentControl: AgentControl | undefined;
+  /** Kept from pi's events (the Director's watch): the latest turn's context. */
+  setAgentControl(c: AgentControl): void {
+    this.agentControl = c;
+  }
+  /** Stop the Director's running turn, as Esc in pi does (item 24). False when it is not working or pi gave no context. */
+  stopDirector(): boolean {
+    const c = this.agentControl;
+    if (!c) return false;
+    try {
+      if (c.isIdle()) return false;
+      c.abort();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   bindUi(ui: StatusSink | undefined): void {
     if (ui) this.ui = ui;
   }
@@ -531,6 +556,7 @@ export class Runtime {
     const fixes = fixRoutes(this);
     const compare = compareRoutes(this);
     const discover = discoveryRoutes(this);
+    const cancelR = cancelRoutes(this);
     const questions = questionRoutes(this);
     const projectsManage = projectManageRoutes(this);
     const loginR = loginRoutes(this);
@@ -585,6 +611,7 @@ export class Runtime {
         ...fixes.post,
         ...compare.post,
         ...discover.post,
+        ...cancelR.post,
         ...questions.post,
         ...projectsManage.post,
         ...loginR.post,

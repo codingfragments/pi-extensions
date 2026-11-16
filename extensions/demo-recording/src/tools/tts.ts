@@ -245,7 +245,9 @@ export function startTts(
       rt.setStatus(undefined, true);
       // The panel's "Make the voice" (with the edit and a draft to watch) goes on with the edit: a quiet note
       // now, the edit's report starts the agent's turn later (D84).
-      const tell = (t: string) => (opts.quietReport ? rt.tellAgent(t) : rt.reportToAgent(t));
+      // a cancel is always quiet (item 24): the user stopped it, nothing to pick up
+      const tell = (t: string) =>
+        opts.quietReport || j.status === "cancelled" ? rt.tellAgent(t) : rt.reportToAgent(t);
       if (j.result) {
         const fits = voiceFit(p.dir, version, cfg);
         const warn = fits?.filter((f) => f.level === "warn") ?? [];
